@@ -164,7 +164,7 @@ class CompositeKEMPrivateKey(AbstractCompositeKEMPrivateKey):
 
         :raises KeyError: If the OID mapping for the specified keys is not found.
         """
-        concatenated_inputs = mlkem_ss + trad_ss + trad_ct + trad_pk + self.get_oid()
+        concatenated_inputs = mlkem_ss + trad_ss + trad_ct + trad_pk + encoder.encode(self.get_oid())
         logging.info("CompositeKEM concatenated inputs: %s", concatenated_inputs)
         kdf_name = get_composite_kem_hash_alg(self.pq_key.name, self.trad_key)
 

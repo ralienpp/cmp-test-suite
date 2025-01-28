@@ -48,7 +48,7 @@ from resources.asn1_structures import (
 from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, compute_pbkdf2_from_parameter
 from resources.keyutils import load_public_key_from_spki
 from resources.oid_mapping import (
-    get_alg_oid_from_key_hash,
+    get_alg_oid_from_key_and_hash,
     get_hash_from_oid,
     hash_name_to_instance,
     may_return_oid_to_name,
@@ -877,7 +877,7 @@ def _prepare_signature_prot_alg_id(
 
     hash_alg = hash_alg or cert_hash_alg or "sha256"
 
-    alg_oid = get_alg_oid_from_key_hash(private_key, hash_alg)
+    alg_oid = get_alg_oid_from_key_and_hash(private_key, hash_alg)
     prot_alg_id = rfc9480.AlgorithmIdentifier()
     prot_alg_id["algorithm"] = alg_oid
     return prot_alg_id

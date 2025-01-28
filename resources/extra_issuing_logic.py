@@ -325,7 +325,7 @@ def _parse_pkimessage_from_der(raw_bytes: bytes) -> Tuple[rfc9480.PKIMessage, PO
     return msg, popdecc
 
 
-@keyword(name="Process PKIMessage With Popdecc")
+# TODO fix impementation.
 def process_pkimessage_with_popdecc(
     pki_message: bytes,
     ee_key: Optional[EnvDataPrivateKey] = None,
@@ -336,8 +336,7 @@ def process_pkimessage_with_popdecc(
     expected_size: int = 1,
     allow_pwri: bool = False,
     expected_sender: Optional[str] = None,
-    request: Optional[rfc9480.PKIMessage] = None,
-    use_dhbased_mac: bool = False,
+    iv: Union[str, bytes] = B"A"* 16,
 ) -> rfc9480.PKIMessage:
     """Process the POPODecKeyChallContent structure by decrypting the encryptedRand field or decapsulating the challenge
 
@@ -351,8 +350,6 @@ def process_pkimessage_with_popdecc(
     :param allow_pwri: The flag to allow the `PasswordRecipientInfo` structure to extract the
     challenge. Defaults to `False`.
     :param expected_sender: The expected sender name to validate in the `Rand` structure.
-    :param request: The original PKIMessage request to build the new one for the `challenge`.
-    :param use_dhbased_mac: Whether to use the DH-based MAC for the `challenge` field,
     and then update the old request. Otherwise, update the old request Proof-of-Possession.
     :return: The updated PKIMessage as DER-encoded bytes, to send over the wire.
 
@@ -380,34 +377,11 @@ def process_pkimessage_with_popdecc(
                 raise ValueError(f"Expected sender name: {expected_sender}. Got: {rand_name}")
 
     else:
-        ss = process_simple_challenge(challenge, ee_key=ee_key)
-        if request is None:
-            raise ValueError("The original PKIMessage request is required to build the new one for the challenge.")
-
-        pki_message = _prepare_pki_message(
-            sender=request["header"]["sender"],
-            recipient=request["header"]["recipient"],
-            transaction_id=request["header"]["transactionID"].asOctets(),
-            sender_nonce=request["header"]["senderNonce"].asOctets(),
-            recip_nonce=request["header"]["recipNonce"].asOctets(),
-            recip_kid=request["header"]["recipKID"].asOctets(),
-            sender_kid=request["header"]["senderKID"].asOctets(),
-            pvno=int(request["header"]["pvno"]),
-        )
-        if use_dhbased_mac:
-            pki_message["body"] = request["body"]
-            pki_message["extraCerts"] = request["extraCerts"]
-            return protectionutils.protect_pkimessage(pki_message, shared_secret=ss)
+        iv = str_to_bytes(iv)
+        num = process_simple_challenge(challenge, ee_key=ee_key, iv=iv)
 
 
-        body_name = request["body"].getName()
-        for x in request["body"][body_name]:
-            popo = prepare_pkmac_popo(
-                request["body"][body_name][x]["certReq"], private_key=ee_key, shared_secret=ss
-            )
-            pki_message["body"][body_name][x]["popo"] = popo
-
-        return pki_message
+    raise NotImplementedError("The challenge is not implemnted yet.")
 
     msg["body"]["popdecr"].append(num)
 

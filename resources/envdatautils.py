@@ -12,7 +12,6 @@ from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.keywrap import aes_key_wrap
 from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPublicKey
-from pq_logic.keys.kem_keys import MLKEMPublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
@@ -717,14 +716,14 @@ def prepare_kari(
 
     # TODO fix for other oids.
 
-    shared_secret = perform_ecdh(recip_private_key, public_key)
+    shared_secret = perform_ecdh(sender_key, public_key)
     k = compute_ansi_x9_63_kdf(shared_secret, 32, ecc_cms_info, hash_alg=hash_alg)
     encrypted_key = aes_key_wrap(key_to_wrap=cek, wrapping_key=k)
 
     # Version MUST be 3 for KARI.
     kari = prepare_key_agreement_recipient_info(
         version=3,
-        cmp_cert=recip_cert,
+        cmp_cert=sender_cert,
         encrypted_key=encrypted_key,
         key_agreement_oid=oid,
         ecc_cms_info=ecc_cms_info,
@@ -1045,6 +1044,7 @@ def prepare_kem_recip_info(
     kem_recip_info = rfc9629.KEMRecipientInfo()
     kem_recip_info["version"] = univ.Integer(version)
     kem_recip_info["rid"] = rid
+    key_enc_key = None
 
     if kem_oid is not None:
         kem_recip_info["kem"]["algorithm"] = kem_oid

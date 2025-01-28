@@ -27,7 +27,7 @@ from resources import certbuildutils, cmputils
 from resources.asn1_structures import CAKeyUpdContent, ChallengeASN1
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certbuildutils import build_cert_from_cert_template, build_cert_from_csr
-from resources.certextractutils import get_extension, get_field_from_certificate
+from resources.certextractutils import get_extension
 from resources.certutils import (
     build_cmp_chain_from_pkimessage,
     cert_in_list,
@@ -1525,7 +1525,7 @@ def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions i
                 logging.debug("Certificate status was rejection.")
                 continue
 
-            elif str(entry["status"]) != "accepted":
+            if str(entry["status"]) != "accepted":
                 raise BadRequest(
                     "Invalid certificate status in CertConf message."
                     f"Expected 'accepted' or 'rejection', got {entry['status'].getName()}"

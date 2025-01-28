@@ -377,7 +377,7 @@ def validate_multi_auth_binding_csr(
     hash_alg = get_hash_from_oid(cert_a["tbsCertificate"]["signature"]["algorithm"], only_hash=True)
 
     sig_name = may_return_oid_to_name(cert_a["tbsCertificate"]["signature"]["algorithm"])
-    logging.info(f"Signature algorithm: %s", sig_name)
+    logging.info("Signature algorithm: %s", sig_name)
 
     if hash_alg is None:
         raise ValueError(f"The hash algorithm could not be determined. Signature algorithm was: {sig_name}")

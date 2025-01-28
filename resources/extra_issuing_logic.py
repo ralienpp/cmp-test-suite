@@ -28,11 +28,11 @@ from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc6955, rfc9480, rfc9
 from robot.api.deco import keyword, not_keyword
 from unit_tests.asn1_wrapper_class.pki_message_wrapper import PKIMessage, prepare_name
 
-from resources import asn1utils, protectionutils, utils
+from resources import asn1utils, utils
 from resources.asn1_structures import ChallengeASN1, POPODecKeyChallContentAsn1
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certutils import load_public_key_from_cert
-from resources.cmputils import _prepare_pki_message, compare_general_name_and_name, prepare_general_name
+from resources.cmputils import compare_general_name_and_name, prepare_general_name
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_aes_cbc, compute_hmac, perform_ecdh
 from resources.envdatautils import (

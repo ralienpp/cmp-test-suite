@@ -1144,13 +1144,15 @@ def prepare_cert_response(
 ) -> rfc9480.CertResponse:
     """Prepare a CertResponse structure for responding to a certificate request.
 
-    :param cert_req_id: The ID of the certificate request being responded to.
+    :param cert_req_id: The ID of the certificate request being responded to. Defaults to `0`.
     :param status: The status of the certificate request (e.g., "accepted" or "rejected").
-    :param text: Optional status text.
-    :param failinfo: Optional failure information.
-    :param cert: An optional certificate object.
-    :param enc_cert: Optional encrypted certificate as EnvelopedData.
-    :param private_key: Optional private key as EnvelopedData.
+    Defaults to "accepted".
+    :param text: Optional status text. Defaults to `None`.
+    :param failinfo: Optional failure information. Defaults to `None`.
+    :param cert: An optional certificate object. Defaults to `None`.
+    :param enc_cert: Optional encrypted certificate as EnvelopedData. Defaults to `None`.
+    :param private_key: Optional private key as EnvelopedData. Defaults to `None`.
+    :param rspInfo: Optional response information. Defaults to `None`.
     :return: A populated CertResponse structure.
     """
     cert_response = rfc9480.CertResponse()

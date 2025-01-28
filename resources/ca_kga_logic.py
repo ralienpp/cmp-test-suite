@@ -468,7 +468,7 @@ def extract_content_encryption_key(
     :param expected_size: The expected size of the entries inside the `RecipientInfos` structure.
     :param for_pop: Whether the extraction is for proof-of-possession (POP) purposes.
     (changes the validation for the `rid` field)
-    :param cmp_protection_salt: Optional CMP protection salt for comparions with `pwri` recipient salt.
+    :param cmp_protection_salt: Optional CMP protection salt for comparisons with `pwri` recipient salt.
     Defaults to `None`.
     :return: The extracted content-encryption-key.
     :raises ValueError: If the extraction fails due to missing keys or unsupported RecipientInfo types.

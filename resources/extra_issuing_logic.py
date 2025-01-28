@@ -325,7 +325,7 @@ def _parse_pkimessage_from_der(raw_bytes: bytes) -> Tuple[rfc9480.PKIMessage, PO
     return msg, popdecc
 
 
-# TODO fix impementation.
+# TODO fix implementation.
 def process_pkimessage_with_popdecc(
     pki_message: bytes,
     ee_key: Optional[EnvDataPrivateKey] = None,
@@ -381,7 +381,7 @@ def process_pkimessage_with_popdecc(
         num = process_simple_challenge(challenge, ee_key=ee_key, iv=iv)
 
 
-    raise NotImplementedError("The challenge is not implemnted yet.")
+    raise NotImplementedError("The challenge is not implemented yet.")
 
     msg["body"]["popdecr"].append(num)
 

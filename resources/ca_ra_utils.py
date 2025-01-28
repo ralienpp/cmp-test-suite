@@ -529,8 +529,7 @@ def _verify_ra_verified(
     if not result:
         raise NotAuthorized("RA certificate not in allowed RA directory.")
 
-    eku_cert = get_field_from_certificate(may_ra_cert, extension="eku")
-    validate_cmp_extended_key_usage(eku_cert, ext_key_usages="cmcRA", strict="STRICT" if strict else "LAX")
+    validate_cmp_extended_key_usage(cert=may_ra_cert, ext_key_usages="cmcRA", strictness="STRICT" if strict else "LAX")
 
     cert_chain = build_cmp_chain_from_pkimessage(
         pki_message,
@@ -696,8 +695,8 @@ def verify_sig_pop_for_pki_request(  # noqa: D417 Missing argument descriptions 
         csr = pki_message["p10cr"]
         try:
             verify_csr_signature(csr)
-        except InvalidSignature:
-            raise BadPOP("POP verification for `p10cr` failed.")
+        except InvalidSignature as err:
+            raise BadPOP("POP verification for `p10cr` failed.") from err
 
     else:
         raise ValueError(f"Invalid PKIMessage body: {body_name} Expected: ir, cr, kur, crr or p10cr")
@@ -1343,7 +1342,7 @@ def build_cert_from_cert_req_msg(  # noqa: D417 Missing argument descriptions in
             ca_cert=ca_cert,
         )
     elif popo.getName() == "keyEncipherment":
-        cert = build_cert_from_cert_template(csr=cert_req["certTemplate"])
+        cert = build_cert_from_cert_template(cert_template=cert_req["certTemplate"], ca_key=ca_key, ca_cert=ca_cert)
         process_popo_priv_key(cert_req_msg=request, ca_key=ca_key)
 
     elif popo.getName() == "keyAgreement":

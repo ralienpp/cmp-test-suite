@@ -31,6 +31,7 @@ from resources import certutils, cmputils, utils
 from resources.asn1_structures import InfoTypeAndValueAsn1, KemCiphertextInfoAsn1, PKIMessageTMP
 from resources.cmputils import get_value_from_seq_of_info_value_field, prepare_info_value
 from resources.convertutils import copy_asn1_certificate, pyasn1_time_obj_to_py_datetime
+from resources.exceptions import BadAsn1Data
 from resources.keyutils import load_public_key_from_spki
 from resources.oid_mapping import may_return_oid_to_name
 from resources.oidutils import CURVE_OIDS_2_NAME
@@ -651,10 +652,10 @@ def _validate_crls(
         crl_chain = certutils.build_crl_chain_from_list(crl=crl, certs=certs)
         try:
             certutils.verify_openssl_crl(crl_chain, timeout=timeout)
-        except ValueError:
+        except ValueError as err:
             # TODO fix for better logging.
             logging.info("CRL at index: %d\n %s", i, crl.prettyPrint())
-            raise ValueError(f"The CRL at index: {i} was invalid")
+            raise ValueError(f"The CRL at index: {i} was invalid") from err
 
 
 @keyword(name="Validate CRL Update Retrieval")
@@ -1373,6 +1374,7 @@ def validate_genp_kem_ct_info(  # noqa: D417 Missing argument description in the
         - `ValueError`: If the response did not contain the `KEMCiphertextInfo` OID.
         - `ValueError`: If the `KEMCiphertextInfo` value was absent.
         - `ValueError`: If the private key was not a KEM private key.
+        - `BadAsn1Data`: If the `KemCiphertextInfo` had a remainder after decoding.
 
     """
     validate_general_response(pki_message=genp, expected_size=expected_size)
@@ -1386,6 +1388,9 @@ def validate_genp_kem_ct_info(  # noqa: D417 Missing argument description in the
         raise ValueError("The KEMCiphertextInfo value was absent.")
 
     kem_ct_info, rest = decoder.decode(value.asOctets(), KemCiphertextInfoAsn1())
+
+    if rest != b"":
+        raise BadAsn1Data("KemCiphertextInfo")
 
     if not is_kem_private_key(client_private_key):
         raise ValueError("The private key was not a KEM private key.")

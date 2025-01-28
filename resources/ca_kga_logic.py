@@ -339,7 +339,10 @@ def _check_correct_non_local_key_gen_use(
 
 
 def _extract_pwri_content_enc_key(
-    pki_message: rfc9480.PKIMessage, password: Union[str, bytes], recip_info: rfc5652.RecipientInfo
+    pki_message: rfc9480.PKIMessage,
+    password: Union[str, bytes],
+    recip_info: rfc5652.RecipientInfo,
+    cmp_protection_salt: Optional[bytes] = None,
 ) -> bytes:
     """Extract and compute the content encryption key from the `pwri` structure, based on the shared password/secret.
 
@@ -348,6 +351,7 @@ def _extract_pwri_content_enc_key(
     :param password: The password used for key derivation, provided as a string or bytes. If the string
                      starts with "0x", it is interpreted as hex.
     :param recip_info: The `RecipientInfo` structure to check and then extract and unwrap the content encryption key.
+    :param cmp_protection_salt: The protection salt to compare with the `pwri` protection salt. Defaults to `None`.
     :return: The content encryption key.
     :raises ValueError: If the recipient info is not of type 'pwri' or if the password is not provided.
     """
@@ -358,7 +362,7 @@ def _extract_pwri_content_enc_key(
         raise ValueError("A password must be provided when the `RecipientInfo` is `pwri`.")
 
     prot_alg = pki_message["header"]["protectionAlg"]
-    cmp_protection_salt = protectionutils.get_cmp_protection_salt(protection_alg=prot_alg)
+    cmp_protection_salt =  cmp_protection_salt or protectionutils.get_cmp_protection_salt(protection_alg=prot_alg)
     params = validate_password_recipient_info(recip_info["pwri"], cmp_protection_salt)
     password_bytes = str_to_bytes(password)
     content_encryption_key = _compute_password_based_key_management_technique(password=password_bytes, **params)
@@ -384,7 +388,7 @@ def _extract_ktri_and_kari_content_enc_key(
     """
     recip_name = recip_info.getName()
     if recip_name == "ktri":
-        params = validate_key_trans_recipient_info(recip_info["ktri"], cmp_protection_cert)
+        params = validate_key_trans_recipient_info(recip_info["ktri"], cmp_protection_cert, for_pop=for_pop)
         content_encryption_key = compute_key_transport_mechanism(ee_private_key=ee_key, **params)
         logging.info("Ktri content encryption key: %s", content_encryption_key.hex())
 
@@ -446,6 +450,7 @@ def extract_content_encryption_key(
     recip_index: int = 0,
     expected_size: int = 1,
     for_pop: bool = False,
+    cmp_protection_salt: Optional[bytes] = None,
 ) -> bytes:
     """
     Extract the content-encryption-key from an EnvelopedData structure.
@@ -463,6 +468,8 @@ def extract_content_encryption_key(
     :param expected_size: The expected size of the entries inside the `RecipientInfos` structure.
     :param for_pop: Whether the extraction is for proof-of-possession (POP) purposes.
     (changes the validation for the `rid` field)
+    :param cmp_protection_salt: Optional CMP protection salt for comparions with `pwri` recipient salt.
+    Defaults to `None`.
     :return: The extracted content-encryption-key.
     :raises ValueError: If the extraction fails due to missing keys or unsupported RecipientInfo types.
     """
@@ -479,7 +486,10 @@ def extract_content_encryption_key(
     if recip_info.getName() == "pwri":
         if password is None:
             raise ValueError("Password is required for `pwri` RecipientInfo.")
-        content_encryption_key = _extract_pwri_content_enc_key(pki_message, password, recip_info)
+        content_encryption_key = _extract_pwri_content_enc_key(pki_message,
+                                                               password,
+                                                               recip_info,
+                                                               cmp_protection_salt=cmp_protection_salt)
 
     elif recip_info.getName() == "ori":
         return process_other_recip_info(
@@ -512,6 +522,7 @@ def validate_enveloped_data(
     ee_key: Optional[EnvDataPrivateKey] = None,
     expected_raw_data: bool = False,
     for_enc_rand: bool = False,
+    cmp_protection_salt: Optional[bytes] = None,
 ) -> bytes:
     """Validate and decrypt the `EnvelopedData` structure from a PKIMessage and extract the private key.
 
@@ -544,7 +555,9 @@ def validate_enveloped_data(
             )
 
     content_encryption_key = extract_content_encryption_key(
-        env_data, pki_message, password, ee_key, cmp_protection_cert, expected_size=expected_size, for_pop=for_enc_rand
+        env_data, pki_message, password, ee_key, cmp_protection_cert,
+        expected_size=expected_size, for_pop=for_enc_rand,
+        cmp_protection_salt=cmp_protection_salt,
     )
 
     decrypted_data = validate_encrypted_content_info(

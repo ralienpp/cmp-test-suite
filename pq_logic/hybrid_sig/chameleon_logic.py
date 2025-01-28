@@ -462,8 +462,8 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
         pq_compute_utils.verify_signature_with_alg_id(
             alg_id=sig_alg_id, data=data, public_key=public_key, signature=delta_sig.asOctets()
         )
-    except InvalidSignature:
-        raise BadPOP("Invalid signature")
+    except InvalidSignature as err:
+        raise BadPOP("Invalid signature") from err
 
     return delta_req
 
@@ -503,7 +503,9 @@ def build_delta_cert(
             delta_value["extensions"],
         )
 
-    return build_cert_from_csr(csr=csr_tmp, ca_key=ca_key, ca_cert=ca_cert, alt_sign_key=alt_sign_key)
+    return build_cert_from_csr(csr=csr_tmp, ca_key=ca_key, ca_cert=ca_cert,
+                               use_rsa_pss=use_rsa_pss, hash_alg=hash_alg,
+                               alt_sign_key=alt_sign_key)
 
 
 def build_chameleon_cert_from_paired_csr(

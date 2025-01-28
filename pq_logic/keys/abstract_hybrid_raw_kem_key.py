@@ -44,12 +44,10 @@ class AbstractHybridRawPublicKey(ABC):
     @abstractmethod
     def get_oid(self) -> univ.ObjectIdentifier:
         """Get the OID of the key."""
-        pass
 
     @abstractmethod
     def public_bytes_raw(self) -> bytes:
         """Serialize the public key to raw bytes."""
-        pass
 
     @classmethod
     def from_public_bytes(cls, data: bytes):
@@ -58,7 +56,6 @@ class AbstractHybridRawPublicKey(ABC):
         :param data: Concatenated raw bytes.
         :return: An instance of AbstractHybridRawPublicKey.
         """
-        pass
 
     def _to_spki(self) -> bytes:
         """Encode the public key into the `SubjectPublicKeyInfo` (spki) format.
@@ -91,7 +88,7 @@ class AbstractHybridRawPublicKey(ABC):
         if encoding == Encoding.DER and format == PublicFormat.SubjectPublicKeyInfo:
             return self._to_spki()
 
-        elif encoding == Encoding.PEM and format == PublicFormat.SubjectPublicKeyInfo:
+        if encoding == Encoding.PEM and format == PublicFormat.SubjectPublicKeyInfo:
             b64_encoded = base64.b64encode(self._to_spki()).decode("utf-8")
             b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
             pem = "-----BEGIN PUBLIC KEY-----\n" + b64_encoded + "\n-----END PUBLIC KEY-----\n"
@@ -137,12 +134,12 @@ class AbstractHybridRawPrivateKey(ABC):
         """
         pass
 
+    @abstractmethod
     def public_key(self) -> AbstractHybridRawPublicKey:
         """Generate the corresponding public key for the hybrid private key.
 
         :return: An instance of AbstractHybridRawPublicKey.
         """
-        return AbstractHybridRawPublicKey(self.pq_key.public_key(), self.trad_key.public_key())
 
     @abstractmethod
     def encaps(self, peer_key: AbstractHybridRawPublicKey) -> Tuple[bytes, bytes]:
@@ -151,7 +148,6 @@ class AbstractHybridRawPrivateKey(ABC):
         :param peer_key: The peer's public key.
         :return: A tuple containing the encapsulated shared secret and the encapsulated ciphertext.
         """
-        pass
 
     @abstractmethod
     def decaps(self, ct: bytes) -> bytes:
@@ -160,18 +156,15 @@ class AbstractHybridRawPrivateKey(ABC):
         :param ct: The ciphertext to decapsulate the shared secret from.
         :return: The shared secret.
         """
-        pass
 
     @abstractmethod
     def private_bytes_raw(self) -> bytes:
         """Serialize the private key to raw bytes."""
-        pass
 
     @classmethod
     @abstractmethod
     def from_private_bytes(cls, data: bytes):
         """Deserialize raw bytes into a private key."""
-        pass
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the key. Default is to use the public key OID."""

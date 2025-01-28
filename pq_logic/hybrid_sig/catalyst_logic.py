@@ -233,7 +233,7 @@ def validate_catalyst_extension(
 
     if len(extensions) == 0:
         return None
-    elif len(extensions) != 3:
+    if len(extensions) != 3:
         raise ValueError("Certificate must include either all or none of the catalyst extensions.")
 
     try:

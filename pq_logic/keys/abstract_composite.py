@@ -72,7 +72,6 @@ class AbstractCompositePublicKey(ABC):
     @abstractmethod
     def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Return the Object Identifier for the composite signature algorithm."""
-        pass
 
     def _encode_pub_key(self) -> bytes:
         """Encode a traditional public key.
@@ -217,18 +216,15 @@ class AbstractCompositePrivateKey(ABC):
     @abstractmethod
     def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
         """Return the Object Identifier for the composite signature algorithm."""
-        pass
 
     @staticmethod
     @abstractmethod
     def generate(pq_name: Optional[str] = None, trad_param: Optional[Union[int, str]] = None):
         """Generate a new CompositePrivateKey."""
-        pass
 
     @abstractmethod
     def public_key(self) -> AbstractCompositePublicKey:
         """Return the corresponding public key class."""
-        pass
 
     def _get_key_name(self) -> bytes:
         """Get the key name for the composite key, to set as the PEM header."""
@@ -548,9 +544,9 @@ class AbstractCompositeSigPrivateKey(AbstractCompositePrivateKey, ABC):
             else:
                 rsa_padding = padding.PKCS1v15()
             return self.trad_key.sign(data=data, padding=rsa_padding, algorithm=hash_instance)
-        elif isinstance(self.trad_key, (ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey)):
+        if isinstance(self.trad_key, (ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey)):
             return self.trad_key.sign(data)
-        elif isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
+        if isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
             hash_alg = {
                 "secp256r1": "sha256",
                 "secp384r1": "sha384",
@@ -560,17 +556,15 @@ class AbstractCompositeSigPrivateKey(AbstractCompositePrivateKey, ABC):
             hash_instance = hash_name_to_instance(hash_alg)
 
             return self.trad_key.sign(data=data, signature_algorithm=ec.ECDSA(hash_instance))
-        else:
-            raise ValueError(
-                f"CompositeSigPrivateKey: Unsupported traditional private key type.: {type(self.trad_key).__name__}"
-            )
+
+        raise ValueError(
+            f"CompositeSigPrivateKey: Unsupported traditional private key type.: {type(self.trad_key).__name__}"
+        )
 
     @abstractmethod
     def sign(self, data: bytes, hash_alg: Optional[str] = None) -> bytes:
         """Sign data with a composite signature key."""
-        pass
 
     @abstractmethod
     def public_key(self) -> AbstractCompositeSigPublicKey:
         """Return the corresponding public key class."""
-        pass

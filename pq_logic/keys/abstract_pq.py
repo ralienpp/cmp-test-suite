@@ -213,7 +213,6 @@ class PQPrivateKey(ABC):
     @abstractmethod
     def public_key(self) -> PQPublicKey:
         """Derive the corresponding public key."""
-        pass
 
     def to_one_asym_key(self) -> rfc5958.OneAsymmetricKey:
         """Create a generic ASN.1 `OneAsymmetricKey` structure."""
@@ -323,7 +322,6 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
     @abstractmethod
     def public_key(self) -> PQSignaturePublicKey:
         """Derive the corresponding public key."""
-        pass
 
     def check_hash_alg(
         self, hash_alg: Union[None, str, hashes.HashAlgorithm], allow_failure: bool = True
@@ -426,6 +424,8 @@ class PQKEMPrivateKey(PQPrivateKey, ABC):
 
     This class provides functionality to manage, serialize, and use KEM private keys.
     """
+
+    kem_alg: Optional[str]
 
     def __init__(self, kem_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None):
         """Initialize a KEM private key object.

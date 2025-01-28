@@ -499,7 +499,7 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
         )
         return
 
-    elif isinstance(alt_pub_key, PQKEMPublicKey):
+    if isinstance(alt_pub_key, PQKEMPublicKey):
         alg_id = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
         data = encoder.encode(cert_req_msg["certReq"])
         verify_signature_with_alg_id(

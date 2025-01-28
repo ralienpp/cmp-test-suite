@@ -68,12 +68,12 @@ def get_composite_kem_hash_alg(pq_name: str, trad_key, alternative: bool = False
     if pq_name in ["ml-kem-1024", "frodokem-1344-aes", "frodokem-1344-shake"]:
         return "sha3-256"
 
-    elif pq_name in ["frodokem-976-aes", "frodokem-976-shake", "ml-kem-768"] and isinstance(
+    if pq_name in ["frodokem-976-aes", "frodokem-976-shake", "ml-kem-768"] and isinstance(
         trad_key, (x25519.X25519PublicKey, x25519.X25519PrivateKey)
     ):
         return "sha3-256"
 
-    elif pq_name in ["frodokem-976-aes", "frodokem-976-shake", "ml-kem-768"]:
+    if pq_name in ["frodokem-976-aes", "frodokem-976-shake", "ml-kem-768"]:
         return "hkdf-sha256" if not alternative else "hkdf-sha512"
 
     raise InvalidKeyCombination(f"Unsupported composite KEM: {pq_name} with {trad_key}")
@@ -90,7 +90,7 @@ def parse_public_keys(pq_key, trad_key) -> "CompositeKEMPublicKey":
         return CompositeMLKEMRSAPublicKey(pq_key, trad_key)
     if isinstance(trad_key, ec.EllipticCurvePublicKey):
         return CompositeMLKEMECPublicKey(pq_key, trad_key)
-    if isinstance(trad_key, x25519.X25519PublicKey) or isinstance(trad_key, x448.X448PublicKey):
+    if isinstance(trad_key, (x25519.X25519PublicKey, x448.X448PublicKey)):
         return CompositeMLKEMXPublicKey(pq_key, trad_key)
     raise ValueError(f"Unsupported traditional key type.: {type(trad_key).__name__}")
 
@@ -152,10 +152,10 @@ class CompositeKEMPublicKey(AbstractCompositeKEMPublicKey):
             hash_instance = hashes.SHA256() if not self._alternative_hash else hashes.SHA512()
             hkdf = HKDF(algorithm=hash_instance, length=32, salt=None, info=None)
             return hkdf.derive(concatenated_inputs)
-        else:
-            h = hashes.Hash(hashes.SHA3_256())
-            h.update(concatenated_inputs)
-            return h.finalize()
+
+        h = hashes.Hash(hashes.SHA3_256())
+        h.update(concatenated_inputs)
+        return h.finalize()
 
     def _trad_encaps(self, private_key: Optional[ECDHPrivateKey]) -> Tuple[bytes, bytes]:
         """Perform traditional key encapsulation using the specified KEM mechanism.

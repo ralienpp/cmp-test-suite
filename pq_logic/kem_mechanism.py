@@ -96,10 +96,10 @@ class ECDHKEM(KemMechanism):
         """
         if isinstance(pubkey, ec.EllipticCurvePublicKey):
             return pubkey.public_bytes(encoding=Encoding.X962, format=PublicFormat.UncompressedPoint)
-        elif isinstance(pubkey, (x25519.X25519PublicKey, x448.X448PublicKey)):
+        if isinstance(pubkey, (x25519.X25519PublicKey, x448.X448PublicKey)):
             return pubkey.public_bytes_raw()
-        else:
-            raise TypeError("Unsupported public key type for encoding.")
+
+        raise TypeError("Unsupported public key type for encoding.")
 
     @staticmethod
     def generate_matching_private_key(peer_pubkey: ECDHPublicKey) -> ECDHPrivateKey:
@@ -110,9 +110,9 @@ class ECDHKEM(KemMechanism):
         """
         if isinstance(peer_pubkey, ec.EllipticCurvePublicKey):
             return ec.generate_private_key(peer_pubkey.curve)
-        elif isinstance(peer_pubkey, x25519.X25519PublicKey):
+        if isinstance(peer_pubkey, x25519.X25519PublicKey):
             return x25519.X25519PrivateKey.generate()
-        elif isinstance(peer_pubkey, x448.X448PublicKey):
+        if isinstance(peer_pubkey, x448.X448PublicKey):
             return x448.X448PrivateKey.generate()
         else:
             raise TypeError("Unsupported peer public key type.")
@@ -185,10 +185,10 @@ def _get_key_id(key: Union[ECDHPrivateKey, ECDHPublicKey]) -> int:
     if isinstance(key, (ec.EllipticCurvePublicKey, ec.EllipticCurvePrivateKey)):
         curve_name = key.curve.name.lower()
         return KEY_TYPE_TO_ID.get(curve_name)
-    elif isinstance(key, (x448.X448PublicKey, x448.X448PrivateKey)):
+    if isinstance(key, (x448.X448PublicKey, x448.X448PrivateKey)):
         return KEY_TYPE_TO_ID["x448"]
-    else:
-        return KEY_TYPE_TO_ID["x25519"]
+
+    return KEY_TYPE_TO_ID["x25519"]
 
 
 def _i2osp(num: int, size: int) -> bytes:

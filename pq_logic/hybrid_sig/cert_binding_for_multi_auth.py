@@ -111,7 +111,7 @@ def prepare_requester_certificate(
 
     signature = cryptoutils.sign_data(data=data, key=cert_a_key, hash_alg=hash_alg)
 
-    logging.info(f"Signature: {signature}")
+    logging.info("Signature: %s", signature)
     if bad_pop:
         signature = utils.manipulate_first_byte(signature)
 
@@ -322,11 +322,10 @@ def load_certificate_from_uri(uri: str, load_chain: bool) -> List[rfc9480.CMPCer
 
         return [cert]
 
-    else:
-        certs = response.content.split(b"-----END CERTIFICATE-----\n")
-        certs = [cert for cert in certs if cert.strip()]
-        cert = [parse_certificate(utils.decode_pem_string(cert)) for cert in certs]
-        return cert
+    certs = response.content.split(b"-----END CERTIFICATE-----\n")
+    certs = [cert for cert in certs if cert.strip()]
+    cert = [parse_certificate(utils.decode_pem_string(cert)) for cert in certs]
+    return cert
 
 
 def validate_multi_auth_binding_csr(
@@ -378,7 +377,7 @@ def validate_multi_auth_binding_csr(
     hash_alg = get_hash_from_oid(cert_a["tbsCertificate"]["signature"]["algorithm"], only_hash=True)
 
     sig_name = may_return_oid_to_name(cert_a["tbsCertificate"]["signature"]["algorithm"])
-    logging.info(f"Signature algorithm: {sig_name}")
+    logging.info(f"Signature algorithm: %s", sig_name)
 
     if hash_alg is None:
         raise ValueError(f"The hash algorithm could not be determined. Signature algorithm was: {sig_name}")
@@ -427,9 +426,9 @@ def server_side_validate_cert_binding_for_multi_auth(ee_cert, related_cert) -> N
     cert_b_not_valid_before = pyasn1_time_obj_to_py_datetime(cert_b["notBefore"])
     cert_b_not_valid_after = pyasn1_time_obj_to_py_datetime(cert_b["notAfter"])
 
-    if not (rel_cert_not_valid_after <= now <= rel_cert_not_valid_before):
+    if not rel_cert_not_valid_after <= now <= rel_cert_not_valid_before:
         raise ValueError("Cert A is not valid at the time of issuance.")
-    if not (cert_b_not_valid_before <= now <= cert_b_not_valid_after):
+    if not cert_b_not_valid_before <= now <= cert_b_not_valid_after:
         raise ValueError("Cert B is not valid at the time of issuance.")
     if rel_cert_not_valid_after < rel_cert_not_valid_before:
         logging.info("Cert A and Cert B do not have an overlapping validity period.")

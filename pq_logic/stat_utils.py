@@ -51,5 +51,5 @@ def get_trad_key_length(key: Union[ECDHPrivateKey, ECDHPrivateKey, rsa.RSAPrivat
     """
     if isinstance(key, (rsa.RSAPrivateKey, rsa.RSAPublicKey)):
         return key.key_size
-    else:
-        return TRAD_ALG_2_NENC[get_ec_trad_name(key)]
+
+    return TRAD_ALG_2_NENC[get_ec_trad_name(key)]

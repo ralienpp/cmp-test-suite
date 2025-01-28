@@ -151,7 +151,7 @@ def get_cert_discovery_cert(uri: str) -> rfc9480.CMPCertificate:
     :raise ValueError: If the fetching fails.
     """
     try:
-        logging.info(f"Fetching secondary certificate from {uri}")
+        logging.info("Fetching secondary certificate from %s", uri)
         response = requests.get(uri)
         response.raise_for_status()
         cert, rest = decoder.decode(response.content, rfc9480.CMPCertificate())
@@ -160,7 +160,7 @@ def get_cert_discovery_cert(uri: str) -> rfc9480.CMPCertificate:
         return cert
 
     except requests.RequestException as e:
-        raise ValueError(f"Failed to fetch secondary certificate: {e}")
+        raise ValueError(f"Failed to fetch secondary certificate: {e}") from e
 
 
 def validate_alg_ids(other_cert: rfc9480.CMPCertificate, rel_cert_desc: RelatedCertificateDescriptor) -> None:
@@ -211,7 +211,7 @@ def validate_cert_discovery(
         raise ValueError("The Signature was correct, with traditional algorithm!")
 
     if cert_chain_secondary is not None:
-        cert_chain = certutils.build_chain_from_list(ee_cert=other_cert, cert_dir=cert_chain_secondary)
+        cert_chain = certutils.build_chain_from_list(ee_cert=other_cert, certs=cert_chain_secondary)
         verify_cert_chain_openssl(cert_chain)
 
     if rel_cert_desc["signatureAlgorithm"] in CMS_COMPOSITE_OID_2_NAME:

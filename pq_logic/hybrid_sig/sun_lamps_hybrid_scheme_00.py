@@ -298,7 +298,7 @@ def _extract_sun_hybrid_attrs_from_csr(csr: rfc6402.CertificationRequest) -> Dic
             key = attribute_map[oid]
             extracted_values[key] = alg_id
 
-        elif oid in attribute_map:
+        if oid in attribute_map:
             key = attribute_map[oid]
             extracted_values[key] = decoder.decode(attribute["attrValues"][0].asOctets())[0].prettyPrint()
 
@@ -587,8 +587,8 @@ def validate_alt_pub_key_extn(cert: rfc9480.CMPCertificate):
 
     hash_alg_oid = decoded_ext["hashAlg"]["algorithm"]
     hash_alg = get_hash_from_oid(hash_alg_oid)
-    logging.info(f"Alt Public key: {public_key}")
-    logging.info(f"hash alg: {hash_alg}")
+    logging.info("Alt Public key %s", public_key)
+    logging.info("hash alg: %s", hash_alg)
 
     computed_hash = _hash_public_key(public_key, hash_alg=hash_alg)
 

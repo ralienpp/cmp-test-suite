@@ -286,7 +286,7 @@ def derive_and_encrypt_key(password: str, data: bytes, decrypt: bool, iv: Option
     if iv is None and decrypt:
         raise ValueError("For decryption must a `iv` be parsed.")
 
-    elif iv is None:
+    if iv is None:
         iv = os.urandom(16)
 
     kdf = PBKDF2HMAC(

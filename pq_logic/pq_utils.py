@@ -40,8 +40,7 @@ def get_kem_oid_from_key(
     if isinstance(key, (AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey)):
         return key.get_oid()
 
-    else:
-        raise ValueError(f"Invalid KEM key. Got: {type(key).__name__}")
+    raise ValueError(f"Invalid KEM key. Got: {type(key).__name__}")
 
 
 @not_keyword

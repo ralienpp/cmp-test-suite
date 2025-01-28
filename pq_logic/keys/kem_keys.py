@@ -87,8 +87,8 @@ class MLKEMPublicKey(PQKEMPublicKey):
         """Encapsulate a shared secret using the public key."""
         if oqs is not None:
             return super().encaps()
-        else:
-            return self.ml_class.encaps_internal(ek=self._public_key_bytes, m=os.urandom(32))
+
+        return self.ml_class.encaps_internal(ek=self._public_key_bytes, m=os.urandom(32))
 
     @property
     def ct_length(self) -> int:
@@ -207,8 +207,8 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         """
         if oqs is not None:
             return super().decaps(ct)
-        else:
-            return self.ml_class.decaps_internal(dk=self._private_key, c=ct)
+
+        return self.ml_class.decaps_internal(dk=self._private_key, c=ct)
 
     @property
     def ct_length(self) -> int:

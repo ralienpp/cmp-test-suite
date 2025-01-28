@@ -503,9 +503,9 @@ def validate_archive_options(
     option = archive_options.getName()
     if option == "encryptedPrivKey":
         return archive_options["encryptedPrivKey"]
-    elif option == "keyGenParameters":
+    if option == "keyGenParameters":
         raise NotImplementedError("KeyGenParameters not supported.")
-    elif option == "archiveRemGenPrivKey":
+    if option == "archiveRemGenPrivKey":
         logging.info("PKIArchiveOptions: archiveRemGenPrivKey was: %s", str(archive_options["archiveRemGenPrivKey"]))
 
 

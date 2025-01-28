@@ -694,9 +694,9 @@ def prepare_key_transport_recipient_info(
 
 def prepare_kari(
     public_key: ECDHPublicKey,
-    recip_private_key: ECDHPrivateKey,
+    sender_key: ECDHPrivateKey,
     cek: Optional[bytes] = None,
-    recip_cert: Optional[rfc9480.CMPCertificate] = None,
+    sender_cert: Optional[rfc9480.CMPCertificate] = None,
     hash_alg: str = "sha256",
     issuer_and_ser: rfc5652.IssuerAndSerialNumber = None,
     oid: univ.ObjectIdentifier = rfc9481.dhSinglePass_stdDH_sha256kdf_scheme,
@@ -704,9 +704,9 @@ def prepare_kari(
     """Prepare a KeyAgreeRecipientInfo object for testing.
 
     :param public_key: The public key of the recipient.
-    :param recip_private_key: The private key of the sender.
+    :param sender_key: The private key of the sender.
     :param cek: The content encryption key to be encrypted.
-    :param recip_cert: The certificate of the recipient.
+    :param sender_cert: The certificate of the recipient.
     :param hash_alg: The hash algorithm to use for key derivation.
     :param issuer_and_ser: The optional `IssuerAndSerialNumber` structure to use. Defaults to None.
     :return: The populated `KeyAgreeRecipientInfo` structure.

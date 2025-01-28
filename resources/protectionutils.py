@@ -736,7 +736,6 @@ def _compute_pkimessage_sig_protection(
     protection_oid: univ.ObjectIdentifier,
     private_key: PrivateKeySig,
     data: bytes,
-    hash_alg: Optional[str] = None,
 ) -> bytes:
     """Compute the signature protection value for a `PKIMessage`.
 
@@ -746,7 +745,6 @@ def _compute_pkimessage_sig_protection(
     :param protection_oid: The OID of the protection type to be used.
     :param private_key: The private key used for signing.
     :param data: The DER-encoded protected part of the `PKIMessage`, which is signed.
-    :param hash_alg: Optional hash algorithm to use for signature generation. Defaults to None.
     :return: The computed signature protection value.
     """
     if protection_oid in MSG_SIG_ALG:
@@ -989,8 +987,7 @@ def _prepare_mac_alg_id(protection: str, **params) -> rfc9480.AlgorithmIdentifie
             nonce=salt,
         )
     else:
-        # TODO fix
-        raise ValueError()
+        raise ValueError("The protection type is not supported.")
 
     return prot_alg_id
 

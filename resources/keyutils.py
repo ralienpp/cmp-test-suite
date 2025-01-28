@@ -297,8 +297,6 @@ def generate_key(algorithm: str = "rsa", **params) -> PrivateKey:  # noqa: D417 
         )
 
     else:
-        from pq_logic.combined_factory import CombinedKeyFactory
-
         private_key = CombinedKeyFactory.generate_key(algorithm=algorithm, **params)
 
     return private_key
@@ -341,8 +339,8 @@ def _extract_and_format_key(pem_file_path: str) -> bytes:
             + b" PRIVATE KEY-----\n"
         )
         return pem_data
-    else:
-        raise ValueError("No valid private key found in the file.")
+
+    raise ValueError("No valid private key found in the file.")
 
 
 def _clean_data(data: bytes) -> bytes:
@@ -502,8 +500,6 @@ def load_public_key_from_spki(data: Union[bytes, rfc5280.SubjectPublicKeyInfo]) 
         if rest != b"":
             raise ValueError("The decoded SubjectPublicKeyInfo structure had trailing data.")
 
-    from pq_logic.combined_factory import CombinedKeyFactory
-
     return CombinedKeyFactory.load_public_key_from_spki(spki=data)
 
 
@@ -527,7 +523,7 @@ def generate_key_based_on_alg_id(alg_id: rfc5280.AlgorithmIdentifier) -> Private
                     name = "-".join(tmp[:-1])
                 return CombinedKeyFactory.generate_key(algorithm=name)
 
-    elif oid == rfc6664.id_ecPublicKey:
+    if oid == rfc6664.id_ecPublicKey:
         curve_oid, rest = decoder.decode(alg_id["parameters"], asn1Spec=rfc5480.ECParameters())
         if rest != b"":
             raise BadAsn1Data("ECParameters")
@@ -538,11 +534,10 @@ def generate_key_based_on_alg_id(alg_id: rfc5280.AlgorithmIdentifier) -> Private
         curve_instance = get_curve_instance(curve_name)
         return ec.generate_private_key(curve=curve_instance)
 
-    elif str(oid) in TRAD_STR_OID_TO_KEY_NAME:
+    if str(oid) in TRAD_STR_OID_TO_KEY_NAME:
         return CombinedKeyFactory.generate_key(algorithm=TRAD_STR_OID_TO_KEY_NAME[str(oid)])
 
-    elif oid in CMS_COMPOSITE_NAME_2_OID:
+    if oid in CMS_COMPOSITE_NAME_2_OID:
         raise NotImplementedError("Composite keys are not supported yet.")
 
-    else:
-        raise UnknownOID(oid=oid, extra_info="For generating a private key.")
+    raise UnknownOID(oid=oid, extra_info="For generating a private key.")

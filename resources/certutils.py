@@ -920,7 +920,7 @@ def load_crl_from_der(der_data: bytes):
     try:
         crl, _ = decoder.decode(der_data, asn1Spec=rfc5280.CertificateList())
         return crl
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         raise ValueError(f"Failed to load CRL from DER data: {e}")
 
 

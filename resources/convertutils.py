@@ -32,7 +32,7 @@ def ensure_is_sign_key(key: Any) -> PrivateKeySig:
 
 
 @not_keyword
-def subjectPublicKeyInfo_from_pubkey(
+def subjectPublicKeyInfo_from_pubkey( # pylint: disable=invalid-name
     public_key: PublicKey,
     target: Optional[rfc5280.SubjectPublicKeyInfo] = None,
     use_rsa_pss: bool = False,

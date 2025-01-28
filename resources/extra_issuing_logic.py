@@ -728,7 +728,7 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
         if rest != b"":
             raise ValueError(f"Unexpected data after decoding the encrypted certificate: {rest.hex()}")
 
-    except pyasn1.error.PyAsn1Error: # pylint: disable=raise-missing-from
-        raise ValueError(f"The decrypted certificate was not decoded-able: {data.hex()}")  # type: ignore
+    except pyasn1.error.PyAsn1Error:
+        raise ValueError(f"The decrypted certificate was not decoded-able: {data.hex()}") # pylint: disable=raise-missing-from
 
     return cert

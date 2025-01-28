@@ -278,8 +278,10 @@ def get_ec_key_hash_oid(hash_alg: str):
 
 
 @not_keyword
-def get_alg_oid_from_key_hash(
-    key: PrivateKey, hash_alg: str, use_pss: bool = False, use_prehashed: bool = False
+def get_alg_oid_from_key_and_hash(
+    key: PrivateKey,
+    hash_alg: str,
+    use_pss: bool = False,
 ) -> univ.ObjectIdentifier:
     """Find the pyasn1 oid given the hazmat key instance and a name of a hashing algorithm.
 
@@ -288,7 +290,6 @@ def get_alg_oid_from_key_hash(
     :param key: The private key instance.
     :param hash_alg: Name of hashing algorithm, e.g., 'sha256'
     :param use_pss: Flag to use RSA-PSS padding. Default is False.
-    :param use_prehashed: Flag to use prehashed key. Default is False.
     :return: The OID of the signature algorithm.
     """
     if isinstance(key, dsa.DSAPrivateKey):

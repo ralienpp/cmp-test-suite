@@ -730,7 +730,7 @@ def _prepare_poposigningkey(
         alg_oid = signing_key.get_oid()
 
     elif alg_oid is None:
-        alg_oid = oid_mapping.get_alg_oid_from_key_hash(signing_key, hash_alg=hash_alg)  # type: ignore
+        alg_oid = oid_mapping.get_alg_oid_from_key_and_hash(signing_key, hash_alg=hash_alg)  # type: ignore
 
     popo_key["algorithmIdentifier"]["algorithm"] = alg_oid
 

@@ -44,7 +44,7 @@ from resources.cryptoutils import (
     perform_ecdh,
     sign_data,
 )
-from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_alg_name_to_oid
+from resources.oid_mapping import compute_hash, get_alg_oid_from_key_and_hash, sha_alg_name_to_oid
 from resources.oidutils import KEY_WRAP_NAME_2_OID
 from resources.prepareutils import prepare_name
 from resources.protectionutils import get_rsa_oaep_padding, prepare_kdf, prepare_pbkdf2_alg_id, prepare_wrap_alg_id
@@ -354,7 +354,7 @@ def prepare_signer_info(
 
     # Prepare signature and digest algorithm identifiers
     sig_alg_id = rfc5652.SignatureAlgorithmIdentifier()
-    sig_alg_id["algorithm"] = get_alg_oid_from_key_hash(signing_key, hash_alg=sig_hash_name)
+    sig_alg_id["algorithm"] = get_alg_oid_from_key_and_hash(signing_key, hash_alg=sig_hash_name)
 
     dig_alg_id = rfc5652.DigestAlgorithmIdentifier()
     dig_alg_id["algorithm"] = sha_alg_name_to_oid(digest_hash_name)

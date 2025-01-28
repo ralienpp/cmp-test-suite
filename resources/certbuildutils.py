@@ -129,7 +129,7 @@ def prepare_sig_alg_id(
         alg_id["algorithm"] = domain_oid
 
     else:
-        oid = oid_mapping.get_alg_oid_from_key_hash(key=signing_key, hash_alg=hash_alg, use_pss=use_rsa_pss)
+        oid = oid_mapping.get_alg_oid_from_key_and_hash(key=signing_key, hash_alg=hash_alg, use_pss=use_rsa_pss)
         alg_id["algorithm"] = oid
         if oid in RSA_SHA_OID_2_NAME:
             alg_id["parameters"] = univ.Null("")

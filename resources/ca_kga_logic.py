@@ -997,8 +997,6 @@ def check_keys_match_inside_one_asym_key(
     :return: The deserialized private key if the keys match.
     :raises ValueError: If the keys do not match or the deserialization fails.
     """
-    # TODO fix for new-keys.
-
     oid = private_key_alg_id["algorithm"]
     private_key_bytes = private_key.asOctets()
     public_key_bytes = public_key_extracted.asOctets()

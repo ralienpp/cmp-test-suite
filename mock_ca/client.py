@@ -1,17 +1,18 @@
-import requests
-from pyasn1.codec.der import encoder, decoder
+"""Client for the Mock CA, if a single request is to be sent."""
 import sys
 
+import requests
+from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
 
-sys.path.append('.')
-sys.path.append('.')
+sys.path.append(".")
+sys.path.append(".")
+from resources import cmputils, keyutils
 from resources.asn1_structures import PKIMessageTMP
-from resources import cmputils
-from resources import keyutils
 
 
-def send_request_to_static_cert1():
+def send_example_request():
+    """Send an example request to the Mock CA."""
     url = "http://127.0.0.1:5000/issuing"
     key = keyutils.generate_key("composite-sig")
     pki_message = cmputils.build_cr_from_key(key)
@@ -51,5 +52,6 @@ def send_pkimessage_to_mock_ca(pki_message: rfc9480.PKIMessage, url: str):
     except requests.RequestException as e:
         print(f"Request failed: {e}")
 
+
 if __name__ == "__main__":
-    send_request_to_static_cert1()
+    send_example_request()

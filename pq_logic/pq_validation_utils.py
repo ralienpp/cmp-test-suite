@@ -84,8 +84,9 @@ def validate_migration_certificate_key_usage(cert: rfc9480.CMPCertificate) -> No
         raise ValueError(f"Unsupported public key type: {type(public_key)}")
 
 
-def validate_migration_oid_in_certificate(# noqa: D417 Missing argument descriptions in the docstring
-        cert: rfc9480.CMPCertificate, name: str) -> None:
+def validate_migration_oid_in_certificate(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate, name: str
+) -> None:
     """Validate the OID of the public key in the certificate.
 
     Arguments:

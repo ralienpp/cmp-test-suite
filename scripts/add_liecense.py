@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Add SPDX license identifier to all Python files that don't have it.
+"""Add SPDX license identifier to all files that don't have it based on the directories to search."""
 
 import glob
 import os.path
@@ -18,17 +19,17 @@ SPDX-License-Identifier: Apache-2.0 -->
 
 
 def add_header_to_file(path: str, header: str = base_header):
-    with open(path, 'r', encoding="utf-8") as file:
+    """Add the SPDX license identifier to a file if it doesn't already have it."""
+    with open(path, "r", encoding="utf-8") as file:
         content = file.read()
 
     if "SPDX-License-Identifier:" not in content:
-        with open(path, 'w') as file:
+        with open(path, "w") as file:
             if os.path.basename(path) in ["__init__", "__init__.py"]:
-                file.write("# noqa D104 Missing docstring in public package" + '\n')
-            file.write(header + '\n' + content)
+                file.write("# noqa D104 Missing docstring in public package" + "\n")
+            file.write(header + "\n" + content)
 
         print(f"Header added to {path}")
-
 
 
 # Use glob to find all .py files recursively

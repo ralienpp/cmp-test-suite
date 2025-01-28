@@ -380,7 +380,7 @@ def process_pkimessage_with_popdecc(
                 raise ValueError(f"Expected sender name: {expected_sender}. Got: {rand_name}")
 
     else:
-        ss = process_simple_challenge(challenge, ee_key)
+        ss = process_simple_challenge(challenge, ee_key=ee_key)
         if request is None:
             raise ValueError("The original PKIMessage request is required to build the new one for the challenge.")
 

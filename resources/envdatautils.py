@@ -784,7 +784,6 @@ def prepare_recip_info(
     cek: Optional[bytes] = None,
     issuer_and_ser: Optional["rfc5652.IssuerAndSerialNumber"] = None,
     use_rsa_oaep: bool = True,
-    use_encryption: bool = True,
     salt: Optional[Union[bytes, str]] = None,
     kdf_name: Optional[str] = "pbkdf2",
 ) -> rfc5652.RecipientInfo:
@@ -797,7 +796,6 @@ def prepare_recip_info(
     :param issuer_and_ser: IssuerAndSerialNumber structure.
     :param password: The password for the password recipient info structure.
     :param use_rsa_oaep: Whether to use RSA OAEP (True) or PKCS#1 v1.5 (False).
-    :param use_encryption: Whether to use encryption (True) or key agreement (False).
     :param salt: The salt value for the PasswordRecipientInfo structure. Defaults to 32 random bytes.
     (can be used for negative testing, by setting to same value for CMP-protection-salt (MAC-protection)).
     :param kdf_name: The key derivation function to use for the PasswordRecipientInfo or KEMRecipientInfo structure.
@@ -805,36 +803,28 @@ def prepare_recip_info(
     (which is the only allowed for PasswordRecipientInfo,).
     :return: An appropriate RecipientInfo object for the given keys and parameters.
     """
-    if isinstance(public_key_recip, rsa.RSAPublicKey) or (
-        isinstance(public_key_recip, MLKEMPublicKey) and use_encryption
-    ):
+    if isinstance(public_key_recip, rsa.RSAPublicKey):
         return prepare_ktri(
-            public_key=public_key_recip,
-            sender_cert=cert_recip,
+            ee_key=public_key_recip,
+            cmp_protection_cert=cert_recip,
             cek=cek,
             use_rsa_oaep=use_rsa_oaep,
             issuer_and_ser=issuer_and_ser,
         )
 
-    elif isinstance(public_key_recip, ec.EllipticCurvePublicKey):
+    if isinstance(public_key_recip, ec.EllipticCurvePublicKey):
         if private_key is None:
             raise ValueError("An ECDH private key must be provided for EC key exchange.")
-        return prepare_kari(
-            public_key=public_key_recip,
-            private_key=private_key,
-            issuer_and_ser=issuer_and_ser,
-        )
 
-    elif isinstance(public_key_recip, MLKEMPublicKey) and use_encryption:
-        return prepare_ktri(
+        kari = prepare_kari(
             public_key=public_key_recip,
+            sender_key=private_key,
+            issuer_and_ser=issuer_and_ser,
             sender_cert=cert_recip,
-            cek=cek,
-            use_rsa_oaep=use_rsa_oaep,
-            issuer_and_ser=issuer_and_ser,
         )
+        return _prepare_recip_info(kari)
 
-    elif is_kem_public_key(
+    if is_kem_public_key(
         public_key_recip,
     ):
         kem_recip_info = prepare_kem_recip_info(
@@ -846,18 +836,18 @@ def prepare_recip_info(
         )
         return _prepare_recip_info(kem_recip_info)
 
-    elif password is None and public_key_recip is None:
+    if password is None and public_key_recip is None:
         raise ValueError(
             "A password must be provided for password recipient info structure, or a public key"
             "for key agreement or key transport recipient info structure, or KEM recipient info."
         )
 
-    elif password is not None:
+    if password is not None:
         pwri = prepare_password_recipient_info(password=password, cek=cek, salt=salt, kdf_name=kdf_name)
         return _prepare_recip_info(pwri)
 
-    else:
-        raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
+
+    raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
 # TODO change doc to RF.
@@ -980,17 +970,17 @@ def build_env_data_for_exchange(
             recipient_infos=[kari], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
 
-    elif isinstance(public_key_recip, ECDHPublicKey):
+    if isinstance(public_key_recip, ECDHPublicKey):
         if private_key is None or not isinstance(private_key, ECDHPrivateKey):
             raise ValueError("Private key must be provided for EC key exchange.")
 
-        kari = prepare_kari(public_key=public_key_recip, recip_private_key=private_key, issuer_and_ser=issuer_and_ser)
+        kari = prepare_kari(public_key=public_key_recip, sender_key=private_key, issuer_and_ser=issuer_and_ser)
         kari = _prepare_recip_info(kari)
         return prepare_enveloped_data(
             recipient_infos=[kari], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
 
-    elif is_kem_public_key(public_key_recip):
+    if is_kem_public_key(public_key_recip):
         kem_recip_info = prepare_kem_recip_info(
             server_cert=cert_sender,
             public_key_recip=public_key_recip,
@@ -1003,8 +993,8 @@ def build_env_data_for_exchange(
             recipient_infos=[kem_recip_info], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
 
-    else:
-        raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
+
+    raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
 def prepare_kem_recip_info(

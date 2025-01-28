@@ -388,8 +388,9 @@ def sun_cert_template_to_cert(
     """
     tbs_cert = prepare_tbs_certificate_from_template(
         cert_template=cert_template,
-        issuer_cert=issuer_cert["tbsCertificate"]["subject"],
+        issuer=issuer_cert["tbsCertificate"]["subject"],
         serial_number=serial_number,
+        ca_key=issuer_private_key,
     )
 
     composite_key = load_public_key_from_spki(tbs_cert["subjectPublicKeyInfo"])

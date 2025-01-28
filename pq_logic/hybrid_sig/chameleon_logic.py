@@ -55,12 +55,12 @@ def _prepare_issuer_and_subject(
     """
     if not compare_pyasn1_names(delta_cert["tbsCertificate"]["issuer"], base_cert["tbsCertificate"]["issuer"]):
         issuer_obj = rfc5280.Name().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))
-        issuer = copy_name(delta_cert["tbsCertificate"]["issuer"], name=issuer_obj)
+        issuer = copy_name(filled_name=delta_cert["tbsCertificate"]["issuer"], target=issuer_obj)
         dcd["issuer"] = issuer
 
     if not compare_pyasn1_names(delta_cert["tbsCertificate"]["subject"], base_cert["tbsCertificate"]["subject"]):
         subject_obj = rfc5280.Name().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3))
-        subject = copy_name(delta_cert["tbsCertificate"]["subject"], name=subject_obj)
+        subject = copy_name(filled_name=delta_cert["tbsCertificate"]["subject"], target=subject_obj)
         dcd["subject"] = subject
 
     return dcd

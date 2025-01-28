@@ -1431,7 +1431,7 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
     """
     new_ee_cert = new_ee_cert or build_cert_from_cert_template(
         cert_template=cert_req_msg["certReq"]["certTemplate"],
-        issuer=ca_cert["tbsCertificate"]["subject"],
+        ca_cert=ca_cert,
         ca_key=signing_key,
         hash_alg=hash_alg,
     )

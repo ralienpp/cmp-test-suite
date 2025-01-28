@@ -640,7 +640,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
         )
         return cert, None
 
-    elif name == "keyEncipherment":
+    if name == "keyEncipherment":
         cert = build_cert_from_cert_template(
             cert_template=cert_req_msg["certReq"]["certTemplate"],
             ca_key=ca_key,
@@ -657,11 +657,11 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
 
         return cert, enc_cert
 
-    elif name == "keyAgreement":
+    if name == "keyAgreement":
         raise NotImplementedError("Key agreement is not allowed.")
-    else:
-        name = cert_req_msg["popo"].getName()
-        raise ValueError(f"Invalid POP structure: {name}.")
+
+    name = cert_req_msg["popo"].getName()
+    raise ValueError(f"Invalid POP structure: {name}.")
 
 
 @keyword(name="Verify POP Signature For PKI Request")

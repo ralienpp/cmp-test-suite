@@ -433,8 +433,8 @@ def process_other_recip_info(
         return process_kem_recip_info(
             kem_recip_info=kem_recip_info, server_cert=server_cert, private_key=recip_private_key, for_pop=for_pop
         )
-    else:
-        raise ValueError(f"Got a unknown `oriType`: {other_info['oriType']}")
+
+    raise ValueError(f"Got a unknown `oriType`: {other_info['oriType']}")
 
 
 def extract_content_encryption_key(

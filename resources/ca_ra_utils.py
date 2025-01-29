@@ -91,10 +91,18 @@ def _prepare_rand(sender: Optional[Union[rfc9480.GeneralName, str]], rand_int: O
 
 
 def _prepare_witness_val(
-    challenge_obj: ChallengeASN1, hash_alg: Optional[str], rand: rfc9480.Rand, bad_witness: bool
+    challenge_obj: ChallengeASN1,
+    hash_alg: Optional[str],
+    rand: rfc9480.Rand,
+    bad_witness: bool
 ) -> ChallengeASN1:
     """Get the witness value for the challenge.
 
+    :param challenge_obj: The challenge object.
+    :param hash_alg: The hash algorithm to use. Defaults to `None`.
+    :param rand: The random number to use.
+    :param bad_witness: Whether to manipulate the witness value. Defaults to `False`.
+    (witness is the hash of the integer.)
     :return: The updated challenge object.
     """
     witness = b""

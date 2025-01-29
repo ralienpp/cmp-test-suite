@@ -435,8 +435,19 @@ class FalconPublicKey(PQSignaturePublicKey):
 
         self.sig_alg = name.capitalize()
 
-    def check_hash_alg(self, hash_alg: Optional[str] = None) -> None:
-        """Check if the hash algorithm is valid to be used with Falcon."""
+    def check_hash_alg(
+        self, hash_alg: Union[None, str, hashes.HashAlgorithm], allow_failure: bool = True
+    ) -> Optional[str]:
+        """Check if the hash algorithm is valid.
+
+        Falcon does not support any hash algorithms, so always return `None`.
+
+        :param hash_alg: The hash algorithm to check.
+        :param allow_failure: The flag to allow failure or not.
+        :return: The hash algorithm name or None.
+        """
+        if hash_alg is not None:
+            logging.info(f"{self.name} does not support the hash algorithm: {hash_alg}")
         return None
 
 

@@ -48,6 +48,9 @@ except ImportError:
 
 
 FALCON_NAMES = ["falcon-512", "falcon-1024", "falcon-padded-512", "falcon-padded-1024"]
+ML_DSA_NAMES = ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]
+
+
 class MLDSAPublicKey(PQSignaturePublicKey):
     """Represent an ML-DSA public key."""
 
@@ -143,9 +146,13 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         return hash_alg
 
     def _check_name(self, name: str):
-        name = name.upper()
-        if name not in ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87"]:
-            raise ValueError(f"Invalid signature algorithm name provided.: {name}")
+        """Check if the parsed name is valid.
+
+        :param name: The name to check.
+        """
+        name = name.lower()
+        if name not in ML_DSA_NAMES:
+            raise ValueError(f"Invalid signature algorithm name provided: {name}.")
 
         self.sig_alg = name
 
@@ -215,8 +222,8 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
 
     def _check_name(self, name: str):
         """Check if the name is valid."""
-        name = name.upper()
-        if name not in ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87"]:
+        name = name.lower()
+        if name not in ML_DSA_NAMES:
             raise ValueError(f"Invalid signature algorithm name provided.: {name}")
 
         self.sig_alg = name

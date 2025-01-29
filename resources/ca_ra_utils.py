@@ -56,7 +56,7 @@ from resources.protectionutils import (
     prepare_kem_ciphertextinfo,
     prepare_sha_alg_id,
 )
-from resources.typingutils import PrivateKey, PublicKey
+from resources.typingutils import PrivateKey, PublicKey, PrivateKeySig
 from resources.utils import manipulate_first_byte
 
 
@@ -324,7 +324,7 @@ def validate_oob_cert_hash(# noqa: D417 Missing argument descriptions in the doc
 
 def _prepare_cert_with_cert(
     cert: rfc9480.CMPCertificate,
-    signing_key,
+    signing_key: PrivateKeySig,
     use_rsa_pss: bool = True,
     hash_alg: str = "sha256",
     issuer: Optional[rfc9480.Name] = None,

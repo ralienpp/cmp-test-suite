@@ -476,7 +476,7 @@ def validate_cert_request_cert_id(  # noqa: D417 Missing argument descriptions i
     body_name = pki_message["body"].getName()
     cert_id = cert_req["certReqId"]
     if body_name in {"ir", "cr", "kur", "crr"}:
-        if cert_id != pki_message["body"][body_name][cert_req_id]["certReqId"]:
+        if cert_id != cert_req_id:
             raise ValueError("Invalid certReqId in PKIMessage.")
     elif body_name == "p10cr":
         if -1 != pki_message["body"]["p10cr"]["certReqId"]:

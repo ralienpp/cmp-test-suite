@@ -358,7 +358,7 @@ def _prepare_cert_with_cert(
 
 # New structure as of RFC4210bis-15.
 
-
+@not_keyword
 def build_ckuann(
     new_cert: rfc9480.CMPCertificate,
     old_cert: rfc9480.CMPCertificate,

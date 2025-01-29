@@ -56,7 +56,7 @@ from resources.protectionutils import (
     prepare_kem_ciphertextinfo,
     prepare_sha_alg_id,
 )
-from resources.typingutils import PrivateKey, PublicKey, PrivateKeySig
+from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
 from resources.utils import manipulate_first_byte
 
 
@@ -91,10 +91,7 @@ def _prepare_rand(sender: Optional[Union[rfc9480.GeneralName, str]], rand_int: O
 
 
 def _prepare_witness_val(
-    challenge_obj: ChallengeASN1,
-    hash_alg: Optional[str],
-    rand: rfc9480.Rand,
-    bad_witness: bool
+    challenge_obj: ChallengeASN1, hash_alg: Optional[str], rand: rfc9480.Rand, bad_witness: bool
 ) -> ChallengeASN1:
     """Get the witness value for the challenge.
 
@@ -210,7 +207,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
         - ValueError: If the public key type is invalid.
 
     Examples:
-    ---------
+    --------
     | ${challenge}= | Prepare Challenge Encrypted Rand | ${public_key} | ${sender} |
     | ${challenge}= | Prepare Challenge Encrypted Rand | ${public_key} | ${sender} | ${rand_int} | bad_witness=${bad_witness} | ${hybrid_kem_key} |
 
@@ -238,6 +235,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     challenge_obj["challenge"] = univ.OctetString(b"")
     return challenge_obj
 
+
 @not_keyword
 def prepare_oob_cert_hash(ca_cert: rfc9480.CMPCertificate, hash_alg: str = "sha256") -> rfc9480.OOBCertHash:
     """Prepare an `OOBCertHash` from a CA certificate.
@@ -257,9 +255,11 @@ def prepare_oob_cert_hash(ca_cert: rfc9480.CMPCertificate, hash_alg: str = "sha2
 
     return oob_cert_hash
 
+
 @keyword(name="Validate OOBCertHash")
-def validate_oob_cert_hash(# noqa: D417 Missing argument descriptions in the docstring
-        ca_cert: rfc9480.OOBCert, oob_cert_hash: rfc9480.OOBCertHash) -> None:
+def validate_oob_cert_hash(  # noqa: D417 Missing argument descriptions in the docstring
+    ca_cert: rfc9480.OOBCert, oob_cert_hash: rfc9480.OOBCertHash
+) -> None:
     """Validate an `OOBCertHash` against a CA certificate.
 
     Arguments:
@@ -272,8 +272,9 @@ def validate_oob_cert_hash(# noqa: D417 Missing argument descriptions in the doc
         - ValueError: If the OOB cert hash is invalid.
 
     Examples:
-    ---------
+    --------
     | Validate OOBCertHash | ${ca_cert} | ${oob_cert_hash} |
+
     """
     hash_name = get_hash_from_oid(oob_cert_hash["hashAlg"]["algorithm"])
     sig = compute_hash(hash_name, encoder.encode(oob_cert_hash))
@@ -357,6 +358,7 @@ def _prepare_cert_with_cert(
 
 
 # New structure as of RFC4210bis-15.
+
 
 @not_keyword
 def build_ckuann(
@@ -442,9 +444,10 @@ def get_cert_req_msg_from_pkimessage(  # noqa: D417 Missing argument description
         - IndexError: If the index is out of range.
 
     Examples:
-    ---------
+    --------
     | ${cert_req_msg}= | Get CertReqMsg From PKIMessage | ${pki_message} |
     | ${cert_req_msg}= | Get CertReqMsg From PKIMessage | ${pki_message} | index=0 |
+
     """
     body_name = pki_message["body"].getName()
     if body_name in {"ir", "cr", "kur", "crr"}:
@@ -662,7 +665,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
        - NotImplementedError: If the request is for key agreement.
 
     Examples:
-    ---------
+    --------
     | ${cert} | ${enc_cert}= | Respond To CertReqMsg | ${cert_req_msg} | ${ca_key} | ${ca_cert} |
     | ${cert} | ${enc_cert}= | Respond To CertReqMsg | ${cert_req_msg} | ${ca_key} | ${ca_cert} | ${hybrid_kem_key} | ${hash_alg} |
 
@@ -771,7 +774,9 @@ def _set_header_fields(request: rfc9480.PKIMessage, kwargs: dict) -> dict:
     """Set header fields for a new PKIMessage, by extracting them from the request."""
     kwargs["recip_kid"] = kwargs.get("recip_kid") or request["header"]["senderKID"].asOctets()
     kwargs["recip_nonce"] = kwargs.get("recip_nonce") or request["header"]["senderNonce"].asOctets()
-    alt_nonce =  os.urandom(16) if not request["header"]["recipNonce"].isValue else request["header"]["recipNonce"].asOctets()
+    alt_nonce = (
+        os.urandom(16) if not request["header"]["recipNonce"].isValue else request["header"]["recipNonce"].asOctets()
+    )
     kwargs["sender_nonce"] = kwargs.get("sender_nonce") or alt_nonce
     kwargs["transaction_id"] = kwargs.get("transaction_id") or request["header"]["transactionID"].asOctets()
     return kwargs
@@ -1625,10 +1630,10 @@ def get_correct_ca_body_name(request: rfc9480.PKIMessage) -> str:
 
 
 def build_rp_from_rr(
-        request: rfc9480.PKIMessage,
-        shared_secret: Optional[bytes] = None,
-        set_header_fields: bool = True,
-        **kwargs,
+    request: rfc9480.PKIMessage,
+    shared_secret: Optional[bytes] = None,
+    set_header_fields: bool = True,
+    **kwargs,
 ) -> rfc9480.PKIMessage:
     """Build a PKIMessage for a revocation request.
 
@@ -1643,13 +1648,11 @@ def build_rp_from_rr(
     status = "accepted"
     fail_info = None
     try:
-       protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
+        protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
     except Exception:
         logging.debug("Failed to verify the PKIMessage protection.")
         status = "rejection"
         fail_info = "badPOP"
-
-
 
     if request and set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
@@ -1666,6 +1669,3 @@ def build_rp_from_rr(
     pki_message["body"] = body
 
     return pki_message
-
-
-

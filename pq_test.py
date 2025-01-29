@@ -34,8 +34,7 @@ def write_kem_recip_info_example() -> None:
 
     public_key_recip = generate_key("rsa")
 
-    issuer_and_ser = prepare_issuer_and_serial_number(issuer="CN=Null-DN",
-                                                      serial_number=0)
+    issuer_and_ser = prepare_issuer_and_serial_number(issuer="CN=Null-DN", serial_number=0)
     kem_recip_info = prepare_kem_recip_info(
         server_cert=ca_cert,
         public_key_recip=public_key_recip,
@@ -61,10 +60,3 @@ def write_kem_recip_info_example() -> None:
 
 
 write_kem_recip_info_example()
-
-
-
-
-
-
-

@@ -150,6 +150,7 @@ def _get_pem_header(key) -> bytes:
         return key_map[key_name].encode("utf-8")
     raise ValueError(f"Unsupported key type: {key_name}")
 
+
 @not_keyword
 def load_enc_key(password: str, data: bytes) -> bytes:
     """Load PEM formatted encrypted key.
@@ -188,6 +189,7 @@ def load_enc_key(password: str, data: bytes) -> bytes:
 
 # TODO fix for all keys.
 # missing are Chempat, sntrup761, McEliece, old-CompositeSig, CompositeKEM
+
 
 @not_keyword
 def parse_key_from_one_asym_key(data: bytes):
@@ -275,6 +277,7 @@ def parse_key_from_one_asym_key(data: bytes):
         raise NotImplementedError(f"Parsing for this key type is not implemented: {may_return_oid_to_name(oid=oid)}.")
 
     return private_key
+
 
 @not_keyword
 def derive_and_encrypt_key(password: str, data: bytes, decrypt: bool, iv: Optional[bytes] = None) -> (bytes, bytes):

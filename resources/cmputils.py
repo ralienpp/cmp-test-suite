@@ -3996,7 +3996,7 @@ def build_kem_based_mac_protected_message(  # noqa: D417 Missing argument descri
     shared_secret: Optional[bytes] = None,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     kem_ct_info: Optional[rfc9480.InfoTypeAndValue] = None,
-    client_key: Optional[KEMPublicKey]=None,
+    client_key: Optional[KEMPublicKey] = None,
 ) -> Tuple[bytes, rfc9480.PKIMessage]:
     """Build a KEM based MAC protected message.
 
@@ -4040,7 +4040,7 @@ def build_kem_based_mac_protected_message(  # noqa: D417 Missing argument descri
             raise ValueError(f"Invalid public key for `keyEncipherment`: {type(ca_key)}")
 
         if isinstance(ca_key, HybridKEMPublicKey):
-            shared_secret, ct = ca_key.encaps(client_key) #type: ignore
+            shared_secret, ct = ca_key.encaps(client_key)  # type: ignore
         else:
             shared_secret, ct = ca_key.encaps()
 

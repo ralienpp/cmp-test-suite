@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Contains stats information for the hybrid ciphertext length."""
+
 from typing import Union
 
 from cryptography.hazmat.primitives.asymmetric import ec, rsa, x448, x25519

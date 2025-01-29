@@ -191,11 +191,12 @@ def sign_csr(  # noqa D417 undocumented-param
         logging.info(f"Modified CSR signature: {signature}")
 
     csr["signature"] = univ.BitString.fromOctetString(signature)
-    csr["signatureAlgorithm"] = prepare_sig_alg_id(signing_key=signing_key,
-                                                   hash_alg=hash_alg,
-                                                   use_rsa_pss=use_rsa_pss,
-                                                   use_pre_hash=use_pre_hash,
-                                                   )
+    csr["signatureAlgorithm"] = prepare_sig_alg_id(
+        signing_key=signing_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        use_pre_hash=use_pre_hash,
+    )
 
     # Needs to be en and decoded otherwise is the structure empty.
     der_data = encoder.encode(csr)

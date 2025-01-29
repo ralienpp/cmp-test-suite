@@ -142,6 +142,7 @@ def prepare_challenge(
     :param rand_int: The random number to use. Defaults to `None`.
     :param iv: The initialization vector to use, for AES-CBC. Defaults to `b"AAAAAAAAAAAAAAAA"`.
     :return: The populated `Challenge` structure, the shared secret, and the info value (for KEMs/HybridKEMs).
+    :raises ValueError: If the public key type is invalid. Must be either EC or KEM key.
     """
     challenge_obj = ChallengeASN1()
     info_val: Optional[rfc9480.InfoTypeAndValue] = None

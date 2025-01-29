@@ -725,6 +725,7 @@ class SLH_DSA:
 
         :param param: The parameter set to use, identified by the hash function.
         (e,g., "shake256").
+        :returns: The public and secret key.
         """
         if param is not None:
             self.__init__(param)

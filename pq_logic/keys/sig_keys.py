@@ -386,17 +386,12 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
         pass
 
     def check_hash_alg(self, hash_alg: Union[None, str, hashes.HashAlgorithm]) -> Optional[str]:
-        """Check if the hash algorithm is valid."""
-        if hash_alg is None:
-            return None
+        """Check if the hash algorithm is valid for the SLH-DSA key.
 
-        if isinstance(hash_alg, hashes.HashAlgorithm):
-            hash_alg = hash_alg.name.lower()
-
-        alg = self.name + "-" + hash_alg
-        if SLH_DSA_NAME_2_OID_PRE_HASH.get(alg):
-            return hash_alg
-        return None
+        :param hash_alg: The hash algorithm to check.
+        :return: The hash algorithm name or None.
+        """
+        return self.public_key().check_hash_alg(hash_alg=hash_alg)
 
     def public_key(self) -> SLHDSAPublicKey:
         """Derive the corresponding public key.

@@ -339,7 +339,14 @@ class SLHDSAPublicKey(PQSignaturePublicKey):
         return None
 
     def verify(self, signature: bytes, data: bytes, ctx: bytes = b"", hash_alg: Optional[str] = None) -> None:
-        """Verify the signature of the data."""
+        """Verify the signature of the data.
+
+        :param signature: The signature to verify.
+        :param data: The data to verify.
+        :param ctx: The context to add for the signature. Defaults to `b""`.
+        :param hash_alg: The hash algorithm to use for the pre-hashing of the data.
+        :raises InvalidSignature: If the signature is invalid.
+        """
         return self._slh_class.slh_verify(m=data, sig=signature, pk=self._public_key_bytes, ctx=ctx)
 
 

@@ -65,13 +65,13 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         self.ml_class = ML_DSA(sig_alg)
         self._public_key_bytes = public_key
 
+
     @property
     def sig_size(self) -> int:
         """Return the size of the signature."""
         if oqs is None:
             sig_size = {"ml-dsa-44": 2420, "ml-dsa-65": 3309, "ml-dsa-87": 4627}
             return sig_size[self.name]
-
         return self.sig_method.details["length_signature"]
 
     @property
@@ -154,7 +154,7 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         if name not in ML_DSA_NAMES:
             raise ValueError(f"Invalid signature algorithm name provided: {name}.")
 
-        self.sig_alg = name
+        self.sig_alg = name.upper()
 
     @classmethod
     def from_public_bytes(cls, data: bytes, name: str) -> "MLDSAPublicKey":
@@ -174,7 +174,9 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
     """Represents an ML-DSA private key."""
 
     def _initialize(
-        self, sig_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None
+        self, sig_alg: str,
+            private_bytes: Optional[bytes] = None,
+            public_key: Optional[bytes] = None
     ) -> None:
         """Initialize the ML-DSA private key.
 
@@ -183,19 +185,16 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         :param public_key: The public key bytes.
         :return: The initialized ML-DSA private key.
         """
-        if oqs is not None:
-            super()._initialize(sig_alg=sig_alg, private_bytes=private_bytes, public_key=public_key)
-        else:
-            logging.info("ML-DSA Key generation is done with pure python.")
-            self._check_name(sig_alg)
-            self.sig_alg = sig_alg
-            self.ml_class = ML_DSA(sig_alg)
+        self._check_name(sig_alg)
+        self.sig_alg = sig_alg
+        self.ml_class = ML_DSA(sig_alg)
+        self._seed = os.urandom(32)
 
-            if private_bytes is None:
-                self._public_key, self._private_key = self.ml_class.keygen_internal(xi=os.urandom(32))
-            else:
-                self._private_key = private_bytes
-                self._public_key = public_key
+        if private_bytes is None:
+            self._public_key, self._private_key = self.ml_class.keygen_internal(xi=self._seed)
+        else:
+            self._private_key = private_bytes
+            self._public_key = public_key
 
     @classmethod
     def key_gen(cls, name: str, seed: bytes = None):

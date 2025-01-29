@@ -661,6 +661,10 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
     ------
        - NotImplementedError: If the request is for key agreement.
 
+    Examples:
+    ---------
+    | ${cert} | ${enc_cert}= | Respond To CertReqMsg | ${cert_req_msg} | ${ca_key} | ${ca_cert} |
+    | ${cert} | ${enc_cert}= | Respond To CertReqMsg | ${cert_req_msg} | ${ca_key} | ${ca_cert} | ${hybrid_kem_key} | ${hash_alg} |
 
     """
     name = cert_req_msg["popo"].getName()

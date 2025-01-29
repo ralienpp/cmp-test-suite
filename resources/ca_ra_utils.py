@@ -491,6 +491,7 @@ def get_public_key_from_cert_req_msg(cert_req_msg: rfc4211.CertReqMsg) -> Public
 
     :param cert_req_msg: The certificate request message.
     :return: The extracted public key.
+    :raises ValueError: If the public key type is invalid.
     """
     spki = cert_req_msg["certReq"]["certTemplate"]["publicKey"]
 

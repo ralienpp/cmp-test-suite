@@ -511,7 +511,6 @@ def _verify_pop_signature(
     :raises BadAsn1Data: If the CertRequest encoding fails.
     :raises BadPOP: If the POP verification fails.
     :raises InvalidSignature: If the signature verification fails.
-    :return: `None`.
     """
     body_name = pki_message["body"].getName()
 

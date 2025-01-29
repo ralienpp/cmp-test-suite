@@ -110,11 +110,11 @@ class MLDSAPublicKey(PQSignaturePublicKey):
             oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
 
             if not is_prehashed:
-                pre_hashed = compute_hash(hash_alg, data)
+                data = compute_hash(hash_alg, data)
             else:
-                pre_hashed = data
+                data = data
 
-            mp = b"\x01" + ml_.integer_to_bytes(len(ctx), 1) + ctx + oid + pre_hashed
+            mp = b"\x01" + ml_.integer_to_bytes(len(ctx), 1) + ctx + oid + data
             sig = ml_.verify_internal(pk=self._public_key_bytes, mp=mp, sig=signature)
 
         if not sig:
@@ -419,12 +419,12 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
             oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
 
             if not is_prehashed:
-                pre_hashed = compute_hash(hash_alg, data)
+                data = compute_hash(hash_alg, data)
             else:
-                pre_hashed = data
+                data = data
 
-            mp = b"\x01" + integer_to_bytes(len(ctx), 1) + ctx + oid + pre_hashed
-            sig = self._slh_class.slh_sign_internal(self._private_key, mp)
+            mp = b"\x01" + integer_to_bytes(len(ctx), 1) + ctx + oid + data
+            sig = self._slh_class.slh_sign_internal(m=mp, sk=self._private_key)
 
         if not sig:
             raise ValueError("Could not sign the data with SLH-DSA")

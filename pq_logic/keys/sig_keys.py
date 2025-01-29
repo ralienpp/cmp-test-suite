@@ -409,9 +409,7 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
         :param ctx: The optional context to add for the signature. Defaults to `b""`.
         :param is_prehashed: Whether the data is prehashed. Defaults to False.
         :return: The computed signature.
-        :raises ValueError: If the data is and no hash algorithm is specified.
-        ValueError: If the context is too long (255).
-        ValueError: If the signature cannot be computed.
+        :raises ValueError: If the context is too long (255), or if the signature cannot be computed.
         """
         hash_alg = self.check_hash_alg(hash_alg=hash_alg)
         if hash_alg is None:

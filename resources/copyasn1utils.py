@@ -62,7 +62,7 @@ def copy_name(target: rfc5280.Name, filled_name: rfc5280.Name) -> rfc5280.Name:
     target = target.setComponentByName("rdnSequence", rdn)
     return target
 
-
+@not_keyword
 def copy_validity(
     filled_validity: rfc5280.Validity,
     target: Optional[rfc5280.Validity] = None,

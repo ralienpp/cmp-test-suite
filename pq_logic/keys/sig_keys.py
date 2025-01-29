@@ -199,7 +199,7 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         return cls(sig_alg=name, private_bytes=_private_key, public_key=_public_key)
 
     def _get_key_name(self) -> bytes:
-        """Return the name of the key, to save it in a file as PEM-header."""
+        """Return the algorithm name."""
         return b"ML-DSA"
 
     @classmethod
@@ -452,8 +452,8 @@ class FalconPrivateKey(PQSignaturePrivateKey):
         return self.sig_alg.lower()
 
     def _get_key_name(self) -> bytes:
-        """Return the name of the key, to save it in a file as PEM-header."""
-        return b"Falcon"
+        """Return the algorithm name."""
+        return b"FALCON"
 
     def public_key(self) -> FalconPublicKey:
         """Derive the corresponding public key."""

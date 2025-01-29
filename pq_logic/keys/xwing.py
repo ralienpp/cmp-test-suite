@@ -129,7 +129,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
     trad_key: x25519.X25519PrivateKey
 
     def _get_key_name(self) -> bytes:
-        """Return the key name for the key, for saving the key to a file."""
+        """Return the algorithm name."""
         return b"XWING"
 
     @classmethod

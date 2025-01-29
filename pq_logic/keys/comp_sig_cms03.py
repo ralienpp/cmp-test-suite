@@ -331,7 +331,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
     trad_key: Union[rsa.RSAPrivateKey, ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey, ec.EllipticCurvePrivateKey]
 
     def _get_key_name(self) -> bytes:
-        """Return the key name for the composite signature key, for the PEM header."""
+        """Return the algorithm name."""
         return b"COMPOSITE SIGNATURE"
 
     @staticmethod

@@ -202,7 +202,7 @@ class CompositeKEMPrivateKey(AbstractCompositeKEMPrivateKey):
         return f"composite-kem-{self.pq_key.name}-" + type(self.trad_key).__name__.lower()
 
     def _get_key_name(self) -> bytes:
-        """Return the key name of the composite KEM, for the PEM-header."""
+        """Return the algorithm name."""
         return b"COMPOSITE KEM"
 
     def get_oid(self) -> univ.ObjectIdentifier:
@@ -469,7 +469,7 @@ class CompositeDHKEMRFC9180PrivateKey(CompositeKEMPrivateKey):
     """Composite DHKEMRFC9180 private key."""
 
     def _get_key_name(self) -> bytes:
-        """Return the key name of the composite KEM, for the PEM-header."""
+        """Return the algorithm name."""
         return b"COMPOSITE DHKEMRFC9180"
 
     def get_oid(self) -> univ.ObjectIdentifier:

@@ -135,6 +135,7 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
                 self._public_key_bytes = public_key
 
     def _get_key_name(self) -> bytes:
+        """Return the algorithm name."""
         return b"ML-KEM"
 
     def _check_name(self, name: str):
@@ -313,6 +314,7 @@ class McEliecePrivateKey(PQKEMPrivateKey):
         )
 
     def _get_key_name(self) -> bytes:
+        """Return the algorithm name."""
         return b"McEliece"
 
     def _check_name(self, name: str):
@@ -380,6 +382,7 @@ class Sntrup761PrivateKey(PQKEMPrivateKey):
     """
 
     def _get_key_name(self) -> bytes:
+        """Return the algorithm name."""
         return b"SNTRUP761"
 
     def _check_name(self, name: str):

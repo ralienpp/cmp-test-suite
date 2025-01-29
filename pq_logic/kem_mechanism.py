@@ -88,7 +88,7 @@ class ECDHKEM(KemMechanism):
         self.private_key = private_key
 
     @staticmethod
-    def encode_public_key(pubkey) -> bytes:
+    def encode_public_key(pubkey: Union[ECDHPublicKey]) -> bytes:
         """Encode a public key to a standardized byte format.
 
         :param pubkey: The public key to encode.
@@ -117,16 +117,16 @@ class ECDHKEM(KemMechanism):
         else:
             raise TypeError("Unsupported peer public key type.")
 
-    def encaps(self, receiver_public_key) -> Tuple[bytes, bytes]:
+    def encaps(self, peer_pub_key: Union[bytes, ECDHPublicKey]) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using the ephemeral ECDH private key and the receiver's public key.
 
-        :param receiver_public_key: The public key of the receiver.
+        :param peer_pub_key: The public key of the receiver.
         :return: The shared secret and the serialized ephemeral public key as bytes.
         """
         if not self.private_key:
-            self.private_key = self.generate_matching_private_key(receiver_public_key)
+            self.private_key = self.generate_matching_private_key(peer_pub_key)
 
-        shared_secret = perform_ecdh(self.private_key, receiver_public_key)
+        shared_secret = perform_ecdh(self.private_key, peer_pub_key)
         ephemeral_public_key = self.private_key.public_key()
         return shared_secret, ECDHKEM.encode_public_key(ephemeral_public_key)
 

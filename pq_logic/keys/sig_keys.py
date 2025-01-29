@@ -47,6 +47,7 @@ except ImportError:
     oqs = None
 
 
+FALCON_NAMES = ["falcon-512", "falcon-1024", "falcon-padded-512", "falcon-padded-1024"]
 class MLDSAPublicKey(PQSignaturePublicKey):
     """Represent an ML-DSA public key."""
 
@@ -430,11 +431,9 @@ class FalconPublicKey(PQSignaturePublicKey):
 
     def _check_name(self, name: str):
         """Check if the parsed name is valid."""
-        if name not in ["falcon-512", "falcon-1024", "falcon-padded-512", "falcon-padded-1024"]:
-            raise ValueError(
-                f"Invalid `Falcon` signature algorithm name provided.: {name} "
-                f"Supported names: 'falcon-512', 'falcon-1024', 'falcon-padded-512', 'falcon-padded-1024'"
-            )
+        if name not in FALCON_NAMES:
+            names = ", ".join(f"`{name}`" for name in FALCON_NAMES)
+            raise ValueError(f"Invalid `Falcon` signature algorithm name provided.: {name} Supported names: {names}")
 
         self.sig_alg = name.capitalize()
 
@@ -460,11 +459,12 @@ class FalconPrivateKey(PQSignaturePrivateKey):
         return FalconPublicKey(sig_alg=self.name, public_key=self._public_key)
 
     def _check_name(self, name: str):
-        """Check if the name is valid."""
-        if name not in ["falcon-512", "falcon-1024", "falcon-padded-512", "falcon-padded-1024"]:
-            raise ValueError(
-                f"Invalid `Falcon` signature algorithm name provided.: {name} "
-                f"Supported names: 'falcon-512', 'falcon-1024', 'falcon-padded-512', 'falcon-padded-1024'"
-            )
+        """Check if the name is valid.
+
+        :param name: The name to check.
+        """
+        names = ", ".join(f"`{name}`" for name in FALCON_NAMES)
+        if name not in FALCON_NAMES:
+            raise ValueError(f"Invalid `Falcon` signature algorithm name provided.: {name} Supported names: {names}")
 
         self.sig_alg = name.capitalize()

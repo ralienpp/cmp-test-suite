@@ -378,7 +378,7 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
         return self.sig_alg
 
     def _get_key_name(self) -> bytes:
-        """Return the name of the key, to save it in a file as PEM-header."""
+        """Return the algorithm name."""
         return b"SLH-DSA"
 
     def _check_name(self, name: str):

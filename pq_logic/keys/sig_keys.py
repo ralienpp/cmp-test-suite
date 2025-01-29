@@ -338,16 +338,38 @@ class SLHDSAPublicKey(PQSignaturePublicKey):
         logging.info(f"{self.name} does not support the hash algorithm: {hash_alg}")
         return None
 
-    def verify(self, signature: bytes, data: bytes, ctx: bytes = b"", hash_alg: Optional[str] = None) -> None:
+    def verify(self, signature: bytes, data: bytes, ctx: bytes = b"",
+               hash_alg: Optional[str] = None,
+               is_prehashed: bool = False
+               ) -> None:
         """Verify the signature of the data.
 
         :param signature: The signature to verify.
         :param data: The data to verify.
         :param ctx: The context to add for the signature. Defaults to `b""`.
         :param hash_alg: The hash algorithm to use for the pre-hashing of the data.
+        :param is_prehashed: Whether the data is prehashed. Defaults to `False`.
         :raises InvalidSignature: If the signature is invalid.
         """
-        return self._slh_class.slh_verify(m=data, sig=signature, pk=self._public_key_bytes, ctx=ctx)
+        hash_alg = self.check_hash_alg(hash_alg=hash_alg)
+        if hash_alg is None:
+            sig = self._slh_class.slh_verify(m=data, sig=signature,
+                                             pk=self._public_key_bytes, ctx=ctx)
+
+        else:
+            oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
+
+            if not is_prehashed:
+                pre_hashed = compute_hash(hash_alg, data)
+            else:
+                pre_hashed = data
+
+            mp = b"\x01" + integer_to_bytes(len(ctx), 1) + ctx + oid + pre_hashed
+            sig = self._slh_class.slh_verify_internal(
+                m=mp, sig=signature, pk=self._public_key_bytes)
+
+        if not sig:
+            raise InvalidSignature()
 
 
 class SLHDSAPrivateKey(PQSignaturePrivateKey):
@@ -367,10 +389,10 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
         self._slh_class: SLH_DSA = fips205.SLH_DSA_PARAMS[self.sig_alg]
 
         if private_bytes is None:
-            self._private_key, self._public_key = self._slh_class.slh_keygen()
+            self._public_key_bytes, self._private_key = self._slh_class.slh_keygen()
         else:
             self._private_key = private_bytes
-            self._public_key = public_key
+            self._public_key_bytes = public_key
 
     @property
     def name(self):

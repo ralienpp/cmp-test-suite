@@ -336,7 +336,8 @@ def _prepare_cert_with_cert(
     :param use_rsa_pss: Whether to use RSA-PSS or not. Defaults to True.
     :param hash_alg: The hash algorithm to use (e.g. "sha256").
     :param issuer: The certificate issuer to sign the certificate with.
-    :return:
+    :return: The populated `CMPCertificate` structure.
+    :raises ValueError: If the signing key is not allowed to be used for signing.
     """
     cert_with_cert = rfc9480.CMPCertificate()
     cert = copy_asn1_certificate(cert, cert_with_cert)

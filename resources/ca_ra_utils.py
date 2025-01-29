@@ -466,6 +466,10 @@ def validate_cert_request_cert_id(  # noqa: D417 Missing argument descriptions i
         - `pki_message`: The PKIMessage to validate.
         - `cert_req_id`: The index of the certificate request to validate. Defaults to `0`.
 
+    Raises:
+    ------
+        - ValueError: If the certificate request ID in the PKIMessage is invalid.
+
     """
     cert_req_id = int(cert_req_id)
     cert_req = get_cert_req_msg_from_pkimessage(pki_message)

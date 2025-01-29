@@ -420,7 +420,7 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
 
         :return: An `SLHDSAPublicKey` instance.
         """
-        return SLHDSAPublicKey(sig_alg=self.sig_alg, public_key=self._public_key)
+        return SLHDSAPublicKey(sig_alg=self.sig_alg, public_key=self._public_key_bytes)
 
     def sign(self, data: bytes, hash_alg: Optional[str] = None, ctx: bytes = b"", is_prehashed: bool = False) -> bytes:
         """Sign the data with SLH-DSA private key.
@@ -506,7 +506,7 @@ class FalconPrivateKey(PQSignaturePrivateKey):
 
     def public_key(self) -> FalconPublicKey:
         """Derive the corresponding public key."""
-        return FalconPublicKey(sig_alg=self.name, public_key=self._public_key)
+        return FalconPublicKey(sig_alg=self.name, public_key=self._public_key_bytes)
 
     def _check_name(self, name: str):
         """Check if the name is valid.

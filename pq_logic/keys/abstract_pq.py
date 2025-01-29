@@ -317,7 +317,7 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
         :return:
         """
         self.sig_method = oqs.Signature(self.sig_alg, secret_key=private_bytes)
-        self._public_key = public_key or self.sig_method.generate_keypair()
+        self._public_key_bytes = public_key or self.sig_method.generate_keypair()
         self._private_key = private_bytes or self.sig_method.export_secret_key()
 
     @abstractmethod

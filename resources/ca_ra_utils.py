@@ -238,7 +238,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     challenge_obj["challenge"] = univ.OctetString(b"")
     return challenge_obj
 
-
+@not_keyword
 def prepare_oob_cert_hash(ca_cert: rfc9480.CMPCertificate, hash_alg: str = "sha256") -> rfc9480.OOBCertHash:
     """Prepare an `OOBCertHash` from a CA certificate.
 

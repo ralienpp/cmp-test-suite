@@ -199,7 +199,13 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
 
     @classmethod
     def key_gen(cls, name: str, seed: bytes = None):
-        """Generate a MLDSAPrivateKey."""
+        """Generate a MLDSAPrivateKey.
+
+        :param name: The name of the ML-DSA parameter set (e.g., "ml-dsa-44").
+        :param seed: The seed to use for the key generation. Defaults to `None`.
+        (will generate a random 32-bytes, seed if not provided).
+        :return: The generated MLDSAPrivateKey.
+        """
         if seed is None:
             seed = os.urandom(32)
 

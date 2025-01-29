@@ -36,6 +36,16 @@ except ImportError:
     oqs = None
 
 
+
+VALID_MCELIECE_OPTIONS = {
+    "mceliece-348864": "Classic-McEliece-348864",
+    "mceliece-460896": "Classic-McEliece-460896",
+    "mceliece-6688128": "Classic-McEliece-6688128",
+    "mceliece-6960119": "Classic-McEliece-6960119",
+    "mceliece-8192128": "Classic-McEliece-8192128",
+}
+ML_KEM_NAMES = ["ml-kem-512", "ml-kem-768", "ml-kem-1024"]
+
 ##########################
 # ML-KEM
 ##########################
@@ -69,9 +79,9 @@ class MLKEMPublicKey(PQKEMPublicKey):
         :param name: Algorithm name to validate.
         :raises ValueError: If the algorithm name is not "ml-kem-512", "ml-kem-768", or "ml-kem-1024".
         """
-        if name.lower() not in ["ml-kem-512", "ml-kem-768", "ml-kem-1024"]:
+        if name.lower() not in ML_KEM_NAMES:
             raise ValueError(
-                f"Invalid ML-KEM algorithm name: {name}. Supported options: ['ml-kem-512', 'ml-kem-768', 'ml-kem-1024']"
+                f"Invalid ML-KEM algorithm name: {name}. Supported options: {ML_KEM_NAMES}"
             )
         self.kem_alg = name.upper()
 
@@ -145,9 +155,9 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         :param name: Algorithm name to validate.
         :raises ValueError: If the algorithm name is not "ml-kem-512", "ml-kem-768", or "ml-kem-1024".
         """
-        if name not in ["ml-kem-512", "ml-kem-768", "ml-kem-1024"]:
+        if name not in ML_KEM_NAMES:
             raise ValueError(
-                f"Invalid ML-KEM algorithm name: {name}. Supported options: ['ml-kem-512', 'ml-kem-768', 'ml-kem-1024']"
+                f"Invalid ML-KEM algorithm name: {name}. Supported options: {ML_KEM_NAMES}"
             )
         self.kem_alg = name.upper()
 
@@ -244,13 +254,6 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
 # McEliece
 ##########################
 
-VALID_MCELIECE_OPTIONS = {
-    "mceliece-348864": "Classic-McEliece-348864",
-    "mceliece-460896": "Classic-McEliece-460896",
-    "mceliece-6688128": "Classic-McEliece-6688128",
-    "mceliece-6960119": "Classic-McEliece-6960119",
-    "mceliece-8192128": "Classic-McEliece-8192128",
-}
 
 
 class McEliecePublicKey(PQKEMPublicKey):

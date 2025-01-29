@@ -209,6 +209,11 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     ------
         - ValueError: If the public key type is invalid.
 
+    Examples:
+    ---------
+    | ${challenge}= | Prepare Challenge Encrypted Rand | ${public_key} | ${sender} |
+    | ${challenge}= | Prepare Challenge Encrypted Rand | ${public_key} | ${sender} | ${rand_int} | bad_witness=${bad_witness} | ${hybrid_kem_key} |
+
     """
     challenge_obj = ChallengeASN1()
 

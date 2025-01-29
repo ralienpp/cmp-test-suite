@@ -251,13 +251,23 @@ def prepare_oob_cert_hash(ca_cert: rfc9480.CMPCertificate, hash_alg: str = "sha2
 
     return oob_cert_hash
 
-
-def validate_oob_cert(ca_cert: rfc9480.OOBCert, oob_cert_hash: rfc9480.OOBCertHash) -> None:
+@keyword(name="Validate OOBCertHash")
+def validate_oob_cert_hash(# noqa: D417 Missing argument descriptions in the docstring
+        ca_cert: rfc9480.OOBCert, oob_cert_hash: rfc9480.OOBCertHash) -> None:
     """Validate an `OOBCertHash` against a CA certificate.
 
-    :param ca_cert: The OOB CA certificate.
-    :param oob_cert_hash: The OOB cert hash to validate.
-    :return: None.
+    Arguments:
+    ---------
+        - `ca_cert`: The OOB CA certificate.
+        - `oob_cert_hash`: The OOB cert hash to validate.
+
+    Raises:
+    ------
+        - ValueError: If the OOB cert hash is invalid.
+
+    Examples:
+    ---------
+    | Validate OOBCertHash | ${ca_cert} | ${oob_cert_hash} |
     """
     hash_name = get_hash_from_oid(oob_cert_hash["hashAlg"]["algorithm"])
     sig = compute_hash(hash_name, encoder.encode(oob_cert_hash))

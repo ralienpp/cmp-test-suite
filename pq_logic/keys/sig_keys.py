@@ -126,7 +126,11 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         return self.sig_alg.lower()
 
     def check_hash_alg(self, hash_alg: Optional[str], allow_failure: bool = True) -> Optional[str]:
-        """Check if the hash algorithm is valid."""
+        """Check if the hash algorithm is valid.
+
+        :param hash_alg: The hash algorithm to check.
+        :param allow_failure: Whether to allow failure or not.
+        """
         if hash_alg is None:
             return None
 
@@ -136,6 +140,7 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         if hash_alg not in [None, "sha512"]:
             if not allow_failure:
                 raise ValueError(f"The provided hash algorithm is not supported for ML-DSA. Provided: {hash_alg}")
+            logging.info(f"{self.name} does not support the hash algorithm: {hash_alg}")
             return None
 
         return hash_alg

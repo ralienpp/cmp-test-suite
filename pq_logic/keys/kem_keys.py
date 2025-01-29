@@ -126,9 +126,10 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
             self._check_name(kem_alg)
             self.kem_alg = kem_alg
             self.ml_class = ML_KEM(kem_alg)
+            self._seed = os.urandom(64)
 
             if private_bytes is None:
-                d, z = os.urandom(32), os.urandom(32)
+                d, z = self._seed[:32], self._seed[32:]
                 self._public_key_bytes, self._private_key = self.ml_class.keygen_internal(d=d, z=z)
             else:
                 self._private_key = private_bytes

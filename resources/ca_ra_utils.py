@@ -441,6 +441,10 @@ def get_cert_req_msg_from_pkimessage(  # noqa: D417 Missing argument description
         - ValueError: If the body type is not one of `ir`, `cr`, `kur`, or `crr`.
         - IndexError: If the index is out of range.
 
+    Examples:
+    ---------
+    | ${cert_req_msg}= | Get CertReqMsg From PKIMessage | ${pki_message} |
+    | ${cert_req_msg}= | Get CertReqMsg From PKIMessage | ${pki_message} | index=0 |
     """
     body_name = pki_message["body"].getName()
     if body_name in {"ir", "cr", "kur", "crr"}:

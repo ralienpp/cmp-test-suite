@@ -33,7 +33,7 @@ from resources.oidutils import SLH_DSA_NAME_2_OID_PRE_HASH
 
 from pq_logic.fips import fips204, fips205
 from pq_logic.fips.fips204 import ML_DSA
-from pq_logic.fips.fips205 import SLH_DSA
+from pq_logic.fips.fips205 import SLH_DSA, integer_to_bytes
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 
 ##########################
@@ -404,7 +404,7 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
             else:
                 pre_hashed = data
 
-            mp = b"\x01" + self._slh_class.integer_to_bytes(len(ctx), 1) + ctx + oid + pre_hashed
+            mp = b"\x01" + integer_to_bytes(len(ctx), 1) + ctx + oid + pre_hashed
             sig = self._slh_class.slh_sign_internal(self._private_key, mp)
 
         if not sig:

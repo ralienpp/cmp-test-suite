@@ -37,6 +37,7 @@ CURVE_NAME_2_CONTEXT_NAME = {
     "brainpoolP384r1": "brainpoolP384",
 }
 
+
 def _get_trad_name(trad_key: Union[ECDHPrivateKey, ECDHPrivateKey]) -> str:
     """Return the traditional name to generate the context string"""
     if isinstance(trad_key, (ec.EllipticCurvePrivateKey, ec.EllipticCurvePublicKey)):

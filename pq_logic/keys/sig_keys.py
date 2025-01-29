@@ -101,11 +101,6 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         if len(ctx) > 255:
             raise ValueError(f"The context length is longer than 255 bytes. Got: {len(ctx)}")
 
-        # disabled liboqs, because the signatures did not verify correctly for pqc-certificates!
-        # if hash_alg is None and ctx == b"":
-        #    super().verify(signature=signature, data=data)
-        #    return
-
         hash_alg = self.check_hash_alg(hash_alg=hash_alg, allow_failure=False)
         ml_ = fips204.ML_DSA(self.name)
         if hash_alg is None:
@@ -261,9 +256,6 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         if len(ctx) > 255:
             raise ValueError(f"The context length is longer then 255 bytes.Got: {len(ctx)}")
 
-        # if hash_alg is None and ctx == b"":
-        #    return super().sign(data=data)
-
         elif hash_alg is None:
             ml_ = fips204.ML_DSA(self.name)
             sig = ml_.sign(sk=self.private_bytes_raw(), m=data, ctx=ctx)
@@ -343,7 +335,6 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
         :param sig_alg: The signature algorithm name.
         :param private_bytes: The private key.
         :param public_key: The public key.
-        :return:
         """
         self.sig_alg = sig_alg.replace("_", "-")
 

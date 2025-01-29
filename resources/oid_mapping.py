@@ -14,19 +14,10 @@ import logging
 from typing import Optional, Union
 
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed448, rsa
+from cryptography.hazmat.primitives.asymmetric import dsa, ec
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE_OID_2_HASH,
-    id_MLKEM768_ECDH_brainpoolP256r1,
-    id_MLKEM768_ECDH_P384,
-    id_MLKEM768_RSA2048,
-    id_MLKEM768_RSA3072,
-    id_MLKEM768_RSA4096,
-    id_MLKEM768_X25519,
-    id_MLKEM1024_ECDH_brainpoolP384r1,
-    id_MLKEM1024_ECDH_P384,
-    id_MLKEM1024_X448,
 )
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc9481
@@ -171,110 +162,6 @@ def hash_name_to_instance(alg: str) -> hashes.HashAlgorithm:
         return ALLOWED_HASH_TYPES[alg]
     except KeyError as err:
         raise ValueError(f"Unsupported hash algorithm: {alg}") from err
-
-
-def get_oid_composite(
-    ml_kem_name: str, trad_key: Union[ed448.Ed448PrivateKey, ec.EllipticCurvePrivateKey, rsa.RSAPrivateKey]
-):
-    """Get the OID for a composite key based on the ML-KEM name and the traditional key.
-
-    :param ml_kem_name:
-    :param trad_key:
-    :return:
-    """
-    oid_mapping = {
-        ("MLKEM768", rsa.RSAPrivateKey): {
-            2048: id_MLKEM768_RSA2048,
-            3072: id_MLKEM768_RSA3072,
-            4096: id_MLKEM768_RSA4096,
-        },
-        ("MLKEM768", ec.EllipticCurvePrivateKey): {
-            "secp384r1": id_MLKEM768_ECDH_P384,
-            "brainpoolP256r1": id_MLKEM768_ECDH_brainpoolP256r1,
-        },
-        ("MLKEM768", ed448.Ed448PrivateKey): id_MLKEM768_X25519,
-        ("MLKEM1024", ec.EllipticCurvePrivateKey): {
-            "secp384r1": id_MLKEM1024_ECDH_P384,
-            "brainpoolP384r1": id_MLKEM1024_ECDH_brainpoolP384r1,
-        },
-        ("MLKEM1024", ed448.Ed448PrivateKey): id_MLKEM1024_X448,
-    }
-
-    # Determine the traditional key type and retrieve the corresponding OID
-    if isinstance(trad_key, rsa.RSAPrivateKey):
-        key_size = trad_key.key_size
-        return oid_mapping.get((ml_kem_name, rsa.RSAPrivateKey), {}).get(key_size, None)
-    if isinstance(trad_key, ec.EllipticCurvePrivateKey):
-        curve_name = trad_key.curve.name
-        return oid_mapping.get((ml_kem_name, ec.EllipticCurvePrivateKey), {}).get(curve_name, None)
-    if isinstance(trad_key, ed448.Ed448PrivateKey):
-        return oid_mapping.get((ml_kem_name, ed448.Ed448PrivateKey), None)
-
-    raise ValueError("Unsupported traditional key type.")
-
-
-@not_keyword
-def get_rsa_pss_oid(hash_alg: str = "sha256") -> univ.ObjectIdentifier:
-    """Get the RSA-PSS key hash OID for the given hash algorithm.
-
-    :param hash_alg: The hash algorithm to map to the RSA-PSS signature OID.
-    Supported values: "shake128", "shake256". Default is "sha256".
-    (`id-RSASSA-PSS`)
-    :return: None or the matching ObjectIdentifier.
-    """
-    if hash_alg == "shake128":
-        alg_oid = rfc9481.id_RSASSA_PSS_SHAKE128
-    elif hash_alg == "shake256":
-        alg_oid = rfc9481.id_RSASSA_PSS_SHAKE256
-    else:
-        alg_oid = rfc9481.id_RSASSA_PSS
-
-    return alg_oid
-
-
-@not_keyword
-def get_rsa_key_hash_oid(hash_alg: str, use_pss: bool = False) -> Optional[univ.ObjectIdentifier]:
-    """Get the RSA key hash OID for the given hash algorithm.
-
-    :param hash_alg: str, the hash algorithm to map to the RSA signature OID.
-    Supported values: "sha256", "sha384", "sha512".
-    :return: None or the matching ObjectIdentifier.
-    """
-    if use_pss:
-        return get_rsa_pss_oid(hash_alg=hash_alg)
-
-    alg_oid = None
-    if hash_alg == "sha256":
-        alg_oid = rfc9481.sha256WithRSAEncryption
-    elif hash_alg == "sha384":
-        alg_oid = rfc9481.sha384WithRSAEncryption
-    elif hash_alg == "sha512":
-        alg_oid = rfc9481.sha512WithRSAEncryption
-
-    return alg_oid
-
-
-@not_keyword
-def get_ec_key_hash_oid(hash_alg: str):
-    """Get the ECDSA key hash OID for the given hash algorithm.
-
-    :param hash_alg: str, the hash algorithm to map to the ECDSA signature OID.
-    Supported values: "sha256", "sha384", "sha512".
-    :return: None or the matching ObjectIdentifier.
-    """
-    alg_oid = None
-    if hash_alg == "sha256":
-        alg_oid = rfc9481.ecdsa_with_SHA256
-    elif hash_alg == "sha384":
-        alg_oid = rfc9481.ecdsa_with_SHA384
-    elif hash_alg == "sha512":
-        alg_oid = rfc9481.ecdsa_with_SHA512
-    elif hash_alg == "shake128":
-        alg_oid = rfc9481.id_ecdsa_with_shake128
-    elif hash_alg == "shake256":
-        alg_oid = rfc9481.id_ecdsa_with_shake256
-
-    return alg_oid
 
 
 @not_keyword

@@ -99,103 +99,103 @@ id_it_KemCiphertextInfo = rfc9480.id_it + (9999,)
 id_CompSig = "2.16.840.1.114027.80.8.1"
 id_CompKEM = "2.16.840.1.114027.80.5.2"
 
-id_HashMLDSA44_RSA2048_PSS_SHA256 = univ.ObjectIdentifier(f"{id_CompSig}.40")
-id_HashMLDSA44_RSA2048_PKCS15_SHA256 = univ.ObjectIdentifier(f"{id_CompSig}.41")
-id_HashMLDSA44_Ed25519_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.42")
-id_HashMLDSA44_ECDSA_P256_SHA256 = univ.ObjectIdentifier(f"{id_CompSig}.43")
-id_HashMLDSA65_RSA3072_PSS_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.44")
-id_HashMLDSA65_RSA3072_PKCS15_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.45")
-id_HashMLDSA65_RSA4096_PSS_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.46")
-id_HashMLDSA65_RSA4096_PKCS15_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.47")
-id_HashMLDSA65_ECDSA_P384_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.48")
-id_HashMLDSA65_ECDSA_brainpoolP256r1_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.49")
-id_HashMLDSA65_Ed25519_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.50")
-id_HashMLDSA87_ECDSA_P384_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.51")
-id_HashMLDSA87_ECDSA_brainpoolP384r1_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.52")
-id_HashMLDSA87_Ed448_SHA512 = univ.ObjectIdentifier(f"{id_CompSig}.53")
+id_hash_mldsa44_rsa2048_pss_sha256 = univ.ObjectIdentifier(f"{id_CompSig}.40")
+id_hash_mldsa44_rsa2048_pkcs15_sha256 = univ.ObjectIdentifier(f"{id_CompSig}.41")
+id_hash_mldsa44_ed25519_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.42")
+id_hash_mldsa44_ecdsa_p256_sha256 = univ.ObjectIdentifier(f"{id_CompSig}.43")
+id_hash_mldsa65_rsa3072_pss_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.44")
+id_hash_mldsa65_rsa3072_pkcs15_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.45")
+id_hash_mldsa65_rsa4096_pss_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.46")
+id_hash_mldsa65_rsa4096_pkcs15_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.47")
+id_hash_mldsa65_ecdsa_p384_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.48")
+id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.49")
+id_hash_mldsa65_ed25519_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.50")
+id_hash_mldsa87_ecdsa_p384_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.51")
+id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.52")
+id_hash_mldsa87_ed448_sha512 = univ.ObjectIdentifier(f"{id_CompSig}.53")
 
 PREHASH_OID_2_HASH = {
-    id_HashMLDSA44_RSA2048_PSS_SHA256: "sha256",
-    id_HashMLDSA44_RSA2048_PKCS15_SHA256: "sha256",
-    id_HashMLDSA44_Ed25519_SHA512: "sha512",
-    id_HashMLDSA44_ECDSA_P256_SHA256: "sha256",
-    id_HashMLDSA65_RSA3072_PSS_SHA512: "sha512",
-    id_HashMLDSA65_RSA3072_PKCS15_SHA512: "sha512",
-    id_HashMLDSA65_RSA4096_PSS_SHA512: "sha512",
-    id_HashMLDSA65_RSA4096_PKCS15_SHA512: "sha512",
-    id_HashMLDSA65_ECDSA_P384_SHA512: "sha512",
-    id_HashMLDSA65_ECDSA_brainpoolP256r1_SHA512: "sha512",
-    id_HashMLDSA65_Ed25519_SHA512: "sha512",
-    id_HashMLDSA87_ECDSA_P384_SHA512: "sha512",
-    id_HashMLDSA87_ECDSA_brainpoolP384r1_SHA512: "sha512",
-    id_HashMLDSA87_Ed448_SHA512: "sha512",
+    id_hash_mldsa44_rsa2048_pss_sha256: "sha256",
+    id_hash_mldsa44_rsa2048_pkcs15_sha256: "sha256",
+    id_hash_mldsa44_ed25519_sha512: "sha512",
+    id_hash_mldsa44_ecdsa_p256_sha256: "sha256",
+    id_hash_mldsa65_rsa3072_pss_sha512: "sha512",
+    id_hash_mldsa65_rsa3072_pkcs15_sha512: "sha512",
+    id_hash_mldsa65_rsa4096_pss_sha512: "sha512",
+    id_hash_mldsa65_rsa4096_pkcs15_sha512: "sha512",
+    id_hash_mldsa65_ecdsa_p384_sha512: "sha512",
+    id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512: "sha512",
+    id_hash_mldsa65_ed25519_sha512: "sha512",
+    id_hash_mldsa87_ecdsa_p384_sha512: "sha512",
+    id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512: "sha512",
+    id_hash_mldsa87_ed448_sha512: "sha512",
 }
 CMS_COMPOSITE_OID_2_HASH = {}
 
-id_MLDSA44_RSA2048_PSS = univ.ObjectIdentifier(f"{id_CompSig}.21")
-id_MLDSA44_RSA2048_PKCS15 = univ.ObjectIdentifier(f"{id_CompSig}.22")
-id_MLDSA44_Ed25519 = univ.ObjectIdentifier(f"{id_CompSig}.23")
-id_MLDSA44_ECDSA_P256 = univ.ObjectIdentifier(f"{id_CompSig}.24")
-id_MLDSA65_RSA3072_PSS = univ.ObjectIdentifier(f"{id_CompSig}.26")
-id_MLDSA65_RSA3072_PKCS15 = univ.ObjectIdentifier(f"{id_CompSig}.27")
-id_MLDSA65_RSA4096_PSS = univ.ObjectIdentifier(f"{id_CompSig}.34")
-id_MLDSA65_RSA4096_PKCS15 = univ.ObjectIdentifier(f"{id_CompSig}.35")
-id_MLDSA65_ECDSA_P384 = univ.ObjectIdentifier(f"{id_CompSig}.28")
-id_MLDSA65_ECDSA_brainpoolP256r1 = univ.ObjectIdentifier(f"{id_CompSig}.29")
-id_MLDSA65_Ed25519 = univ.ObjectIdentifier(f"{id_CompSig}.30")
-id_MLDSA87_ECDSA_P384 = univ.ObjectIdentifier(f"{id_CompSig}.31")
-id_MLDSA87_ECDSA_brainpoolP384r1 = univ.ObjectIdentifier(f"{id_CompSig}.32")
-id_MLDSA87_Ed448 = univ.ObjectIdentifier(f"{id_CompSig}.33")
+id_mldsa44_rsa2048_pss = univ.ObjectIdentifier(f"{id_CompSig}.21")
+id_mldsa44_rsa2048_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.22")
+id_mldsa44_ed25519 = univ.ObjectIdentifier(f"{id_CompSig}.23")
+id_mldsa44_ecdsa_p256 = univ.ObjectIdentifier(f"{id_CompSig}.24")
+id_mldsa65_rsa3072_pss = univ.ObjectIdentifier(f"{id_CompSig}.26")
+id_mldsa65_rsa3072_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.27")
+id_mldsa65_rsa4096_pss = univ.ObjectIdentifier(f"{id_CompSig}.34")
+id_mldsa65_rsa4096_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.35")
+id_mldsa65_ecdsa_p384 = univ.ObjectIdentifier(f"{id_CompSig}.28")
+id_mldsa65_ecdsa_brainpool_p256r1 = univ.ObjectIdentifier(f"{id_CompSig}.29")
+id_mldsa65_ed25519 = univ.ObjectIdentifier(f"{id_CompSig}.30")
+id_mldsa87_ecdsa_p384 = univ.ObjectIdentifier(f"{id_CompSig}.31")
+id_mldsa87_ecdsa_brainpool_p384r1 = univ.ObjectIdentifier(f"{id_CompSig}.32")
+id_mldsa87_ed448 = univ.ObjectIdentifier(f"{id_CompSig}.33")
 
 
 PURE_COMPOSITE_NAME_TO_OID = {
-    "ml-dsa-44-rsa2048-pss": id_MLDSA44_RSA2048_PSS,
-    "ml-dsa-44-rsa2048-pkcs15": id_MLDSA44_RSA2048_PKCS15,
-    "ml-dsa-44-ed25519": id_MLDSA44_Ed25519,
-    "ml-dsa-44-ecdsa-secp256r1": id_MLDSA44_ECDSA_P256,
-    "ml-dsa-65-rsa3072-pss": id_MLDSA65_RSA3072_PSS,
-    "ml-dsa-65-rsa3072-pkcs15": id_MLDSA65_RSA3072_PKCS15,
-    "ml-dsa-65-rsa4096-pss": id_MLDSA65_RSA4096_PSS,
-    "ml-dsa-65-rsa4096-pkcs15": id_MLDSA65_RSA4096_PKCS15,
-    "ml-dsa-65-ecdsa-secp384r1": id_MLDSA65_ECDSA_P384,
-    "ml-dsa-65-ecdsa-brainpoolp256r1": id_MLDSA65_ECDSA_brainpoolP256r1,
-    "ml-dsa-65-ed25519": id_MLDSA65_Ed25519,
-    "ml-dsa-87-ecdsa-secp384r1": id_MLDSA87_ECDSA_P384,
-    "ml-dsa-87-ecdsa-brainpoolp384r1": id_MLDSA87_ECDSA_brainpoolP384r1,
-    "ml-dsa-87-ed448": id_MLDSA87_Ed448,
+    "ml-dsa-44-rsa2048-pss": id_mldsa44_rsa2048_pss,
+    "ml-dsa-44-rsa2048-pkcs15": id_mldsa44_rsa2048_pkcs15,
+    "ml-dsa-44-ed25519": id_mldsa44_ed25519,
+    "ml-dsa-44-ecdsa-secp256r1": id_mldsa44_ecdsa_p256,
+    "ml-dsa-65-rsa3072-pss": id_mldsa65_rsa3072_pss,
+    "ml-dsa-65-rsa3072-pkcs15": id_mldsa65_rsa3072_pkcs15,
+    "ml-dsa-65-rsa4096-pss": id_mldsa65_rsa4096_pss,
+    "ml-dsa-65-rsa4096-pkcs15": id_mldsa65_rsa4096_pkcs15,
+    "ml-dsa-65-ecdsa-secp384r1": id_mldsa65_ecdsa_p384,
+    "ml-dsa-65-ecdsa-brainpoolp256r1": id_mldsa65_ecdsa_brainpool_p256r1,
+    "ml-dsa-65-ed25519": id_mldsa65_ed25519,
+    "ml-dsa-87-ecdsa-secp384r1": id_mldsa87_ecdsa_p384,
+    "ml-dsa-87-ecdsa-brainpoolp384r1": id_mldsa87_ecdsa_brainpool_p384r1,
+    "ml-dsa-87-ed448": id_mldsa87_ed448,
 }
 HASH_COMPOSITE_NAME_TO_OID = {
-    "hash-ml-dsa-44-rsa2048-pss": id_HashMLDSA44_RSA2048_PSS_SHA256,
-    "hash-ml-dsa-44-rsa2048-pkcs15": id_HashMLDSA44_RSA2048_PKCS15_SHA256,
-    "hash-ml-dsa-44-ed25519": id_HashMLDSA44_Ed25519_SHA512,
-    "hash-ml-dsa-44-ecdsa-secp256r1": id_HashMLDSA44_ECDSA_P256_SHA256,
-    "hash-ml-dsa-65-rsa3072-pss": id_HashMLDSA65_RSA3072_PSS_SHA512,
-    "hash-ml-dsa-65-rsa3072-pkcs15": id_HashMLDSA65_RSA3072_PKCS15_SHA512,
-    "hash-ml-dsa-65-rsa4096-pss": id_HashMLDSA65_RSA4096_PSS_SHA512,
-    "hash-ml-dsa-65-rsa4096-pkcs15": id_HashMLDSA65_RSA4096_PKCS15_SHA512,
-    "hash-ml-dsa-65-ecdsa-secp384r1": id_HashMLDSA65_ECDSA_P384_SHA512,
-    "hash-ml-dsa-65-ecdsa-brainpoolp256r1": id_HashMLDSA65_ECDSA_brainpoolP256r1_SHA512,
-    "hash-ml-dsa-65-ed25519": id_HashMLDSA65_Ed25519_SHA512,
-    "hash-ml-dsa-87-ecdsa-secp384r1": id_HashMLDSA87_ECDSA_P384_SHA512,
-    "hash-ml-dsa-87-ecdsa-brainpoolp384r1": id_HashMLDSA87_ECDSA_brainpoolP384r1_SHA512,
-    "hash-ml-dsa-87-ed448": id_HashMLDSA87_Ed448_SHA512,
+    "hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
+    "hash-ml-dsa-44-rsa2048-pkcs15": id_hash_mldsa44_rsa2048_pkcs15_sha256,
+    "hash-ml-dsa-44-ed25519": id_hash_mldsa44_ed25519_sha512,
+    "hash-ml-dsa-44-ecdsa-secp256r1": id_hash_mldsa44_ecdsa_p256_sha256,
+    "hash-ml-dsa-65-rsa3072-pss": id_hash_mldsa65_rsa3072_pss_sha512,
+    "hash-ml-dsa-65-rsa3072-pkcs15": id_hash_mldsa65_rsa3072_pkcs15_sha512,
+    "hash-ml-dsa-65-rsa4096-pss": id_hash_mldsa65_rsa4096_pss_sha512,
+    "hash-ml-dsa-65-rsa4096-pkcs15": id_hash_mldsa65_rsa4096_pkcs15_sha512,
+    "hash-ml-dsa-65-ecdsa-secp384r1": id_hash_mldsa65_ecdsa_p384_sha512,
+    "hash-ml-dsa-65-ecdsa-brainpoolp256r1": id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512,
+    "hash-ml-dsa-65-ed25519": id_hash_mldsa65_ed25519_sha512,
+    "hash-ml-dsa-87-ecdsa-secp384r1": id_hash_mldsa87_ecdsa_p384_sha512,
+    "hash-ml-dsa-87-ecdsa-brainpoolp384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
+    "hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
 }
 id_rsa_kem_spki = univ.ObjectIdentifier("1.2.840.113549.1.9.16.3")
 PURE_OID_TO_HASH = {
-    id_MLDSA44_RSA2048_PSS: "sha256",
-    id_MLDSA44_RSA2048_PKCS15: "sha256",
-    id_MLDSA44_Ed25519: None,
-    id_MLDSA44_ECDSA_P256: "sha256",
-    id_MLDSA65_RSA3072_PSS: "sha256",
-    id_MLDSA65_RSA3072_PKCS15: "sha256",
-    id_MLDSA65_RSA4096_PSS: "sha384",
-    id_MLDSA65_RSA4096_PKCS15: "sha384",
-    id_MLDSA65_ECDSA_P384: "sha384",
-    id_MLDSA65_ECDSA_brainpoolP256r1: "sha256",
-    id_MLDSA65_Ed25519: None,
-    id_MLDSA87_ECDSA_P384: "sha384",
-    id_MLDSA87_ECDSA_brainpoolP384r1: "sha384",
-    id_MLDSA87_Ed448: None,
+    id_mldsa44_rsa2048_pss: "sha256",
+    id_mldsa44_rsa2048_pkcs15: "sha256",
+    id_mldsa44_ed25519: None,
+    id_mldsa44_ecdsa_p256: "sha256",
+    id_mldsa65_rsa3072_pss: "sha256",
+    id_mldsa65_rsa3072_pkcs15: "sha256",
+    id_mldsa65_rsa4096_pss: "sha384",
+    id_mldsa65_rsa4096_pkcs15: "sha384",
+    id_mldsa65_ecdsa_p384: "sha384",
+    id_mldsa65_ecdsa_brainpool_p256r1: "sha256",
+    id_mldsa65_ed25519: None,
+    id_mldsa87_ecdsa_p384: "sha384",
+    id_mldsa87_ecdsa_brainpool_p384r1: "sha384",
+    id_mldsa87_ed448: None,
 }
 
 
@@ -204,16 +204,16 @@ PURE_OID_TO_HASH = {
 ######################
 
 
-id_MLKEM768_RSA2048 = univ.ObjectIdentifier(f"{id_CompKEM}.21")
-id_MLKEM768_RSA3072 = univ.ObjectIdentifier(f"{id_CompKEM}.22")
-id_MLKEM768_RSA4096 = univ.ObjectIdentifier(f"{id_CompKEM}.23")
-id_MLKEM768_X25519 = univ.ObjectIdentifier(f"{id_CompKEM}.24")
-id_MLKEM768_ECDH_P384 = univ.ObjectIdentifier(f"{id_CompKEM}.25")
-id_MLKEM768_ECDH_brainpoolP256r1 = univ.ObjectIdentifier(f"{id_CompKEM}.26")
+id_mlkem768_rsa2048 = univ.ObjectIdentifier(f"{id_CompKEM}.21")
+id_mlkem768_rsa3072 = univ.ObjectIdentifier(f"{id_CompKEM}.22")
+id_mlkem768_rsa4096 = univ.ObjectIdentifier(f"{id_CompKEM}.23")
+id_mlkem768_x25519 = univ.ObjectIdentifier(f"{id_CompKEM}.24")
+id_mlkem768_ecdh_p384 = univ.ObjectIdentifier(f"{id_CompKEM}.25")
+id_mlkem768_ecdh_brainpool_p256r1 = univ.ObjectIdentifier(f"{id_CompKEM}.26")
 
-id_MLKEM1024_ECDH_P384 = univ.ObjectIdentifier(f"{id_CompKEM}.27")
-id_MLKEM1024_ECDH_brainpoolP384r1 = univ.ObjectIdentifier(f"{id_CompKEM}.28")
-id_MLKEM1024_X448 = univ.ObjectIdentifier(f"{id_CompKEM}.29")
+id_mlkem1024_ecdh_p384 = univ.ObjectIdentifier(f"{id_CompKEM}.27")
+id_mlkem1024_ecdh_brainpool_p384r1 = univ.ObjectIdentifier(f"{id_CompKEM}.28")
+id_mlkem1024_x448 = univ.ObjectIdentifier(f"{id_CompKEM}.29")
 
 
 id_composite_frodokem = f"{id_composite_kem_test_suite}.1"
@@ -248,15 +248,15 @@ id_frodokem_1344_shake_x448 = univ.ObjectIdentifier(f"{id_composite_frodokem}.18
 
 
 MLKEM_OID_2_KDF_MAPPING = {
-    id_MLKEM768_RSA2048: "hkdf-sha256",
-    id_MLKEM768_RSA3072: "hkdf-sha256",
-    id_MLKEM768_RSA4096: "hkdf-sha256",
-    id_MLKEM768_X25519: "sha3-256",
-    id_MLKEM768_ECDH_P384: "hkdf-sha256",
-    id_MLKEM768_ECDH_brainpoolP256r1: "hkdf-sha256",
-    id_MLKEM1024_ECDH_P384: "sha3-256",
-    id_MLKEM1024_ECDH_brainpoolP384r1: "sha3-256",
-    id_MLKEM1024_X448: "sha3-256",
+    id_mlkem768_rsa2048: "hkdf-sha256",
+    id_mlkem768_rsa3072: "hkdf-sha256",
+    id_mlkem768_rsa4096: "hkdf-sha256",
+    id_mlkem768_x25519: "sha3-256",
+    id_mlkem768_ecdh_p384: "hkdf-sha256",
+    id_mlkem768_ecdh_brainpool_p256r1: "hkdf-sha256",
+    id_mlkem1024_ecdh_p384: "sha3-256",
+    id_mlkem1024_ecdh_brainpool_p384r1: "sha3-256",
+    id_mlkem1024_x448: "sha3-256",
 }
 
 
@@ -331,17 +331,17 @@ COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID = {
 
 COMPOSITE_MLKEM_MAPPING = {
     "ml-kem-768": {
-        "RSA2048": id_MLKEM768_RSA2048,
-        "RSA3072": id_MLKEM768_RSA3072,
-        "RSA4096": id_MLKEM768_RSA4096,
-        "X25519": id_MLKEM768_X25519,
-        "ECDH-P384": id_MLKEM768_ECDH_P384,
-        "ECDH-brainpoolP256r1": id_MLKEM768_ECDH_brainpoolP256r1,
+        "RSA2048": id_mlkem768_rsa2048,
+        "RSA3072": id_mlkem768_rsa3072,
+        "RSA4096": id_mlkem768_rsa4096,
+        "X25519": id_mlkem768_x25519,
+        "ECDH-P384": id_mlkem768_ecdh_p384,
+        "ECDH-brainpoolP256r1": id_mlkem768_ecdh_brainpool_p256r1,
     },
     "ml-kem-1024": {
-        "ECDH-P384": id_MLKEM1024_ECDH_P384,
-        "ECDH-brainpoolP384r1": id_MLKEM1024_ECDH_brainpoolP384r1,
-        "X448": id_MLKEM1024_X448,
+        "ECDH-P384": id_mlkem1024_ecdh_p384,
+        "ECDH-brainpoolP384r1": id_mlkem1024_ecdh_brainpool_p384r1,
+        "X448": id_mlkem1024_x448,
     },
 }
 
@@ -351,30 +351,30 @@ id_at_deltaCertificateRequestSignature = univ.ObjectIdentifier("2.16.840.1.11402
 id_at_deltaCertificateRequest = univ.ObjectIdentifier("2.16.840.1.114027.80.6.2")
 
 
-id_Chempat_X25519_sntrup761 = univ.ObjectIdentifier(f"{id_Chempat}.1")
-id_Chempat_X25519_mceliece348864 = univ.ObjectIdentifier(f"{id_Chempat}.2")
-id_Chempat_X25519_mceliece460896 = univ.ObjectIdentifier(f"{id_Chempat}.3")
-id_Chempat_X25519_mceliece6688128 = univ.ObjectIdentifier(f"{id_Chempat}.4")
-id_Chempat_X25519_mceliece6960119 = univ.ObjectIdentifier(f"{id_Chempat}.5")
-id_Chempat_X25519_mceliece8192128 = univ.ObjectIdentifier(f"{id_Chempat}.6")
-id_Chempat_X448_mceliece348864 = univ.ObjectIdentifier(f"{id_Chempat}.7")
-id_Chempat_X448_mceliece460896 = univ.ObjectIdentifier(f"{id_Chempat}.8")
-id_Chempat_X448_mceliece6688128 = univ.ObjectIdentifier(f"{id_Chempat}.9")
-id_Chempat_X448_mceliece6960119 = univ.ObjectIdentifier(f"{id_Chempat}.10")
-id_Chempat_X448_mceliece8192128 = univ.ObjectIdentifier(f"{id_Chempat}.11")
-id_Chempat_X25519_ML_KEM_768 = univ.ObjectIdentifier(f"{id_Chempat}.12")
-id_Chempat_X448_ML_KEM_1024 = univ.ObjectIdentifier(f"{id_Chempat}.13")
-id_Chempat_P256_ML_KEM_768 = univ.ObjectIdentifier(f"{id_Chempat}.14")
+id_chempat_x25519_sntrup761 = univ.ObjectIdentifier(f"{id_Chempat}.1")
+id_chempat_x25519_mceliece348864 = univ.ObjectIdentifier(f"{id_Chempat}.2")
+id_chempat_x25519_mceliece460896 = univ.ObjectIdentifier(f"{id_Chempat}.3")
+id_chempat_x25519_mceliece6688128 = univ.ObjectIdentifier(f"{id_Chempat}.4")
+id_chempat_x25519_mceliece6960119 = univ.ObjectIdentifier(f"{id_Chempat}.5")
+id_chempat_x25519_mceliece8192128 = univ.ObjectIdentifier(f"{id_Chempat}.6")
+id_chempat_x448_mceliece348864 = univ.ObjectIdentifier(f"{id_Chempat}.7")
+id_chempat_x448_mceliece460896 = univ.ObjectIdentifier(f"{id_Chempat}.8")
+id_chempat_x448_mceliece6688128 = univ.ObjectIdentifier(f"{id_Chempat}.9")
+id_chempat_x448_mceliece6960119 = univ.ObjectIdentifier(f"{id_Chempat}.10")
+id_chempat_x448_mceliece8192128 = univ.ObjectIdentifier(f"{id_Chempat}.11")
+id_chempat_x25519_ml_kem_768 = univ.ObjectIdentifier(f"{id_Chempat}.12")
+id_chempat_x448_ml_kem_1024 = univ.ObjectIdentifier(f"{id_Chempat}.13")
+id_chempat_p256_ml_kem_768 = univ.ObjectIdentifier(f"{id_Chempat}.14")
 id_Chempat_P384_ML_KEM_1024 = univ.ObjectIdentifier(f"{id_Chempat}.15")
-id_Chempat_brainpoolP256_ML_KEM_768 = univ.ObjectIdentifier(f"{id_Chempat}.16")
-id_Chempat_brainpoolP384_ML_KEM_1024 = univ.ObjectIdentifier(f"{id_Chempat}.17")
+id_chempat_brainpool_p256_ml_kem_768 = univ.ObjectIdentifier(f"{id_Chempat}.16")
+id_chempat_brainpool_p384_ml_kem_1024 = univ.ObjectIdentifier(f"{id_Chempat}.17")
 
 # FrodoKEM
-id_Chempat_X25519_frodokem_aes_976 = univ.ObjectIdentifier(f"{id_Chempat}.18")
-id_Chempat_X25519_frodokem_shake_976 = univ.ObjectIdentifier(f"{id_Chempat}.19")
-id_Chempat_X448_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.20")
-id_Chempat_X448_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.21")
-id_chempat_P256_frodokem_aes_976 = univ.ObjectIdentifier(f"{id_Chempat}.22")
+id_chempat_x25519_frodokem_aes_976 = univ.ObjectIdentifier(f"{id_Chempat}.18")
+id_chempat_x25519_frodokem_shake_976 = univ.ObjectIdentifier(f"{id_Chempat}.19")
+id_chempat_x448_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.20")
+id_chempat_x448_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.21")
+id_chempat_p256_frodokem_aes_976 = univ.ObjectIdentifier(f"{id_Chempat}.22")
 id_chempat_P256_frodokem_shake_976 = univ.ObjectIdentifier(f"{id_Chempat}.23")
 id_chempat_P384_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.24")
 id_chempat_P384_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.25")
@@ -385,29 +385,29 @@ id_chempat_brainpoolP384_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chemp
 
 
 CHEMPAT_OID_2_NAME = {
-    id_Chempat_X25519_sntrup761: "Chempat-X25519-sntrup761",
-    id_Chempat_X25519_mceliece348864: "Chempat-X25519-mceliece348864",
-    id_Chempat_X25519_mceliece460896: "Chempat-X25519-mceliece460896",
-    id_Chempat_X25519_mceliece6688128: "Chempat-X25519-mceliece6688128",
-    id_Chempat_X25519_mceliece6960119: "Chempat-X25519-mceliece6960119",
-    id_Chempat_X25519_mceliece8192128: "Chempat-X25519-mceliece8192128",
-    id_Chempat_X448_mceliece348864: "Chempat-X448-mceliece348864",
-    id_Chempat_X448_mceliece460896: "Chempat-X448-mceliece460896",
-    id_Chempat_X448_mceliece6688128: "Chempat-X448-mceliece6688128",
-    id_Chempat_X448_mceliece6960119: "Chempat-X448-mceliece6960119",
-    id_Chempat_X448_mceliece8192128: "Chempat-X448-mceliece8192128",
-    id_Chempat_X25519_ML_KEM_768: "Chempat-X25519-ML-KEM-768",
-    id_Chempat_X448_ML_KEM_1024: "Chempat-X448-ML-KEM-1024",
-    id_Chempat_P256_ML_KEM_768: "Chempat-P256-ML-KEM-768",
+    id_chempat_x25519_sntrup761: "Chempat-X25519-sntrup761",
+    id_chempat_x25519_mceliece348864: "Chempat-X25519-mceliece348864",
+    id_chempat_x25519_mceliece460896: "Chempat-X25519-mceliece460896",
+    id_chempat_x25519_mceliece6688128: "Chempat-X25519-mceliece6688128",
+    id_chempat_x25519_mceliece6960119: "Chempat-X25519-mceliece6960119",
+    id_chempat_x25519_mceliece8192128: "Chempat-X25519-mceliece8192128",
+    id_chempat_x448_mceliece348864: "Chempat-X448-mceliece348864",
+    id_chempat_x448_mceliece460896: "Chempat-X448-mceliece460896",
+    id_chempat_x448_mceliece6688128: "Chempat-X448-mceliece6688128",
+    id_chempat_x448_mceliece6960119: "Chempat-X448-mceliece6960119",
+    id_chempat_x448_mceliece8192128: "Chempat-X448-mceliece8192128",
+    id_chempat_x25519_ml_kem_768: "Chempat-X25519-ML-KEM-768",
+    id_chempat_x448_ml_kem_1024: "Chempat-X448-ML-KEM-1024",
+    id_chempat_p256_ml_kem_768: "Chempat-P256-ML-KEM-768",
     id_Chempat_P384_ML_KEM_1024: "Chempat-P384-ML-KEM-1024",
-    id_Chempat_brainpoolP256_ML_KEM_768: "Chempat-brainpoolP256-ML-KEM-768",
-    id_Chempat_brainpoolP384_ML_KEM_1024: "Chempat-brainpoolP384-ML-KEM-1024",
+    id_chempat_brainpool_p256_ml_kem_768: "Chempat-brainpoolP256-ML-KEM-768",
+    id_chempat_brainpool_p384_ml_kem_1024: "Chempat-brainpoolP384-ML-KEM-1024",
 }
 
 CHEMPAT_FRODOKEM_OID_2_NAME = {
-    id_Chempat_X25519_frodokem_aes_976: "Chempat-X25519-frodokem-976-aes",
-    id_Chempat_X25519_frodokem_shake_976: "Chempat-X25519-frodokem-976-shake",
-    id_chempat_P256_frodokem_aes_976: "Chempat-P256-frodokem-976-aes",
+    id_chempat_x25519_frodokem_aes_976: "Chempat-X25519-frodokem-976-aes",
+    id_chempat_x25519_frodokem_shake_976: "Chempat-X25519-frodokem-976-shake",
+    id_chempat_p256_frodokem_aes_976: "Chempat-P256-frodokem-976-aes",
     id_chempat_P256_frodokem_shake_976: "Chempat-P256-frodokem-976-shake",
     id_chempat_brainpoolP256_frodokem_aes_976: "Chempat-brainpoolP256-frodokem-976-aes",
     id_chempat_brainpoolP256_frodokem_shake_976: "Chempat-brainpoolP256-frodokem-976-shake",
@@ -415,8 +415,8 @@ CHEMPAT_FRODOKEM_OID_2_NAME = {
     id_chempat_brainpoolP384_frodokem_shake_1344: "Chempat-brainpoolP384-frodokem-1344-shake",
     id_chempat_P384_frodokem_aes_1344: "Chempat-P384-frodokem-1344-aes",
     id_chempat_P384_frodokem_shake_1344: "Chempat-P384-frodokem-1344-shake",
-    id_Chempat_X448_frodokem_aes_1344: "Chempat-X448-frodokem-1344-aes",
-    id_Chempat_X448_frodokem_shake_1344: "Chempat-X448-frodokem-1344-shake",
+    id_chempat_x448_frodokem_aes_1344: "Chempat-X448-frodokem-1344-aes",
+    id_chempat_x448_frodokem_shake_1344: "Chempat-X448-frodokem-1344-shake",
 }
 
 CHEMPAT_OID_2_NAME.update(CHEMPAT_FRODOKEM_OID_2_NAME)
@@ -450,15 +450,15 @@ id_altSubPubKeyExt = univ.ObjectIdentifier(f"{id_hybrid_sun}.6")
 id_altSignatureExt = univ.ObjectIdentifier(f"{id_hybrid_sun}.7")
 
 COMPOSITE_MLKEM_NAME_2_OID = {
-    "ml-kem-768-rsa2048": id_MLKEM768_RSA2048,
-    "ml-kem-768-rsa3072": id_MLKEM768_RSA3072,
-    "ml-kem-768-rsa4096": id_MLKEM768_RSA4096,
-    "ml-kem-768-ecdh-secp384r1": id_MLKEM768_ECDH_P384,
-    "ml-kem-768-ecdh-brainpoolP256r1": id_MLKEM768_ECDH_brainpoolP256r1,
-    "ml-kem-768-x25519": id_MLKEM768_X25519,
-    "ml-kem-1024-ecdh-secp384r1": id_MLKEM1024_ECDH_P384,
-    "ml-kem-1024-ecdh-brainpoolP384r1": id_MLKEM1024_ECDH_brainpoolP384r1,
-    "ml-kem-1024-x448": id_MLKEM1024_X448,
+    "ml-kem-768-rsa2048": id_mlkem768_rsa2048,
+    "ml-kem-768-rsa3072": id_mlkem768_rsa3072,
+    "ml-kem-768-rsa4096": id_mlkem768_rsa4096,
+    "ml-kem-768-ecdh-secp384r1": id_mlkem768_ecdh_p384,
+    "ml-kem-768-ecdh-brainpoolP256r1": id_mlkem768_ecdh_brainpool_p256r1,
+    "ml-kem-768-x25519": id_mlkem768_x25519,
+    "ml-kem-1024-ecdh-secp384r1": id_mlkem1024_ecdh_p384,
+    "ml-kem-1024-ecdh-brainpoolP384r1": id_mlkem1024_ecdh_brainpool_p384r1,
+    "ml-kem-1024-x448": id_mlkem1024_x448,
 }
 COMPOSITE_FRODOKEM_NAME_2_OID = {
     "frodokem-976-aes-rsa2048": id_frodokem_976_aes_rsa2048,

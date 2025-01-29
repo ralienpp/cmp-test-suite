@@ -314,11 +314,18 @@ class SLHDSAPublicKey(PQSignaturePublicKey):
         return self.sig_alg
 
     def _check_name(self, name: str):
-        """Check if the parsed name is valid."""
+        """Check if the parsed name is valid.
+
+        :param name: The name to check.
+        """
         pass
 
     def check_hash_alg(self, hash_alg: Union[None, str, hashes.HashAlgorithm]) -> Optional[str]:
-        """Check if the hash algorithm is valid to be used with SLH-DSA."""
+        """Check if the hash algorithm is valid to be used with SLH-DSA.
+
+        :param hash_alg: The hash algorithm to check.
+        :return: The hash algorithm name or None.
+        """
         if hash_alg is None:
             return None
 
@@ -328,6 +335,7 @@ class SLHDSAPublicKey(PQSignaturePublicKey):
         alg = self.name + "-" + hash_alg
         if SLH_DSA_NAME_2_OID_PRE_HASH.get(alg):
             return hash_alg
+        logging.info(f"{self.name} does not support the hash algorithm: {hash_alg}")
         return None
 
     def verify(self, signature: bytes, data: bytes, ctx: bytes = b"", hash_alg: Optional[str] = None) -> None:

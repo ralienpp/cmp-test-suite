@@ -992,7 +992,7 @@ def prepare_cert_req_msg(  # noqa D417 undocumented-param
             else:
                 signature = utils.manipulate_composite_sig(signature)
 
-        popo = prepare_popo(signature=signature, signing_key=private_key, ra_verified=ra_verified)
+        popo = prepare_popo(signature=signature, signing_key=private_key, ra_verified=ra_verified, hash_alg=hash_alg)
         cert_request_msg["popo"] = popo
     elif isinstance(private_key, (x448.X448PrivateKey, x25519.X25519PrivateKey)):
         popo = prepare_popo_challenge_for_non_signing_key(use_encr_cert=use_encr_cert, use_key_enc=False)

@@ -76,7 +76,7 @@ def prepare_requester_certificate(
     current_time = request_time or (int(time.time()) + freshness)
     bin_time = BinaryTime(current_time)
     cert_id = envdatautils.prepare_issuer_and_serial_number(
-        cert=cert_a, invalid_serial_number=invalid_serial_number, invalid_issuer=invalid_issuer
+        cert=cert_a, modify_serial_number=invalid_serial_number, modify_issuer=invalid_issuer
     )
 
     req_cert = RequesterCertificate()
@@ -482,7 +482,7 @@ def prepare_related_cert_extension(
 
 
 @keyword(name="Build Related Certificate")
-def build_related_cert_from( # noqa: D417 Missing argument descriptions in the docstring
+def build_related_cert_from(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
     ca_key: PrivateKey,
     ca_cert: rfc9480.CMPCertificate,

@@ -1224,8 +1224,10 @@ def prepare_ecc_cms_shared_info(
     return ecc_cms_info
 
 
+@not_keyword
 def prepare_originator_identifier_or_key(
-    cert: rfc9480.CMPCertificate,
+    cert: Optional[rfc9480.CMPCertificate] = None,
+    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
 ) -> rfc5652.OriginatorIdentifierOrKey:
     """Create an `OriginatorIdentifierOrKey` from a certificate.
 
@@ -1234,17 +1236,31 @@ def prepare_originator_identifier_or_key(
     extension if present; otherwise, it uses the issuer and serial number.
 
     :param cert: Certificate to derive the originator identifier from (typically CMP protection certificate).
+    :param issuer_and_ser: `IssuerAndSerialNumber` structure to set inside the `rid`. Defaults to `None`.
     :return: An `OriginatorIdentifierOrKey` structure identifying the originator.
+    :raises ValueError: If neither a certificate nor issuer and serial number are provided.
     """
-    ski = certextractutils.get_field_from_certificate(cert, extension="ski")
+
+    if cert is None and issuer_and_ser is None:
+        raise ValueError("Either a certificate or issuer and serial number must be provided.")
+
+    ski = None
+    if cert is not None:
+        ski = certextractutils.get_field_from_certificate(cert, extension="ski")
+
     originator = rfc5652.OriginatorIdentifierOrKey().subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)
     )
-    if ski is not None:
+
+    if issuer_and_ser is not None:
+        originator["issuerAndSerialNumber"] = issuer_and_ser
+
+    elif ski is not None:
         val = rfc5652.SubjectKeyIdentifier(ski).subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
         )
         originator["subjectKeyIdentifier"] = val
+
     else:
         originator["issuerAndSerialNumber"] = prepare_issuer_and_serial_number(cert)
 

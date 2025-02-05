@@ -21,7 +21,7 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
-from resources import cmputils, keyutils, protectionutils
+from resources import certbuildutils, cmputils, keyutils, protectionutils
 from resources.ca_ra_utils import (
     build_cp_from_p10cr,
     build_ip_cmp_message,
@@ -32,7 +32,6 @@ from resources.ca_ra_utils import (
     prepare_encr_cert_for_request,
     verify_sig_pop_for_pki_request,
 )
-from resources import certbuildutils
 from resources.certextractutils import extract_extension_from_csr, get_extension
 from resources.convertutils import copy_asn1_certificate
 from resources.exceptions import BadAlg, BadAsn1Data, InvalidAltSignature, InvalidKeyCombination, UnknownOID

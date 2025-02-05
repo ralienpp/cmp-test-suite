@@ -1437,7 +1437,6 @@ def add_general_messages(  # noqa D417 undocumented-param
     return pki_message
 
 
-
 def _append_messages(
     messages: Set[str],
     body_content: rfc9480.GenMsgContent,

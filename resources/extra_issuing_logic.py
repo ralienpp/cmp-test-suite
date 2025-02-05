@@ -285,40 +285,21 @@ def validate_rid_for_encrypted_rand(
             raise ValueError("`rid` field serialNumber is not equal to the `certReqId`")
 
 
-def _parse_pkimessage_from_der(raw_bytes: bytes) -> Tuple[rfc9480.PKIMessage, POPODecKeyChallContentAsn1]:
+def _parse_pkimessage_from_der(raw_bytes: bytes) -> PKIMessageTMP:
     """Decode the `PKIMessage` and `POPODecKeyChallContent` from the DER-encoded bytes.
 
     :param raw_bytes: The DER-encoded `PKIMessage` as bytes.
-    :return: The parsed `PKIMessage` object and the `POPODecKeyChallContent` object.
+    :return: The parsed `PKIMessage`.
+    :raises BadAsn1Data: If the PKIMessage decoding has a remainder.
     """
     # TODO fix if pyasn1-alt-modules is updated.
-    pki_header, rest = decoder.decode(raw_bytes, rfc9480.PKIHeader())
-    popdecc, rest = decoder.decode(
-        rest, POPODecKeyChallContentAsn1().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 6))
-    )
-
-    pki_protection = rfc9480.PKIProtection().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
-
-    extra_certs = (
-        univ.SequenceOf(componentType=rfc9480.CMPCertificate())
-        .subtype(subtypeSpec=constraint.ValueSizeConstraint(1, float("inf")))
-        .subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1))
-    )
+    # this was newly added in the draft4210bis-*.
+    msg, rest = decoder.decode(raw_bytes, PKIMessageTMP())
 
     if rest:
-        pki_protection, rest = decoder.decode(rest, pki_protection)
+        raise BadAsn1Data("PKIMessage")
 
-    if rest:
-        extra_certs, rest = decoder.decode(rest, extra_certs)
-
-    if rest != b"":
-        raise ValueError("Decoding the PKIMessage had a remainder.")
-
-    msg = rfc9480.PKIMessage()
-    msg["header"] = pki_header
-    msg["extraCerts"] = extra_certs
-    msg["protection"] = pki_protection
-    return msg, popdecc
+    return msg
 
 
 @keyword(name="Process PKIMessage With Popdecc")

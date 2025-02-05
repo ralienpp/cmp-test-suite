@@ -220,6 +220,11 @@ class CompositeSigCMSPublicKey(AbstractCompositeSigPublicKey):
         oid_base = f"{to_add}{self.pq_key.name}-{stringified_trad_name}"
         return oid_base
 
+    @property
+    def name(self) -> str:
+        """Return the name of the composite signature key."""
+        return f"composite-sig-{self.get_name()}"
+
     def _get_hash_name(
         self, domain_oid: Optional[univ.ObjectIdentifier] = None, use_pss: bool = False, pre_hash: bool = False
     ) -> str:
@@ -463,3 +468,8 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
         trad_sig = self._sign_trad(data=m_prime, use_pss=use_pss)
 
         return self.prepare_composite_sig(mldsa_sig, trad_sig)
+
+    @property
+    def name(self) -> str:
+        """Return the name of the composite signature."""
+        return self.public_key().name

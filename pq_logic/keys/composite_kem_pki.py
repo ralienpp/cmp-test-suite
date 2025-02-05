@@ -122,6 +122,24 @@ class CompositeKEMPublicKey(AbstractCompositeKEMPublicKey):
     pq_key: MLKEMPublicKey
     _alternative_hash = False
 
+    @classmethod
+    def _get_trad_name(cls, trad_key):
+        """Return the name of the traditional key."""
+        if isinstance(trad_key, rsa.RSAPrivateKey):
+            return f"rsa{trad_key.key_size}"
+        if isinstance(trad_key, ec.EllipticCurvePrivateKey):
+            return f"ecdh-{trad_key.curve.name}"
+        if isinstance(trad_key, x25519.X25519PrivateKey):
+            return "x25519"
+        if isinstance(trad_key, x448.X448PrivateKey):
+            return "x448"
+        raise ValueError(f"Unsupported traditional key type.: {type(trad_key).__name__}")
+
+    @property
+    def name(self) -> str:
+        """Return the name of the composite KEM."""
+        return self.public_key().name
+
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the composite KEM."""
         return get_oid_for_composite_kem(self.pq_key.name, self.trad_key)
@@ -189,6 +207,14 @@ class CompositeKEMPublicKey(AbstractCompositeKEMPublicKey):
         ct_vals.append(univ.OctetString(trad_ct))
         return combined_ss, encoder.encode(ct_vals)
 
+    @property
+    def ct_length(self) -> int:
+        """Return the length of the ciphertext, with the additional DER-encoded.
+
+        So the complete expected size, when the data is parsed.
+        """
+        return len(self.encaps()[1])
+
 
 class CompositeKEMPrivateKey(AbstractCompositeKEMPrivateKey):
     """Composite KEM private key."""
@@ -196,10 +222,23 @@ class CompositeKEMPrivateKey(AbstractCompositeKEMPrivateKey):
     pq_key: MLKEMPrivateKey
     _alternative_hash = False
 
+    @classmethod
+    def _get_trad_name(cls, trad_key):
+        """Return the name of the traditional key."""
+        if isinstance(trad_key, rsa.RSAPrivateKey):
+            return f"rsa{trad_key.key_size}"
+        if isinstance(trad_key, ec.EllipticCurvePrivateKey):
+            return f"ecdh-{trad_key.curve.name}"
+        if isinstance(trad_key, x25519.X25519PrivateKey):
+            return "x25519"
+        if isinstance(trad_key, x448.X448PrivateKey):
+            return "x448"
+        raise ValueError(f"Unsupported traditional key type.: {type(trad_key).__name__}")
+
     @property
     def name(self) -> str:
         """Return the name of the composite KEM."""
-        return f"composite-kem-{self.pq_key.name}-" + type(self.trad_key).__name__.lower()
+        return f"composite-kem-{self.pq_key.name}-" + self._get_trad_name(self.trad_key)
 
     def _get_key_name(self) -> bytes:
         """Return the algorithm name."""
@@ -275,6 +314,7 @@ class CompositeKEMPrivateKey(AbstractCompositeKEMPrivateKey):
         :return: The computed combined shared secret as bytes.
         :raises BadAsn1Data: If the ciphertext structure is invalid or cannot be decoded.
         """
+
         ct_vals, rest = decoder.decode(ct_vals, CompositeCiphertextValue())
 
         if rest:
@@ -294,6 +334,11 @@ class CompositeKEMPrivateKey(AbstractCompositeKEMPrivateKey):
         )
         return combined_ss
 
+    @property
+    def ct_length(self) -> int:
+        """Return the length of the ciphertext."""
+        return self.public_key().ct_length
+
 
 class CompositeMLKEMRSAPublicKey(CompositeKEMPublicKey):
     """Composite ML-KEM public key with RSA-based traditional KEM."""
@@ -301,12 +346,6 @@ class CompositeMLKEMRSAPublicKey(CompositeKEMPublicKey):
     def get_oid(self, *args, **kwargs) -> univ.ObjectIdentifier:
         """Return the OID of the composite KEM."""
         return get_oid_for_composite_kem(self.pq_key.name, self.trad_key)
-
-    @property
-    def ct_length(self) -> int:
-        """Return the length of the ciphertext."""
-        # because of OAEP-sha256
-        return self.pq_key.ct_length + 256
 
     @property
     def name(self) -> str:
@@ -397,6 +436,11 @@ class CompositeMLKEMECPrivateKey(CompositeKEMPrivateKey):
         """Perform traditional decapsulation using the specified KEM mechanism."""
         dh_kem_mech = ECDHKEM(self.trad_key)
         return dh_kem_mech.decaps(trad_ct)
+
+    @property
+    def ct_length(self) -> int:
+        """Return the length of the ciphertext."""
+        return self.public_key().ct_length
 
 
 class CompositeMLKEMXPublicKey(CompositeKEMPublicKey):

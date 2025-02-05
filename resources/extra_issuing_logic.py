@@ -634,6 +634,7 @@ def prepare_key_agreement_popo(
     return popo_structure
 
 
+@not_keyword
 def compute_dh_static_pop(
     ca_cert: rfc9480.CMPCertificate,
     cert_request: rfc4211.CertRequest,

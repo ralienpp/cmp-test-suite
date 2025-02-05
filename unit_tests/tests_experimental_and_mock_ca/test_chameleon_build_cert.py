@@ -107,6 +107,11 @@ class TestBuildChameleonCert(unittest.TestCase):
 
     def test_build_delta_cert_from_extension_with_skis(self):
 
+        """
+        GIVEN a paired CSR and a CA key and certificate.
+        WHEN building a delta certificate.
+        THEN the certificate is correctly built.
+        """
         base_extensions = prepare_extensions(
             key=self.ec_key,
         )

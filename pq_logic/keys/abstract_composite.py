@@ -20,7 +20,7 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280
 from pyasn1_alt_modules.rfc5958 import OneAsymmetricKey
-from resources.oid_mapping import hash_name_to_instance
+from pq_logic.tmp_fun import hash_name_to_instance
 
 from pq_logic.hybrid_structures import (
     CompositeSignaturePrivateKeyAsn1,
@@ -330,11 +330,6 @@ class AbstractCompositeKEMPublicKey(AbstractCompositePublicKey, ABC):
         spki["algorithm"]["algorithm"] = self.get_oid()
         spki["subjectPublicKey"] = univ.BitString.fromOctetString(data)
         return spki
-
-    @property
-    def ct_length(self) -> int:
-        """Get the length of the ciphertext."""
-        return self.pq_key.ct_length + get_ct_length_for_trad_key(self.trad_key)
 
     @property
     def key_size(self) -> int:

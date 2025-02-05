@@ -26,7 +26,7 @@ from resources.exceptions import BadAsn1Data, BadPOP
 from resources.oid_mapping import get_hash_from_oid
 from resources.prepareutils import prepare_name
 from resources.typingutils import PrivateKeySig
-from robot.api.deco import not_keyword
+from robot.api.deco import not_keyword, keyword
 
 from pq_logic import pq_compute_utils
 from pq_logic.combined_factory import CombinedKeyFactory
@@ -650,6 +650,7 @@ def build_delta_cert_from_paired_cert(paired_cert: rfc9480.CMPCertificate) -> rf
     return delta_cert
 
 
+@keyword(name="Get Chameleon Delta Public Key")
 def get_chameleon_delta_public_key(paired_cert: rfc9480.CMPCertificate) -> rfc5280.SubjectPublicKeyInfo:
     """Extract the delta public key from a paired certificate.
 

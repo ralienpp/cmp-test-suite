@@ -34,7 +34,7 @@ class TestProcessKEMInfo(unittest.TestCase):
         THEN the derived content encryption key is equal to the original content encryption key.
         """
         kem_recip_info = prepare_kem_recip_info(
-            server_cert=self.server_cert,
+            recip_cert=self.server_cert,
             cek=self.content_encryption_key,
             ukm=self.user_keying_material,
             wrap_name="aes256-wrap",
@@ -53,7 +53,7 @@ class TestProcessKEMInfo(unittest.TestCase):
         THEN an InvalidUnwrap exception is raised.
         """
         kem_recip_info = prepare_kem_recip_info(
-            server_cert=self.server_cert,
+            recip_cert=self.server_cert,
             cek=self.content_encryption_key,
             ukm=self.user_keying_material,
             wrap_name="aes256-wrap",
@@ -71,7 +71,7 @@ class TestProcessKEMInfo(unittest.TestCase):
         THEN an InvalidUnwrap exception is raised.
         """
         kem_recip_info = prepare_kem_recip_info(
-            server_cert=self.server_cert,
+            recip_cert=self.server_cert,
             cek=self.content_encryption_key,
             ukm=self.user_keying_material,
             wrap_name="aes256-wrap",
@@ -92,7 +92,7 @@ class TestProcessKEMInfo(unittest.TestCase):
         server_key = load_private_key_from_file("data/keys/private-key-xwing-other.pem")
         server_cert = parse_certificate(load_and_decode_pem_file("data/unittest/hybrid_cert_xwing_other.pem"))
         kem_recip_info = prepare_kem_recip_info(
-            server_cert=server_cert,
+            recip_cert=server_cert,
             cek=self.content_encryption_key,
             ukm=None,
             wrap_name="aes256-wrap",

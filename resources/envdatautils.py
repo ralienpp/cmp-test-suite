@@ -52,7 +52,7 @@ from resources.protectionutils import (
     prepare_pbkdf2_alg_id,
     prepare_wrap_alg_id,
 )
-from resources.typingutils import PrivateKey, PublicKey
+from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
 
 
 @not_keyword
@@ -369,12 +369,12 @@ def prepare_encapsulated_content_info(content: bytes, override_oid: bool = False
 
 
 def prepare_signer_info(
-    signing_key: ec.EllipticCurvePrivateKey,
+    signing_key: PrivateKeySig,
     cert: rfc9480.CMPCertificate,
     e_content: bytes,
     sig_hash_name: str,
     digest_hash_name: Optional[str] = None,
-    negative_signature: bool = False,
+    bad_sig: bool = False,
     version: int = 3,
 ) -> rfc5652.SignerInfo:
     """Create a `SignerInfo` structure for signing content.
@@ -389,7 +389,7 @@ def prepare_signer_info(
     :param e_content: Content to sign (typically the DER-encoded `EncapsulatedContentInfo`).
     :param sig_hash_name: Hash algorithm for signature (e.g., "sha256").
     :param digest_hash_name: Hash algorithm for digest calculation. Defaults to `sig_hash_name`.
-    :param negative_signature: A boolean flag that, if True, modifies the signature of the signed_info.
+    :param bad_sig: Whether to modify the signature of the signed_info. Defaults to `False`.
     `EncapsulatedContentInfo` inside the `SignerInfo` structure.  Defaults to False.
     :param version: The CMSVersion for the structure.
     :return: A `SignerInfo` structure ready to be included in `SignedData`.
@@ -417,19 +417,19 @@ def prepare_signer_info(
     der_encap_content_info = encoder.encode(encap_content_info)
 
     signature = sign_data(der_encap_content_info, signing_key, sig_hash_name)
-    signature += b"" if not negative_signature else b"AA"
+    signature += b"" if not bad_sig else b"AA"
     signer_info["signature"] = univ.OctetString(signature)
 
     return signer_info
 
 
 def prepare_signer_infos(
-    signing_key: ec.EllipticCurvePrivateKey,
+    signing_key: PrivateKeySig,
     cert: rfc9480.CMPCertificate,
     e_content: bytes,
     sig_hash_name: str,
     digest_hash_name: Optional[str] = None,
-    negative_size: bool = False,
+    add_another: bool = False,
     negative_signature: bool = False,
 ) -> rfc5652.SignerInfos:
     """Create a `SignerInfos` set with one or more `SignerInfo` entries.
@@ -442,7 +442,7 @@ def prepare_signer_infos(
     :param e_content: Content to sign.
     :param sig_hash_name: Hash algorithm for signature.
     :param digest_hash_name: Hash algorithm for digest calculation. Defaults to `sig_hash_name`.
-    :param negative_size: If True, adds a second `SignerInfo` for negative testing.
+    :param add_another: If `True`, add another `SignerInfo` for negative testing.
     :param negative_signature: A boolean flag that, if True, modifies the signature of the signed_info.
     `EncapsulatedContentInfo` inside the `SignerInfo` structure.  Defaults to False.
     :return: A `SignerInfos` structure containing one or more `SignerInfo` entries.
@@ -454,11 +454,11 @@ def prepare_signer_infos(
         e_content=e_content,
         digest_hash_name=digest_hash_name,
         sig_hash_name=sig_hash_name,
-        negative_signature=negative_signature,
+        bad_sig=negative_signature,
     )
     signer_infos.append(signer_info)
 
-    if negative_size:
+    if add_another:
         signer_infos.append(signer_info)
 
     return signer_infos
@@ -541,16 +541,13 @@ def prepare_signed_data(
         e_content=e_content,
         sig_hash_name=sig_hash_name,
         digest_hash_name=digest_hash_name,
-        negative_size=False,
+        add_another=False,
         negative_signature=negative_signature,
     )
 
-    der_data = encoder.encode(signed_data)
-    data, _ = decoder.decode(der_data, rfc5652.SignedData())
-
     # to show the different order after decoding
     # print_chain_subject_and_issuer([cert["certificate"] for cert in data["certificates"]])
-    return data
+    return signed_data
 
 
 def prepare_asymmetric_key_package(

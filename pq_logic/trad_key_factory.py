@@ -9,8 +9,10 @@ from typing import Optional
 from cryptography.hazmat.primitives.asymmetric import dh, dsa, ec, ed448, ed25519, rsa, x448, x25519
 from resources.oid_mapping import get_curve_instance
 from resources.typingutils import PrivateKey
+from robot.api.deco import not_keyword
 
 
+@not_keyword
 def generate_ec_key(algorithm: str, curve: Optional[str] = None) -> PrivateKey:
     """Generate a private key for a specified elliptic curve algorithm and curve.
 
@@ -76,6 +78,7 @@ def _generate_dh_private_key(
     return private_key
 
 
+@not_keyword
 def generate_trad_key(algorithm="rsa", **params) -> PrivateKey:  # noqa: D417 for RF docs
     """Generate a `cryptography` key based on the specified algorithm.
 

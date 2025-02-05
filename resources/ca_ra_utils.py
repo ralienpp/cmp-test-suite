@@ -125,7 +125,7 @@ def prepare_challenge(
     ca_key: Optional[PrivateKey] = None,
     bad_witness: bool = False,
     hash_alg: Optional[str] = None,
-    sender: str = "CN=CMP-Test-Suite CA",
+    rand_sender: str = "CN=CMP-Test-Suite CA",
     rand_int: Optional[int] = None,
     iv: Union[str, bytes] = b"AAAAAAAAAAAAAAAA",
 ) -> Tuple[ChallengeASN1, Optional[bytes], Optional[rfc9480.InfoTypeAndValue]]:
@@ -135,7 +135,7 @@ def prepare_challenge(
     :param ca_key: The private key of the CA/RA.
     :param bad_witness: Whether to manipulate the witness value. Defaults to `False`.
     :param hash_alg: The hash algorithm to use. Defaults to `None`.
-    :param sender: The sender inside the Rand structure. Defaults to "CN=CMP-Test-Suite CA".
+    :param rand_sender: The sender inside the Rand structure. Defaults to "CN=CMP-Test-Suite CA".
     :param rand_int: The random number to use. Defaults to `None`.
     :param iv: The initialization vector to use, for AES-CBC. Defaults to `b"AAAAAAAAAAAAAAAA"`.
     :return: The populated `Challenge` structure, the shared secret, and the info value (for KEMs/HybridKEMs).
@@ -144,7 +144,7 @@ def prepare_challenge(
     challenge_obj = ChallengeASN1()
     info_val: Optional[rfc9480.InfoTypeAndValue] = None
 
-    rand = _prepare_rand(sender=sender, rand_int=rand_int)
+    rand = _prepare_rand(sender=rand_sender, rand_int=rand_int)
     data = encoder.encode(rand)
     challenge_obj = _prepare_witness_val(
         challenge_obj=challenge_obj, rand=rand, hash_alg=hash_alg, bad_witness=bad_witness
@@ -175,7 +175,7 @@ def prepare_challenge(
 @keyword(name="Prepare Challenge Encrypted Rand")
 def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in the docstring
     public_key: PublicKey,
-    sender: Optional[Union[rfc9480.GeneralName, str]],
+    rand_sender: Optional[Union[rfc9480.GeneralName, str]],
     rand_int: Optional[int] = None,
     hash_alg: Optional[str] = None,
     bad_witness: bool = False,
@@ -214,7 +214,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     """
     challenge_obj = ChallengeASN1()
 
-    rand_obj = _prepare_rand(sender, rand_int)
+    rand_obj = _prepare_rand(rand_sender, rand_int)
 
     env_data = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
     issuer_and_ser = _prepare_issuer_and_ser_num_for_challenge(cert_req_id)
@@ -225,14 +225,18 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
         target=env_data,
         issuer_and_ser=issuer_and_ser,
         hybrid_key_recip=hybrid_kem_key,
+        enc_oid=rfc5652.id_encryptedData,
     )
 
     challenge_obj = _prepare_witness_val(
         challenge_obj=challenge_obj, rand=rand_obj, hash_alg=hash_alg, bad_witness=bad_witness
     )
 
+    challenge = challenge or b""
+    challenge = str_to_bytes(challenge)
+
     challenge_obj["encryptedRand"] = env_data
-    challenge_obj["challenge"] = univ.OctetString(b"")
+    challenge_obj["challenge"] = univ.OctetString(challenge)
     return challenge_obj
 
 

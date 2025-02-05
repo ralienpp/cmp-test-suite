@@ -1308,10 +1308,11 @@ def prepare_ecc_cms_shared_info(
     return ecc_cms_info
 
 
-@not_keyword
+@keyword(name="Prepare OriginatorIdentifierOrKey")
 def prepare_originator_identifier_or_key(
     cert: Optional[rfc9480.CMPCertificate] = None,
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    invalid_ski: bool = False,
 ) -> rfc5652.OriginatorIdentifierOrKey:
     """Create an `OriginatorIdentifierOrKey` from a certificate.
 
@@ -1319,10 +1320,20 @@ def prepare_originator_identifier_or_key(
     This function prepares this structure by using the SubjectKeyIdentifier
     extension if present; otherwise, it uses the issuer and serial number.
 
-    :param cert: Certificate to derive the originator identifier from (typically CMP protection certificate).
-    :param issuer_and_ser: `IssuerAndSerialNumber` structure to set inside the `rid`. Defaults to `None`.
-    :return: An `OriginatorIdentifierOrKey` structure identifying the originator.
-    :raises ValueError: If neither a certificate nor issuer and serial number are provided.
+    Arguments:
+    ---------
+        - `cert`: The certificate to derive the originator identifier from (typically CMP protection certificate).
+        - `issuer_and_ser`: The `IssuerAndSerialNumber` structure to set inside the `rid`. Defaults to `None`.
+        - `invalid_ski`: If `True`, manipulates the first byte of the SKI. Defaults to `False`.
+
+    Returns:
+    -------
+        - The populated `OriginatorIdentifierOrKey` structure.
+
+    Raises:
+    ------
+        - ValueError: If neither a certificate nor issuer and serial number are provided.
+
     """
     if cert is None and issuer_and_ser is None:
         raise ValueError("Either a certificate or issuer and serial number must be provided.")
@@ -1339,6 +1350,8 @@ def prepare_originator_identifier_or_key(
         originator["issuerAndSerialNumber"] = issuer_and_ser
 
     elif ski is not None:
+        if invalid_ski:
+            ski = utils.manipulate_first_byte(ski)
         val = rfc5652.SubjectKeyIdentifier(ski).subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
         )
@@ -1367,7 +1380,7 @@ def prepare_recipient_encrypted_key(
     :return: A `RecipientEncryptedKey` structure ready to be included in `KeyAgreeRecipientInfo`.
     """
     recip_enc_key = rfc5652.RecipientEncryptedKey()
-    recip_enc_key["rid"] = prepare_recipient_identifier(cert=cmp_cert, iss_and_ser=issuer_and_ser)
+    recip_enc_key["rid"] = prepare_recipient_identifier(cert=cmp_cert, issuer_and_ser=issuer_and_ser)
     if encrypted_key is not None:
         recip_enc_key["encryptedKey"] = encrypted_key
     return recip_enc_key

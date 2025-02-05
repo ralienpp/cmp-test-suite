@@ -1413,6 +1413,7 @@ def prepare_key_agreement_recipient_info(
     ecc_cms_info: Optional[bytes] = None,
     issuer_and_ser_orig: Optional[rfc5652.IssuerAndSerialNumber] = None,
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    originator: Optional[rfc5652.OriginatorIdentifierOrKey] = None,
 ) -> rfc5652.KeyAgreeRecipientInfo:
     """Create a `KeyAgreeRecipientInfo` structure for key agreement.
 
@@ -1433,6 +1434,8 @@ def prepare_key_agreement_recipient_info(
     :param issuer_and_ser_orig: Optional `IssuerAndSerialNumber` structure to set inside the `originator`
     field. Defaults to `None`. Filled with the cmp-protection-cert.
     :param issuer_and_ser: Optional `IssuerAndSerialNumber` structure to set inside the `rid`.
+    :param originator: The `OriginatorIdentifierOrKey` structure to set inside the `originator` field.
+    Defaults to `None`. Filled with the cmp-protection-cert.
     (MUST be populated for POP.)
     :return: A `KeyAgreeRecipientInfo` structure ready to be included in `EnvelopedData`.
     """
@@ -1440,7 +1443,7 @@ def prepare_key_agreement_recipient_info(
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1)
     )
     key_agree_info["version"] = version
-    key_agree_info["originator"] = prepare_originator_identifier_or_key(
+    key_agree_info["originator"] = originator or prepare_originator_identifier_or_key(
         cert=cmp_cert, issuer_and_ser=issuer_and_ser_orig or issuer_and_ser
     )
 

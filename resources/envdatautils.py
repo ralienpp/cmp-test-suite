@@ -348,26 +348,24 @@ def prepare_signed_attributes(message_digest: bytes) -> rfc5652.SignedAttributes
     return data
 
 
-def prepare_encapsulated_content_info(content: bytes, negative_oid: bool = False) -> rfc5652.EncapsulatedContentInfo:
+@not_keyword
+def prepare_encapsulated_content_info(content: bytes, override_oid: bool = False) -> rfc5652.EncapsulatedContentInfo:
     """Create an `EncapsulatedContentInfo` with the provided content.
 
     The `EncapsulatedContentInfo` structure wraps the content that is to be signed or encrypted.
     This function prepares this structure with the specified content type and the actual content.
 
     :param content: Content data to encapsulate.
-    :param negative_oid: If True, use an alternate OID for negative testing (e.g., to simulate errors).
+    :param override_oid: If True, use an alternate OID for negative testing (e.g., to simulate errors).
+    Which is `id_at_commonName`. Defaults to False. The correct OID is `id_ct_KP_aKeyPackage`.
     :return: An `EncapsulatedContentInfo` structure containing the content.
     """
     encap_content_info = rfc5652.EncapsulatedContentInfo()
-    encap_content_info["eContentType"] = rfc5958.id_ct_KP_aKeyPackage if not negative_oid else rfc5280.id_at_commonName
+    encap_content_info["eContentType"] = rfc5958.id_ct_KP_aKeyPackage if not override_oid else rfc5280.id_at_commonName
     econtent = univ.OctetString(content).subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
     encap_content_info["eContent"] = econtent
 
-    # Re-encode and decode to ensure correct structure
-    der_data = encoder.encode(encap_content_info)
-    data, _ = decoder.decode(der_data, rfc5652.EncapsulatedContentInfo())
-
-    return data
+    return encap_content_info
 
 
 def prepare_signer_info(

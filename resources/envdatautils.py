@@ -1328,6 +1328,7 @@ def prepare_key_agreement_recipient_info(
     length: int = 32,
     entity_u_info: Optional[bytes] = None,
     ecc_cms_info: Optional[bytes] = None,
+    issuer_and_ser_orig: Optional[rfc5652.IssuerAndSerialNumber] = None,
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
 ) -> rfc5652.KeyAgreeRecipientInfo:
     """Create a `KeyAgreeRecipientInfo` structure for key agreement.
@@ -1346,6 +1347,8 @@ def prepare_key_agreement_recipient_info(
     :param length: Length of the shared ECC information in bytes.
     :param entity_u_info: Optional entity user information.
     :param ecc_cms_info: Optional pre-encoded ECC CMS shared information.
+    :param issuer_and_ser_orig: Optional `IssuerAndSerialNumber` structure to set inside the `originator`
+    field. Defaults to `None`. Filled with the cmp-protection-cert.
     :param issuer_and_ser: Optional `IssuerAndSerialNumber` structure to set inside the `rid`.
     (MUST be populated for POP.)
     :return: A `KeyAgreeRecipientInfo` structure ready to be included in `EnvelopedData`.
@@ -1354,7 +1357,9 @@ def prepare_key_agreement_recipient_info(
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1)
     )
     key_agree_info["version"] = version
-    key_agree_info["originator"] = prepare_originator_identifier_or_key(cmp_cert)
+    key_agree_info["originator"] = prepare_originator_identifier_or_key(
+        cert=cmp_cert, issuer_and_ser=issuer_and_ser_orig or issuer_and_ser
+    )
 
     if ukm is not None:
         ukm_field = rfc5652.UserKeyingMaterial(ukm).subtype(
@@ -1362,7 +1367,9 @@ def prepare_key_agreement_recipient_info(
         )
         key_agree_info["ukm"] = ukm_field
 
-    recipient_encrypted_key = prepare_recipient_encrypted_key(cmp_cert, encrypted_key, issuer_and_ser)
+    recipient_encrypted_key = prepare_recipient_encrypted_key(
+        cmp_cert=cmp_cert, encrypted_key=encrypted_key, issuer_and_ser=issuer_and_ser
+    )
     recip_keys = rfc5652.RecipientEncryptedKeys()
     recip_keys.append(recipient_encrypted_key)
     if negative_size:

@@ -123,7 +123,7 @@ def prepare_encrypted_content_info(
 
     enc_content_info["encryptedContent"] = enc_content
 
-    return decoder.decode(encoder.encode(enc_content_info), rfc5652.EncryptedContentInfo())[0]
+    return enc_content_info
 
 
 @not_keyword

@@ -48,7 +48,7 @@ def validate_migration_certificate_key_usage(cert: rfc9480.CMPCertificate) -> No
     key_usage = certextractutils.get_field_from_certificate(cert, extension="key_usage")
 
     if key_usage is None:
-        logging.info("Key usage extension was not present parsed certificate.")
+        logging.info("Key usage extension was not present in the parsed certificate.")
         return
 
     key_usage = asn1utils.get_set_bitstring_names(key_usage).split(", ")  # type: ignore

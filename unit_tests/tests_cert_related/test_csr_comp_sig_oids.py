@@ -4,8 +4,8 @@
 
 import unittest
 
-from pq_logic.tmp_oids import (id_MLDSA44_RSA2048_PKCS15, id_MLDSA44_RSA2048_PSS,
-                               id_HashMLDSA44_RSA2048_PSS_SHA256, id_HashMLDSA44_RSA2048_PKCS15_SHA256)
+from pq_logic.tmp_oids import (id_mldsa44_rsa2048_pkcs15, id_mldsa44_rsa2048_pss,
+                               id_hash_mldsa44_rsa2048_pss_sha256, id_hash_mldsa44_rsa2048_pkcs15_sha256)
 from resources.certbuildutils import build_csr
 from resources.keyutils import generate_key
 
@@ -30,9 +30,9 @@ class TestSigOidForCompositeSig(unittest.TestCase):
                         use_pre_hash=False,
         )
 
-        self.assertEqual(str(csr["signatureAlgorithm"]["algorithm"]), str(id_MLDSA44_RSA2048_PKCS15))
+        self.assertEqual(str(csr["signatureAlgorithm"]["algorithm"]), str(id_mldsa44_rsa2048_pkcs15))
         self.assertEqual(str(csr["certificationRequestInfo"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]),
-                         str(id_MLDSA44_RSA2048_PKCS15))
+                         str(id_mldsa44_rsa2048_pkcs15))
 
 
     def test_csr_with_composite_sig_rsa_pss(self):
@@ -47,9 +47,9 @@ class TestSigOidForCompositeSig(unittest.TestCase):
                         use_pre_hash=False
         )
 
-        self.assertEqual(str(csr["signatureAlgorithm"]["algorithm"]), str(id_MLDSA44_RSA2048_PSS))
+        self.assertEqual(str(csr["signatureAlgorithm"]["algorithm"]), str(id_mldsa44_rsa2048_pss))
         self.assertEqual(str(csr["certificationRequestInfo"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]),
-                         str(id_MLDSA44_RSA2048_PSS))
+                         str(id_mldsa44_rsa2048_pss))
 
     def test_csr_with_composite_sig_rsa_prehash(self):
         """
@@ -63,9 +63,9 @@ class TestSigOidForCompositeSig(unittest.TestCase):
                         use_pre_hash=True
         )
 
-        self.assertEqual(str(csr["signatureAlgorithm"]["algorithm"]), str(id_HashMLDSA44_RSA2048_PKCS15_SHA256))
+        self.assertEqual(str(csr["signatureAlgorithm"]["algorithm"]), str(id_hash_mldsa44_rsa2048_pkcs15_sha256))
         self.assertEqual(str(csr["certificationRequestInfo"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]
-                             ), str(id_HashMLDSA44_RSA2048_PKCS15_SHA256))
+                             ), str(id_hash_mldsa44_rsa2048_pkcs15_sha256))
 
     def test_csr_with_composite_sig_rsa_pss_prehash(self):
         """
@@ -80,9 +80,9 @@ class TestSigOidForCompositeSig(unittest.TestCase):
                         use_pre_hash_pub_key=None)
 
         self.assertEqual(str(csr["signatureAlgorithm"]["algorithm"]),
-                         str(id_HashMLDSA44_RSA2048_PKCS15_SHA256))
+                         str(id_hash_mldsa44_rsa2048_pkcs15_sha256))
         self.assertEqual(str(csr["certificationRequestInfo"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]),
-                         str(id_HashMLDSA44_RSA2048_PKCS15_SHA256))
+                         str(id_hash_mldsa44_rsa2048_pkcs15_sha256))
 
 
     def test_csr_with_composite_sig_rsa_pss_and_pub_prehash(self):
@@ -100,7 +100,6 @@ class TestSigOidForCompositeSig(unittest.TestCase):
                         use_pre_hash_pub_key=True
         )
         self.assertEqual(str(csr["signatureAlgorithm"]["algorithm"]),
-                         str(id_MLDSA44_RSA2048_PSS))
+                         str(id_mldsa44_rsa2048_pss))
         self.assertEqual(str(csr["certificationRequestInfo"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]),
-                         str(id_HashMLDSA44_RSA2048_PSS_SHA256))
-
+                         str(id_hash_mldsa44_rsa2048_pss_sha256))

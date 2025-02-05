@@ -7,7 +7,7 @@ import unittest
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480, rfc5280, rfc4211
 
-from pq_logic.tmp_oids import COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID, id_Chempat_X25519_sntrup761, id_MLKEM768_RSA2048
+from pq_logic.tmp_oids import COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID, id_chempat_x25519_sntrup761, id_mlkem768_rsa2048
 from resources.cmputils import build_ir_from_key
 from resources.keyutils import generate_key, load_public_key_from_spki
 from resources.oidutils import XWING_OID_STR, id_ml_kem_768_oid, PQ_NAME_2_OID
@@ -127,7 +127,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         obj, rest = decoder.decode(der_data, rfc9480.PKIMessage())
         self.assertEqual(rest, b"", "Decoding did not consume the entire input")
         spki = get_cert_template_from_pkimessage(obj)["publicKey"]
-        self.assertEqual(str(spki["algorithm"]["algorithm"]), str(id_MLKEM768_RSA2048))
+        self.assertEqual(str(spki["algorithm"]["algorithm"]), str(id_mlkem768_rsa2048))
         pub_key = load_public_key_from_spki(spki)
         self.assertEqual(pub_key, key.public_key())
         popo = get_popo_from_pkimessage(obj)
@@ -179,7 +179,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         spki_new["algorithm"] = spki["algorithm"]
         spki_new["subjectPublicKey"] = spki["subjectPublicKey"]
         self.assertEqual(str(spki["algorithm"]["algorithm"]), str(
-            id_Chempat_X25519_sntrup761))
+            id_chempat_x25519_sntrup761))
         pub_key = load_public_key_from_spki(spki_new)
         self.assertEqual(pub_key, key.public_key())
         popo = get_popo_from_pkimessage(obj)

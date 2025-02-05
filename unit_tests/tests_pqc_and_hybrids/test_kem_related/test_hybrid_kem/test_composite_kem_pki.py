@@ -13,7 +13,7 @@ from pq_logic.keys.composite_kem_pki import (
 )
 from pq_logic.tmp_mapping import get_oid_for_composite_kem
 from pq_logic.pq_key_factory import PQKeyFactory
-from pq_logic.tmp_oids import id_MLKEM768_RSA2048
+from pq_logic.tmp_oids import id_mlkem768_rsa2048
 from resources.keyutils import generate_key
 
 
@@ -41,7 +41,7 @@ class TestCompositeMLKEM(unittest.TestCase):
         THEN the OID should not be None.
         """
         oid = get_oid_for_composite_kem("ml-kem-768", self.private_key_rsa_1.trad_key)
-        self.assertEqual(oid, id_MLKEM768_RSA2048,"OID should not be None for valid inputs.")
+        self.assertEqual(oid, id_mlkem768_rsa2048,"OID should not be None for valid inputs.")
 
 
 

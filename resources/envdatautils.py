@@ -1138,7 +1138,10 @@ def prepare_kem_recip_info(
     :param kek_length: Length of the KEK in bytes. Defaults to None.
     :param kemct: KEM ciphertext. Defaults to None.
     :param issuer_and_ser: Optional `IssuerAndSerialNumber` structure to set inside the `rid`. Defaults to None.
-    :return: A populated KEMRecipientInfo object.
+    :param hybrid_key_recip: The hybrid key recipient to use for encryption. Defaults to None.
+    :param shared_secret: The shared secret to use for key derivation. Defaults to None.
+    :param kem_oid: The Object Identifier for the KEM algorithm. Defaults to None.
+    :return: A populated `KEMRecipientInfo` structure.
     :raises ValueError: If neither kemct nor (ee_private_key and server_cert) are provided.
     """
     key_enc_key = None
@@ -1189,7 +1192,7 @@ def prepare_kem_recip_info(
         else:
             shared_secret, kemct = hybrid_key_recip.encaps(public_key_recip)  # type: ignore
 
-        logging.debug(f"Computed Shared secret: {shared_secret.hex()}")
+        logging.debug("Computed Shared secret %s", shared_secret.hex())
         if kemct is not None:
             kem_recip_info["kemct"] = univ.OctetString(kemct)
 

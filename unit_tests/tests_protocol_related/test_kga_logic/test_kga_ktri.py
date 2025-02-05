@@ -53,7 +53,7 @@ class TestValidationKTRI(unittest.TestCase):
         """
         iss_and_ser = prepare_issuer_and_serial_number(self.cmp_cert)
         ktri = prepare_key_transport_recipient_info(version=2, key_enc_alg_oid=rfc9481.id_RSAES_OAEP,
-                                                    encrypted_key=os.urandom(32), iss_and_ser=iss_and_ser)
+                                                    encrypted_key=os.urandom(32), issuer_and_ser=iss_and_ser)
         with self.assertRaises(ValueError):
             validate_key_trans_recipient_info(ktri, cmp_cert=self.cmp_cert)
 

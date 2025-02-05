@@ -88,8 +88,8 @@ def prepare_pkmac_popo(
 
 
 # TODO fix doc for RF.
-@keyword(name="Prepare Private Key For POP")
-def prepare_private_key_for_pop(
+@keyword(name="Prepare EncKeyWithID")
+def prepare_enc_key_with_id(
     private_key: PrivateKey, sender: Optional[str] = None, use_string: bool = False
 ) -> rfc4211.EncKeyWithID:
     """Prepare the private key for the Proof-of-Possession structure.
@@ -159,7 +159,7 @@ def prepare_kem_env_data_for_popo(
         raise ValueError("Either the data to encrypt is required, or the client key.")
 
     else:
-        data = prepare_private_key_for_pop(private_key=client_key, sender=enc_key_sender)
+        data = prepare_enc_key_with_id(private_key=client_key, sender=enc_key_sender)
         data = encoder.encode(data)
 
     issuer_and_ser = prepare_issuer_and_serial_number(serial_number=cert_req_id, issuer=rid_sender)

@@ -6,6 +6,7 @@
 
 import logging
 import os
+import random
 from typing import List, Optional, Sequence, Tuple, Union
 
 import pyasn1.error
@@ -24,7 +25,7 @@ from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc9480
 from robot.api.deco import keyword, not_keyword
 
 from resources import certbuildutils, cmputils, protectionutils
-from resources.asn1_structures import CAKeyUpdContent, ChallengeASN1
+from resources.asn1_structures import CAKeyUpdContent, ChallengeASN1, PKIMessageTMP
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certbuildutils import build_cert_from_cert_template, build_cert_from_csr
 from resources.certextractutils import get_extension, get_field_from_certificate
@@ -182,6 +183,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     cert_req_id: int = 0,
     private_key: Optional[PrivateKey] = None,
     hybrid_kem_key: Optional[HybridKEMPrivateKey] = None,
+    challenge: Optional[Union[str, bytes]] = None,
 ) -> ChallengeASN1:
     """Prepare a `Challenge` structure with an encrypted random number.
 
@@ -209,7 +211,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     Examples:
     --------
     | ${challenge}= | Prepare Challenge Encrypted Rand | ${public_key} | ${sender} |
-    | ${challenge}= | Prepare Challenge Encrypted Rand | ${public_key} | ${sender} | ${rand_int} | bad_witness=${bad_witness} | ${hybrid_kem_key} |
+    | ${challenge}= | Prepare Challenge Encrypted Rand | ${public_key} | ${sender} | rand_int=1 | bad_witness=True |
 
     """
     challenge_obj = ChallengeASN1()
@@ -671,7 +673,8 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
     Examples:
     --------
     | ${cert} | ${enc_cert}= | Respond To CertReqMsg | ${cert_req_msg} | ${ca_key} | ${ca_cert} |
-    | ${cert} | ${enc_cert}= | Respond To CertReqMsg | ${cert_req_msg} | ${ca_key} | ${ca_cert} | ${hybrid_kem_key} | ${hash_alg} |
+    | ${cert} | ${enc_cert}= | Respond To CertReqMsg | ${cert_req_msg} | ${ca_key} | ${ca_cert} \
+    | ${hybrid_kem_key} | ${hash_alg} |
 
     """
     name = cert_req_msg["popo"].getName()
@@ -1501,7 +1504,7 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
     ss, ct, kem_oid = _perform_encaps_with_keys(public_key, hybrid_kem_key)
     cek = kwargs.get("cek") or os.urandom(32)
     kem_recip_info = prepare_kem_recip_info(
-        server_cert=ca_cert,
+        recip_cert=new_ee_cert,
         public_key_recip=public_key,
         cek=cek,
         hybrid_key_recip=hybrid_kem_key,
@@ -1676,7 +1679,7 @@ def build_rp_from_rr(
 
 
 @keyword(name="Build POPDecryptionChallenge From Request")
-def build_popdecc_from_request(
+def build_popdecc_from_request(  # noqa D417 undocumented-param
     request: rfc9480.PKIMessage,
     ca_key: Optional[ECDHPrivateKey] = None,
     rand_int: Optional[int] = None,
@@ -1724,11 +1727,11 @@ def build_popdecc_from_request(
         - ValueError: If the request index is invalid.
 
     Examples:
-    ---------
+    --------
     | ${response} = | Build POPDecryptionChallenge From Request | ${request} | ${ca_key} |
     | ${response} = | Build POPDecryptionChallenge From Request | ${request} | ${ca_key} | rand_int=2 |
-    """
 
+    """
     request_index = int(request_index)
     body_name = request["body"].getName()
     if int(expected_size) != len(request["body"][body_name]):

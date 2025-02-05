@@ -30,7 +30,7 @@ from pyasn1_alt_modules import (
     rfc9481,
     rfc9629,
 )
-from robot.api.deco import not_keyword, keyword
+from robot.api.deco import keyword, not_keyword
 
 from resources import certbuildutils, certextractutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
@@ -46,11 +46,11 @@ from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_a
 from resources.oidutils import KEY_WRAP_NAME_2_OID
 from resources.prepareutils import prepare_name
 from resources.protectionutils import (
+    compute_kdf_from_alg_id,
     get_rsa_oaep_padding,
     prepare_kdf,
     prepare_pbkdf2_alg_id,
     prepare_wrap_alg_id,
-    compute_kdf_from_alg_id,
 )
 from resources.typingutils import PrivateKey, PublicKey
 
@@ -171,7 +171,7 @@ def prepare_enveloped_data(
 
 
 @keyword(name="Prepare Recipient Identifier")
-def prepare_recipient_identifier(
+def prepare_recipient_identifier(  # noqa D417 undocumented-param
     cert: Optional[rfc9480.CMPCertificate] = None,
     iss_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     ski: Optional[bytes] = None,
@@ -191,11 +191,11 @@ def prepare_recipient_identifier(
         - `bad_ski`: If True, the Subject Key Identifier is modified. Defaults to `False`.
 
     Returns:
-    --------
+    -------
         - The populated `RecipientIdentifier` structure.
 
     Raises:
-    -------
+    ------
         - ValueError: If neither a certificate nor an issuer and serial number is provided or a key.
 
     """
@@ -840,7 +840,6 @@ def prepare_recip_info(
     (which is the only allowed for PasswordRecipientInfo,).
     :return: An appropriate RecipientInfo object for the given keys and parameters.
     """
-
     if cek is None:
         cek = os.urandom(32)
     cek = str_to_bytes(cek)
@@ -1297,7 +1296,6 @@ def prepare_originator_identifier_or_key(
     :return: An `OriginatorIdentifierOrKey` structure identifying the originator.
     :raises ValueError: If neither a certificate nor issuer and serial number are provided.
     """
-
     if cert is None and issuer_and_ser is None:
         raise ValueError("Either a certificate or issuer and serial number must be provided.")
 

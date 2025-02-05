@@ -29,7 +29,7 @@ from robot.api.deco import keyword, not_keyword
 from unit_tests.asn1_wrapper_class.pki_message_wrapper import PKIMessage, prepare_name
 
 from resources import asn1utils, cmputils, keyutils, utils
-from resources.asn1_structures import ChallengeASN1, POPODecKeyChallContentAsn1, PKIMessageTMP
+from resources.asn1_structures import ChallengeASN1, PKIMessageTMP
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certutils import load_public_key_from_cert
 from resources.convertutils import str_to_bytes
@@ -39,7 +39,7 @@ from resources.envdatautils import (
     prepare_issuer_and_serial_number,
     prepare_one_asymmetric_key,
 )
-from resources.exceptions import BadAsn1Data, InvalidKeyCombination, BadRequest
+from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
 from resources.oid_mapping import compute_hash
 from resources.protectionutils import compute_and_prepare_mac
 from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, PrivateKey, Strint
@@ -303,7 +303,7 @@ def _parse_pkimessage_from_der(raw_bytes: bytes) -> PKIMessageTMP:
 
 
 @keyword(name="Process PKIMessage With Popdecc")
-def process_pkimessage_with_popdecc(
+def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     pki_message: bytes,
     ee_key: Optional[EnvDataPrivateKey] = None,
     password: Optional[Union[str, bytes]] = None,
@@ -326,7 +326,7 @@ def process_pkimessage_with_popdecc(
     To prove that the private key is in possession of the end-entity.
 
     Note:
-    -----
+    ----
        - For the deprecated `challenge` field is AES-CBC-256 used.
 
     Arguments:
@@ -344,11 +344,11 @@ def process_pkimessage_with_popdecc(
         - `**kwargs`: Additional values for the `PKIHeader`.
 
     Returns:
-    --------
+    -------
         - The PKIMessage with the `popdecr` body set.
 
     Raises:
-    -------
+    ------
         - `ValueError`: If the PKIMessage decoding has a remainder.
         - `BadRequest`: If the PKIMessage version is invalid.
         - `BadAsn1Data`: If the `PKIMessage` decoding has a remainder.
@@ -560,7 +560,7 @@ def _prepare_pkmac_val(
 
 
 @keyword(name="Prepare keyAgreement POPO")
-def prepare_key_agreement_popo(
+def prepare_key_agreement_popo(  # noqa D417 undocumented-param
     use_encr_cert: bool = True,
     env_data: Optional[rfc9480.EnvelopedData] = None,
     client_key: Optional[ECDHPrivKeyTypes] = None,
@@ -578,9 +578,9 @@ def prepare_key_agreement_popo(
     - An encrypted key or subsequent message depending on the `use_encr_cert` flag.
 
     Arguments:
-    ----------
-        - `use_encr_cert`: A flag indicating whether to use an encrypted certificate (`True`) or a challenge-based message (`False`).
-        Defaults to `True`.
+    ---------
+        - `use_encr_cert`: A flag indicating whether to use an encrypted certificate (`True`) or a
+        challenge-based message (`False`). Defaults to `True`.
         - `env_data`: `EnvelopedData` object containing encrypted key material.
         - `client_key`: client-side private key for key agreement.
         - `ca_cert`: CA certificate containing the public key for key agreement.
@@ -590,17 +590,19 @@ def prepare_key_agreement_popo(
         - `bad_pop`: A flag indicating whether to manipulate the first byte of the MAC value. Defaults to `False`.
 
     Returns:
-    --------
+    -------
         - The populated Proof-of-Possession structure for key agreement.
 
     Raises:
-    -------
+    ------
         - `ValueError`: If the certificate request id not provided for the `agreeMAC` PoP.
 
     Examples:
-    ---------
+    --------
     | ${popo_structure} = | Prepare keyAgreement POPO | use_encr_cert=${True} |
-    | ${popo_structure} = | Prepare keyAgreement POPO | use_encr_cert=${False} | client_key=${client_key} | ca_cert=${ca_cert} |
+    | ${popo_structure} = | Prepare keyAgreement POPO | use_encr_cert=${False} | client_key=${client_key} \
+    | ca_cert=${ca_cert} |
+
     """
     if client_key is not None and ca_cert is not None:
         shared_secret = _compute_ss(client_key, ca_cert=ca_cert)

@@ -32,7 +32,7 @@ from resources.protectionutils import (
     verify_rsassa_pss_from_alg_id,
 )
 from resources.typingutils import PrivateKeySig, PublicKeySig
-from robot.api.deco import not_keyword, keyword
+from robot.api.deco import keyword, not_keyword
 
 import pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig import chameleon_logic

@@ -13,7 +13,6 @@ import pyasn1.error
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import dh, padding, rsa, x448, x25519
 from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey, DHPublicKey
-
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
 from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key
@@ -2205,7 +2204,6 @@ def prepare_kdf(
     :param hash_alg: The hash algorithm to use for the KDF operation (e.g., "sha256").
     :return: The populated `AlgorithmIdentifier`.
     """
-
     if kdf_name == "hkdf":
         return _prepare_hkdf(name=kdf_name, hash_alg=hash_alg, fill_rand_params=fill_rand_params)
     elif kdf_name.startswith("kdf"):

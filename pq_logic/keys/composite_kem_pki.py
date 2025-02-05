@@ -314,7 +314,6 @@ class CompositeKEMPrivateKey(AbstractCompositeKEMPrivateKey):
         :return: The computed combined shared secret as bytes.
         :raises BadAsn1Data: If the ciphertext structure is invalid or cannot be decoded.
         """
-
         ct_vals, rest = decoder.decode(ct_vals, CompositeCiphertextValue())
 
         if rest:

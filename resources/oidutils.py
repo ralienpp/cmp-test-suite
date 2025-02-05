@@ -22,8 +22,8 @@ from pq_logic.tmp_oids import (
     PREHASH_OID_2_HASH,
     PURE_COMPOSITE_NAME_TO_OID,
     PURE_OID_TO_HASH,
-    id_sntrup761_str,
     id_ce_deltaCertificateDescriptor,
+    id_sntrup761_str,
 )
 from pyasn1.type import univ
 from pyasn1_alt_modules import (
@@ -598,6 +598,4 @@ EXTENSION_NAME_2_OID = {
 
 EXTENSION_OID_2_NAME = {y: x for x, y in EXTENSION_NAME_2_OID.items()}
 
-ALL_KNOWN_PROTECTION_OIDS.update(
-    **EXTENSION_OID_2_NAME
-)
+ALL_KNOWN_PROTECTION_OIDS.update(**EXTENSION_OID_2_NAME)

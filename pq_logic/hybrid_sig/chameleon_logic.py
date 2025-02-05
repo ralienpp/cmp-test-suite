@@ -26,7 +26,7 @@ from resources.exceptions import BadAsn1Data, BadPOP
 from resources.oid_mapping import get_hash_from_oid
 from resources.prepareutils import prepare_name
 from resources.typingutils import PrivateKeySig
-from robot.api.deco import not_keyword, keyword
+from robot.api.deco import keyword, not_keyword
 
 from pq_logic import pq_compute_utils
 from pq_logic.combined_factory import CombinedKeyFactory
@@ -185,7 +185,6 @@ def build_chameleon_base_certificate(
     hash_alg: Optional[str] = None,
 ) -> rfc9480.CMPCertificate:
     """Issue a Base Certificate with the DeltaCertificateDescriptor (DCD) extension.
-
 
     :param delta_cert: Parsed delta certificate structure.
     :param base_tbs_cert: TBSCertificate structure for the certificate to be issued.

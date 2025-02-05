@@ -26,7 +26,7 @@ from resources.oidutils import EXTENSION_NAME_2_OID
 # TODO refactor.
 
 
-def extension_must_be_not_critical(
+def extension_must_be_not_critical(  # noqa D417 undocumented-param
     cert_or_extn: Union[rfc9480.CMPCertificate, rfc9480.Extensions], name_or_oid: str
 ) -> None:
     """Ensure that the extension with the given OID or name is non-critical.
@@ -39,6 +39,7 @@ def extension_must_be_not_critical(
     Raises:
     ------
         - `ValueError`: If the extension is critical.
+
     """
     if "." in name_or_oid:
         oid = univ.ObjectIdentifier(name_or_oid)

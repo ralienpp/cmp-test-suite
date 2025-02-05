@@ -1032,11 +1032,11 @@ def build_env_data_for_exchange(
 def prepare_kem_recip_info(
     version: int = 0,
     rid: Optional[rfc5652.RecipientIdentifier] = None,
-    server_cert: Optional[rfc9480.CMPCertificate] = None,
+    recip_cert: Optional[rfc9480.CMPCertificate] = None,
     public_key_recip: Optional[KEMPublicKey] = None,
     kdf_name: str = "hkdf",
     ukm: Optional[bytes] = None,
-    cek: bytes = os.urandom(32),
+    cek: Optional[Union[bytes, str]] = None,
     hash_alg: str = "sha256",
     wrap_name: str = "aes256-wrap",
     encrypted_key: Optional[univ.OctetString] = None,
@@ -1053,7 +1053,7 @@ def prepare_kem_recip_info(
 
     :param version: The version number. Defaults to 0.
     :param rid: Recipient Identifier. Defaults to None.
-    :param server_cert: Server certificate containing the server's public key. Defaults to None.
+    :param recip_cert: Server certificate containing the server's public key. Defaults to None.
     :param public_key_recip: Public key of the recipient. Defaults to None.
     :param kdf_name: The name of the key derivation function. Defaults to "hkdf".
     :param ukm: User keying material, used as salt. Defaults to a random 32 bytes.
@@ -1067,12 +1067,10 @@ def prepare_kem_recip_info(
     :return: A populated KEMRecipientInfo object.
     :raises ValueError: If neither kemct nor (ee_private_key and server_cert) are provided.
     """
-    if rid is None and server_cert is not None:
-        rid = prepare_recipient_identifier(server_cert)
-    elif rid is None:
-        rid = rfc9629.RecipientIdentifier()
-    elif issuer_and_ser is not None:
-        rid["issuerAndSerialNumber"] = issuer_and_ser
+    key_enc_key = None
+
+    rid = _process_rid_kemri(rid, recip_cert, issuer_and_ser)
+    cek = str_to_bytes(cek or os.urandom(32))
 
     kem_recip_info = rfc9629.KEMRecipientInfo()
     kem_recip_info["version"] = univ.Integer(version)
@@ -1087,14 +1085,8 @@ def prepare_kem_recip_info(
     if kemct is not None and shared_secret is not None:
         pass
 
-    elif server_cert or public_key_recip:
-        if server_cert:
-            server_pub_key = keyutils.load_public_key_from_spki(server_cert["tbsCertificate"]["subjectPublicKeyInfo"])
-
-        else:
-            # could be as an example used for the POP.
-            server_pub_key = public_key_recip
-
+    elif public_key_recip is None and recip_cert is not None:
+        server_pub_key = keyutils.load_public_key_from_spki(recip_cert["tbsCertificate"]["subjectPublicKeyInfo"])
         if not is_kem_public_key(server_pub_key):
             raise ValueError(f"The server's public key is not a `KEMPublicKey`. Got: {type(server_pub_key).__name__}.")
 
@@ -1104,7 +1096,24 @@ def prepare_kem_recip_info(
         if hybrid_key_recip is None:
             shared_secret, kemct = server_pub_key.encaps()
         else:
-            shared_secret, kemct = hybrid_key_recip.encaps(server_pub_key)  # type: ignore
+            shared_secret, kemct = hybrid_key_recip.encaps(server_pub_key)
+
+        if not kem_recip_info["kemct"].isValue:
+            kem_recip_info["kemct"] = univ.OctetString(kemct)
+
+    elif public_key_recip:
+        if not is_kem_public_key(public_key_recip):
+            raise ValueError(
+                f"The server's public key is not a `KEMPublicKey`. Got: {type(public_key_recip).__name__}."
+            )
+
+        if kem_oid is None:
+            kem_recip_info["kem"]["algorithm"] = get_kem_oid_from_key(public_key_recip)
+
+        if hybrid_key_recip is None:
+            shared_secret, kemct = public_key_recip.encaps()
+        else:
+            shared_secret, kemct = hybrid_key_recip.encaps(public_key_recip)  # type: ignore
 
         logging.debug(f"Computed Shared secret: {shared_secret.hex()}")
         if kemct is not None:
@@ -1113,13 +1122,14 @@ def prepare_kem_recip_info(
     else:
         raise ValueError("Either `kemct` or `server_cert` or the `public_key` must be provided.")
 
+    kem_recip_info["kdf"] = prepare_kdf(kdf_name=kdf_name, hash_alg=hash_alg)
     if shared_secret is not None:
-        key_enc_key = compute_hkdf(hash_alg=hash_alg, key_material=shared_secret, ukm=ukm, length=32)
+        key_enc_key = compute_kdf_from_alg_id(
+            kdf_alg_id=kem_recip_info["kdf"], ss=shared_secret, ukm=ukm, length=kek_length or get_aes_length(wrap_name)
+        )
 
     if encrypted_key is None:
         encrypted_key = keywrap.aes_key_wrap(wrapping_key=key_enc_key, key_to_wrap=cek)
-
-    kem_recip_info["kdf"] = prepare_kdf(kdf_name=f"{kdf_name}-{hash_alg}")
 
     if ukm is not None:
         kem_recip_info["ukm"] = rfc9629.UserKeyingMaterial(ukm).subtype(

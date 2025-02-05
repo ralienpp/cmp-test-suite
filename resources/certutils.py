@@ -1044,14 +1044,42 @@ def find_crl_signer_cert(  # noqa D417 undocumented-param
     raise ValueError("No matching certificate found to verify the CRL.")
 
 
-def build_crl_chain_from_list(crl: rfc5280.CertificateList, certs: List[rfc9480.CMPCertificate]) -> List:
+@keyword(name="Build CRL Chain From List")
+def build_crl_chain_from_list(  # noqa D417 undocumented-param
+    crl: rfc5280.CertificateList,
+    certs: Optional[List[rfc9480.CMPCertificate]] = None,
+    cert_dir: str = "./data/trustanchors",
+    allow_os_store: bool = True,
+) -> List:
     """Build a CRL chain from a list of certificates and verify the CRL's signature.
 
-    :param crl: Parsed CRL object in pyasn1 format.
-    :param certs: List of parsed certificates in pyasn1 format.
-    :return: The chain starting with the CRL and ending with the root certificate.
-    :raises ValueError: If the CRL was not issued by one of the provided certificates.
+    Arguments:
+    ---------
+       - `crl`: The CRL to verify.
+       - `certs`: A list of certificates to search through. Defaults to `None`.
+       - `cert_dir`: The directory containing the CA certificates. Defaults to "./data/trustanchors".
+       - `allow_os_store`: Whether to allow the default OS store to be added to the trustanchors. Defaults to `True`.
+
+    Returns:
+    -------
+       - The certificate chain starting with the CRL and ending with the root certificate.
+
+    Raises:
+    ------
+       - `ValueError`: If the CRL was not issued by one of the provided certificates.
+       - `ValueError`: If `certs` and `cert_dir` are both `None`.
+
+    Examples:
+    --------
+    | ${crl_chain}= | Build CRL Chain From List | ${crl} | ${certs} |
+
     """
+    if not certs and not cert_dir:
+        raise ValueError("Either `certs` or `cert_dir` must be provided.")
+
+    certs = certs or []
+    certs.extend(load_truststore(allow_os_store=allow_os_store, path=cert_dir))
+
     signer = find_crl_signer_cert(crl, certs=certs)
 
     chain = build_chain_from_list(signer, certs)

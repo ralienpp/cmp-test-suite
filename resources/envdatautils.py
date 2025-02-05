@@ -1472,23 +1472,7 @@ def prepare_key_agreement_recipient_info(
     return key_agree_info
 
 
-def _prepare_pbkdf2() -> rfc8018.PBKDF2_params:
-    """Prepare a `PBKDF2_params` structure used in the `PasswordRecipientInfo` structure.
-
-    Used to encrypt a content encryption key.
-
-    :return: The populated structure with the Default salt b"AAAAAAAAAAAAAAAA"
-    """
-    pbkdf2_params = rfc8018.PBKDF2_params()
-    pbkdf2_params["salt"]["specified"] = univ.OctetString(b"AAAAAAAAAAAAAAAA")
-    pbkdf2_params["iterationCount"] = 1000
-    pbkdf2_params["keyLength"] = 32
-    pbkdf2_params["prf"] = rfc8018.AlgorithmIdentifier()
-    pbkdf2_params["prf"]["algorithm"] = rfc9481.id_hmacWithSHA256
-    pbkdf2_params["prf"]["parameters"] = univ.Null()
-    return pbkdf2_params
-
-
+@not_keyword
 def prepare_password_recipient_info(
     password: Union[str, bytes],
     version: int = 0,
@@ -1533,6 +1517,7 @@ def prepare_pwri_structure(
     key_enc_alg_id: univ.ObjectIdentifier = rfc9481.id_aes256_wrap,
     enc_key: bool = True,
     encrypted_key: Optional[bytes] = None,
+    **kwargs,
 ) -> rfc5652.PasswordRecipientInfo:
     """Create a `PasswordRecipientInfo` (`pwri`) used to encrypt a content encryption key.
 
@@ -1545,14 +1530,20 @@ def prepare_pwri_structure(
     If `True`, the `encryptedKey` field is populated. Defaults to `True`.
     :param encrypted_key:The encrypted key bytes to include in the `PasswordRecipientInfo`.
     If not provided and `enc_key` is `True`, a random 32-byte key is generated.
+    :param kwargs: Additional parameters to pass to the key derivation algorithm.
+    (salt, iteration_count, key_length, hash_alg).
     :return: The populated `PasswordRecipientInfo` structure.
     """
-    key_der_alg = rfc5652.KeyDerivationAlgorithmIdentifier().subtype(
-        implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
-    )
+    salt = kwargs.get("salt", os.urandom(32))
+    salt = str_to_bytes(salt)
 
+    key_der_alg = prepare_pbkdf2_alg_id(
+        salt=salt,
+        iterations=int(kwargs.get("iterations", 100000)),
+        key_length=int(kwargs.get("key_length", 32)),
+        hash_alg=kwargs.get("hash_alg", "sha256"),
+    )
     key_der_alg["algorithm"] = key_der_alg_id
-    key_der_alg["parameters"] = _prepare_pbkdf2()
 
     # must be of type KM_KW_ALG
     key_enc_alg = rfc5652.KeyEncryptionAlgorithmIdentifier()
@@ -1562,24 +1553,17 @@ def prepare_pwri_structure(
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3)
     )
     pwri["version"] = version
-    pwri["keyDerivationAlgorithm"] = key_der_alg
+    pwri["keyDerivationAlgorithm"] = key_der_alg.subtype(
+        implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1), cloneValueFlag=True
+    )
     pwri["keyEncryptionAlgorithm"] = key_enc_alg
     if enc_key:
         pwri["encryptedKey"] = rfc5652.EncryptedKey(encrypted_key or os.urandom(32))
-        # to simulate the wire! # encryptedKey must be present to be decode-able!
-        pwri, rest = decoder.decode(
-            encoder.encode(pwri),
-            asn1Spec=rfc5652.PasswordRecipientInfo().subtype(
-                implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3)
-            ),
-        )
-
-        if rest != b"":
-            raise ValueError("Please correct the test PasswordRecipientInfo structure!")
 
     return pwri
 
 
+@not_keyword
 def wrap_key_password_based_key_management_technique(
     password: str, parameters: rfc8018.PBKDF2_params, key_to_wrap: bytes
 ) -> bytes:

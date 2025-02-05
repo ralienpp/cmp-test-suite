@@ -290,9 +290,7 @@ def verify_catalyst_signature_migrated(
         raise ValueError("Catalyst extensions are not present, cannot perform migrated verification.")
 
     if issuer_cert is not None:
-        issuer_pub_key = keyutils.load_public_key_from_spki(
-            issuer_cert["tbsCertificate"]["subjectPublicKeyInfo"]
-        )
+        issuer_pub_key = keyutils.load_public_key_from_spki(issuer_cert["tbsCertificate"]["subjectPublicKeyInfo"])
     else:
         issuer_pub_key = issuer_pub_key or keyutils.load_public_key_from_spki(
             cert["tbsCertificate"]["subjectPublicKeyInfo"]

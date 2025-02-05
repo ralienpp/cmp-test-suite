@@ -36,7 +36,6 @@ except ImportError:
     oqs = None
 
 
-
 VALID_MCELIECE_OPTIONS = {
     "mceliece-348864": "Classic-McEliece-348864",
     "mceliece-460896": "Classic-McEliece-460896",
@@ -80,9 +79,7 @@ class MLKEMPublicKey(PQKEMPublicKey):
         :raises ValueError: If the algorithm name is not "ml-kem-512", "ml-kem-768", or "ml-kem-1024".
         """
         if name.lower() not in ML_KEM_NAMES:
-            raise ValueError(
-                f"Invalid ML-KEM algorithm name: {name}. Supported options: {ML_KEM_NAMES}"
-            )
+            raise ValueError(f"Invalid ML-KEM algorithm name: {name}. Supported options: {ML_KEM_NAMES}")
         self.kem_alg = name.upper()
 
     @classmethod
@@ -156,9 +153,7 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         :raises ValueError: If the algorithm name is not "ml-kem-512", "ml-kem-768", or "ml-kem-1024".
         """
         if name not in ML_KEM_NAMES:
-            raise ValueError(
-                f"Invalid ML-KEM algorithm name: {name}. Supported options: {ML_KEM_NAMES}"
-            )
+            raise ValueError(f"Invalid ML-KEM algorithm name: {name}. Supported options: {ML_KEM_NAMES}")
         self.kem_alg = name.upper()
 
     @property
@@ -253,7 +248,6 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
 ##########################
 # McEliece
 ##########################
-
 
 
 class McEliecePublicKey(PQKEMPublicKey):

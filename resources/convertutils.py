@@ -122,7 +122,7 @@ def validity_to_optional_validity(validity_obj: rfc5280.Validity) -> rfc4211.Opt
 
 @not_keyword
 def copy_asn1_certificate(
-    cert: rfc9480.Certificate, target: Optional[rfc9480.Certificate] = None
+    cert: rfc9480.CMPCertificate, target: Optional[rfc9480.CMPCertificate] = None
 ) -> rfc9480.CMPCertificate:
     """Copy the fields of a pyasn1 certificate structure into a new or provided `CMPCertificate` object.
 

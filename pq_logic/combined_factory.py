@@ -50,7 +50,7 @@ class CombinedKeyFactory:
     """Factory for creating all known key types."""
 
     @staticmethod
-    def get_all_kem_coms_as_dict() ->  dict[str, list[dict]]:
+    def get_all_kem_coms_as_dict() -> dict[str, list[dict]]:
         """Return all KEM composites key combinations as a dictionary.
 
         Enables to display all possible key combinations, or generate keys with

@@ -260,7 +260,6 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
             raise ValueError(f"Unsupported trad_key type. Got: {type(self.trad_key)}")
         return name
 
-
     @property
     def name(self) -> str:
         """Return the name of the key."""

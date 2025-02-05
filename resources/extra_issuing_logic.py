@@ -55,7 +55,7 @@ def prepare_pkmac_popo(
     mac_alg: str = "password_based_mac",
     salt: Optional[Union[bytes, str]] = None,
     hash_alg: str = "sha256",
-    iterations: int = 100.000,
+    iterations: int = 100000,
 ) -> rfc4211.ProofOfPossession:
     """Prepare the Proof-of-Possession structure for the PKMAC value.
 

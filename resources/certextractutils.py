@@ -20,8 +20,36 @@ from pyasn1_alt_modules.rfc5652 import Attribute
 from robot.api.deco import not_keyword
 
 from resources import asn1utils
+from resources.oid_mapping import may_return_oid_to_name
+from resources.oidutils import EXTENSION_NAME_2_OID
 
 # TODO refactor.
+
+
+def extension_must_be_not_critical(
+    cert_or_extn: Union[rfc9480.CMPCertificate, rfc9480.Extensions], name_or_oid: str
+) -> None:
+    """Ensure that the extension with the given OID or name is non-critical.
+
+    Arguments:
+    ---------
+        - `cert_or_extn`: The certificate or extensions object to search.
+        - `name_or_oid`: The OID or name of the extension.
+
+    Raises:
+    ------
+        - `ValueError`: If the extension is critical.
+    """
+    if "." in name_or_oid:
+        oid = univ.ObjectIdentifier(name_or_oid)
+    else:
+        oid = EXTENSION_NAME_2_OID[name_or_oid]
+
+    extn = get_extension(cert_or_extn["tbsCertificate"]["extensions"], oid, must_be_non_crit=True)
+
+    if extn is None:
+        name = may_return_oid_to_name(oid)
+        raise ValueError(f"Extension {name}:{oid} is not present.")
 
 
 @not_keyword

@@ -248,27 +248,29 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
         raise ValueError("Unsupported recipient information type.")
 
 
-@not_keyword
-def validate_issuer_is_null_dn_and_cert_req_id(
+@keyword(name="Validate Rid For Encrypted Rand")
+def validate_rid_for_encrypted_rand(
     env_data: rfc5652.EnvelopedData,
     cert_req_id: int,
     recip_index: int = 0,
     kari_index: int = 0,
-    allow_pwri: bool = False,
 ) -> None:
     """Validate the `issuerAndSerialNumber` field inside the encryptRand EnvelopedData structure.
+
+    For the `encryptedRand` field, the sender MUST populate the rid field in the
+    EnvelopedData structure using the issuerAndSerialNumber choice. The issuer field
+    MUST be the NULL-DN and the serialNumber MUST be the certReqId.
 
     :param env_data: The EnvelopedData structure containing the encryptedRand.
     :param cert_req_id: The certificate request ID to validate against the serialNumber.
     :param recip_index: The index of the recipientInfo to extract the `rid` field from. Defaults to `0`.
     :param kari_index: The index of the recipientEncryptedKeys to extract the `rid` field from. Defaults to `0`.
-    :param allow_pwri: Whether to allow the `PasswordRecipientInfo` structure to extract the
     challenge. Defaults to `False`.
     """
     recipient_infos: rfc9480 = env_data["recipientInfos"]
     recipient_info: rfc5652.RecipientInfo = recipient_infos[recip_index]
 
-    rid = _extract_rid(recipient_info=recipient_info, kari_index=kari_index, allow_pwri=allow_pwri)
+    rid = _extract_rid(recipient_info=recipient_info, kari_index=kari_index)
 
     # The sender MUST populate the rid field in the EnvelopedData sequence using the
     # issuerAndSerialNumber choice containing a NULL-DN as issuer and the certReqId
@@ -276,11 +278,11 @@ def validate_issuer_is_null_dn_and_cert_req_id(
 
     if rid is not None:
         issuer = rid["issuer"]
-        if is_null_dn(issuer):
+        if not is_null_dn(issuer):
             raise ValueError("`rid` field is not correctly populated with `NULL-DN`")
 
-        if int(rid["serialNumber"]) == cert_req_id:
-            raise ValueError("`rid` field serialNumber si not equal to the `certReqId`")
+        if int(rid["serialNumber"]) != cert_req_id:
+            raise ValueError("`rid` field serialNumber is not equal to the `certReqId`")
 
 
 def _parse_pkimessage_from_der(raw_bytes: bytes) -> Tuple[rfc9480.PKIMessage, POPODecKeyChallContentAsn1]:

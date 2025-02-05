@@ -367,6 +367,9 @@ def build_paired_csrs(
     tmp_der_data = encoder.encode(base_csr["certificationRequestInfo"])
     delta_signature = sign_data(data=tmp_der_data, key=delta_private_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
 
+    if bad_alt_pop:
+        delta_signature = utils.manipulate_first_byte(delta_signature)
+
     # Step 5: Prepare
     delta_sig_attr = prepare_single_value_attr(
         id_at_deltaCertificateRequestSignature, DeltaCertificateRequestSignatureValue.fromOctetString(delta_signature)

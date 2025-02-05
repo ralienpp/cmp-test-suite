@@ -1673,3 +1673,113 @@ def build_rp_from_rr(
     pki_message["body"] = body
 
     return pki_message
+
+
+@keyword(name="Build POPDecryptionChallenge From Request")
+def build_popdecc_from_request(
+    request: rfc9480.PKIMessage,
+    ca_key: Optional[ECDHPrivateKey] = None,
+    rand_int: Optional[int] = None,
+    cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
+    cert_req_id: Optional[int] = None,
+    request_index: Union[int, str] = 0,
+    expected_size: Optional[Union[str, int]] = 1,
+    set_header_fields: bool = True,
+    rand_sender: Optional[str] = "CN=CMP-Test-Suite",
+    bad_witness: bool = False,
+    for_pvno: Optional[Union[str, int]] = None,
+    **kwargs,
+) -> Tuple[rfc9480.PKIMessage, int]:
+    """Build a PKIMessage for a POPDecryptionChallenge message.
+
+    Arguments:
+    ---------
+        - `request`: The PKIMessage as raw bytes.
+        - `ca_key`: The CA key to use for the challenge. Defaults to `None`.
+        - `rand_int`: The random integer to use for the challenge. Defaults to `None`.
+        - `cert_req_id`: The certificate request ID. Defaults to `None`.
+        - `request_index`: The index of the request. Defaults to `0`.
+        - `set_header_fields`: Whether to set the header fields. Defaults to `True`.
+        - `rand_sender`: The random sender to use for the challenge. Defaults to `CN=CMP-Test-Suite`.
+        - `bad_witness`: Whether manipulate the witness value. Defaults to `False`.
+        - `for_pvno`: The protocol version number.
+        (decides the challenge type)
+        (hash of the random number)
+        - `kwargs`: Additional values to set for the header.
+
+    Kwargs:
+    -------
+        - `hash_alg`: The hash algorithm to use for the random integer. Defaults to `sha256`.
+        - `hybrid_kem_key`: The hybrid KEM key to use for the challenge. Defaults to `None`.
+        - `iv`: The initialization vector to use for the challenge. Defaults to `A` * 16.
+        - `challenge`: The challenge to use for the POPDecryptionChallenge. Defaults to `b""`.
+        (only used for negative testing, with version 3)
+
+    Returns:
+    -------
+        - The built PKIMessage for the POPDecryptionChallenge.
+
+    Raises:
+    ------
+        - ValueError: If the request index is invalid.
+
+    Examples:
+    ---------
+    | ${response} = | Build POPDecryptionChallenge From Request | ${request} | ${ca_key} |
+    | ${response} = | Build POPDecryptionChallenge From Request | ${request} | ${ca_key} | rand_int=2 |
+    """
+
+    request_index = int(request_index)
+    body_name = request["body"].getName()
+    if int(expected_size) != len(request["body"][body_name]):
+        raise BadRequest(
+            f"Invalid number of entries in {body_name} message. "
+            f"Expected: {expected_size}. Got: {len(request['body'][body_name])}"
+        )
+
+    public_key = get_public_key_from_cert_req_msg(cert_req_msg=request["body"][body_name][request_index])
+
+    cert_req_id = cert_req_id or int(request["body"][body_name][request_index]["certReq"]["certReqId"])
+
+    rand_int = rand_int or random.randint(1, 1000)
+
+    for_pvno = for_pvno or request["header"]["pvno"]
+    for_pvno = int(for_pvno)
+
+    if set_header_fields:
+        kwargs = _set_header_fields(request, kwargs)
+
+    pki_message = cmputils._prepare_pki_message(**kwargs)
+    tmp = PKIMessageTMP()
+    tmp["header"] = pki_message["header"]
+
+    if for_pvno == 3:
+        challenge = prepare_challenge_enc_rand(
+            public_key=public_key,
+            rand_int=rand_int,
+            private_key=ca_key,
+            cmp_protection_cert=cmp_protection_cert,
+            rand_sender=rand_sender,
+            bad_witness=bad_witness,
+            cert_req_id=cert_req_id,
+            challenge=kwargs.get("challenge", b""),
+            hash_alg=kwargs.get("hash_alg", None),
+            hybrid_kem_key=kwargs.get("hybrid_kem_key"),
+        )
+
+    else:
+        challenge, ss, kem_ct_info = prepare_challenge(
+            public_key=public_key,
+            ca_key=ca_key,
+            rand_int=rand_int,
+            bad_witness=bad_witness,
+            iv=kwargs.get("iv", "A" * 16),
+            rand_sender=rand_sender,
+            hash_alg=kwargs.get("hash_alg", None),
+        )
+        if kem_ct_info is not None:
+            tmp["header"]["generalInfo"].append(kem_ct_info)
+
+    tmp["body"]["popdecc"].append(challenge)
+
+    return tmp, rand_int  # type: ignore

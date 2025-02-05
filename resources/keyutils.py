@@ -538,5 +538,4 @@ def generate_key_based_on_alg_id(alg_id: rfc5280.AlgorithmIdentifier) -> Private
     elif oid in CMS_COMPOSITE_NAME_2_OID:
         raise NotImplementedError("Composite keys are not supported yet.")
 
-    else:
-        raise UnknownOID(oid=oid, extra_info="For generating a private key.")
+    raise UnknownOID(oid=oid, extra_info="For generating a private key.")

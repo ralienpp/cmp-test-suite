@@ -573,15 +573,30 @@ def prepare_key_agreement_popo(
     - An HMAC-based PoP using the client's private key and CA's public key.
     - An encrypted key or subsequent message depending on the `use_encr_cert` flag.
 
-    :param use_encr_cert: A flag indicating whether to use an encrypted certificate (`True`)
-                          or a challenge-based message (`False`). Defaults to `True`.
-    :param env_data: Optional `EnvelopedData` object containing encrypted key material.
-    :param client_key: Optional client-side private key for key agreement (ECDH).
-    :param ca_cert: Optional CA certificate containing the public key for key agreement.
-    :param shared_secret: Optional shared secret for key agreement.
-    :param cert_request: Optional certificate request to authenticate with the MAC.
-    :param mac_alg: The MAC algorithm to use for the PoP structure. Defaults to `password_based_mac`.
-    :return: A populated `rfc4211.ProofOfPossession` structure for key agreement.
+    Arguments:
+    ----------
+        - `use_encr_cert`: A flag indicating whether to use an encrypted certificate (`True`) or a challenge-based message (`False`).
+        Defaults to `True`.
+        - `env_data`: `EnvelopedData` object containing encrypted key material.
+        - `client_key`: client-side private key for key agreement.
+        - `ca_cert`: CA certificate containing the public key for key agreement.
+        - `shared_secret`: shared secret for key agreement.
+        - `cert_request`: certificate request to authenticate with the MAC.
+        - `mac_alg`: The MAC algorithm to use for the POP structure. Defaults to `password_based_mac`.
+        - `bad_pop`: A flag indicating whether to manipulate the first byte of the MAC value. Defaults to `False`.
+
+    Returns:
+    --------
+        - The populated Proof-of-Possession structure for key agreement.
+
+    Raises:
+    -------
+        - `ValueError`: If the certificate request id not provided for the `agreeMAC` PoP.
+
+    Examples:
+    ---------
+    | ${popo_structure} = | Prepare keyAgreement POPO | use_encr_cert=${True} |
+    | ${popo_structure} = | Prepare keyAgreement POPO | use_encr_cert=${False} | client_key=${client_key} | ca_cert=${ca_cert} |
     """
     if client_key is not None and ca_cert is not None:
         shared_secret = _compute_ss(client_key, ca_cert=ca_cert)

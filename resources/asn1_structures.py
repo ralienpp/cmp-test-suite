@@ -74,7 +74,15 @@ KemCiphertextInfoValue = KemCiphertextInfoAsn1
 
 # Ref: 5.2.8.3.3. Direct Method - Challenge-Response Protocol
 class ChallengeASN1(univ.Sequence):
-    """Defines the ASN.1 structure for the challenge."""
+    """Defines the ASN.1 structure for the challenge.
+
+    Challenge ::= SEQUENCE {
+        owf AlgorithmIdentifier OPTIONAL,
+        witness OCTET STRING,
+        challenge OCTET STRING,
+        encryptedRand [0] EnvelopedData OPTIONAL
+    }
+    """
 
     componentType = namedtype.NamedTypes(
         namedtype.OptionalNamedType("owf", rfc5280.AlgorithmIdentifier()),
@@ -82,7 +90,7 @@ class ChallengeASN1(univ.Sequence):
         namedtype.NamedType("challenge", univ.OctetString()),
         namedtype.OptionalNamedType(
             "encryptedRand",
-            rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)),
+            rfc9480.EnvelopedData().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)),
         ),
     )
 
@@ -94,7 +102,13 @@ class POPODecKeyChallContentAsn1(univ.SequenceOf):
 
 
 class CAKeyUpdContent(univ.Choice):
-    """`CAKeyUpdContent` structure."""
+    """`CAKeyUpdContent` structure.
+
+    CAKeyUpdContent ::= CHOICE {
+        cAKeyUpdAnnV2       CAKeyUpdAnnContent,
+        cAKeyUpdAnnV3   [1] RootCaKeyUpdateContent
+    }
+    """
 
     componentType = namedtype.NamedTypes(
         namedtype.NamedType("cAKeyUpdAnnV2", rfc9480.CAKeyUpdAnnContent()),

@@ -313,7 +313,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     recip_index: Union[str, int] = 0,
     expected_size: Union[str, int] = 1,
     expected_sender: Optional[str] = None,
-    iv: Optional[Union[str, bytes]] = "A" * 16,
+    iv: Union[str, bytes] = "A" * 16,
     **kwargs,
 ) -> rfc9480.PKIMessage:
     """Process the POPODecKeyChallContent structure by decrypting the encryptedRand field or decapsulating the challenge
@@ -414,7 +414,7 @@ def _process_encrypted_rand(
     env_data: rfc9480.EnvelopedData,
     pki_message: PKIMessage,
     password: Optional[Union[str, bytes]],
-    ee_key: Optional[Union[PQKEMPrivateKey, ECDHPrivateKey, RSAPrivateKey]],
+    ee_key: Optional[Union[PQKEMPrivateKey, ECDHPrivateKey, RSAPrivateKey, HybridKEMPrivateKey]],
     recip_index: int,
     cert_req_id: int,
     expected_size: int,

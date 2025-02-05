@@ -356,56 +356,43 @@ def process_pkimessage_with_popdecc(
         - `ValueError`: If the `rid` field is not correctly populated with NULL-DN and `cert_req_id` as `serialNumber`.
 
     """
-    msg, popdecc = _parse_pkimessage_from_der(pki_message)
+    pki_message = _parse_pkimessage_from_der(pki_message)  # type: ignore
 
+    if len(pki_message["body"]["popdecc"]) != int(challenge_size):
+        raise BadRequest(f"Expected {challenge_size} challenges, got {len(pki_message['body']['popdecc'])}")
+
+    popdecc = pki_message["body"]["popdecc"]
     challenge = popdecc[index]
-    validate_pki_message_version(msg, popdecc)
+    validate_popdecc_version(pki_message)  # type: ignore
 
-    env_data = challenge["encryptedRand"]
-    if env_data is not None:
+    if challenge["encryptedRand"].isValue:
         rand = _process_encrypted_rand(
-            env_data, msg, password, ee_key, recip_index, cert_req_id, allow_pwri, expected_size
+            env_data=challenge["encryptedRand"],
+            pki_message=pki_message,  # type: ignore
+            password=password,
+            ee_key=ee_key,
+            recip_index=recip_index,
+            cert_req_id=cert_req_id,
+            expected_size=expected_size,
         )
-        num = rand["int"]
-        if expected_sender is not None:
-            sender = prepare_name(expected_sender)
-            if cmputils.compare_general_name_and_name(rand["sender"], sender):
-                rand_name = get_openssl_name_notation(rand["sender"])
-                raise ValueError(f"Expected sender name: {expected_sender}. Got: {rand_name}")
 
     else:
-        ss = process_simple_challenge(challenge, ee_key)
-        if request is None:
-            raise ValueError("The original PKIMessage request is required to build the new one for the challenge.")
+        rand = process_simple_challenge(challenge=challenge, ee_key=ee_key, iv=iv)
 
-        pki_message = cmputils._prepare_pki_message(
-            sender=request["header"]["sender"],
-            recipient=request["header"]["recipient"],
-            transaction_id=request["header"]["transactionID"].asOctets(),
-            sender_nonce=request["header"]["senderNonce"].asOctets(),
-            recip_nonce=request["header"]["recipNonce"].asOctets(),
-            recip_kid=request["header"]["recipKID"].asOctets(),
-            sender_kid=request["header"]["senderKID"].asOctets(),
-            pvno=int(request["header"]["pvno"]),
-        )
-        if use_dhbased_mac:
-            pki_message["body"] = request["body"]
-            pki_message["extraCerts"] = request["extraCerts"]
-            return protectionutils.protect_pkimessage(pki_message, shared_secret=ss)
+    num = rand["int"]
+    if expected_sender is not None:
+        sender = prepare_name(expected_sender)
+        if not cmputils.compare_general_name_and_name(rand["sender"], sender):
+            rand_name = get_openssl_name_notation(rand["sender"]["directoryName"])
+            raise ValueError(f"Expected sender name: {expected_sender}. Got: {rand_name}")
 
-        else:
-            body_name = request["body"].getName()
-            for x in request["body"][body_name]:
-                popo = prepare_pkmac_popo(
-                    request["body"][body_name][x]["certReq"], private_key=ee_key, shared_secret=ss
-                )
-                pki_message["body"][body_name][x]["popo"] = popo
+    response = cmputils._prepare_pki_message(
+        **kwargs,
+    )
 
-            return pki_message
+    response["body"]["popdecr"].append(num)
 
-    msg["body"]["popdecr"].append(num)
-
-    return msg
+    return response
 
 
 def validate_pki_message_version(pki_message: PKIMessage, popdecc: POPODecKeyChallContentAsn1) -> None:

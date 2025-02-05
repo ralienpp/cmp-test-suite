@@ -1467,7 +1467,7 @@ def validate_recip_identifier(server_cert: rfc9480.CMPCertificate, rid: rfc9629.
 def validate_kem_recip_info_structure(
     kem_recip_info: rfc9629.KEMRecipientInfo,
     server_cert: Optional[rfc9480.CMPCertificate] = None,
-    for_pop: bool = False,
+    for_enc_rand: bool = False,
 ) -> dict:
     """Validate a `KEMRecipientInfo` structure and ensure all necessary items are correctly set.
 
@@ -1479,7 +1479,7 @@ def validate_kem_recip_info_structure(
     :param kem_recip_info: The `KEMRecipientInfo` structure to validate.
     :param server_cert: The server's certificate, used to validate the `rid` field.
     (needs to be present for validation of the `rid` field.)
-    :param for_pop: A boolean indicating whether the validation is for proof-of-possession.
+    :param for_enc_rand: A boolean indicating whether the validation is for proof-of-possession.
     (skip the validation).
     :return: A dictionary containing the following:
         - `encrypted_key`: The encrypted content encryption key (CEK) as bytes.
@@ -1503,12 +1503,13 @@ def validate_kem_recip_info_structure(
     if not kem_recip_info["rid"].isValue:
         raise ValueError("The `rid` (Recipient Identifier) field of the `KEMRecipientInfo` structure is missing!")
 
-    if not for_pop:
+    if not for_enc_rand:
         validate_recip_identifier(server_cert, kem_recip_info["rid"])
-        if not kem_recip_info["kem"].isValue:
-            raise ValueError(
-                "The `kem` (Key Encapsulation Mechanism) field of the `KEMRecipientInfo` structure is missing!"
-            )
+
+    if not kem_recip_info["kem"].isValue:
+        raise ValueError(
+            "The `kem` (Key Encapsulation Mechanism) field of the `KEMRecipientInfo` structure is missing!"
+        )
 
     kem_oid = kem_recip_info["kem"]["algorithm"]
     if kem_oid not in KEM_OID_2_NAME and str(kem_oid) not in KEM_OID_2_NAME:

@@ -326,37 +326,54 @@ def process_pkimessage_with_popdecc(
     pki_message: bytes,
     ee_key: Optional[EnvDataPrivateKey] = None,
     password: Optional[Union[str, bytes]] = None,
-    index: int = 0,
-    cert_req_id: int = 0,
-    recip_index: int = 0,
-    expected_size: int = 1,
-    allow_pwri: bool = False,
+    challenge_size: Union[str, int] = 1,
+    index: Union[str, int] = 0,
+    cert_req_id: Union[str, int] = 0,
+    recip_index: Union[str, int] = 0,
+    expected_size: Union[str, int] = 1,
     expected_sender: Optional[str] = None,
-    request: Optional[rfc9480.PKIMessage] = None,
-    use_dhbased_mac: bool = False,
+    iv: Optional[Union[str, bytes]] = "A" * 16,
+    **kwargs,
 ) -> rfc9480.PKIMessage:
     """Process the POPODecKeyChallContent structure by decrypting the encryptedRand field or decapsulating the challenge
 
-    :param pki_message: The DER-encoded PKIMessage as bytes.
-    :param ee_key: The private key of the end-entity to process the challenge.
-    :param password: Optional password for compute the PKIMessage protection.
-    :param index: The index
-    :param cert_req_id: The certificate request ID to validate against the serialNumber.
-    :param recip_index: The index of the recipientInfo to extract the `rid` field from. Defaults to `0`.
-    :param expected_size: The expected size inside the `EnvelopedData` structure.
-    :param allow_pwri: The flag to allow the `PasswordRecipientInfo` structure to extract the
-    challenge. Defaults to `False`.
-    :param expected_sender: The expected sender name to validate in the `Rand` structure.
-    :param request: The original PKIMessage request to build the new one for the `challenge`.
-    :param use_dhbased_mac: Whether to use the DH-based MAC for the `challenge` field,
-    and then update the old request. Otherwise, update the old request Proof-of-Possession.
-    :return: The updated PKIMessage as DER-encoded bytes, to send over the wire.
+     When the end-entity wants to issue a key, which is not allowed to sign data, it can indicate to
+     use a challenge-response mechanism as Proof-of-Possession. The CA/RA sends a PKIMessage with the
+     POPODecKeyChallContent structure containing the encryptedRand field or a challenge.
 
-    :raises ValueError: If the PKIMessage decoding has a remainder.
-    :raises NotImplementedError: If the challenge is not encryptedRand.
-    :raises ValueError: If the PKIMessage version is invalid for the encryptedRand presence.
-    :raises ValueError: If the `rid` field is not correctly populated with NULL-DN and
-    `cert_req_id` as `serialNumber`.
+    The end-entity must process the challenge and return the decrypted challenge as a `Rand` object.
+    To prove that the private key is in possession of the end-entity.
+
+    Note:
+    -----
+       - For the deprecated `challenge` field is AES-CBC-256 used.
+
+    Arguments:
+    ---------
+        - `pki_message`: The DER-encoded PKIMessage as bytes.
+        - `ee_key`: The private key of the end-entity to process the challenge.
+        - `password`: Optional password for compute the PKIMessage protection.
+        - `challenge_size`: The number of expected challenges inside the `POPODecKeyChallContent` structure.
+        Defaults to `1`.
+        - `index`: The index of the POPODecKeyChallContent to process the challenge. Defaults to `0`.
+        - `cert_req_id`: The certificate request ID to validate against the serialNumber.
+        - `recip_index`: The index of the recipientInfo to extract the `rid` field from. Defaults to `0`.
+        - `expected_size`: The expected size inside the `EnvelopedData` structure.
+        - `expected_sender`: The expected sender name to validate in the `Rand` structure.
+        - `**kwargs`: Additional values for the `PKIHeader`.
+
+    Returns:
+    --------
+        - The PKIMessage with the `popdecr` body set.
+
+    Raises:
+    -------
+        - `ValueError`: If the PKIMessage decoding has a remainder.
+        - `BadRequest`: If the PKIMessage version is invalid.
+        - `BadAsn1Data`: If the `PKIMessage` decoding has a remainder.
+        - `BadAsn1Data`: If the `Rand` decoding has a remainder.
+        - `ValueError`: If the `rid` field is not correctly populated with NULL-DN and `cert_req_id` as `serialNumber`.
+
     """
     msg, popdecc = _parse_pkimessage_from_der(pki_message)
 

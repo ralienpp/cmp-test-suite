@@ -14,7 +14,6 @@ import re
 import textwrap
 from typing import List, Optional, Union
 
-from cryptography.hazmat import backends
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import (
     dh,
@@ -267,7 +266,6 @@ def generate_key(algorithm: str = "rsa", **params) -> PrivateKey:  # noqa: D417 
 
     """
     algorithm = algorithm.lower()
-    backend = backends.default_backend()
 
     if algorithm == "bad_rsa_key":
         from cryptography.hazmat.bindings._rust import (  # pylint: disable=import-outside-toplevel
@@ -278,11 +276,11 @@ def generate_key(algorithm: str = "rsa", **params) -> PrivateKey:  # noqa: D417 
 
     elif algorithm == "rsa":
         length = int(params.get("length", 2048))
-        private_key = rsa.generate_private_key(public_exponent=65537, key_size=length, backend=backend)
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=length)
 
     elif algorithm == "dsa":
         length = int(params.get("length", 2048))
-        private_key = dsa.generate_private_key(key_size=length, backend=backend)
+        private_key = dsa.generate_private_key(key_size=length)
 
     elif algorithm in {"ed25519", "ed448", "x25519", "x448", "ecdh", "ecdsa", "ecc", "ec"}:
         curve = params.get("curve", "secp256r1")
@@ -297,8 +295,6 @@ def generate_key(algorithm: str = "rsa", **params) -> PrivateKey:  # noqa: D417 
         )
 
     else:
-        from pq_logic.combined_factory import CombinedKeyFactory
-
         private_key = CombinedKeyFactory.generate_key(algorithm=algorithm, **params)
 
     return private_key
@@ -501,8 +497,6 @@ def load_public_key_from_spki(data: Union[bytes, rfc5280.SubjectPublicKeyInfo]) 
         data, rest = decoder.decode(data, rfc5280.SubjectPublicKeyInfo())
         if rest != b"":
             raise ValueError("The decoded SubjectPublicKeyInfo structure had trailing data.")
-
-    from pq_logic.combined_factory import CombinedKeyFactory
 
     return CombinedKeyFactory.load_public_key_from_spki(spki=data)
 

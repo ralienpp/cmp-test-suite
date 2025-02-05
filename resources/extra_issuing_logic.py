@@ -118,7 +118,7 @@ def prepare_enc_key_with_id(
         else:
             data["identifier"]["generalName"] = cmputils.prepare_general_name("directoryName", sender)
 
-    logging.debug(f"Private key for PoP: {data.prettyPrint()}")
+    logging.debug("Private key for PoP:  %s", data.prettyPrint())
     return data
 
 

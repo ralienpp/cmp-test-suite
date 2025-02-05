@@ -1771,7 +1771,7 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
         )
 
     else:
-        challenge, ss, kem_ct_info = prepare_challenge(
+        challenge, _, kem_ct_info = prepare_challenge(
             public_key=public_key,
             ca_key=ca_key,
             rand_int=rand_int,

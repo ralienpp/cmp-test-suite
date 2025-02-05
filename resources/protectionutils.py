@@ -2108,10 +2108,10 @@ def compute_kem_based_mac_from_alg_id(
         mac_alg = HMAC_OID_2_NAME[mac_oid].split("-")[1]
         return cryptoutils.compute_hmac(key=mac_key, data=data, hash_alg=mac_alg)
 
-    elif mac_oid in KMAC_OID_2_NAME:
+    if mac_oid in KMAC_OID_2_NAME:
         return cryptoutils.compute_kmac_from_alg_id(key=mac_key, data=data, alg_id=mac_alg_id)
-    else:
-        raise ValueError(f"Unsupported MAC algorithm: {may_return_oid_to_name(mac_oid)}")
+
+    raise ValueError(f"Unsupported MAC algorithm: {may_return_oid_to_name(mac_oid)}")
 
 
 def prepare_kem_based_mac_alg_id(

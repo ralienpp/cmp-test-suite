@@ -1666,7 +1666,7 @@ def build_rp_from_rr(
     body = rfc9480.PKIBody()
     rfc9480.RevRepContent()
 
-    for i in range(len(request["body"]["rr"])):
+    for _ in range(len(request["body"]["rr"])):
         status_info = prepare_pkistatusinfo(status=status, failinfo=fail_info)
         body["rr"]["status"].append(status_info)
 

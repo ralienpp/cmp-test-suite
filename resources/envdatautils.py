@@ -919,34 +919,63 @@ def prepare_recip_info(
         raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
-# TODO change doc to RF.
-def prepare_enc_key_for_pop(
-    private_key: PrivateKey,
-    recip_info: rfc5652.RecipientInfo,
+@keyword(name="Prepare EncryptedKey For POPO")
+def prepare_enc_key_for_popo(
+    enc_key_with_id: rfc4211.EncKeyWithID,
+    ca_cert: Optional[rfc9480.CMPCertificate] = None,
+    recip_info: Optional[rfc5652.RecipientInfo] = None,
+    rid: Optional[rfc5652.RecipientIdentifier] = None,
     for_agreement: bool = None,
     version: Optional[int] = None,
     cek: Optional[bytes] = None,
-    enc_key_sender: Optional[str] = None,
+    private_key: Optional[ECDHPrivateKey] = None,
 ) -> rfc4211.ProofOfPossession:
     """Prepare an EncKeyWithID structure for the `ProofOfPossession` structure.
 
     Used to prove the possession of a private key by sending the encrypted key to the CA/RA.
 
-    :param private_key: The private key of the client to send to the CA/RA.
-    :param recip_info: The recipient information structure to include. Which is used to encrypt the CEK.
-    :param for_agreement: Whether the Proof-of-Possession is for a key agreement (True) or key encipherment (False).
-    :param version: The version of the EnvelopedData structure. If None, it is set based on the recipient info.
-    :param cek: The content encryption key to use. Defaults to 32 random bytes.
-    :param enc_key_sender: The sender's distinguished name, set inside the `EncKeyWithID` structure.
-    Defaults to "CN=Test-Suite".
-    :return: The populated `ProofOfPossession` structure.
+    Note:
+    ----
+       - For `KTRI` and `KARI` must the `rid` field be set to the CMP protection certificate.
+
+
+    Arguments:
+    ---------
+        - `enc_key_with_id`: The EncKeyWithID structure to include.
+        - `ca_cert`: The CA certificate to use for encryption.
+        - `recip_info`: The recipient information structure to include. Which is used to encrypt the CEK.
+        - `for_agreement`: Whether the Proof-of-Possession is for a key agreement (True) or key encipherment (False).
+        - `version`: The version of the EnvelopedData structure. If None, it is set based on the recipient info.
+        - `cek`: The content encryption key to use. Defaults to 32 random bytes.
+        - `private_key`: The private key used for key agreement. Defaults to `None`.
+
+    Returns:
+    -------
+        - The populated `ProofOfPossession` structure.
+
     """
     if version is None:
         version = 0 if recip_info.getName() in ["ori", "pwri"] else 2
 
     cek = cek or os.urandom(32)
-    env_data = _prepare_env_data_for_pop(
-        private_key=private_key, recip_infos=recip_info, cek=cek, version=version, sender=enc_key_sender
+    env_data = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))
+
+    if recip_info is None:
+        recip_info = prepare_recip_info(
+            public_key_recip=None,
+            private_key=private_key,
+            cek=cek,
+            cert_recip=ca_cert,
+            rid=rid,
+        )
+
+    env_data = prepare_enveloped_data(
+        cek=cek,
+        recipient_infos=recip_info,
+        target=env_data,
+        enc_oid=rfc4211.id_ct_encKeyWithID,
+        version=version,
+        data_to_protect=encoder.encode(enc_key_with_id),
     )
 
     if not for_agreement:
@@ -965,35 +994,6 @@ def prepare_enc_key_for_pop(
     popo_structure[option] = popo_priv_key
 
     return popo_structure
-
-
-def _prepare_env_data_for_pop(
-    private_key,
-    recip_infos: Union[List[rfc5652.RecipientInfo], rfc5652.RecipientInfo],
-    data: rfc4211.EncKeyWithID,
-    cek: Optional[bytes] = None,
-    version: int = 2,
-    sender: str = "CN=Test-Suite",
-):
-    """Prepare an EnvelopedData structure for the provided private key and recipient information.
-
-    :param private_key: The private key of the client to send to the CA/RA.
-    :param recip_infos: The recipient information structure(s) to include.
-    :param cek: The content encryption key to use. Defaults to 32 random bytes.
-    :param version: The version of the EnvelopedData structure. Defaults to 2.
-    :param sender: The sender's distinguished name. Defaults to "CN=Test-Suite".
-    :return: The populated and tagged `EnvelopedData` structure.
-    """
-    env_data = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))
-
-    return prepare_enveloped_data(
-        cek=cek,
-        recipient_infos=recip_infos,
-        target=env_data,
-        enc_oid=rfc4211.id_ct_encKeyWithID,
-        version=version,
-        data_to_protect=encoder.encode(data),
-    )
 
 
 @not_keyword

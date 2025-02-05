@@ -734,6 +734,8 @@ def prepare_kari(
     :param recip_cert: The certificate of the recipient.
     :param hash_alg: The hash algorithm to use for key derivation.
     :param issuer_and_ser: The optional `IssuerAndSerialNumber` structure to use. Defaults to None.
+    :param oid: The Object Identifier for the key agreement algorithm.
+    Defaults to dhSinglePass-stdDH-sha256kdf-scheme.
     :return: The populated `KeyAgreeRecipientInfo` structure.
     """
     ecc_cms_info = encoder.encode(

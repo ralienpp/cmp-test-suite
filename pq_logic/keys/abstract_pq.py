@@ -206,9 +206,9 @@ class PQPrivateKey(ABC):
         raise ValueError(f"Unsupported format: {format}")
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return the name of the algorithm."""
-        return not self._name.lower()
+        return self._name.lower()
 
     @abstractmethod
     def public_key(self) -> PQPublicKey:

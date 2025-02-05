@@ -943,7 +943,7 @@ def prepare_enc_key_for_popo(
 
     Note:
     ----
-       - For `KTRI` and `KARI` must the `rid` field be set to the CMP protection certificate.
+       - For `KTRI` and `KARI`, the rid field must be set to the CMP protection certificate.
 
 
     Arguments:

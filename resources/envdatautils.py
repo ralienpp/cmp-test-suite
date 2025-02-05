@@ -30,7 +30,7 @@ from pyasn1_alt_modules import (
     rfc9481,
     rfc9629,
 )
-from robot.api.deco import not_keyword
+from robot.api.deco import not_keyword, keyword
 
 from resources import certbuildutils, certextractutils, keyutils
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
@@ -220,6 +220,7 @@ def prepare_recipient_identifier(
     return recip_id
 
 
+@not_keyword
 def prepare_issuer_and_serial_number(
     cert: Optional[rfc9480.CMPCertificate] = None,
     invalid_serial_number: bool = False,
@@ -263,6 +264,7 @@ def prepare_issuer_and_serial_number(
     return iss_ser_num
 
 
+@not_keyword
 def prepare_signer_identifier(cert: rfc9480.CMPCertificate) -> rfc5652.SignerIdentifier:
     """Create a `SignerIdentifier` to identify the CMP protection certificate.
 

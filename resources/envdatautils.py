@@ -226,13 +226,13 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
     return recip_id
 
 
-@not_keyword
+@keyword(name="Prepare IssuerAndSerialNumber")
 def prepare_issuer_and_serial_number(
     cert: Optional[rfc9480.CMPCertificate] = None,
-    invalid_serial_number: bool = False,
-    invalid_issuer: bool = False,
+    modify_serial_number: bool = False,
+    modify_issuer: bool = False,
     issuer: Optional[str] = None,
-    serial_number: Optional[int] = None,
+    serial_number: Optional[Union[str, int]] = None,
 ) -> rfc5652.IssuerAndSerialNumber:
     """Extract issuer and serial number from a certificate.
 
@@ -240,13 +240,27 @@ def prepare_issuer_and_serial_number(
     a certificate by its issuer's distinguished name and its serial number. It's used when
     the certificate lacks a SubjectKeyIdentifier extension.
 
-    :param cert: Certificate from which to extract the issuer and serial number.
-    :param invalid_serial_number: If True, increment the serial number by 1. Defaults to `False`.
-    :param invalid_issuer: If True, modify the issuer common name. Defaults to `False`.
-    :param issuer: The issuer's distinguished name to use. Defaults to `None`.
-    ("Null-DN")
-    :param serial_number: Serial number to use. Defaults to `None`.
-    :return: An `IssuerAndSerialNumber` structure identifying the certificate.
+    Arguments:
+    ---------
+        - `cert`: Certificate from which to extract the issuer and serial number.
+        - `modify_serial_number`: If True, increment the serial number by 1. Defaults to `False`.
+        - `modify_issuer`: If True, modify the issuer common name. Defaults to `False`.
+        - `issuer`: The issuer's distinguished name to use. Defaults to `None`.
+        - `serial_number`: The serial number to use. Defaults to `None`.
+
+    Returns:
+    -------
+        - The populated `IssuerAndSerialNumber` structure.
+
+    Raises:
+    ------
+        - ValueError: If neither a certificate nor an issuer and serial number is provided.
+
+    Examples:
+    --------
+    | ${issuer_and_ser}= | Prepare IssuerAndSerialNumber | cert=${cert} | modify_serial_number=True |
+    | ${issuer_and_ser}= | Prepare IssuerAndSerialNumber | issuer=${issuer} | serial_number=${serial_number} |
+
     """
     if cert is None and (issuer is None or serial_number is None):
         raise ValueError("Either a certificate or a issuer and serial number must be provided.")
@@ -255,7 +269,7 @@ def prepare_issuer_and_serial_number(
 
     if issuer:
         iss_ser_num["issuer"] = prepare_name(issuer)
-    elif not invalid_issuer:
+    elif not modify_issuer:
         iss_ser_num["issuer"] = copy_name(rfc9480.Name(), cert["tbsCertificate"]["issuer"])
     else:
         data = certbuildutils.modify_common_name_cert(cert, issuer=True)
@@ -264,7 +278,7 @@ def prepare_issuer_and_serial_number(
     if serial_number is None:
         serial_number = int(cert["tbsCertificate"]["serialNumber"])
 
-    if invalid_serial_number:
+    if modify_serial_number:
         serial_number += 1
     iss_ser_num["serialNumber"] = rfc5280.CertificateSerialNumber(serial_number)
     return iss_ser_num

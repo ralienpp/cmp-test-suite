@@ -67,22 +67,7 @@ Initialize Global Variables
 #    No Operation
 #
 
-#
-#PKIStatusInfo must be set when an error occurred
-#    [Documentation]    When a negative response is sent by the RA/CA, the error details must be shown in PKIStatusInfo.
-#    ...                operation.
-#    ...                Ref: 3.6.4
-#    [Tags]    consistency
-#    No Operation
-
-#CA MUST reject CR with poposkInput
-#    [Documentation]  poposkInput MUST NOT be used; it is not needed because subject and
-#    ...              publicKey are both present in the certTemplate.
-#    [Tags]    cr   negative  popo
-#    ${pki_message}=  Build Negative CMP Request  body=cr  bad=sigAlg  private_key=${ISSUDE_KEY}  ee_cert=${ISSUDE_CERT}  sender=${SENDER}    recipient=${RECIPIENT}
-#    ${resp_pki_message}=  Send And Exchange PKIMessage   ${pki_message}
-#    Verify PKIStatusInfo and PKIFailInfo  ${resp_pki_message}  body=cp  failinfo_names=badPOP, notAuthorized
-
 
 # CA MUST check the validity of a CertTemplate in a CR
 # send a validity and check if the request was different and then grantedWithMods was returned.
+

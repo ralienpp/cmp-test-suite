@@ -103,6 +103,9 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
         THEN the encrypted certificate should be correctly prepared.
         """
         cert, encr_cert = self.set_up_data(self.xwing_key, None)
+        # TODO Talk about bug in recipient cert for encrCert.
+        # if the other party does not have a certificate, the recipient ID should be None.
+        # or at least the SKI to that the client can validate that.
         der_cert = validate_enveloped_data(
             env_data=encr_cert,
             ee_key=self.xwing_key,

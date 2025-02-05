@@ -818,27 +818,41 @@ def prepare_recip_info(
     cert_recip: Optional["rfc9480.CMPCertificate"] = None,
     password: Optional[Union[str, bytes]] = None,
     cek: Optional[Union[bytes, str]] = None,
-    issuer_and_ser: Optional["rfc5652.IssuerAndSerialNumber"] = None,
+    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    rid: Optional[rfc5652.RecipientIdentifier] = None,
     use_rsa_oaep: bool = True,
     salt: Optional[Union[bytes, str]] = None,
     kdf_name: Optional[str] = "pbkdf2",
 ) -> rfc5652.RecipientInfo:
     """Prepare the appropriate RecipientInfo structure based on the type of the recipient's public key.
 
-    :param public_key_recip: The public key of the recipient.
-    :param private_key: The private key for key agreement (EC), if required.
-    :param cert_recip: The sender's certificate (used in some KEM flows or RSA).
-    (For KEMRI is it the certificate of the recipient, For KARI, KTRI the CMP protection certificate).
-    :param cek: The content encryption key (32 random bytes if not supplied).
-    :param issuer_and_ser: IssuerAndSerialNumber structure.
-    :param password: The password for the password recipient info structure.
-    :param use_rsa_oaep: Whether to use RSA OAEP (True) or PKCS#1 v1.5 (False).
-    :param salt: The salt value for the PasswordRecipientInfo structure. Defaults to 32 random bytes.
-    (can be used for negative testing, by setting to same value for CMP-protection-salt (MAC-protection)).
-    :param kdf_name: The key derivation function to use for the PasswordRecipientInfo or KEMRecipientInfo structure.
-    Defaults to "pbkdf2".
-    (which is the only allowed for PasswordRecipientInfo,).
-    :return: An appropriate RecipientInfo object for the given keys and parameters.
+    Arguments:
+    ---------
+        - `public_key_recip`: The public key of the recipient.
+        - `private_key`: The private key for key agreement (EC), if required.
+        - `cert_recip`: The sender's certificate (used in some KEM flows or RSA).
+        (For KEMRI is it the certificate of the recipient, For KARI, KTRI the CMP protection certificate).
+        - `cek`: The content encryption key (32 random bytes if not supplied).
+        - `issuer_and_ser`: IssuerAndSerialNumber structure.
+        - `password`: The password for the password recipient info structure.
+        - `use_rsa_oaep`: Whether to use RSA OAEP (True) or PKCS#1 v1.5 (False).
+        - `salt`: The salt value for the PasswordRecipientInfo structure. Defaults to 32 random bytes.
+        (can be used for negative testing, by setting to same value for CMP-protection-salt (MAC-protection)).
+        - `kdf_name`: The key derivation function to use for the PasswordRecipientInfo or KEMRecipientInfo structure.
+        Defaults to "pbkdf2".
+        (which is the only allowed for PasswordRecipientInfo,).
+
+    Returns:
+    -------
+        - The populated `RecipientInfo` structure.
+
+    Raises:
+    ------
+        - ValueError: If the public key type is not supported.
+        - ValueError: If a password is not provided for the password recipient info structure.
+        - ValueError: If The ECDH private key was not provided for EC key exchange.
+        - ValueError: If neither a certificate nor an issuer and serial number is provided.
+
     """
     if cek is None:
         cek = os.urandom(32)

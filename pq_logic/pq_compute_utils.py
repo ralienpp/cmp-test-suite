@@ -32,7 +32,7 @@ from resources.protectionutils import (
     verify_rsassa_pss_from_alg_id,
 )
 from resources.typingutils import PrivateKeySig, PublicKeySig
-from robot.api.deco import not_keyword
+from robot.api.deco import not_keyword, keyword
 
 import pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig import chameleon_logic
@@ -287,6 +287,7 @@ def _compute_protection(
     return pki_message
 
 
+@keyword(name="Protect Hybrid PKIMessage")
 def protect_hybrid_pkimessage(
     pki_message: rfc9480.PKIMessage,
     private_key: Union[PrivateKeySig, CompositeSigCMSPrivateKey, PQSignaturePrivateKey],

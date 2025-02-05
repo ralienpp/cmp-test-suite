@@ -164,27 +164,53 @@ def prepare_enveloped_data(
     return target
 
 
+@keyword(name="Prepare Recipient Identifier")
 def prepare_recipient_identifier(
     cert: Optional[rfc9480.CMPCertificate] = None,
     iss_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     ski: Optional[bytes] = None,
+    key: Optional[PublicKey] = None,
+    bad_ski: bool = False,
 ) -> rfc5652.RecipientIdentifier:
     """Prepare a RecipientIdentifier used for kari and ktri.
 
     Used to identify the certificate used for the key transport.
 
-    :param cert: An optional `CMPCertificate` to extract the identifier from. Defaults to None.
-    :param iss_and_ser: An optional `IssuerAndSerialNumber` structure to use. Defaults to None.
-    :param ski: An optional Subject Key Identifier as bytes. Defaults to None.
-    :return: The populated `RecipientIdentifier` structure.
+    Arguments:
+    ---------
+        - `cert`: A certificate to extract the identifier from. Defaults to `None`.
+        - `iss_and_ser`: An IssuerAndSerialNumber structure to use. Defaults to `None`.
+        - `ski`: A Subject Key Identifier as bytes. Defaults to `None`.
+        - `key`: A public key to compute the identifier from. Defaults to `None`.
+        - `bad_ski`: If True, the Subject Key Identifier is modified. Defaults to `False`.
+
+    Returns:
+    --------
+        - The populated `RecipientIdentifier` structure.
+
+    Raises:
+    -------
+        - ValueError: If neither a certificate nor an issuer and serial number is provided or a key.
+
     """
     recip_id = rfc5652.RecipientIdentifier()
+
+    if key is None and cert is None and iss_and_ser is None:
+        raise ValueError("At least one of the arguments must be provided.")
 
     if iss_and_ser is not None:
         recip_id["issuerAndSerialNumber"] = iss_and_ser
         return recip_id
 
-    ski = ski or certextractutils.get_field_from_certificate(cert, extension="ski")
+    if key is not None:
+        ski = x509.SubjectKeyIdentifier.from_public_key(key)
+
+    elif cert is not None:
+        ski = ski or certextractutils.get_field_from_certificate(cert, extension="ski")
+
+    if bad_ski and ski is not None:
+        ski = utils.manipulate_first_byte(ski)
+
     if ski is not None:
         recip_id["subjectKeyIdentifier"] = rfc5652.SubjectKeyIdentifier(ski).subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)

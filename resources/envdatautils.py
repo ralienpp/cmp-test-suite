@@ -1039,6 +1039,33 @@ def build_env_data_for_exchange(
         raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
+def _process_rid_kemri(
+    rid: Optional[rfc5652.RecipientIdentifier],
+    recip_cert: Optional[rfc9480.CMPCertificate],
+    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber],
+):
+    """Prepare the RecipientIdentifier structure, for the KEMRecipientInfo structure.
+
+    :param rid: The recipient identifier structure.
+    :param recip_cert: The recipient's certificate.
+    :param issuer_and_ser: The `IssuerAndSerialNumber` structure.
+    :return: The populated `RecipientIdentifier` structure.
+    """
+    if rid is None and recip_cert is not None:
+        rid = prepare_recipient_identifier(recip_cert)
+    elif issuer_and_ser is not None:
+        rid = rfc5652.RecipientIdentifier()
+        rid["issuerAndSerialNumber"] = issuer_and_ser
+
+    elif rid is not None:
+        pass
+
+    else:
+        raise ValueError("Either `rid` or `issuer_and_ser` must be provided.")
+
+    return rid or prepare_recipient_identifier(cert=recip_cert, iss_and_ser=issuer_and_ser)
+
+
 def prepare_kem_recip_info(
     version: int = 0,
     rid: Optional[rfc5652.RecipientIdentifier] = None,

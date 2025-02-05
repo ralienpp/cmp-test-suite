@@ -50,6 +50,17 @@ class CombinedKeyFactory:
     """Factory for creating all known key types."""
 
     @staticmethod
+    def get_all_kem_coms_as_dict() ->  dict[str, list[dict]]:
+        """Return all KEM composites key combinations as a dictionary.
+
+        Enables to display all possible key combinations, or generate keys with
+        in all valid combinations.
+
+        :return: Dictionary with all KEM composites key combinations.
+        """
+        return HybridKeyFactory.get_all_kem_coms_as_dict()
+
+    @staticmethod
     def generate_key(algorithm: str, **kwargs):
         """Generate a key based on the provided key type, including composite CMS keys.
 
@@ -74,7 +85,7 @@ class CombinedKeyFactory:
 
         else:
             options = ", ".join(CombinedKeyFactory.supported_algorithms())
-            raise ValueError(f"Unsupported key type: {algorithm} Supported are {options}")
+            raise ValueError(f"Unsupported key type: **{algorithm}** Supported are {options}")
 
     @staticmethod
     def load_public_key_from_spki(spki: rfc5280.SubjectPublicKeyInfo):

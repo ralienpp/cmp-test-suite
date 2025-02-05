@@ -13,6 +13,7 @@ import pyasn1.error
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import dh, padding, rsa, x448, x25519
 from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey, DHPublicKey
+
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
 from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key
@@ -2219,17 +2220,18 @@ def prepare_kdf(
         raise ValueError(f"Unsupported KDF algorithm: {kdf_name}")
 
 
-def prepare_wrap_alg_id(name: str, negative: bool = False) -> rfc9629.KeyEncryptionAlgorithmIdentifier:
+def prepare_wrap_alg_id(name: str, fill_rand_params: bool = False) -> rfc9629.KeyEncryptionAlgorithmIdentifier:
     """Prepare a KeyEncryptionAlgorithmIdentifier for the specified key wrap algorithm.
 
     :param name: The name of the key wrap algorithm (e.g., "aes-wrap", "aes-gcm-wrap").
-    :param negative: If True, assign a random 32-byte value (MUST be absent).
+    :param fill_rand_params: Whether to fill the parameters field of the KeyEncryptionAlgorithmIdentifier with
+    random bytes. Defaults to `False`. (**MUST** be absent).
     :return: The populated KeyEncryptionAlgorithmIdentifier object.
     """
     key_enc_alg_id = rfc9629.KeyEncryptionAlgorithmIdentifier()
     wrap_oid = KEY_WRAP_NAME_2_OID[name]
     key_enc_alg_id["algorithm"] = wrap_oid
-    if negative:
+    if fill_rand_params:
         key_enc_alg_id["parameters"] = os.urandom(32)
 
     return key_enc_alg_id

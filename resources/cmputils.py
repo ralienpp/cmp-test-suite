@@ -964,6 +964,7 @@ def prepare_cert_req_msg(  # noqa D417 undocumented-param
         controls=controls,
         for_kga=for_kga,
         spki=spki,
+        use_pre_hash=use_pre_hash,
     )
 
     cert_request_msg["certReq"] = cert_request

@@ -1413,7 +1413,6 @@ def prepare_password_recipient_info(
 
     return prepare_pwri_structure(
         encrypted_key=encrypted_key,
-        cek=cek,
         version=version,
         key_der_alg_id=rfc9481.id_PBKDF2,
         key_enc_alg_id=rfc9481.id_aes256_wrap,

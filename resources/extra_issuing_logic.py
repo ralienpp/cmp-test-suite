@@ -395,19 +395,19 @@ def process_pkimessage_with_popdecc(
     return response
 
 
-def validate_pki_message_version(pki_message: PKIMessage, popdecc: POPODecKeyChallContentAsn1) -> None:
+@not_keyword
+def validate_popdecc_version(pki_message: PKIMessage) -> None:
     """Validate the PKIMessage version against the presence of the encryptedRand and challenge fields.
 
     :param pki_message: The PKIMessage to validate.
-    :param popdecc: The `POPODecKeyChallContent` structure which contains the challenges.
     """
-    is_enc_present = any(c["encryptedRand"].isValue for c in popdecc)
+    is_enc_present = any(c["encryptedRand"].isValue for c in pki_message["body"]["popdecc"])
 
-    if pki_message["pvno"] != 3 and is_enc_present:
-        raise ValueError("Invalid PKIMessage version for encryptedRand presence")
+    if int(pki_message["header"]["pvno"]) != 3 and is_enc_present:
+        raise BadRequest("Invalid PKIMessage version for encryptedRand. Expected version 3.")
 
-    if pki_message["pvno"] != 2 and not is_enc_present:
-        raise ValueError("Invalid PKIMessage version for challenge presence")
+    if int(pki_message["header"]["pvno"]) != 2 and not is_enc_present:
+        raise BadRequest("Invalid PKIMessage version for challenge. Expected version 2.")
 
 
 def _process_encrypted_rand(

@@ -23,6 +23,7 @@ from pq_logic.tmp_oids import (
     PURE_COMPOSITE_NAME_TO_OID,
     PURE_OID_TO_HASH,
     id_sntrup761_str,
+    id_ce_deltaCertificateDescriptor,
 )
 from pyasn1.type import univ
 from pyasn1_alt_modules import (
@@ -585,10 +586,18 @@ id_ce_subjectAltPublicKeyInfo = rfc5280.id_ce + (72,)
 id_ce_altSignatureAlgorithm = rfc5280.id_ce + (73,)
 id_ce_altSignatureValue = rfc5280.id_ce + (74,)
 
+EXTENSION_NAME_2_OID = {
+    "ski": rfc5280.id_ce_subjectKeyIdentifier,
+    "key_usage": rfc5280.id_ce_keyUsage,
+    "eku": rfc5280.id_ce_extKeyUsage,
+    "dcd": id_ce_deltaCertificateDescriptor,
+    "alt_sig_alg": id_ce_altSignatureAlgorithm,
+    "alt_sig_val": id_ce_altSignatureValue,
+    "alt_spki": id_ce_subjectAltPublicKeyInfo,
+}
+
+EXTENSION_OID_2_NAME = {y: x for x, y in EXTENSION_NAME_2_OID.items()}
+
 ALL_KNOWN_PROTECTION_OIDS.update(
-    {
-        id_ce_subjectAltPublicKeyInfo: "alt-pub-key",
-        id_ce_altSignatureAlgorithm: "alt-sig-alg",
-        id_ce_altSignatureValue: "alt-sig-val",
-    }
+    **EXTENSION_OID_2_NAME
 )

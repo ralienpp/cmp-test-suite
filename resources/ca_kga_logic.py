@@ -1342,7 +1342,7 @@ def validate_issuer_and_serial_number_field(structure: rfc5652.IssuerAndSerialNu
 @not_keyword
 def validate_key_trans_recipient_info(
     ktri: rfc5652.KeyTransRecipientInfo,
-    cmp_cert,
+    cmp_cert: rfc9480.CMPCertificate,
     for_pop: bool = False,
 ) -> dict:
     """Validate a `KeyTransRecipientInfo` structure.

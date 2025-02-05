@@ -7,7 +7,6 @@
 from typing import Dict, List, Optional
 
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa, x448, x25519
-from resources import keyutils
 from resources.exceptions import InvalidKeyCombination
 from resources.typingutils import Strint
 
@@ -379,12 +378,12 @@ class HybridKeyFactory:
         if pq_name is None or trad_name is None:
             key_params = get_valid_comb(pq_name=pq_name, trad_name=trad_name)
             pq_key = PQKeyFactory.generate_pq_key(key_params["pq_name"])
-            trad_key = keyutils.generate_key(
+            trad_key = generate_trad_key(
                 algorithm=key_params["trad_name"], length=key_params.get("length"), curve=key_params.get("curve")
             )
         else:
             pq_key = PQKeyFactory.generate_pq_key(pq_name)
-            trad_key = keyutils.generate_key(algorithm=trad_name, length=length, curve=curve)
+            trad_key = generate_trad_key(algorithm=trad_name, length=length, curve=curve)
 
         return pq_key, trad_key
 

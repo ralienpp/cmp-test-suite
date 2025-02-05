@@ -194,6 +194,11 @@ def load_truststore(  # noqa D417 undocumented-param
     -------
         - A list of `pyasn1` certificates, which are trustanchors.
 
+    Examples:
+    --------
+    | ${certs}= | Load Truststore |
+    | ${certs}= | Load Truststore | path=./data/trustanchors | allow_os_store=True |
+
     """
     certificates = []
     if path is not None:

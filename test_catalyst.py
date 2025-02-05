@@ -1,5 +1,9 @@
-"""Try out all possible combinations of alternative signature data and verify the signature of a catalyst cert."""
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
 
+
+"""Try out all possible combinations of alternative signature data and verify the signature of a catalyst certificate."""
 import glob
 from itertools import product
 

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Verify the signatures of the certificates in the pqc-certificates repository."""
 
 import argparse
@@ -138,18 +142,21 @@ if __name__ == "__main__":
     elif not os.path.isdir("./data/pqc-certificates"):
         main()
     else:
-        # for file in glob.iglob(f"{dir_path}/**/*.crl", recursive=True):
-        for file in glob.iglob("./data/pqc-certificates/providers/**", recursive=True):
+       # for file in glob.iglob(f"{dir_path}/**/*.crl", recursive=True):
+       for file in glob.iglob("./data/pqc-certificates/providers/**", recursive=True):
             if file.endswith(".der"):
                 pem_files.append(file)
 
-        f = open("validation_pem_files.txt", "w", encoding="utf-8")
-        f.write(f"Last Time Verified: {datetime.now()}\n")
-        f.write(f"Collected {len(pem_files)}.pem files:\n\n")
-        for pem in pem_files:
+       f = open("validation_pem_files.txt", "w", encoding='utf-8')
+       f.write("Validation of PQC Certificates\n")
+       f.write("# SPDX-FileCopyrightText: Copyright 2024 Siemens AG\n# # SPDX-License-Identifier: Apache-2.0\n")
+       f.write(f"Last Time Verified: {datetime.now()}\n")
+       f.write(f"Collected {len(pem_files)}.pem files:\n\n")
+       for pem in pem_files:
+
             if "_pub" in pem:
-                f.write(f"SKIPPING PUBLIC KEY FILE:\t{pem}\n")
-                continue
+               f.write(f"SKIPPING PUBLIC KEY FILE:\t{pem}\n")
+               continue
 
             if "_priv" in pem:
                 f.write(f"SKIPPING PRIVATE KEY FILE:\t{pem}\n")
@@ -171,4 +178,4 @@ if __name__ == "__main__":
             except cryptography.exceptions.UnsupportedAlgorithm as e:
                 f.write(f"UNSUPPORTED ALGORITHM\t{pem}\tUnable to decode.{e}\n")
 
-        f.close()
+         f.close()

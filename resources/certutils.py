@@ -41,11 +41,25 @@ from resources.suiteenums import KeyUsageStrictness
 # return False
 
 
-def parse_certificate(data: bytes) -> rfc9480.CMPCertificate:
+def parse_certificate(data: bytes) -> rfc9480.CMPCertificate:  # noqa D417 undocumented-param
     """Parse a DER-encoded X509 certificate into a pyasn1 object.
 
-    :param data: DER-encoded X509 certificate.
-    :returns: The decoded certificate object.
+    Arguments:
+    ---------
+        - `data`: DER-encoded certificate.
+
+    Returns:
+    -------
+        - The decoded certificate object.
+
+    Raises:
+    ------
+        - `pyasn1.error.PyAsn1Error`: If the parsing fails.
+
+    Examples:
+    --------
+    | ${cert}= | Parse Certificate | ${der_cert} |
+
     """
     cert, _ = decoder.decode(data, asn1Spec=rfc9480.CMPCertificate())
     return cert

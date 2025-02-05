@@ -204,22 +204,24 @@ def is_null_dn(name: rfc5280.Name) -> bool:
     return encoder.encode(name) == b"\x30\x00"
 
 
-def _extract_rid(
-    recipient_info: rfc5652.RecipientInfo, allow_pwri: bool = False, kari_index: int = 0
-) -> Optional[rfc5652.IssuerAndSerialNumber]:
+# TODO verify with Alex, if this functions does too much,
+# otherwise add new arg to the `validate_enveloped_data` function.
+def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> Optional[rfc5652.IssuerAndSerialNumber]:
     """Extract and return the 'rid' field as an IssuerAndSerialNumber or RecipientKeyIdentifier.
 
     :param recipient_info:
-    :param allow_pwri: Whether to allow the pwri structure to extract the challenge. Defaults to `False`.
     :param kari_index: The index inside the `RecipientEncryptedKeys` structure to extract the rid of.
     :return: The `IssuerAndSerialNumber` structure if not pwri.
     :raises ValueError: If the 'rid' field type is invalid or not `issuerAndSerialNumber`,
         If the recipient_info type is `PasswordRecipientInfo` and `allow_pwri`.
     """
     if recipient_info.getName() == "ktri":
-        rid = recipient_info["rid"]
-        if rid.getName() == "issuerAndSerialNumber":
-            raise ValueError("Invalid 'rid' type found in KeyTransRecipientInfo.")
+        rid = recipient_info["ktri"]["rid"]
+        if rid.getName() != "issuerAndSerialNumber":
+            raise ValueError(
+                "Invalid 'rid' type found in KeyTransRecipientInfo."
+                f"Expected `issuerAndSerialNumber`. Got: {rid.getName()}"
+            )
 
         return rid["issuerAndSerialNumber"]
 
@@ -228,20 +230,14 @@ def _extract_rid(
             raise NotImplementedError("Unsupported `oriType` in OriginatorRecipientInfo. Expected `id_ori_kem`.")
 
         kemri, _ = decoder.decode(recipient_info["ori"]["oriValue"], rfc9629.KEMRecipientInfo())
-        rid = recipient_info["rid"]
+        rid = kemri["rid"]
         if rid.getName() != "issuerAndSerialNumber":
             raise ValueError("Invalid 'rid' type found in KEMRecipientInfo. Expected `issuerAndSerialNumber`.")
 
         return rid["issuerAndSerialNumber"]
 
-    elif recipient_info.getName() == "PasswordRecipientInfo":
-        if not allow_pwri:
-            raise ValueError("The CA/RA responded with the `PasswordRecipientInfo`.")
-
-        return None
-
     elif recipient_info.getName() == "kari":
-        recipient_encrypted_key = recipient_info["recipientEncryptedKeys"][kari_index]
+        recipient_encrypted_key = recipient_info["kari"]["recipientEncryptedKeys"][kari_index]
         rid = recipient_encrypted_key["rid"]
         if rid.getName() != "issuerAndSerialNumber":
             raise ValueError("Invalid 'rid' type in KeyAgreeRecipientIdentifier.")

@@ -384,7 +384,7 @@ def _extract_ktri_and_kari_content_enc_key(
     """
     recip_name = recip_info.getName()
     if recip_name == "ktri":
-        params = validate_key_trans_recipient_info(recip_info["ktri"], cmp_protection_cert)
+        params = validate_key_trans_recipient_info(recip_info["ktri"], cmp_protection_cert, for_pop=for_pop)
         content_encryption_key = compute_key_transport_mechanism(ee_private_key=ee_key, **params)
         logging.info("Ktri content encryption key: %s", content_encryption_key.hex())
 
@@ -487,8 +487,11 @@ def extract_content_encryption_key(
         )
 
     elif recip_info.getName() in ["ktri", "kari"]:
-        if cmp_protection_cert is None or ee_key is None:
-            raise ValueError("CMP protection certificate and private key are required for `ktri` or `kari`.")
+        if cmp_protection_cert is None and not for_pop:
+            raise ValueError("CMP protection certificate is required for `ktri` or `kari`.")
+
+        if ee_key is None:
+            raise ValueError("A private key are required for `ktri` or `kari`.")
         content_encryption_key = _extract_ktri_and_kari_content_enc_key(
             recip_info, cmp_protection_cert, ee_key, for_pop=for_pop
         )
@@ -1594,7 +1597,7 @@ def process_kem_recip_info(
         raise ValueError("The `server_cert` must be provided for recipient identifier validation.")
 
     validated_info = validate_kem_recip_info_structure(
-        kem_recip_info=kem_recip_info, server_cert=server_cert, for_pop=for_pop
+        kem_recip_info=kem_recip_info, server_cert=server_cert, for_enc_rand=for_pop
     )
 
     shared_secret = private_key.decaps(validated_info["kemct"])

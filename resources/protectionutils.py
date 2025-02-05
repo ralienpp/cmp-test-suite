@@ -611,8 +611,7 @@ def compute_dh_based_mac_from_alg_id(
         derived_key = _dh_based_mac_derive_key(basekey=shared_secret, desired_length=32, owf=owf)
         mac = cryptoutils.compute_kmac_from_alg_id(alg_id=params["mac"], data=data, key=derived_key)
     else:
-        mac_name = may_return_oid_to_name(mac_alg_oid)
-        raise ValueError(f"Unsupported MAC algorithm for DHBasedMAC: {mac_name}")
+        raise ValueError(f"Unsupported MAC algorithm for DHBasedMAC: {may_return_oid_to_name(mac_alg_oid)}")
 
     logging.info("Derived Key: %s", derived_key.hex())
     logging.info("Computed DHBasedMAC: %s", mac.hex())
@@ -744,7 +743,6 @@ def _compute_pkimessage_sig_protection(
     protection_oid: univ.ObjectIdentifier,
     private_key: PrivateKeySig,
     data: bytes,
-    hash_alg: Optional[str] = None,
 ) -> bytes:
     """Compute the signature protection value for a `PKIMessage`.
 
@@ -754,7 +752,6 @@ def _compute_pkimessage_sig_protection(
     :param protection_oid: The OID of the protection type to be used.
     :param private_key: The private key used for signing.
     :param data: The DER-encoded protected part of the `PKIMessage`, which is signed.
-    :param hash_alg: Optional hash algorithm to use for signature generation. Defaults to None.
     :return: The computed signature protection value.
     """
     if protection_oid in MSG_SIG_ALG:
@@ -834,7 +831,6 @@ def _compute_pkimessage_protection(
             data=data,
             protection_oid=protection_type_oid,
             private_key=private_key,  # type: ignore
-            hash_alg=hash_alg,
         )
 
     protection_type_oid = may_return_oid_to_name(protection_type_oid)
@@ -997,8 +993,7 @@ def _prepare_mac_alg_id(protection: str, **params) -> rfc9480.AlgorithmIdentifie
             nonce=salt,
         )
     else:
-        # TODO fix
-        raise ValueError()
+        raise ValueError(f"Given protection type is not supported: {protection}.")
 
     return prot_alg_id
 

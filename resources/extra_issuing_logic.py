@@ -499,14 +499,10 @@ def process_simple_challenge(
     return rand_obj
 
 
-def _compute_ss(client_key, ca_cert):
+def _compute_ss(client_key: ECDHPrivateKey, ca_cert: rfc9480.CMPCertificate) -> bytes:
     """Compute the shared secret (SS) between the client's private key and the CA's public key.
 
-    This function handles different types of client keys:
-    - Elliptic Curve Diffie-Hellman (ECDH) keys are processed using the `perform_ecdh` function.
-    - Post-Quantum Key Encapsulation Mechanism (PQKEM) keys are processed via the `encaps` method.
-
-    :param client_key: The client's private key (either ECDH or PQKEM).
+    :param client_key: The client's private key.
     :param ca_cert: The CA's certificate used to obtain the CA's public key.
 
     :return: The computed shared secret.
@@ -515,8 +511,8 @@ def _compute_ss(client_key, ca_cert):
     pub_key = load_public_key_from_cert(ca_cert)
     if isinstance(client_key, ECDHPrivKeyTypes):
         return perform_ecdh(client_key, pub_key)
-    else:
-        raise ValueError(f"The provided public key type is not expected: {type(client_key).__name__}")
+
+    raise ValueError(f"The provided public key type is not expected: {type(client_key).__name__}")
 
 
 # TODO fix doc
@@ -658,7 +654,7 @@ def compute_dh_static_pop(
     if not ss and not private_key:
         raise ValueError("Both the shared secret and private key cannot be None")
 
-    elif not ss:
+    if not ss:
         public_key = load_public_key_from_cert(ca_cert)
         ss = perform_ecdh(private_key=private_key, public_key=public_key)
 

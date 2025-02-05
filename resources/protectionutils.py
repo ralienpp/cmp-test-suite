@@ -2030,6 +2030,10 @@ def _prepare_kem_based_mac_parameter(
 def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, length: int, ukm: bytes) -> bytes:
     """Compute the key derivation function using the provided `AlgorithmIdentifier`.
 
+    Supported are PBKDF2, HKDF, KDF2, and KDF3.
+    For PBKDF2, the parameters are extracted from the `AlgorithmIdentifier` structure
+    (only ss is needed).
+
     :param kdf_alg_id: The `AlgorithmIdentifier` structure containing the KDF parameters.
     :param ss: The shared secret to use as key material.
     :param length: The length of the derived key.
@@ -2040,7 +2044,7 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
         hash_alg = HKDF_OID_2_NAME[kdf_alg_id["algorithm"]].split("-")[1]
         return compute_hkdf(hash_alg=hash_alg, length=length, key_material=ss, ukm=ukm)
 
-    elif kdf_alg_id["algorithm"] in [rfc5990.id_kdf_kdf2, rfc5990.id_kdf_kdf3]:
+    if kdf_alg_id["algorithm"] in [rfc5990.id_kdf_kdf2, rfc5990.id_kdf_kdf3]:
         if not isinstance(kdf_alg_id["parameters"], rfc9480.AlgorithmIdentifier):
             sha_alg_id = decoder.decode(kdf_alg_id["parameters"], asn1Spec=rfc9480.AlgorithmIdentifier())[0]
         else:
@@ -2056,7 +2060,7 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
             use_version_2=(kdf_alg_id["algorithm"] == rfc5990.id_kdf_kdf2),
         )
 
-    elif kdf_alg_id["algorithm"] == rfc9481.id_PBKDF2:
+    if kdf_alg_id["algorithm"] == rfc9481.id_PBKDF2:
         if not isinstance(kdf_alg_id["parameters"], rfc8018.PBKDF2_params):
             pbkdf2_params = decoder.decode(kdf_alg_id["parameters"], asn1Spec=rfc9480.AlgorithmIdentifier())[0]
         else:
@@ -2064,8 +2068,7 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
 
         return compute_pbkdf2_from_parameter(key=ss, parameters=pbkdf2_params)
 
-    else:
-        raise ValueError(f"Unsupported KDF algorithm: {kdf_alg_id['algorithm']}")
+    raise ValueError(f"Unsupported KDF algorithm: {kdf_alg_id['algorithm']}")
 
 
 @not_keyword

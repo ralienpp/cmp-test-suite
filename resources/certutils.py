@@ -995,19 +995,33 @@ def verify_openssl_crl(crl_chain: List, timeout: int = 60):
     raise ValueError("Validation of the CRL failed!")
 
 
-def find_crl_signer_cert(
+def find_crl_signer_cert(  # noqa D417 undocumented-param
     crl: rfc5280.CertificateList,
     ca_cert_dir: str = "data/cert_logs",
     certs: Optional[List[rfc9480.CMPCertificate]] = None,
 ) -> rfc9480.CMPCertificate:
     """Find the certificate that signed the CRL.
 
-    :param crl: The CRL to verify.
-    :param ca_cert_dir: The directory containing the CA certificates. Defaults to "data/cert_logs".
-    :param certs: A list of CA certificates to search through. If provided, will use this list
-    instead of loading from the directory.
-    :return: The certificate that signed the CRL.
-    :raises ValueError: If no matching certificate is found.
+    Arguments:
+    ---------
+        - `crl`: The CRL to verify.
+        - `ca_cert_dir`: The directory containing the CA certificates. Defaults to "data/cert_logs".
+        - `certs`: A list of CA certificates to search through. If provided, will use this list
+        instead of loading from the directory.
+
+    Returns:
+    -------
+        - The certificate that signed the CRL.
+
+    Raises:
+    ------
+        - `ValueError`: If no matching certificate is found.
+
+    Examples:
+    --------
+    | ${crl_signer}= | Find CRL Signer Cert | ${crl} | ca_cert_dir=./path/to/certs |
+    | ${crl_signer}= | Find CRL Signer Cert | ${crl} | ca_cert_dir=./path/to/certs | certs=${certs} |
+
     """
     certs = certs or load_certificates_from_dir(ca_cert_dir)
 

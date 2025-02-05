@@ -659,6 +659,7 @@ def prepare_ktri(
     cek: bytes,
     use_rsa_oaep: bool = True,
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    rid: Optional[rfc5652.RecipientIdentifier] = None,
 ) -> rfc5652.RecipientInfo:
     """Prepare a KeyTransRecipientInfo object for testing.
 
@@ -666,7 +667,8 @@ def prepare_ktri(
     :param cmp_protection_cert: The certificate of the server.
     :param cek: The content encryption key to be encrypted.
     :param use_rsa_oaep: Boolean indicating whether to use RSA-OAEP or RSA PKCS#1 v1.5 padding.
-    :param issuer_and_ser: The optional `IssuerAndSerialNumber` structure to use. Defaults to None.
+    :param issuer_and_ser: The `IssuerAndSerialNumber` structure to use. Defaults to None.
+    :param rid: The `RecipientIdentifier` structure to use. Defaults to `None`.
     :return: A RecipientInfo object containing the KeyTransRecipientInfo.
     """
     if isinstance(ee_key, rsa.RSAPublicKey):
@@ -681,7 +683,8 @@ def prepare_ktri(
         key_enc_alg_id=key_enc_alg_id,
         cert=cmp_protection_cert,
         encrypted_key=encrypted_key,
-        iss_and_ser=issuer_and_ser,
+        issuer_and_ser=issuer_and_ser,
+        rid=rid,
     )
 
     return _prepare_recip_info(ktri)
@@ -693,7 +696,8 @@ def prepare_key_transport_recipient_info(
     encrypted_key: Optional[bytes] = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     ski: Optional[bytes] = None,
-    iss_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    rid: Optional[rfc5652.RecipientIdentifier] = None,
     key_enc_alg_id: Optional[rfc5280.AlgorithmIdentifier] = None,
 ) -> rfc5652.KeyTransRecipientInfo:
     """Create a `KeyTransRecipientInfo` structure for key transport encryption.
@@ -708,7 +712,10 @@ def prepare_key_transport_recipient_info(
     :param encrypted_key: Encrypted key material (the content encryption key encrypted with the recipient's public key).
     :param cert: Certificate to extract the recipient identifier from. Used to set the `rid` if provided.
     :param ski: Subject Key Identifier as bytes. Used to set the `rid` if `cert` is not provided.
-    :param iss_and_ser: `IssuerAndSerialNumber` structure. Used to set the `rid` if `cert` and `ski` are not provided.
+    :param issuer_and_ser: `IssuerAndSerialNumber` structure. Used to set the `rid` if `cert` and `ski`
+    are not provided. Defaults to `None`.
+    :param rid: `RecipientIdentifier` structure. If provided, `cert`, `ski`, and `issuer_and_ser` are ignored.
+    Defaults to `None`.
     :param key_enc_alg_id: `AlgorithmIdentifier` for the key encryption algorithm. If provided,
     `key_enc_alg_oid` is ignored.
     :return: A `KeyTransRecipientInfo` structure ready to be included in `RecipientInfo`.
@@ -716,8 +723,11 @@ def prepare_key_transport_recipient_info(
     ktri_structure = rfc5652.KeyTransRecipientInfo()
     ktri_structure["version"] = rfc5652.CMSVersion(version)
 
-    if cert or ski or iss_and_ser:
-        ktri_structure["rid"] = prepare_recipient_identifier(cert=cert, ski=ski, iss_and_ser=iss_and_ser)
+    if rid:
+        ktri_structure["rid"] = rid
+
+    elif cert or ski or issuer_and_ser:
+        ktri_structure["rid"] = prepare_recipient_identifier(cert=cert, ski=ski, issuer_and_ser=issuer_and_ser)
 
     if key_enc_alg_id is not None:
         # Ensure that parameters are properly encoded
@@ -734,6 +744,7 @@ def prepare_key_transport_recipient_info(
     return ktri_structure
 
 
+# TODO refactor to remove issuer_and_ser
 def prepare_kari(
     public_key: ECDHPublicKey,
     recip_private_key: ECDHPrivateKey,
@@ -820,11 +831,11 @@ def _prepare_recip_info(
     return recip_info
 
 
-@keyword(name="Prepare Recipient Info")
+@keyword(name="Prepare RecipientInfo")
 def prepare_recip_info(
     public_key_recip: Optional[PublicKey],
     private_key: Optional[ECDHPrivateKey] = None,
-    cert_recip: Optional["rfc9480.CMPCertificate"] = None,
+    cert_recip: Optional[rfc9480.CMPCertificate] = None,
     password: Optional[Union[str, bytes]] = None,
     cek: Optional[Union[bytes, str]] = None,
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
@@ -874,9 +885,10 @@ def prepare_recip_info(
             cek=cek,
             use_rsa_oaep=use_rsa_oaep,
             issuer_and_ser=issuer_and_ser,
+            rid=rid,
         )
 
-    elif isinstance(public_key_recip, ec.EllipticCurvePublicKey):
+    if isinstance(public_key_recip, ec.EllipticCurvePublicKey):
         if private_key is None:
             raise ValueError("An ECDH private key must be provided for EC key exchange.")
         kari = prepare_kari(
@@ -888,30 +900,30 @@ def prepare_recip_info(
         )
         return _prepare_recip_info(kari)
 
-    elif is_kem_public_key(
+    if is_kem_public_key(
         public_key_recip,
     ):
         kem_recip_info = prepare_kem_recip_info(
             recip_cert=cert_recip,
             public_key_recip=public_key_recip,
             cek=cek,
+            rid=rid,
             issuer_and_ser=issuer_and_ser,
             kdf_name=kdf_name,
         )
         return _prepare_recip_info(kem_recip_info)
 
-    elif password is None and public_key_recip is None:
+    if password is None and public_key_recip is None:
         raise ValueError(
             "A password must be provided for password recipient info structure, or a public key"
             "for key agreement or key transport recipient info structure, or KEM recipient info."
         )
 
-    elif password is not None:
+    if password is not None:
         pwri = prepare_password_recipient_info(password=password, cek=cek, salt=salt, kdf_name=kdf_name)
         return _prepare_recip_info(pwri)
 
-    else:
-        raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
+    raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
 @keyword(name="Prepare EncryptedKey For POPO")
@@ -1038,7 +1050,7 @@ def build_env_data_for_exchange(
             recipient_infos=[kari], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
 
-    elif isinstance(public_key_recip, ECDHPublicKey):
+    if isinstance(public_key_recip, ECDHPublicKey):
         if private_key is None or not isinstance(private_key, ECDHPrivateKey):
             raise ValueError("Private key must be provided for EC key exchange.")
 
@@ -1054,7 +1066,7 @@ def build_env_data_for_exchange(
             recipient_infos=[kari], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
 
-    elif is_kem_public_key(public_key_recip):
+    if is_kem_public_key(public_key_recip):
         kem_recip_info = prepare_kem_recip_info(
             recip_cert=cert_sender,
             public_key_recip=public_key_recip,
@@ -1067,8 +1079,7 @@ def build_env_data_for_exchange(
             recipient_infos=[kem_recip_info], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
 
-    else:
-        raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
+    raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
 def _process_rid_kemri(
@@ -1095,7 +1106,7 @@ def _process_rid_kemri(
     else:
         raise ValueError("Either `rid` or `issuer_and_ser` must be provided.")
 
-    return rid or prepare_recipient_identifier(cert=recip_cert, iss_and_ser=issuer_and_ser)
+    return rid or prepare_recipient_identifier(cert=recip_cert, issuer_and_ser=issuer_and_ser)
 
 
 def prepare_kem_recip_info(

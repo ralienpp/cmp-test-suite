@@ -266,6 +266,7 @@ def validate_catalyst_extension(
 
 def verify_catalyst_signature_migrated(
     cert: rfc9480.CMPCertificate,
+    issuer_cert: Optional[rfc9480.CMPCertificate] = None,
     issuer_pub_key: Optional[PrivateKeySig] = None,
     exclude_alt_extensions: bool = False,
     only_tbs_cert: bool = False,
@@ -276,6 +277,7 @@ def verify_catalyst_signature_migrated(
     verify the alternative signature by excluding the altSignatureValue extension.
 
     :param cert: The certificate to verify.
+    :param issuer_cert: The issuer's certificate for native signature verification. Defaults to `None`.
     :param issuer_pub_key: The issuer's public key for native signature verification.
     :param exclude_alt_extensions: Whether to exclude alternative extensions for the signature verification.
     :param only_tbs_cert: Whether to only include the `tbsCertificate` part of the certificate and
@@ -287,10 +289,16 @@ def verify_catalyst_signature_migrated(
     if catalyst_ext is None:
         raise ValueError("Catalyst extensions are not present, cannot perform migrated verification.")
 
+    if issuer_cert is not None:
+        issuer_pub_key = keyutils.load_public_key_from_spki(
+            issuer_cert["tbsCertificate"]["subjectPublicKeyInfo"]
+        )
+    else:
+        issuer_pub_key = issuer_pub_key or keyutils.load_public_key_from_spki(
+            cert["tbsCertificate"]["subjectPublicKeyInfo"]
+        )
+
     # Step 1: Verify the native signature
-    issuer_pub_key = issuer_pub_key or keyutils.load_public_key_from_spki(
-        cert["tbsCertificate"]["subjectPublicKeyInfo"]
-    )
     certutils.verify_cert_signature(cert=cert, issuer_pub_key=issuer_pub_key)
 
     # Step 2: Verify the alternative signature

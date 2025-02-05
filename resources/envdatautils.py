@@ -173,7 +173,7 @@ def prepare_enveloped_data(
 @keyword(name="Prepare Recipient Identifier")
 def prepare_recipient_identifier(  # noqa D417 undocumented-param
     cert: Optional[rfc9480.CMPCertificate] = None,
-    iss_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     ski: Optional[bytes] = None,
     key: Optional[PublicKey] = None,
     bad_ski: bool = False,
@@ -185,7 +185,7 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
     Arguments:
     ---------
         - `cert`: A certificate to extract the identifier from. Defaults to `None`.
-        - `iss_and_ser`: An IssuerAndSerialNumber structure to use. Defaults to `None`.
+        - `issuer_and_ser`: An IssuerAndSerialNumber structure to use. Defaults to `None`.
         - `ski`: A Subject Key Identifier as bytes. Defaults to `None`.
         - `key`: A public key to compute the identifier from. Defaults to `None`.
         - `bad_ski`: If True, the Subject Key Identifier is modified. Defaults to `False`.
@@ -201,11 +201,11 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
     """
     recip_id = rfc5652.RecipientIdentifier()
 
-    if key is None and cert is None and iss_and_ser is None:
+    if key is None and cert is None and issuer_and_ser is None:
         raise ValueError("At least one of the arguments must be provided.")
 
-    if iss_and_ser is not None:
-        recip_id["issuerAndSerialNumber"] = iss_and_ser
+    if issuer_and_ser is not None:
+        recip_id["issuerAndSerialNumber"] = issuer_and_ser
         return recip_id
 
     if key is not None:

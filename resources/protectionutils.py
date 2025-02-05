@@ -53,6 +53,7 @@ from resources.asn1_structures import (
     KemCiphertextInfoValue,
     KemOtherInfoAsn1,
 )
+from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, compute_pbkdf2_from_parameter
 from resources.oid_mapping import (
     get_alg_oid_from_key_hash,
@@ -2007,7 +2008,7 @@ def _prepare_kem_based_mac_parameter(
     if kdf == "pbkdf2":
         kdf_alg_id = prepare_pbkdf2_alg_id(salt=salt, iterations=iterations, length=length, hash_alg=hash_alg)
     else:
-        kdf_alg_id = prepare_kdf(kdf_name=f"{kdf}-{hash_alg}")
+        kdf_alg_id = prepare_kdf(kdf_name=f"{kdf}", hash_alg=hash_alg)
 
     mac_alg_id["algorithm"] = sha_alg_name_to_oid(f"hmac-{hash_alg}")
 
@@ -2056,7 +2057,7 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
         )
 
     elif kdf_alg_id["algorithm"] == rfc9481.id_PBKDF2:
-        if isinstance(kdf_alg_id["parameters"], rfc8018.PBKDF2_params):
+        if not isinstance(kdf_alg_id["parameters"], rfc8018.PBKDF2_params):
             pbkdf2_params = decoder.decode(kdf_alg_id["parameters"], asn1Spec=rfc9480.AlgorithmIdentifier())[0]
         else:
             pbkdf2_params = kdf_alg_id["parameters"]
@@ -2140,55 +2141,80 @@ def prepare_kem_based_mac_alg_id(
     return kem_alg_id
 
 
-def _prepare_hkdf(name: str, negative: bool = False) -> rfc9480.AlgorithmIdentifier:
+def _prepare_hkdf(name: str, hash_alg: str = "sha256", fill_rand_params: bool = False) -> rfc9480.AlgorithmIdentifier:
     """Prepare an AlgorithmIdentifier for the specified HKDF algorithm.
 
     :param name: The name of the HKDF algorithm (e.g., "hkdf-sha256", "hkdf-sha384", "hkdf-sha512").
-    :param negative: If True, assign a random 32-byte value (MUST be absent).
+    :param fill_rand_params: If True, assign a random 32-byte value (MUST be absent).
     :return: The populated An AlgorithmIdentifier object.
     """
+    name = name + "-" + hash_alg
     kdf_oid = HKDF_NAME_2_OID[name]
     kdf = rfc9480.AlgorithmIdentifier()
     kdf["algorithm"] = kdf_oid
-    if negative:
+    if fill_rand_params:
         kdf["parameters"] = os.urandom(32)
     return kdf
 
 
-def _prepare_ansi_x9_kdf(name: str, nge_info_val: bool = False) -> rfc9480.AlgorithmIdentifier:
+def _prepare_ansi_x9_kdf(
+    name: str, hash_alg: str = "sha256", fill_rand_params: bool = False
+) -> rfc9480.AlgorithmIdentifier:
     """Prepare an AlgorithmIdentifier for the specified ANSI X9.63 KDF algorithm.
 
-    :param name: The name of the ANSI X9.63 KDF algorithm (e.g., "kdf2-sha256").
-    :param nge_info_val: If True, assign a random 32-byte value to the parameters filed.
+    :param name: The name of the ANSI X9.63 KDF algorithm (e.g., "kdf2", "kdf3").
+    :param hash_alg: The hash algorithm to use for the KDF (e.g., "sha256").
+    :param fill_rand_params: If True, assign a random 32-byte value to the parameters filed.
+    (**MUST** be absent).
     :return: The populated `AlgorithmIdentifier` object.
     """
     kdf = rfc9480.AlgorithmIdentifier()
 
-    if name.startswith("kdf2"):
+    if name == "kdf2":
         kdf["algorithm"] = rfc5990.id_kdf_kdf2
     else:
         kdf["algorithm"] = rfc5990.id_kdf_kdf3
 
-    if nge_info_val:
+    if fill_rand_params:
         kdf["parameters"] = os.urandom(32)
     else:
         kdf["parameters"] = rfc5990.AlgorithmIdentifier()
-        kdf["parameters"]["algorithm"] = sha_alg_name_to_oid(name.split("-")[1])
+        kdf["parameters"]["algorithm"] = sha_alg_name_to_oid(hash_alg)
 
     return kdf
 
 
-def prepare_kdf(kdf_name: str, fill_value: bool = False) -> rfc9480.AlgorithmIdentifier:
+def prepare_kdf(
+    kdf_name: str,
+    fill_rand_params: bool = False,
+    salt: Optional[Union[str, bytes]] = None,
+    iterations: Union[int, str] = 100000,
+    length: Union[int, str] = 32,
+    hash_alg: str = "sha256",
+) -> rfc9480.AlgorithmIdentifier:
     """Prepare an AlgorithmIdentifier for the specified KDF algorithm.
 
     :param kdf_name: The name of the KDF algorithm (e.g., "hkdf-sha256", "kdf2-sha256", "kdf3-sha256").
-    :param fill_value: Whether to fill the **MUST** be absent value with random bytes.
-    :return: The populated AlgorithmIdentifier object.
+    :param fill_rand_params: Whether to fill the parameters field of the HKDF,KDF2,KDF3, AlgorithmIdentifier with
+    random bytes. Defaults to `False`. (**MUST** be absent).
+    :param salt: The salt value for the KDF operation. Defaults to `None`.
+    (If not provided, a random 32-byte value will be generated.)
+    :param iterations: The number of iterations for the KDF operation. Defaults to `100000`.
+    :param length: The desired length of the derived key material. Defaults to `32`.
+    :param hash_alg: The hash algorithm to use for the KDF operation (e.g., "sha256").
+    :return: The populated `AlgorithmIdentifier`.
     """
-    if kdf_name.startswith("hkdf-"):
-        return _prepare_hkdf(kdf_name, fill_value)
+
+    if kdf_name == "hkdf":
+        return _prepare_hkdf(name=kdf_name, hash_alg=hash_alg, fill_rand_params=fill_rand_params)
     elif kdf_name.startswith("kdf"):
-        return _prepare_ansi_x9_kdf(kdf_name, fill_value)
+        return _prepare_ansi_x9_kdf(name=kdf_name, hash_alg=hash_alg, fill_rand_params=fill_rand_params)
+    elif kdf_name.startswith("pbkdf2"):
+        if salt is None:
+            salt = os.urandom(32)
+
+        salt = str_to_bytes(salt)
+        return prepare_pbkdf2_alg_id(salt=salt, iterations=int(iterations), length=int(length), hash_alg=hash_alg)
     else:
         raise ValueError(f"Unsupported KDF algorithm: {kdf_name}")
 
@@ -2229,17 +2255,6 @@ def prepare_rsa_kem_alg_id(hash_kdf: str = "sha384", key_length: int = 384) -> r
     return rsa_kem
 
 
-def _prepare_aes_wrap_alg_id(name: str) -> rfc9480.AlgorithmIdentifier:
-    """Prepare an AlgorithmIdentifier for AES wrap.
-
-    :param name: Name of the AES wrap algorithm (e.g., "aes256_wrap").
-    :return: AlgorithmIdentifier for AES wrap.
-    """
-    aes_wrap = rfc9480.AlgorithmIdentifier()
-    aes_wrap["algorithm"] = KEY_WRAP_NAME_2_OID[name]
-    return aes_wrap
-
-
 def _prepare_gen_hybrid_param(aes_wrap: str = "aes256-wrap") -> rfc9480.AlgorithmIdentifier:
     """Prepare a GenericHybridParameters combining RSA-KEM and AES wrap.
 
@@ -2254,6 +2269,17 @@ def _prepare_gen_hybrid_param(aes_wrap: str = "aes256-wrap") -> rfc9480.Algorith
     hybrid_param["parameters"]["dem"] = _prepare_aes_wrap_alg_id(aes_wrap)
 
     return hybrid_param
+
+
+def _prepare_aes_wrap_alg_id(name: str) -> rfc9480.AlgorithmIdentifier:
+    """Prepare an AlgorithmIdentifier for AES wrap.
+
+    :param name: Name of the AES wrap algorithm (e.g., "aes256-wrap").
+    :return: AlgorithmIdentifier for AES wrap.
+    """
+    aes_wrap = rfc9480.AlgorithmIdentifier()
+    aes_wrap["algorithm"] = KEY_WRAP_NAME_2_OID[name]
+    return aes_wrap
 
 
 def prepare_kem_ciphertextinfo(  # noqa: D417 Missing argument description in the docstring

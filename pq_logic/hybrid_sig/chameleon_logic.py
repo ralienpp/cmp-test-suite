@@ -111,7 +111,8 @@ def prepare_dcd_extension_from_delta(delta_cert: rfc9480.CMPCertificate, base_ce
     val2 = encoder.encode(base_cert["tbsCertificate"]["validity"])
 
     if val1 != val2:
-        dcd["validity"] = delta_cert["tbsCertificate"]["validity"]
+        validity2 = rfc5280.Validity().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 2))
+        dcd["validity"] = copy_validity(delta_cert["tbsCertificate"]["validity"], target=validity2)
 
     same_subject = compareutils.compare_pyasn1_names(
         delta_cert["tbsCertificate"]["subject"], base_cert["tbsCertificate"]["subject"]

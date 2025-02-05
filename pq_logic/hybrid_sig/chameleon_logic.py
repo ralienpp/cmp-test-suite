@@ -523,7 +523,14 @@ def build_delta_cert(
             delta_value["extensions"],
         )
 
-    return build_cert_from_csr(csr=csr_tmp, ca_key=ca_key, ca_cert=ca_cert, alt_sign_key=alt_sign_key)
+    return build_cert_from_csr(
+        csr=csr_tmp,
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        alt_sign_key=alt_sign_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+    )
 
 
 def build_chameleon_cert_from_paired_csr(

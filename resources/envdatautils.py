@@ -996,7 +996,11 @@ def build_env_data_for_exchange(
 
     if isinstance(public_key_recip, rsa.RSAPublicKey):
         kari = prepare_ktri(
-            public_key_recip, cert_sender, cek, use_rsa_oaep=use_rsa_oaep, issuer_and_ser=issuer_and_ser
+            ee_key=public_key_recip,
+            cmp_protection_cert=cert_sender,
+            cek=cek,
+            use_rsa_oaep=use_rsa_oaep,
+            issuer_and_ser=issuer_and_ser,
         )
         return prepare_enveloped_data(
             recipient_infos=[kari], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
@@ -1006,7 +1010,13 @@ def build_env_data_for_exchange(
         if private_key is None or not isinstance(private_key, ECDHPrivateKey):
             raise ValueError("Private key must be provided for EC key exchange.")
 
-        kari = prepare_kari(public_key=public_key_recip, recip_private_key=private_key, issuer_and_ser=issuer_and_ser)
+        kari = prepare_kari(
+            public_key=public_key_recip,
+            recip_private_key=private_key,
+            issuer_and_ser=issuer_and_ser,
+            cek=cek,
+            recip_cert=cert_sender,
+        )
         kari = _prepare_recip_info(kari)
         return prepare_enveloped_data(
             recipient_infos=[kari], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
@@ -1294,7 +1304,7 @@ def prepare_recipient_encrypted_key(
     :return: A `RecipientEncryptedKey` structure ready to be included in `KeyAgreeRecipientInfo`.
     """
     recip_enc_key = rfc5652.RecipientEncryptedKey()
-    recip_enc_key["rid"] = prepare_recipient_identifier(cmp_cert, iss_and_ser=issuer_and_ser)
+    recip_enc_key["rid"] = prepare_recipient_identifier(cert=cmp_cert, iss_and_ser=issuer_and_ser)
     if encrypted_key is not None:
         recip_enc_key["encryptedKey"] = encrypted_key
     return recip_enc_key

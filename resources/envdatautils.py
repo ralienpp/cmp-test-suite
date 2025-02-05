@@ -801,15 +801,15 @@ def _prepare_recip_info(
     return recip_info
 
 
+@keyword(name="Prepare Recipient Info")
 def prepare_recip_info(
     public_key_recip: Optional[PublicKey],
     private_key: Optional[ECDHPrivateKey] = None,
     cert_recip: Optional["rfc9480.CMPCertificate"] = None,
     password: Optional[Union[str, bytes]] = None,
-    cek: Optional[bytes] = None,
+    cek: Optional[Union[bytes, str]] = None,
     issuer_and_ser: Optional["rfc5652.IssuerAndSerialNumber"] = None,
     use_rsa_oaep: bool = True,
-    use_encryption: bool = True,
     salt: Optional[Union[bytes, str]] = None,
     kdf_name: Optional[str] = "pbkdf2",
 ) -> rfc5652.RecipientInfo:
@@ -818,11 +818,11 @@ def prepare_recip_info(
     :param public_key_recip: The public key of the recipient.
     :param private_key: The private key for key agreement (EC), if required.
     :param cert_recip: The sender's certificate (used in some KEM flows or RSA).
+    (For KEMRI is it the certificate of the recipient, For KARI, KTRI the CMP protection certificate).
     :param cek: The content encryption key (32 random bytes if not supplied).
     :param issuer_and_ser: IssuerAndSerialNumber structure.
     :param password: The password for the password recipient info structure.
     :param use_rsa_oaep: Whether to use RSA OAEP (True) or PKCS#1 v1.5 (False).
-    :param use_encryption: Whether to use encryption (True) or key agreement (False).
     :param salt: The salt value for the PasswordRecipientInfo structure. Defaults to 32 random bytes.
     (can be used for negative testing, by setting to same value for CMP-protection-salt (MAC-protection)).
     :param kdf_name: The key derivation function to use for the PasswordRecipientInfo or KEMRecipientInfo structure.
@@ -830,12 +830,15 @@ def prepare_recip_info(
     (which is the only allowed for PasswordRecipientInfo,).
     :return: An appropriate RecipientInfo object for the given keys and parameters.
     """
-    if isinstance(public_key_recip, rsa.RSAPublicKey) or (
-        isinstance(public_key_recip, MLKEMPublicKey) and use_encryption
-    ):
+
+    if cek is None:
+        cek = os.urandom(32)
+    cek = str_to_bytes(cek)
+
+    if isinstance(public_key_recip, rsa.RSAPublicKey):
         return prepare_ktri(
-            public_key=public_key_recip,
-            sender_cert=cert_recip,
+            ee_key=public_key_recip,
+            cmp_protection_cert=cert_recip,
             cek=cek,
             use_rsa_oaep=use_rsa_oaep,
             issuer_and_ser=issuer_and_ser,
@@ -844,26 +847,20 @@ def prepare_recip_info(
     elif isinstance(public_key_recip, ec.EllipticCurvePublicKey):
         if private_key is None:
             raise ValueError("An ECDH private key must be provided for EC key exchange.")
-        return prepare_kari(
+        kari = prepare_kari(
             public_key=public_key_recip,
-            private_key=private_key,
+            recip_private_key=private_key,
             issuer_and_ser=issuer_and_ser,
-        )
-
-    elif isinstance(public_key_recip, MLKEMPublicKey) and use_encryption:
-        return prepare_ktri(
-            public_key=public_key_recip,
-            sender_cert=cert_recip,
             cek=cek,
-            use_rsa_oaep=use_rsa_oaep,
-            issuer_and_ser=issuer_and_ser,
+            recip_cert=cert_recip,
         )
+        return _prepare_recip_info(kari)
 
     elif is_kem_public_key(
         public_key_recip,
     ):
         kem_recip_info = prepare_kem_recip_info(
-            server_cert=cert_recip,
+            recip_cert=cert_recip,
             public_key_recip=public_key_recip,
             cek=cek,
             issuer_and_ser=issuer_and_ser,

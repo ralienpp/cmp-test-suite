@@ -10,7 +10,6 @@ from resources.ca_kga_logic import validate_not_local_key_gen
 from resources.certutils import parse_certificate
 from resources.cmputils import patch_extra_certs
 from resources.envdatautils import (
-    _prepare_pbkdf2,
     prepare_pwri_structure,
     wrap_key_password_based_key_management_technique,
 )
@@ -20,7 +19,7 @@ from resources.utils import load_and_decode_pem_file
 
 from unit_tests.prepare_ca_response import build_complete_envelope_data_ca_msg
 from unit_tests.utils_for_test import (
-    private_key_to_pkcs8,
+    private_key_to_pkcs8, _prepare_pbkdf2,
 )
 
 

@@ -18,14 +18,13 @@ from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, tag, univ
 from pyasn1.type.tag import Tag, tagClassContext, tagFormatSimple
-from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402
+from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402, rfc8018, rfc9481
 from resources import certutils, cmputils, utils
 from resources.certbuildutils import build_certificate, build_csr
 from resources.certutils import parse_certificate
 from resources.cmputils import parse_csr
 from resources.cryptoutils import verify_signature
 from resources.envdatautils import (
-    _prepare_pbkdf2,
     prepare_enveloped_data,
     prepare_pwri_structure,
     wrap_key_password_based_key_management_technique,
@@ -898,3 +897,18 @@ def update_cert_and_keys():
     _save_migration_csrs()
 
 
+def _prepare_pbkdf2() -> rfc8018.PBKDF2_params:
+    """Prepare a `PBKDF2_params` structure used in the `PasswordRecipientInfo` structure.
+
+    Used to encrypt a content encryption key.
+
+    :return: The populated structure with the Default salt b"AAAAAAAAAAAAAAAA"
+    """
+    pbkdf2_params = rfc8018.PBKDF2_params()
+    pbkdf2_params["salt"]["specified"] = univ.OctetString(b"AAAAAAAAAAAAAAAA")
+    pbkdf2_params["iterationCount"] = 1000
+    pbkdf2_params["keyLength"] = 32
+    pbkdf2_params["prf"] = rfc8018.AlgorithmIdentifier()
+    pbkdf2_params["prf"]["algorithm"] = rfc9481.id_hmacWithSHA256
+    pbkdf2_params["prf"]["parameters"] = univ.Null()
+    return pbkdf2_params

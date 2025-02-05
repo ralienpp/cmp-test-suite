@@ -14,7 +14,6 @@ from resources.certbuildutils import build_certificate
 from resources.certutils import parse_certificate
 from resources.cmputils import patch_extra_certs
 from resources.envdatautils import (
-    _prepare_pbkdf2,
     prepare_asymmetric_key_package,
     prepare_enveloped_data,
     prepare_pwri_structure,
@@ -27,7 +26,7 @@ from resources.protectionutils import protect_pkimessage
 
 from unit_tests.utils_for_test import (
     build_pkimessage,
-    de_and_encode_pkimessage,
+    de_and_encode_pkimessage, _prepare_pbkdf2,
 )
 
 

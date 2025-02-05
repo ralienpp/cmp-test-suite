@@ -30,6 +30,8 @@ from pyasn1_alt_modules.rfc7906 import BinaryTime
 from resources import certextractutils, certutils, cmputils, cryptoutils, envdatautils, utils
 from resources.asn1utils import get_set_bitstring_names
 from resources.ca_kga_logic import validate_issuer_and_serial_number_field
+from resources.certbuildutils import build_cert_from_csr
+from resources.certextractutils import get_extension
 from resources.convertutils import pyasn1_time_obj_to_py_datetime
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
@@ -478,3 +480,50 @@ def prepare_related_cert_extension(
     extension["extnValue"] = univ.OctetString(encoder.encode(RelatedCertificate(cert_hash)))
 
     return extension
+
+
+@keyword(name="Build Related Certificate")
+def build_related_cert_from(
+    csr: rfc6402.CertificationRequest,
+    ca_key: PrivateKey,
+    ca_cert: rfc9480.CMPCertificate,
+    related_cert: Optional[rfc9480.CMPCertificate] = None,
+    critical: bool = False,
+    load_chain: bool = False,
+) -> rfc9480.CMPCertificate:
+    """Build the related certificate from a CSR.
+
+    Arguments:
+    ----------
+       - `csr`: The CSR from which to build the related certificate.
+       - `ca_key`: The private key of the CA.
+       - `ca_cert`: The CA certificate matching the private key.
+       - `related_cert`: The related certificate. Defaults to `None`.
+       - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
+       - `load_chain`: Whether to load a chain or a single certificate, from the URI. Defaults to `False`.
+
+    Returns:
+    --------
+       - The related certificate.
+
+    Raises:
+    -------
+       - ValueError: If the `BinaryTime` is not fresh or the certificate chain is invalid.
+       - InvalidSignature: If the POP of the related certificate is invalid.
+       - ValueError: If the last certificate in the chain is not a trust anchor.
+       - ValueError: If the certificate chain is not valid.
+    """
+    if related_cert is None:
+        related_cert = validate_multi_auth_binding_csr(csr, load_chain=load_chain)
+
+    extn = prepare_related_cert_extension(related_cert, critical=critical)
+
+    # build the certificate
+    cert = build_cert_from_csr(
+        csr=csr,
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        extensions=[extn],
+    )
+
+    return cert

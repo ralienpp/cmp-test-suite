@@ -22,6 +22,8 @@ from pq_logic.keys.kem_keys import (
 from pq_logic.tmp_oids import CHEMPAT_NAME_2_OID, COMPOSITE_KEM_NAME_2_OID
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
+# TODO refactor to get the name.
+
 
 def get_oid_for_composite_kem(
     pq_name: str,

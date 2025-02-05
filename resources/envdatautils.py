@@ -1024,7 +1024,7 @@ def build_env_data_for_exchange(
 
     elif is_kem_public_key(public_key_recip):
         kem_recip_info = prepare_kem_recip_info(
-            server_cert=cert_sender,
+            recip_cert=cert_sender,
             public_key_recip=public_key_recip,
             cek=cek,
             issuer_and_ser=issuer_and_ser,

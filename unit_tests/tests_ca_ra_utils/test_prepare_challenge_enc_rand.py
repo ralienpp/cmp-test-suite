@@ -7,7 +7,9 @@ import unittest
 from pyasn1.codec.der import decoder, encoder
 from resources.asn1_structures import ChallengeASN1
 from resources.ca_ra_utils import prepare_challenge_enc_rand
+from resources.certutils import parse_certificate
 from resources.keyutils import load_private_key_from_file
+from resources.utils import load_and_decode_pem_file
 
 
 class TestPrepareChallengeEncRand(unittest.TestCase):
@@ -25,7 +27,7 @@ class TestPrepareChallengeEncRand(unittest.TestCase):
         THEN the challenge is valid.
         """
         challenge = prepare_challenge_enc_rand(public_key=self.rsa_key.public_key(),
-        sender="CN=Hans the Tester")
+                                               rand_sender="CN=Hans the Tester")
 
         der_data = encoder.encode(challenge)
         decoded_obj, rest = decoder.decode(der_data, asn1Spec=ChallengeASN1())
@@ -38,7 +40,8 @@ class TestPrepareChallengeEncRand(unittest.TestCase):
         THEN the challenge is valid.
         """
         challenge = prepare_challenge_enc_rand(public_key=self.mlkem_key.public_key(),
-        sender="CN=Hans the Tester")
+                                               cmp_protection_cert=parse_certificate(load_and_decode_pem_file("./data/unittest/ca1_cert_ecdsa.pem")),
+                                               rand_sender="CN=Hans the Tester")
         der_data = encoder.encode(challenge)
         decoded_obj, rest = decoder.decode(der_data, asn1Spec=ChallengeASN1())
         self.assertEqual(rest, b"")
@@ -52,8 +55,10 @@ class TestPrepareChallengeEncRand(unittest.TestCase):
         """
         xwing_key = load_private_key_from_file("./data/keys/private-key-xwing.pem")
         xwing_key_other = load_private_key_from_file("./data/keys/private-key-xwing-other.pem")
+        xwing_cert = parse_certificate(load_and_decode_pem_file("./data/unittest/hybrid_cert_xwing.pem"))
         challenge = prepare_challenge_enc_rand(public_key=xwing_key.public_key(),
-        sender="CN=Hans the Tester", hybrid_kem_key=xwing_key_other)
+                                               cmp_protection_cert=xwing_cert,
+                                               rand_sender="CN=Hans the Tester", hybrid_kem_key=xwing_key_other)
         der_data = encoder.encode(challenge)
         decoded_obj, rest = decoder.decode(der_data, asn1Spec=ChallengeASN1())
         self.assertEqual(rest, b"")

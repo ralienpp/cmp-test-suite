@@ -248,10 +248,23 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         trad_size = TRAD_ALG_2_NENC[get_ec_trad_name(self.trad_key)]
         return self.pq_key.key_size + trad_size
 
+    def _get_trad_name(self) -> str:
+        """Return the traditional name"""
+        if isinstance(self.trad_key, ec.EllipticCurvePublicKey):
+            name = "ecdh-" + self.trad_key.curve.name
+        elif isinstance(self.trad_key, x448.X448PublicKey):
+            name = "x448"
+        elif isinstance(self.trad_key, x25519.X25519PublicKey):
+            name = "x25519"
+        else:
+            raise ValueError(f"Unsupported trad_key type. Got: {type(self.trad_key)}")
+        return name
+
+
     @property
     def name(self) -> str:
         """Return the name of the key."""
-        return "chempat-" + self.pq_key.name + "-" + get_ec_trad_name(self.trad_key)
+        return "chempat-" + self.pq_key.name + "-" + self._get_trad_name()
 
     def encaps(self, private_key: Optional[ECDHPrivateKey] = None) -> Tuple[bytes, bytes]:
         """Perform key encapsulation with a peer's private key.
@@ -372,7 +385,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
     @property
     def name(self) -> str:
         """Return the name of the key."""
-        return "chempat-" + self.pq_key.name + "-" + get_ec_trad_name(self.trad_key)
+        return self.public_key().name
 
 
 class ChempatSntrup761PublicKey(ChempatPublicKey):

@@ -2206,16 +2206,16 @@ def prepare_kdf(
     """
     if kdf_name == "hkdf":
         return _prepare_hkdf(name=kdf_name, hash_alg=hash_alg, fill_rand_params=fill_rand_params)
-    elif kdf_name.startswith("kdf"):
+    if kdf_name.startswith("kdf"):
         return _prepare_ansi_x9_kdf(name=kdf_name, hash_alg=hash_alg, fill_rand_params=fill_rand_params)
-    elif kdf_name.startswith("pbkdf2"):
+    if kdf_name.startswith("pbkdf2"):
         if salt is None:
             salt = os.urandom(32)
 
         salt = str_to_bytes(salt)
         return prepare_pbkdf2_alg_id(salt=salt, iterations=int(iterations), length=int(length), hash_alg=hash_alg)
-    else:
-        raise ValueError(f"Unsupported KDF algorithm: {kdf_name}")
+
+    raise ValueError(f"Unsupported KDF algorithm: {kdf_name}")
 
 
 def prepare_wrap_alg_id(name: str, fill_rand_params: bool = False) -> rfc9629.KeyEncryptionAlgorithmIdentifier:
@@ -2483,8 +2483,8 @@ def verify_kem_based_mac_protection(
     data = extract_protected_part(pki_message)
     alg_id = pki_message["header"]["protectionAlg"]
     computed_mac = compute_kem_based_mac_from_alg_id(data, alg_id, shared_secret)
-    logging.debug(f"Computed MAC: {computed_mac.hex()}")
-    logging.debug(f"Received MAC: {pki_message['protection'].asOctets().hex()}")
+    logging.debug(f"Computed MAC: %s", computed_mac.hex())
+    logging.debug(f"Received MAC: %s", pki_message["protection"].asOctets().hex())
     if computed_mac != pki_message["protection"].asOctets():
         raise ValueError("The KEMBasedMac verification failed.")
 

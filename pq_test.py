@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Generate Example KEM Recipient Info."""
+
 import json
 
 from pq_logic.keys.kem_keys import MLKEMPrivateKey

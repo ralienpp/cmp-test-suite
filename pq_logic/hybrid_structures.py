@@ -188,7 +188,6 @@ class RelatedCertificate(univ.OctetString):
     """
 
 
-
 # Used for the Chameleon Signature method.
 
 
@@ -271,13 +270,11 @@ class DeltaCertificateRequestSignatureValue(univ.BitString):
     """
 
 
-
 # Catalyst X.509 Certificate Extension Classes.
 
 
 class SubjectAltPublicKeyInfoExt(rfc5280.SubjectPublicKeyInfo):
     """Extension for alternative public key information."""
-
 
 
 class AltSignatureAlgorithmExt(rfc5280.AlgorithmIdentifier):

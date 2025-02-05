@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: Copyright 2024 Siemens AG
 #
 # SPDX-License-Identifier: Apache-2.0
-
-import requests
-from pyasn1.codec.der import encoder, decoder
 """Client for the Mock CA, if a single request is to be sent."""
 import sys
 
@@ -11,7 +8,7 @@ import requests
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
 
-sys.path.append('.')
+sys.path.append(".")
 from resources import cmputils, keyutils
 from resources.asn1_structures import PKIMessageTMP
 

@@ -733,7 +733,9 @@ def _set_header_fields(request: rfc9480.PKIMessage, kwargs: dict) -> dict:
     """Set header fields for a new PKIMessage, by extracting them from the request."""
     kwargs["recip_kid"] = kwargs.get("recip_kid") or request["header"]["senderKID"].asOctets()
     kwargs["recip_nonce"] = kwargs.get("recip_nonce") or request["header"]["senderNonce"].asOctets()
-    alt_nonce =  os.urandom(16) if not request["header"]["recipNonce"].isValue else request["header"]["recipNonce"].asOctets()
+    alt_nonce = (
+        os.urandom(16) if not request["header"]["recipNonce"].isValue else request["header"]["recipNonce"].asOctets()
+    )
     kwargs["sender_nonce"] = kwargs.get("sender_nonce") or alt_nonce
     kwargs["transaction_id"] = kwargs.get("transaction_id") or request["header"]["transactionID"].asOctets()
     return kwargs
@@ -1588,10 +1590,10 @@ def get_correct_ca_body_name(request: rfc9480.PKIMessage) -> str:
 
 
 def build_rp_from_rr(
-        request: rfc9480.PKIMessage,
-        shared_secret: Optional[bytes] = None,
-        set_header_fields: bool = True,
-        **kwargs,
+    request: rfc9480.PKIMessage,
+    shared_secret: Optional[bytes] = None,
+    set_header_fields: bool = True,
+    **kwargs,
 ) -> rfc9480.PKIMessage:
     """Build a PKIMessage for a revocation request.
 
@@ -1606,13 +1608,11 @@ def build_rp_from_rr(
     status = "accepted"
     fail_info = None
     try:
-       protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
+        protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
     except Exception:
         logging.debug("Failed to verify the PKIMessage protection.")
         status = "rejection"
         fail_info = "badPOP"
-
-
 
     if request and set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
@@ -1629,6 +1629,3 @@ def build_rp_from_rr(
     pki_message["body"] = body
 
     return pki_message
-
-
-

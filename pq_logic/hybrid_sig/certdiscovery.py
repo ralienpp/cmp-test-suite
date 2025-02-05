@@ -70,6 +70,7 @@ def prepare_related_certificate_descriptor(
     gen_name["otherName"] = other_name
     return gen_name
 
+
 @keyword(name="Prepare SubjectInfoAccessSyntax Extension")
 def prepare_subject_info_access_syntax_extension(
     url: str = "https://example.com/secondary_certificate.pem",
@@ -144,6 +145,7 @@ def extract_sia_extension_for_cert_discovery(
 
     return obj
 
+
 @keyword(name="Get Cert Discovery Cert")
 def get_cert_discovery_cert(uri: str) -> rfc9480.CMPCertificate:
     """Get the secondary certificate using the provided URI.
@@ -164,8 +166,11 @@ def get_cert_discovery_cert(uri: str) -> rfc9480.CMPCertificate:
     except requests.RequestException as e:
         raise ValueError(f"Failed to fetch secondary certificate: {e}") from e
 
+
 @keyword(name="Validate RelatedCertificateDescriptor Alg IDs")
-def validate_related_certificate_descriptor_alg_ids(other_cert: rfc9480.CMPCertificate, rel_cert_desc: RelatedCertificateDescriptor) -> None:
+def validate_related_certificate_descriptor_alg_ids(
+    other_cert: rfc9480.CMPCertificate, rel_cert_desc: RelatedCertificateDescriptor
+) -> None:
     """Validate that the algorithms in the RelatedCertificateDescriptor match those in the Secondary Certificate.
 
     :param other_cert: The Secondary Certificate as a CMPCertificate.

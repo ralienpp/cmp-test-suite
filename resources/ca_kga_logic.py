@@ -362,7 +362,7 @@ def _extract_pwri_content_enc_key(
         raise ValueError("A password must be provided when the `RecipientInfo` is `pwri`.")
 
     prot_alg = pki_message["header"]["protectionAlg"]
-    cmp_protection_salt =  cmp_protection_salt or protectionutils.get_cmp_protection_salt(protection_alg=prot_alg)
+    cmp_protection_salt = cmp_protection_salt or protectionutils.get_cmp_protection_salt(protection_alg=prot_alg)
     params = validate_password_recipient_info(recip_info["pwri"], cmp_protection_salt)
     password_bytes = str_to_bytes(password)
     content_encryption_key = _compute_password_based_key_management_technique(password=password_bytes, **params)
@@ -486,10 +486,9 @@ def extract_content_encryption_key(
     if recip_info.getName() == "pwri":
         if password is None:
             raise ValueError("Password is required for `pwri` RecipientInfo.")
-        content_encryption_key = _extract_pwri_content_enc_key(pki_message,
-                                                               password,
-                                                               recip_info,
-                                                               cmp_protection_salt=cmp_protection_salt)
+        content_encryption_key = _extract_pwri_content_enc_key(
+            pki_message, password, recip_info, cmp_protection_salt=cmp_protection_salt
+        )
 
     elif recip_info.getName() == "ori":
         return process_other_recip_info(
@@ -555,8 +554,13 @@ def validate_enveloped_data(
             )
 
     content_encryption_key = extract_content_encryption_key(
-        env_data, pki_message, password, ee_key, cmp_protection_cert,
-        expected_size=expected_size, for_pop=for_enc_rand,
+        env_data,
+        pki_message,
+        password,
+        ee_key,
+        cmp_protection_cert,
+        expected_size=expected_size,
+        for_pop=for_enc_rand,
         cmp_protection_salt=cmp_protection_salt,
     )
 

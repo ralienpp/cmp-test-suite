@@ -28,7 +28,7 @@ from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc6955, rfc9480, rfc9
 from robot.api.deco import keyword, not_keyword
 from unit_tests.asn1_wrapper_class.pki_message_wrapper import PKIMessage, prepare_name
 
-from resources import asn1utils, cmputils, keyutils, protectionutils, utils
+from resources import asn1utils, cmputils, keyutils, utils
 from resources.asn1_structures import ChallengeASN1, POPODecKeyChallContentAsn1
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certutils import load_public_key_from_cert
@@ -248,7 +248,6 @@ def _extract_rid(
 
         return rid["issuerAndSerialNumber"]
 
-
     raise ValueError("Unsupported recipient information type.")
 
 
@@ -334,7 +333,7 @@ def process_pkimessage_with_popdecc(
     expected_size: int = 1,
     allow_pwri: bool = False,
     expected_sender: Optional[str] = None,
-    iv: Union[str, bytes] = B"A"* 16,
+    iv: Union[str, bytes] = b"A" * 16,
 ) -> rfc9480.PKIMessage:
     """Process the POPODecKeyChallContent structure by decrypting the encryptedRand field or decapsulating the challenge
 
@@ -377,7 +376,6 @@ def process_pkimessage_with_popdecc(
     else:
         iv = str_to_bytes(iv)
         num = process_simple_challenge(challenge, ee_key=ee_key, iv=iv)
-
 
     raise NotImplementedError("The challenge is not implemented yet.")
 
@@ -727,6 +725,6 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
             raise ValueError(f"Unexpected data after decoding the encrypted certificate: {rest.hex()}")
 
     except pyasn1.error.PyAsn1Error:
-        raise ValueError(f"The decrypted certificate was not decoded-able: {data.hex()}") # pylint: disable=raise-missing-from
+        raise ValueError(f"The decrypted certificate was not decoded-able: {data.hex()}")  # pylint: disable=raise-missing-from
 
     return cert

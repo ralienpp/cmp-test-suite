@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Try out all possible combinations of alternative signature data and verify the signature of a catalyst certificate."""
+"""Try out all possible combinations of alternative signature data and verify the signature of a catalyst cert."""
+
 import glob
 from itertools import product
 

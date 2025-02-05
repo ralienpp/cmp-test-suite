@@ -1141,7 +1141,6 @@ def patch_sender_and_sender_kid(
                 cm = utils.get_openssl_name_notation(cert["tbsCertificate"]["subject"])
                 pki_message = cmputils.patch_senderkid(pki_message=pki_message, sender_kid=cm.encode("utf-8"))
 
-
         pki_message = cmputils.patch_sender(pki_message, cert=cert)
 
     return pki_message
@@ -1245,8 +1244,9 @@ def protect_pkimessage(  # noqa: D417
         cert = certutils.parse_certificate(der_data)
 
     if protection in ["signature", "rsassa-pss", "rsassa_pss"]:
-        pki_message = patch_sender_and_sender_kid(do_patch=params.get("do_patch", True),
-                                    pki_message=pki_message, cert=cert)
+        pki_message = patch_sender_and_sender_kid(
+            do_patch=params.get("do_patch", True), pki_message=pki_message, cert=cert
+        )
 
     pki_message["header"]["protectionAlg"] = _prepare_prot_alg_id(
         protection=protection,

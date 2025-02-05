@@ -109,5 +109,7 @@ def get_oid_for_chemnpat(
     try:
         return CHEMPAT_NAME_2_OID[f"Chempat-{trad_name}-{pq_name}"]
     except KeyError:
-        raise InvalidKeyCombination(f"Unsupported Chempat key " # pylint disable=raise-missing-from
-                                    f"combination: Chempat-{trad_name}-{pq_name}")
+        raise InvalidKeyCombination(
+            f"Unsupported Chempat key "  # pylint disable=raise-missing-from
+            f"combination: Chempat-{trad_name}-{pq_name}"
+        )

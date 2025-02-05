@@ -243,8 +243,8 @@ def validate_ku_and_eku_related_cert(cert_a: rfc9480.CMPCertificate, related_cer
     ku_cert_b = certextractutils.get_field_from_certificate(related_cert, extension="key_usage")
 
     if ku_cert_a is not None:
-        set_a = set(get_set_bitstring_names(ku_cert_a)) # type: ignore
-        set_b = set(get_set_bitstring_names(ku_cert_b)) # type: ignore
+        set_a = set(get_set_bitstring_names(ku_cert_a))  # type: ignore
+        set_b = set(get_set_bitstring_names(ku_cert_b))  # type: ignore
 
         if ku_cert_b is None or set_a - set_b:
             raise ValueError()

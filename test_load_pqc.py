@@ -178,4 +178,4 @@ if __name__ == "__main__":
             except cryptography.exceptions.UnsupportedAlgorithm as e:
                 f.write(f"UNSUPPORTED ALGORITHM\t{pem}\tUnable to decode.{e}\n")
 
-         f.close()
+       f.close()

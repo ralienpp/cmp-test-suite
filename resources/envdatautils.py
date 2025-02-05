@@ -844,7 +844,6 @@ def prepare_recip_info(
         pwri = prepare_password_recipient_info(password=password, cek=cek, salt=salt, kdf_name=kdf_name)
         return _prepare_recip_info(pwri)
 
-
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
@@ -990,7 +989,6 @@ def build_env_data_for_exchange(
         return prepare_enveloped_data(
             recipient_infos=[kem_recip_info], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
-
 
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 

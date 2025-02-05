@@ -10,7 +10,7 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc5652, rfc6402, rfc9480
-from resources import certextractutils, compareutils
+from resources import certextractutils, compareutils, utils
 from resources.certbuildutils import (
     build_cert_from_csr,
     build_csr,
@@ -181,14 +181,19 @@ def build_chameleon_base_certificate(
     base_tbs_cert: rfc5280.TBSCertificate,
     ca_key: PrivateKeySig,
     use_rsa_pss: bool = False,
+    critical: bool = False,
     hash_alg: Optional[str] = None,
 ) -> rfc9480.CMPCertificate:
-    """Issue a Base Certificate with the Delta Certificate Descriptor (DCD) extension.
+    """Issue a Base Certificate with the DeltaCertificateDescriptor (DCD) extension.
 
-    :param use_rsa_pss:
-    :param delta_cert: Parsed Delta Certificate structure.
-    :param base_tbs_cert: TBSCertificate structure for the Base Certificate to be issued
-    :param ca_key: Private key of the Certification Authority (CA) for signing the Base Certificate.
+
+    :param delta_cert: Parsed delta certificate structure.
+    :param base_tbs_cert: TBSCertificate structure for the certificate to be issued.
+    :param ca_key: Private key of the CA for signing the Base Certificate.
+    :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to `False`.
+    :param critical: Whether the DCD extension is critical. Defaults to `False`.
+    :param hash_alg: Hash algorithm used for signing the paired certificate (e.g., 'sha256').
+    (if not provided, it will be extracted from the Delta Certificate).
     :return: A fully signed Base Certificate structure.
     """
     # As of Section 4 Note:
@@ -215,7 +220,7 @@ def build_chameleon_base_certificate(
 
     dcd_extension = rfc5280.Extension()
     dcd_extension["extnID"] = id_ce_deltaCertificateDescriptor
-    dcd_extension["critical"] = False
+    dcd_extension["critical"] = critical
     dcd_extension["extnValue"] = univ.OctetString(encoder.encode(dcd))
     base_tbs_cert["extensions"].append(dcd_extension)
 

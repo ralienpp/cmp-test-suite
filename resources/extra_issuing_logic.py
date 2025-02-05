@@ -12,7 +12,7 @@ Also sometimes a user CA, RA wants to see the private key.
 import logging
 
 # TODO update for better explanation, if time or after thesis.
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import pyasn1.error
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -22,14 +22,14 @@ from pq_logic.migration_typing import HybridKEMPrivateKey
 from pq_logic.pq_utils import is_kem_private_key, is_kem_public_key
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
-from pyasn1.type import constraint, tag, univ
+from pyasn1.type import tag, univ
 from pyasn1.type.base import Asn1Type
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc6955, rfc9480, rfc9629
 from robot.api.deco import keyword, not_keyword
 from unit_tests.asn1_wrapper_class.pki_message_wrapper import PKIMessage, prepare_name
 
-from resources import asn1utils, cmputils, keyutils, protectionutils, utils
-from resources.asn1_structures import ChallengeASN1, POPODecKeyChallContentAsn1
+from resources import asn1utils, cmputils, keyutils, utils
+from resources.asn1_structures import ChallengeASN1, POPODecKeyChallContentAsn1, PKIMessageTMP
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certutils import load_public_key_from_cert
 from resources.convertutils import str_to_bytes
@@ -39,7 +39,7 @@ from resources.envdatautils import (
     prepare_issuer_and_serial_number,
     prepare_one_asymmetric_key,
 )
-from resources.exceptions import BadAsn1Data, InvalidKeyCombination
+from resources.exceptions import BadAsn1Data, InvalidKeyCombination, BadRequest
 from resources.oid_mapping import compute_hash
 from resources.protectionutils import compute_and_prepare_mac
 from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, PrivateKey, Strint
@@ -417,7 +417,6 @@ def _process_encrypted_rand(
     ee_key: Optional[Union[PQKEMPrivateKey, ECDHPrivateKey, RSAPrivateKey]],
     recip_index: int,
     cert_req_id: int,
-    allow_pwri: bool,
     expected_size: int,
 ) -> rfc9480.Rand:
     """Process the encryptedRand field by decrypting it with the end-entity private key.
@@ -428,13 +427,16 @@ def _process_encrypted_rand(
     :param ee_key: The private key to decrypt the encryptedRand or perform the decapsulation.
     :param recip_index: The index of the recipientInfo to extract the `rid` field from. Defaults to `0`.
     :param cert_req_id: The certificate request ID to validate against the serialNumber.
-    :param allow_pwri: Whether to allow the `PasswordRecipientInfo` structure to extract
     the challenge. Defaults to `False`.
     :param expected_size: The expected size inside the `EnvelopedData` structure.
     :return: The decrypted challenge as a `Rand` object.
+    :raises BadAsn1Data: If the `Rand` decoding has a remainder.
+    :raises ValueError: If the `rid` field is not correctly populated with NULL-DN and `cert_req_id` as `serialNumber`.
     """
-    validate_issuer_is_null_dn_and_cert_req_id(
-        env_data, recip_index=recip_index, cert_req_id=cert_req_id, allow_pwri=allow_pwri
+    validate_rid_for_encrypted_rand(
+        env_data=env_data,
+        recip_index=recip_index,
+        cert_req_id=cert_req_id,
     )
     raw_bytes = validate_enveloped_data(
         env_data=env_data,
@@ -443,11 +445,12 @@ def _process_encrypted_rand(
         ee_key=ee_key,
         expected_raw_data=True,
         expected_size=expected_size,
+        for_enc_rand=True,
     )
 
     obj, rest = decoder.decode(raw_bytes, asn1Spec=rfc9480.Rand())
     if rest:
-        raise ValueError("Extra data after decoding Rand object")
+        raise BadAsn1Data("Rand")
 
     return obj
 
@@ -469,6 +472,7 @@ def process_simple_challenge(
     :param kemct: The KEM ciphertext.
     :return: The shared secret as the password field in the PKIMessage.
     :raises ValueError: If the private key type is not supported.
+    :raises BadAsn1Data: If the `Rand` decoding has a remainder.
     """
     challenge_val = challenge["challenge"].asOctets()
 

@@ -81,6 +81,8 @@ ${DEFAULT_ALGORITHM}    rsa
 ${DEFAULT_ECC_CURVE}   secp256r1
 ${DEFAULT_MAC_ALGORITHM}   password_based_mac
 ${DEFAULT_KGA_ALGORITHM}   rsa
+${DEFAULT_PQ_SIG_ALGORITHM}   ml-dsa-44
+${DEFAULT_PQ_KEM_ALGORITHM}   ml-kem-512
 
 ##### About CertTemplate
 ${ALLOWED_ALGORITHM}   ed25519,rsa,ecc,ed448,x25519,x448,dsa

@@ -32,14 +32,7 @@ from resources.ca_ra_utils import (
     prepare_encr_cert_for_request,
     verify_sig_pop_for_pki_request,
 )
-from resources.certbuildutils import (
-    build_cert_from_cert_template,
-    build_cert_from_csr,
-    prepare_cert_template,
-    prepare_sig_alg_id,
-    prepare_tbs_certificate_from_template,
-    sign_cert,
-)
+from resources import certbuildutils
 from resources.certextractutils import extract_extension_from_csr, get_extension
 from resources.convertutils import copy_asn1_certificate
 from resources.exceptions import BadAlg, BadAsn1Data, InvalidAltSignature, InvalidKeyCombination, UnknownOID
@@ -305,7 +298,7 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
     verify_sig_popo_catalyst_cert_req_msg(
         cert_req_msg=cert_req_msg,
     )
-    tbs_certs = prepare_tbs_certificate_from_template(
+    tbs_certs = certbuildutils.prepare_tbs_certificate_from_template(
         cert_template=cert_template,
         issuer=ca_cert["tbsCertificate"]["subject"],
         ca_key=ca_key,
@@ -319,7 +312,7 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
     tbs_certs["extensions"].append(alt_spki_extn)
     cert = rfc9480.CMPCertificate()
     cert["tbsCertificate"] = tbs_certs
-    cert = sign_cert(
+    cert = certbuildutils.sign_cert(
         cert=cert,
         signing_key=ca_key,
         hash_alg=hash_alg,
@@ -362,7 +355,7 @@ def _prepare_sig_popo(signing_key, data, hash_alg: str, use_rsa_pss: bool) -> rf
     :return: The populated `ProofOfPossession` structure.
     """
     popo: rfc4211.ProofOfPossession
-    sig_alg = prepare_sig_alg_id(signing_key=signing_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
+    sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=signing_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
     sig = sign_data_with_alg_id(key=signing_key, alg_id=sig_alg, data=data)
     popo = cmputils.prepare_popo(signature=sig, signing_key=signing_key)
     popo["signature"]["signature"] = univ.BitString.fromOctetString(sig)
@@ -385,7 +378,7 @@ def _compute_second_pop_catalyst(
     :param bad_alt_pop: Whether to manipulate the first byte of the POP.
     :return: The updated `CertRequest`.
     """
-    sig_alg = prepare_sig_alg_id(signing_key=alt_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
+    sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=alt_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
     alt_sig_id_extn = prepare_alt_sig_alg_id_extn(alg_id=sig_alg, critical=False)
     alt_spki = prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
     cert_request["certTemplate"]["extensions"].append(alt_sig_id_extn)
@@ -551,7 +544,7 @@ def prepare_catalyst_cert_req_msg_approach(
     cert_req = rfc4211.CertRequest()
     cert_req["certReqId"] = int(cert_req_id)
 
-    cert_template = prepare_cert_template(key=first_key, subject=subject)
+    cert_template = certbuildutils.prepare_cert_template(key=first_key, subject=subject)
     cert_req["certTemplate"] = cert_template
 
     if use_composite_sig:
@@ -562,7 +555,7 @@ def prepare_catalyst_cert_req_msg_approach(
         extn = prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
         cert_req["certTemplate"]["extensions"].append(extn)
         data = encoder.encode(cert_req)
-        sig_alg = prepare_sig_alg_id(signing_key=comp_key, use_rsa_pss=True, hash_alg=hash_alg)  # type: ignore
+        sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=comp_key, use_rsa_pss=True, hash_alg=hash_alg)  # type: ignore
         sig = sign_data_with_alg_id(key=comp_key, alg_id=sig_alg, data=data)
 
         if bad_pop:
@@ -589,7 +582,7 @@ def prepare_catalyst_cert_req_msg_approach(
         )
 
         data = encoder.encode(cert_req)
-        sig_alg = prepare_sig_alg_id(signing_key=first_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
+        sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=first_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
         sig = sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
         popo = cmputils.prepare_popo(signature=sig, signing_key=first_key, alg_oid=sig_alg["algorithm"])
 
@@ -599,7 +592,7 @@ def prepare_catalyst_cert_req_msg_approach(
         cert_req["certTemplate"] = cert_template
 
         data = encoder.encode(cert_req)
-        sig_alg = prepare_sig_alg_id(signing_key=first_key, use_rsa_pss=True, hash_alg=hash_alg)
+        sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=first_key, use_rsa_pss=True, hash_alg=hash_alg)
         sig = sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
 
         if bad_pop:
@@ -695,7 +688,7 @@ def build_catalyst_signed_cert_from_p10cr(
         alt_sig_alg=alt_sig_alg, alt_key=alt_key, allow_chosen_sig_alg=allow_chosen_sig_alg
     )
 
-    cert = build_cert_from_csr(
+    cert = certbuildutils.build_cert_from_csr(
         csr=request["body"]["p10cr"],
         ca_key=ca_key,
         ca_cert=ca_cert,
@@ -748,7 +741,7 @@ def _process_single_catalyst_request(
         extensions=cert_template["extensions"],
     )
 
-    new_ee_cert = build_cert_from_cert_template(
+    new_ee_cert = certbuildutils.build_cert_from_cert_template(
         cert_template=cert_template,
         ca_cert=ca_cert,
         ca_key=ca_key,

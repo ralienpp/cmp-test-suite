@@ -273,3 +273,23 @@ class PKIMessageTMP(univ.Sequence):
             .subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)),
         ),
     )
+
+# TODO inform about the bug of using the wrong `CertifiedKeyPair` structure.
+
+class CertResponseTMP(univ.Sequence):
+    """Defines the ASN.1 structure for the `CertResponse`.
+
+    CertResponse ::= SEQUENCE {
+        certReqId INTEGER,
+        status PKIStatusInfo,
+        certifiedKeyPair CertifiedKeyPair OPTIONAL,
+        rspInfo OCTET STRING OPTIONAL
+    }
+    """
+
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType('certReqId', univ.Integer()),
+        namedtype.NamedType('status', rfc9480.PKIStatusInfo()),
+        namedtype.OptionalNamedType('certifiedKeyPair', rfc9480.CertifiedKeyPair()),
+        namedtype.OptionalNamedType('rspInfo', univ.OctetString())
+    )

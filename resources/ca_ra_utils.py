@@ -25,7 +25,7 @@ from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc9480
 from robot.api.deco import keyword, not_keyword
 
 from resources import certbuildutils, cmputils, protectionutils
-from resources.asn1_structures import CAKeyUpdContent, ChallengeASN1, PKIMessageTMP
+from resources.asn1_structures import CAKeyUpdContent, ChallengeASN1, PKIMessageTMP, CertResponseTMP
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certbuildutils import build_cert_from_cert_template, build_cert_from_csr
 from resources.certextractutils import get_extension, get_field_from_certificate
@@ -773,7 +773,7 @@ def verify_sig_pop_for_pki_request(  # noqa: D417 Missing argument descriptions 
 
 def _prepare_ca_body(
     body_name: str,
-    responses: Union[Sequence[rfc9480.CertResponse], rfc9480.CertResponse],
+    responses: Union[Sequence[CertResponseTMP], CertResponseTMP],
     ca_pubs: Optional[Sequence[rfc9480.CMPCertificate]] = None,
 ) -> rfc9480.PKIBody:
     """Prepare the body for a CA `CertResponse` message.
@@ -788,7 +788,7 @@ def _prepare_ca_body(
     if ca_pubs is not None:
         body[body_name]["caPubs"].extend(ca_pubs)
 
-    if isinstance(responses, rfc9480.CertResponse):
+    if isinstance(responses, CertResponseTMP):
         responses = [responses]
 
     if responses is None:
@@ -910,7 +910,7 @@ def _process_cert_requests(
     request: rfc9480.PKIMessage,
     eku_strict: bool,
     **kwargs,
-) -> Tuple[List[rfc9480.CertResponse], List[rfc9480.CMPCertificate]]:
+) -> Tuple[List[CertResponseTMP], List[rfc9480.CMPCertificate]]:
     """Process a certificate requests.
 
     :param ca_key: The CA private key to sign the certificates with.
@@ -949,7 +949,7 @@ def build_cp_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
     ca_key: Optional[PrivateKey] = None,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     cert_req_id: Optional[int] = None,
-    responses: Optional[Union[Sequence[rfc9480.CertResponse], rfc9480.CertResponse]] = None,
+    responses: Optional[Union[Sequence[CertResponseTMP], CertResponseTMP]] = None,
     cert_index: Optional[int] = None,
     eku_strict: bool = True,
     set_header_fields: bool = True,
@@ -1077,7 +1077,7 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
     enc_cert: Optional[rfc5652.EnvelopedData] = None,
     cert_req_id: Optional[int] = None,
     ca_pubs: Optional[Sequence[rfc9480.CMPCertificate]] = None,
-    responses: Optional[Union[Sequence[rfc9480.CertResponse], rfc9480.CertResponse]] = None,
+    responses: Optional[Union[Sequence[CertResponseTMP], CertResponseTMP]] = None,
     exclude_fields: Optional[str] = None,
     set_header_fields: bool = True,
     **kwargs,
@@ -1216,7 +1216,7 @@ def prepare_cert_response(
     enc_cert: Optional[rfc9480.EnvelopedData] = None,
     private_key: Optional[PrivateKey] = None,
     rspInfo: Optional[bytes] = None,
-) -> rfc9480.CertResponse:
+) -> CertResponseTMP:
     """Prepare a CertResponse structure for responding to a certificate request.
 
     :param cert_req_id: The ID of the certificate request being responded to.
@@ -1229,7 +1229,7 @@ def prepare_cert_response(
     :param rspInfo: Optional response information. Defaults to `None`.
     :return: A populated CertResponse structure.
     """
-    cert_response = rfc9480.CertResponse()
+    cert_response = CertResponseTMP()
     cert_response["certReqId"] = univ.Integer(int(cert_req_id))
     cert_response["status"] = prepare_pkistatusinfo(texts=text, status=status, failinfo=failinfo)
 
@@ -1385,7 +1385,7 @@ def build_cert_from_cert_req_msg(  # noqa: D417 Missing argument descriptions in
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     ca_key: Optional[PrivateKey] = None,
     cert_req_id: Optional[Union[str, int]] = None,
-) -> rfc9480.CertResponse:
+) -> CertResponseTMP:
     """Build a certificate from a certificate request message.
 
     Arguments:
@@ -1402,7 +1402,7 @@ def build_cert_from_cert_req_msg(  # noqa: D417 Missing argument descriptions in
         - The built certificate response.
 
     """
-    cert_response = rfc9480.CertResponse()
+    cert_response = CertResponseTMP()
 
     popo: rfc4211.ProofOfPossession = request["popo"]
     cert_req = request["certReq"]

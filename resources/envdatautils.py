@@ -1080,7 +1080,7 @@ def build_env_data_for_exchange(
         )
         kem_recip_info = _prepare_recip_info(kem_recip_info)
         return prepare_enveloped_data(
-            recipient_infos=[kem_recip_info], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
+                recipient_infos=[kem_recip_info], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
 
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
@@ -1205,9 +1205,10 @@ def prepare_kem_recip_info(
 
     return kem_recip_info
 
-
+@not_keyword
 def prepare_mqv_user_keying_material(
-    ephemeral_key: ec.EllipticCurvePrivateKey, added_ukm: Optional[bytes] = None
+    ephemeral_key: ec.EllipticCurvePrivateKey,
+    added_ukm: Optional[bytes] = None
 ) -> rfc5753.MQVuserKeyingMaterial:
     """Create an `MQVuserKeyingMaterial` structure for MQV key agreement.
 

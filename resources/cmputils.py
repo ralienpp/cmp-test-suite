@@ -688,10 +688,18 @@ def prepare_controls_protocol_encr_key(
 def validate_publication_information(controls: rfc9480.Controls, must_be_present: bool = False) -> None:
     """Validate the PKIPublicationInfo structure, to be used inside the Controls structure.
 
-    :param controls: The controls to validate.
-    :param must_be_present: Whether the publication information must be present.
-    :return: None.
-    :raise ValueError: If the publication information is invalid.
+    Arguments:
+    ----------
+        - `controls`: The controls to validate.
+        - `must_be_present`: Whether the publication information must be present. Defaults to `False`.
+
+    Raises:
+    -------
+        - `ValueError`: If the publication information is invalid or missing.
+        - `BadAsn1Data`: If the PKIPublicationInfo contains trailing data.
+        - `ValueError`: If the publication method is "dontCare" and the pubInfos field is not omitted.
+        - `ValueError`: If the publication location is not present and the publication method is not "dontCare".
+        - `ValueError`: If the publication method is not one of "dontCare", "x500", "web", "ldap".
     """
     found = False
     publication_info_der = None
@@ -710,7 +718,7 @@ def validate_publication_information(controls: rfc9480.Controls, must_be_present
     publication_info, rest = decoder.decode(publication_info_der, asn1Spec=rfc4211.PKIPublicationInfo())
 
     if rest != b"":
-        raise ValueError("PKIPublicationInfo contains trailing data.")
+        raise BadAsn1Data("PKIPublicationInfo contains trailing data.", overwrite=True)
 
     if int(publication_info["action"]) not in [0, 1]:
         raise ValueError(f"Invalid action: {publication_info['action']}. Must be 0 or 1.")

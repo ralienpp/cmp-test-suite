@@ -44,7 +44,7 @@ unittest-docker: build-unittest
 
 unittest:
 	# Run the unit tests for the test suite itself.
-	python -m unittest discover -s unit_tests -f -v
+	python -m unittest discover -s unit_tests
 
 check_ejbca:
 ifeq ($(env), ejbca)

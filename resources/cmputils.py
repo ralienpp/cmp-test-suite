@@ -3570,17 +3570,24 @@ def prepare_rev_req_content(  # noqa D417 undocumented-param
     return rev_req_content
 
 
-# TODO fix doc
 @keyword(name="Get PKIStatusInfo")
 def get_pkistatusinfo(pki_message: PKIMessageTMP, index: Strint = 0) -> rfc9480.PKIStatusInfo:
     """Extract PKIStatusInfo from the PKIMessage based on the body type.
 
     The following body types are supported: "error", "rp", "ip", "cp", "kup".
 
-    :param pki_message: The PKIMessage from which the `PKIStatusInfo` will be extracted.
-    :param index: The index of the status to retrieve in case of multiple responses. Defaults to 0.
-    :return: The extracted `PKIStatusInfo` object.
-    :raises ValueError: If the body type is not expected.
+    Arguments:
+    ---------
+       - `pki_message`: The PKIMessage from which the `PKIStatusInfo` will be extracted.
+       - `index`: The index of the status to retrieve in case of multiple responses. Defaults to `0`.
+
+    Returns:
+    -------
+        - The extracted `PKIStatusInfo` object.
+    Examples:
+    --------
+    | ${pki_status_info}= | Get PKIStatusInfo | ${pki_message} |
+    | ${pki_status_info}= | Get PKIStatusInfo | ${pki_message} | index=0 |
     """
     index = int(index)
     body_name = pki_message["body"].getName()

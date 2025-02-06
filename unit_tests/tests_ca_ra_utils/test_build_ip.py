@@ -14,6 +14,7 @@ from resources.envdatautils import prepare_enveloped_data, prepare_ktri
 from resources.exceptions import BadRequest
 from resources.keyutils import load_private_key_from_file, generate_key
 from resources.utils import load_and_decode_pem_file
+from unit_tests.utils_for_test import de_and_encode_pkimessage
 
 
 class TestBuildIpCmpMessage(unittest.TestCase):
@@ -58,7 +59,6 @@ class TestBuildIpCmpMessage(unittest.TestCase):
             cert_req_id=self.cert_req_id,
             ca_pubs=self.ca_pubs,
         )
-        self.assertIsInstance(pki_message, rfc9480.PKIMessage)
         self.assertEqual(pki_message["body"].getName(), "ip")
 
     def test_build_ip_cmp_message_with_enc_cert(self):
@@ -72,7 +72,6 @@ class TestBuildIpCmpMessage(unittest.TestCase):
             cert_req_id=self.cert_req_id,
             ca_pubs=self.ca_pubs,
         )
-        self.assertIsInstance(pki_message, rfc9480.PKIMessage)
         self.assertEqual(pki_message["body"].getName(), "ip")
 
     def test_build_ip_cmp_message_with_responses(self):
@@ -90,9 +89,7 @@ class TestBuildIpCmpMessage(unittest.TestCase):
             cert_req_id=self.cert_req_id,
             ca_pubs=self.ca_pubs,
         )
-        der_data = encoder.encode(pki_message)
-        decoded_response, rest = decoder.decode(der_data, asn1Spec=rfc9480.PKIMessage())
-        self.assertEqual(rest, b"")
+        _ = de_and_encode_pkimessage(pki_message)
 
     def test_build_ip_cmp_message_with_request(self):
         """
@@ -107,7 +104,6 @@ class TestBuildIpCmpMessage(unittest.TestCase):
             ca_cert=self.rsa_cert,
             ca_key=self.rsa_key,
         )
-        self.assertIsInstance(pki_message, rfc9480.PKIMessage)
         self.assertEqual(pki_message["body"].getName(), "ip")
 
     def test_build_ip_cmp_message_raises_value_error(self):
@@ -136,9 +132,7 @@ class TestBuildIpCmpMessage(unittest.TestCase):
         self.assertEqual(len(certs), 1)
         self.assertEqual(len(ip["body"]["ip"]["response"]), 1)
 
-        der_data = encoder.encode(ip)
-        decoded_ip, rest = decoder.decode(der_data, asn1Spec=rfc9480.PKIMessage())
-        self.assertEqual(rest, b"")
+        _ = de_and_encode_pkimessage(ip)
 
     def test_build_ip_cmp_message_multi_requests(self):
         """
@@ -172,9 +166,7 @@ class TestBuildIpCmpMessage(unittest.TestCase):
         )
         self.assertEqual(len(ip["body"]["ip"]["response"]), 2)
         self.assertEqual(len(certs), 2)
-        der_data = encoder.encode(ip)
-        decoded_ip, rest = decoder.decode(der_data, asn1Spec=rfc9480.PKIMessage())
-        self.assertEqual(rest, b"")
+        _ = de_and_encode_pkimessage(ip)
 
     def test_build_ip_cmp_message_multi_requests_but_lwcmp(self):
         """

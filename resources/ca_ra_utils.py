@@ -1126,8 +1126,9 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
         kwargs = _set_header_fields(request, kwargs)
 
     if responses is not None:
-        certs = [cert]
-        responses = prepare_cert_response(cert=cert, enc_cert=enc_cert, cert_req_id=cert_req_id)
+        certs = []
+        # TODO think about extracting the certs from the responses.
+        certs = [cert] if cert is not None else []
 
     elif request and cert is None and enc_cert is None:
         kwargs["eku_strict"] = kwargs.get("eku_strict", True)
@@ -1152,7 +1153,8 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
             responses = prepare_cert_response(cert=cert, enc_cert=enc_cert, cert_req_id=cert_req_id)
     else:
         certs = [cert]
-        responses = prepare_cert_response(cert=cert, enc_cert=enc_cert, cert_req_id=cert_req_id)
+        responses = prepare_cert_response(cert=cert, enc_cert=enc_cert, private_key=kwargs.get("private_key"),
+                                          cert_req_id=int(kwargs.get("cert_req_id", 0)))
 
     body = _prepare_ca_body("ip", responses=responses, ca_pubs=ca_pubs)
 

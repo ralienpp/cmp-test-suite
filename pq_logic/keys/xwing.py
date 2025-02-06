@@ -29,7 +29,7 @@ from pq_logic.trad_typing import ECDHPrivateKey
 
 # TODO fix XWing serialization
 
-XWingLabel = rb"""
+_XWingLabel = rb"""
                 \./
                 /^\
               """.replace(b"\n", b"").replace(b" ", b"")

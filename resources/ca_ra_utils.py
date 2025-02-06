@@ -1127,7 +1127,6 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
         kwargs = _set_header_fields(request, kwargs)
 
     if responses is not None:
-        certs = []
         # TODO think about extracting the certs from the responses.
         certs = [cert] if cert is not None else []
 

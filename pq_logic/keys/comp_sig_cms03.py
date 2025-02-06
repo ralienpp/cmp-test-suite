@@ -68,7 +68,7 @@ def get_valid_comb(
         f"No valid combination found for pq_name={pq_name}, trad_name={trad_name}, length={length}, curve={curve}"
     )
 
-
+# to avoid import conflicts will be removed in the future.
 def compute_hash(alg_name: str, data: bytes) -> bytes:
     """Calculate the hash of data using an algorithm given by its name.
 
@@ -83,12 +83,11 @@ def compute_hash(alg_name: str, data: bytes) -> bytes:
 
 
 def get_names_from_oid(oid: univ.ObjectIdentifier) -> Tuple[str, str]:
-    """
-    Retrieve the version of ML-DSA and the key type based on the given OID.
+    """Retrieve the parameter_set of ML-DSA and the key type based on the given OID.
 
     :param oid: The Object Identifier (OID) to look up in the composite name mappings.
     :return: A tuple of two strings:
-             - The ML-DSA version (e.g., "ml-dsa-44")
+             - The ML-DSA parameter_set (e.g., "ml-dsa-44")
              - The key type (e.g., "rsa2048-pss", "ed25519", etc.)
     :raises ValueError: If the OID is not found in either PURE_COMPOSITE_NAME_TO_OID
                         or HASH_COMPOSITE_NAME_TO_OID.
@@ -98,9 +97,9 @@ def get_names_from_oid(oid: univ.ObjectIdentifier) -> Tuple[str, str]:
         if prefix:
             name = name.replace(prefix, "")
         parts = name.split("-")
-        version = "-".join(parts[:3])  # "ml-dsa-44", "ml-dsa-65", etc.
+        parameter_set = "-".join(parts[:3])  # "ml-dsa-44", "ml-dsa-65", etc.
         key_type = "-".join(parts[3:])  # "rsa2048-pss", "ed25519", etc.
-        return version, key_type
+        return parameter_set, key_type
 
     for name, registered_oid in PURE_COMPOSITE_NAME_TO_OID.items():
         if oid == registered_oid:

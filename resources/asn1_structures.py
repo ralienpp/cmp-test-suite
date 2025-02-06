@@ -190,6 +190,12 @@ class CertRepMessageTMP(univ.Sequence):
         namedtype.NamedType('response', univ.SequenceOf(componentType=CertResponseTMP()))
     )
 
+class NestedMessageContentTMP(univ.SequenceOf):
+    componentType = univ.Any()
+
+
+nestedMessageContent = NestedMessageContentTMP().subtype(
+    explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20))
 
 # The challenge change, so that the PKIBody needs to be overwritten.
 # So the only difference is the `popdecc: POPODecKeyChallContentAsn1`
@@ -199,18 +205,18 @@ class PKIBodyTMP(univ.Choice):
 
     componentType = namedtype.NamedTypes(
         namedtype.NamedType(
-            "ir", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
+            "ir", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
         ),
         namedtype.NamedType(
             "ip",
-            rfc9480.CertRepMessage().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1)),
+            CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1)),
         ),
         namedtype.NamedType(
-            "cr", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2))
+            "cr", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2))
         ),
         namedtype.NamedType(
             "cp",
-            rfc9480.CertRepMessage().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3)),
+            CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3)),
         ),
         namedtype.NamedType(
             "p10cr",
@@ -225,14 +231,14 @@ class PKIBodyTMP(univ.Choice):
             rfc9480.POPODecKeyRespContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 6)),
         ),
         namedtype.NamedType(
-            "kur", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 7))
+            "kur", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 7))
         ),
         namedtype.NamedType(
             "kup",
-            rfc9480.CertRepMessage().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 8)),
+            CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 8)),
         ),
         namedtype.NamedType(
-            "krr", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 9))
+            "krr", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 9))
         ),
         namedtype.NamedType(
             "krp",
@@ -246,11 +252,11 @@ class PKIBodyTMP(univ.Choice):
             rfc9480.RevRepContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 12)),
         ),
         namedtype.NamedType(
-            "ccr", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 13))
+            "ccr", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 13))
         ),
         namedtype.NamedType(
             "ccp",
-            rfc9480.CertRepMessage().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 14)),
+            CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 14)),
         ),
         namedtype.NamedType(
             "ckuann",
@@ -273,7 +279,7 @@ class PKIBodyTMP(univ.Choice):
             "pkiconf",
             rfc9480.PKIConfirmContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 19)),
         ),
-        namedtype.NamedType("nested", rfc9480.nestedMessageContent),
+        namedtype.NamedType("nested", nestedMessageContent),
         namedtype.NamedType(
             "genm", rfc9480.GenMsgContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 21))
         ),
@@ -299,6 +305,8 @@ class PKIBodyTMP(univ.Choice):
     )
 
 
+MAX = float("inf")
+
 # Set the body to the temporary PKIBodyTMP.
 class PKIMessageTMP(univ.Sequence):
     """Defines the ASN.1 structure for the `PKIMessage`."""
@@ -313,8 +321,31 @@ class PKIMessageTMP(univ.Sequence):
         namedtype.OptionalNamedType(
             "extraCerts",
             univ.SequenceOf(componentType=rfc9480.CMPCertificate())
-            .subtype(subtypeSpec=constraint.ValueSizeConstraint(1, float("inf")))
+            .subtype(subtypeSpec=constraint.ValueSizeConstraint(1, MAX))
             .subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)),
             ),
     )
+
+
+class PKIMessagesTMP(univ.SequenceOf):
+    componentType = PKIMessageTMP()
+    subtypeSpec=constraint.ValueSizeConstraint(1, MAX)
+
+
+class ProtectedPartTMP(univ.Sequence):
+    """Defines the ASN.1 structure for the `ProtectedPart`.
+
+    ProtectedPart ::= SEQUENCE {
+        header PKIHeader,
+        body PKIBody
+    """
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType('header', rfc9480.PKIHeader()),
+        namedtype.NamedType('body', PKIBodyTMP())
+    )
+
+# Since pyasn1 does not naturally handle recursive definitions, this hack:
+#
+NestedMessageContentTMP._componentType = PKIMessagesTMP()
+nestedMessageContent._componentType = PKIMessagesTMP()
 

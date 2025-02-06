@@ -22,6 +22,7 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
 from resources import certbuildutils, cmputils, keyutils, protectionutils
+from resources.asn1_structures import PKIMessagesTMP
 from resources.ca_ra_utils import (
     build_cp_from_p10cr,
     build_ip_cmp_message,
@@ -63,8 +64,9 @@ from pq_logic.pq_compute_utils import sign_data_with_alg_id, verify_csr_signatur
 from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONSE, ECDHPrivateKey
 
 
+
 def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descriptions in the docstring
-    request: rfc9480.PKIMessage,
+    request: PKIMessagesTMP,
     signing_key: AbstractCompositeSigPrivateKey,
     protection_key: PrivateKey,
     pub_key_loc: str,
@@ -75,7 +77,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
     issuer_cert: Optional[rfc9480.CMPCertificate] = None,
     cert_chain: Optional[Sequence[rfc9480.CMPCertificate]] = None,
     cert_index: Optional[int] = None,
-) -> Tuple[rfc9480.PKIMessage, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Build a Sun-Hybrid certificate from a request.
 
     The certificate in form 1 is at the second position in the `extraCerts` list.
@@ -176,7 +178,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
 
 @not_keyword
 def build_enc_cert_response(
-    request: rfc9480.PKIMessage,
+    request: PKIMessagesTMP,
     ca_cert: rfc9480.CMPCertificate,
     signing_key: Optional[PrivateKey] = None,
     new_ee_cert: Optional[rfc9480.CMPCertificate] = None,
@@ -185,7 +187,7 @@ def build_enc_cert_response(
     cert_req_id: Optional[int] = None,
     hybrid_kem_key: Optional[Union[HybridKEMPrivateKey, ECDHPrivateKey]] = None,
     client_pub_key: Optional[PQKEMPublicKey] = None,
-) -> rfc9480.PKIMessage:
+) -> PKIMessagesTMP:
     """Build an encrypted certificate response.
 
     :param request: The certificate request.
@@ -243,14 +245,14 @@ def build_enc_cert_response(
 
 
 def build_cert_from_catalyst_request(  # noqa: D417 Missing argument descriptions in the docstring
-    request: rfc9480.PKIMessage,
+    request: PKIMessagesTMP,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,
     cert_index: Union[str, int] = 0,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
     bad_sig: bool = False,
-) -> Tuple[rfc9480.PKIMessage, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate]:
     """Build a certificate from a Catalyst request.
 
     This is an experimental approach to show how to build a certificate from a Catalyst request.
@@ -653,7 +655,7 @@ def _generate_catalyst_alt_sig_key(
 
 @not_keyword
 def build_catalyst_signed_cert_from_p10cr(
-    request: rfc9480.PKIMessage,
+    request: PKIMessagesTMP,
     ca_key: PrivateKey,
     ca_cert: rfc9480.CMPCertificate,
     alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey] = None,
@@ -661,7 +663,7 @@ def build_catalyst_signed_cert_from_p10cr(
     use_rsa_pss: bool = True,
     cert_req_id: Optional[Union[int, str]] = None,
     allow_chosen_sig_alg: bool = True,
-) -> Tuple[rfc9480.PKIMessage, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate]:
     """Build a certificate from a request, which want to be signed with an alternative key.
 
     :param request: The `p10cr` request.
@@ -782,7 +784,7 @@ def _process_single_catalyst_request(
 
 
 def _process_catalyst_requests(
-    requests: rfc9480.PKIMessage,
+    requests: PKIMessagesTMP,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,
     alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey] = None,
@@ -832,7 +834,7 @@ def _process_catalyst_requests(
 
 
 def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descriptions in the docstring
-    request: rfc9480.PKIMessage,
+    request: PKIMessagesTMP,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,
     alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey] = None,
@@ -915,12 +917,12 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
 
 
 def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in the docstring
-    request: rfc9480.PKIMessage,
+    request: PKIMessagesTMP,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,
     cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
     **kwargs,
-) -> Tuple[rfc9480.PKIMessage, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Build a Chameleon certificate from a `p10cr` request.
 
     Arguments:

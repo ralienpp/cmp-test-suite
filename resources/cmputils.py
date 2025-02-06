@@ -48,7 +48,7 @@ from resources import (
     protectionutils,
     utils,
 )
-from resources.asn1_structures import KemCiphertextInfoAsn1
+from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.exceptions import BadAsn1Data
 from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKey, Strint, TradSigPrivKey
@@ -118,7 +118,7 @@ def _prepare_pki_message(
     pki_free_text: Optional[Union[List[str], str]] = None,
     pvno: int = 2,
     **kwargs,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Prepare the skeleton structure of a PKIMessage, with the body to be set later.
 
     :param sender: The sender's name as a string. Defaults to "tests@example.com".
@@ -183,7 +183,7 @@ def _prepare_pki_message(
         pki_header["freeText"] = _prepare_pki_free_text(texts=pki_free_text, target=free_text)
 
     # PKIMessage
-    pki_message = rfc9480.PKIMessage()
+    pki_message = PKIMessageTMP()
     pki_message["header"] = pki_header
 
     return pki_message
@@ -200,7 +200,7 @@ def build_cmp_error_message(  # noqa D417 undocumented-param
     error_texts: Optional[Union[List[str], str]] = None,
     error_code: Strint = 1,
     **params,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Build a `PKIMessage` with an error-type body, setting relevant status and failure info.
 
     Arguments:
@@ -1850,7 +1850,7 @@ def _gen_unique_byte_seq(in_use: List[bytes], size_num: int = 16) -> bytes:
             return val
 
 
-def _patch_nested_pkimessage(target: rfc9480.PKIMessage, exclude_fields: List[str]) -> rfc9480.PKIMessage:
+def _patch_nested_pkimessage(target: PKIMessageTMP, exclude_fields: List[str]) -> PKIMessageTMP:
     """Patch a nested PKIMessage with
 
     :param target: The PKIMessage to patch.
@@ -1888,14 +1888,14 @@ def _patch_nested_pkimessage(target: rfc9480.PKIMessage, exclude_fields: List[st
 
 @keyword(name="Patch PKIMessage Header with Other PKIMessage")
 def patch_pkimessage_header_with_other_message(  # noqa D417 undocumented-param
-    target: rfc9480.PKIMessage,
-    other_message: Optional[rfc9480.PKIMessage] = None,
+    target: PKIMessageTMP,
+    other_message: Optional[PKIMessageTMP] = None,
     include_fields: Optional[str] = None,
     exclude_fields: Optional[str] = None,
     for_nested: bool = False,
     for_exchange: bool = False,
     for_added_protection: bool = False,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Patch a `PKIMessage` with another `PKIMessage`.
 
     Can either be used to directly patch a message for added protection or patch a nested message.
@@ -1977,7 +1977,7 @@ def patch_pkimessage_header_with_other_message(  # noqa D417 undocumented-param
 
 
 def _extract_fields_for_exchange(
-    other_msg: rfc9480.PKIMessage, exclude_fields: Optional[str] = None, for_py_functions: bool = True
+    other_msg: PKIMessageTMP, exclude_fields: Optional[str] = None, for_py_functions: bool = True
 ) -> dict:
     """Extract fields from a `PKIMessage`, to patch another one.
 
@@ -2021,14 +2021,14 @@ def _extract_fields_for_exchange(
 
 @keyword(name="Build Cert Conf From Resp")
 def build_cert_conf_from_resp(  # noqa D417 undocumented-param
-    ca_message: rfc9480.PKIMessage,
+    ca_message: PKIMessageTMP,
     recipient: str = "testr@example.com",
     sender: str = "tests@example.com",
     cert_status: Union[rfc9480.CertStatus, List[rfc9480.CertStatus]] = None,
     exclude_fields: Optional[str] = None,
     hash_alg: Optional[str] = None,
     **params,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Create a certConf PKIMessage from a response PKIMessage.
 
     Builds a `certConf` PKIMessage based on a previously received response PKIMessage.
@@ -2124,7 +2124,7 @@ def build_cert_conf(  # noqa D417 undocumented-param
     cert_status: Optional[rfc9480.CertStatus] = None,
     status_info: Optional[rfc9480.PKIStatusInfo] = None,
     **params,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Create a `certConf` PKIMessage for certificate confirmation.
 
     This allows the issuing PKI Management entity to verify that the correct certificate was received
@@ -2208,7 +2208,7 @@ def build_cert_conf(  # noqa D417 undocumented-param
 
 
 @keyword(name="Parse PKIMessage")
-def parse_pkimessage(data: bytes) -> rfc9480.PKIMessage:  # noqa D417 undocumented-param
+def parse_pkimessage(data: bytes) -> PKIMessageTMP:  # noqa D417 undocumented-param
     """Parse input data to PKIMessage structure and return the resulting object.
 
     Arguments:
@@ -2229,7 +2229,7 @@ def parse_pkimessage(data: bytes) -> rfc9480.PKIMessage:  # noqa D417 undocument
 
     """
     try:
-        pki_message, _remainder = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
+        pki_message, _remainder = decoder.decode(data, asn1Spec=PKIMessageTMP())
     except PyAsn1Error as err:
         # Suppress detailed pyasn1 error messages; they are typically too verbose and
         # not helpful for non-pyasn1 experts. If debugging is needed, retrieve the server's
@@ -2241,9 +2241,9 @@ def parse_pkimessage(data: bytes) -> rfc9480.PKIMessage:  # noqa D417 undocument
 
 @keyword(name="Get Status From PKIMessage")
 def get_status_from_pkimessage(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, response_index: Strint = 0
+    pki_message: PKIMessageTMP, response_index: Strint = 0
 ) -> str:
-    """Return the status of a pyasn1 `rfc9480.PKIMessage` object as a string.
+    """Return the status of a pyasn1 `PKIMessageTMP` object as a string.
 
     Arguments:
     ---------
@@ -2270,7 +2270,7 @@ def get_status_from_pkimessage(  # noqa D417 undocumented-param
 
 @keyword(name="Get CertReqId From PKIMessage")
 def get_certreqid_from_pkimessage(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, response_index: Strint = 0
+    pki_message: PKIMessageTMP, response_index: Strint = 0
 ) -> int:
     """Extract the `certReqId` from a `PKIMessage`.
 
@@ -2302,7 +2302,7 @@ def get_certreqid_from_pkimessage(  # noqa D417 undocumented-param
 
 
 @keyword(name="Get CMP Message Type")
-def get_cmp_message_type(pki_message: rfc9480.PKIMessage) -> str:  # noqa D417 undocumented-param
+def get_cmp_message_type(pki_message: PKIMessageTMP) -> str:  # noqa D417 undocumented-param
     """Return the body type of an pyasn1 object representing a PKIMessage as a string, e.g., rp, ip.
 
     Arguments:
@@ -2324,7 +2324,7 @@ def get_cmp_message_type(pki_message: rfc9480.PKIMessage) -> str:  # noqa D417 u
 
 @keyword(name="Get CertResponse From PKIMessage")
 def get_cert_response_from_pkimessage(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, response_index: Strint = 0
+    pki_message: PKIMessageTMP, response_index: Strint = 0
 ) -> rfc9480.CertResponse:
     """Extract a `CertResponse` from a CA `PKIMessage`.
 
@@ -2356,7 +2356,7 @@ def get_cert_response_from_pkimessage(  # noqa D417 undocumented-param
 
 @keyword(name="Get Cert From PKIMessage")
 def get_cert_from_pkimessage(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     cert_number: Strint = 0,
 ) -> rfc9480.CMPCertificate:
     """Extract a certificate from a `PKIMessage`.
@@ -2410,7 +2410,7 @@ def parse_csr(raw_csr: bytes) -> rfc6402.CertificationRequest:  # noqa D417 undo
 
 @keyword(name="Find OID In generalInfo")
 def find_oid_in_general_info(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, oid: str
+    pki_message: PKIMessageTMP, oid: str
 ) -> bool:
     """Check if a given OID is present in the generalInfo part of a PKIMessage header.
 
@@ -2496,7 +2496,7 @@ def try_to_log_pkimessage(data: Union[str, bytes, base.Asn1Type]):  # noqa: D417
 
 @not_keyword
 def prepare_extra_certs(certs: List[rfc9480.CMPCertificate]):
-    """Build the pyasn1 `rfc9480.PKIMessage.extraCerts` field with a list of `rfc9480.CMPCertificate`.
+    """Build the pyasn1 `PKIMessageTMP.extraCerts` field with a list of `rfc9480.CMPCertificate`.
 
     :param certs: A list with `rfc9480.CMPCertificate`
     :return: An `univ.SequenceOf` object filled with `rfc9480.CMPCertificate` instances.
@@ -2702,7 +2702,7 @@ def _prepare_generalinfo(
 # 5.3.19.12. Original PKIMessage: 5.1.1.3. OrigPKIMessage
 # GenMsg: {id-it 15}, SEQUENCE SIZE (1..MAX) OF PKIMessage or generalInfo
 # Validate omitted.
-def prepare_orig_pki_message(pki_messages: Union[rfc9480.PKIMessage, rfc9480.PKIMessages]) -> rfc9480.InfoTypeAndValue:
+def prepare_orig_pki_message(pki_messages: Union[PKIMessageTMP, List[PKIMessageTMP]]) -> rfc9480.InfoTypeAndValue:
     """Prepare the `InfoTypeAndValue` to include the original PKIMessages in the generalInfo field.
 
     This is used by an RA to include the original PKIMessage received from the EE
@@ -2718,7 +2718,7 @@ def prepare_orig_pki_message(pki_messages: Union[rfc9480.PKIMessage, rfc9480.PKI
     # OrigPKIMessageValue
     obj = rfc9480.OrigPKIMessageValue()
 
-    if isinstance(pki_messages, rfc9480.PKIMessage):
+    if isinstance(pki_messages, PKIMessageTMP):
         pki_messages = [pki_messages]
 
     obj.extend(pki_messages)
@@ -2774,8 +2774,8 @@ def contains_extension(
 
 @keyword(name="Patch extraCerts")
 def patch_extra_certs(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, certs: List[rfc9480.CMPCertificate], swap_certs: bool = False
-) -> rfc9480.PKIMessage:
+    pki_message: PKIMessageTMP, certs: List[rfc9480.CMPCertificate], swap_certs: bool = False
+) -> PKIMessageTMP:
     """Patch the `extraCerts` field in a `PKIMessage` with a provided list of certificates.
 
     Set the `extraCerts` field of the PKIMessage to the provided list of certificates.
@@ -2813,7 +2813,7 @@ def patch_extra_certs(  # noqa D417 undocumented-param
 
 @keyword(name="Patch transactionID")
 def patch_transaction_id(  # noqa D417 undocumented-param
-    pki_message: Union[bytes, rfc9480.PKIMessage],
+    pki_message: Union[bytes, PKIMessageTMP],
     new_id: Optional[Union[bytes, str]] = None,
     prefix: Optional[Union[bytes, str]] = None,
 ):
@@ -2865,8 +2865,8 @@ def patch_transaction_id(  # noqa D417 undocumented-param
 
 @keyword(name="Patch messageTime")
 def patch_messageTime(  # noqa D417 undocumented-param pylint: disable=invalid-name
-    pki_message: rfc9480.PKIMessage, new_time: Optional[Union[datetime, str]] = None
-) -> rfc9480.PKIMessage:
+    pki_message: PKIMessageTMP, new_time: Optional[Union[datetime, str]] = None
+) -> PKIMessageTMP:
     """Patch the messageTime field of a PKIMessage structure with a new time, or the current time if none is provided.
 
     Is useful for updating the `messageTime` field in PKIMessages, especially when re-sending requests
@@ -2943,11 +2943,11 @@ def _patch_senderkid_for_mac(sender: rfc9480.GeneralName, negative: bool) -> byt
 
 @keyword(name="Patch senderKID")
 def patch_senderkid(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     sender_kid: Optional[Union[bytes, rfc9480.CMPCertificate]] = None,
     for_mac: bool = False,
     negative: bool = False,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Update or set the `senderKID` field in a PKIMessage header.
 
     Set or update the `senderKID` field in the header of the provided `PKIMessage`. The value of \
@@ -2999,11 +2999,11 @@ def patch_senderkid(  # noqa D417 undocumented-param
 
 @keyword(name="Patch senderNonce")
 def patch_sendernonce(  # noqa D417 undocumented-param
-    msg_to_patch: rfc9480.PKIMessage,
-    other_msg: Optional[rfc9480.PKIMessage] = None,
+    msg_to_patch: PKIMessageTMP,
+    other_msg: Optional[PKIMessageTMP] = None,
     sender_nonce: Optional[Union[str, bytes]] = None,  # type: ignore
     use_sender_nonce: bool = False,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Update the `senderNonce` field of a PKIMessage.
 
     Set the `senderNonce` field of the specified PKIMessage, this can be helpful for negative testing
@@ -3055,8 +3055,8 @@ def patch_sendernonce(  # noqa D417 undocumented-param
 
 @keyword(name="Patch recipNonce")
 def patch_recipnonce(  # noqa D417 undocumented-param
-    msg_to_patch: rfc9480.PKIMessage, recip_nonce: Optional[Union[str, bytes]] = None
-) -> rfc9480.PKIMessage:
+    msg_to_patch: PKIMessageTMP, recip_nonce: Optional[Union[str, bytes]] = None
+) -> PKIMessageTMP:
     """Patch the `recipNonce` field in a `PKIMessage` header.
 
     If `recip_nonce` is not provided, generates fresh automatically a random 16-byte long nonce.
@@ -3096,12 +3096,12 @@ def patch_recipnonce(  # noqa D417 undocumented-param
 
 @keyword(name="Patch sender")
 def patch_sender(  # noqa D417 undocumented-param
-    msg_to_patch: rfc9480.PKIMessage,
+    msg_to_patch: PKIMessageTMP,
     cert: Optional[CertObjOrPath] = None,
     subject: bool = True,
     general_name: Optional[rfc9480.GeneralName] = None,
     sender_name: Optional[str] = None,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Patch the `sender` field of a `PKIMessage` header.
 
     Updates the `sender` field in the header of a PKIMessage by setting it to the subject or issuer
@@ -3165,12 +3165,12 @@ def patch_sender(  # noqa D417 undocumented-param
 
 @keyword(name="Patch generalInfo")
 def patch_generalinfo(  # noqa D417 undocumented-param
-    msg_to_patch: rfc9480.PKIMessage,
+    msg_to_patch: PKIMessageTMP,
     implicit_confirm: bool = False,
     neg_info_value: bool = False,
     confirm_wait_time: Optional[Strint] = None,
     cert_profile: Optional[str] = None,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Update the `generalInfo` field in a PKIMessage header with optional confirmation, timing, and profile data.
 
     Patches the `generalInfo` field in the header of a `PKIMessage` to set fields related to implicit
@@ -3239,7 +3239,7 @@ def build_cmp_revoke_request(  # noqa D417 undocumented-param
     exclude_cert_temp_vals: str = "extensions,validity,publicKey,subject",
     exclude_cert_template: bool = False,
     **params,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Build a CMP revocation request (`rr`) as defined in RFC 9483 Section 4.2.
 
     Arguments:
@@ -3508,7 +3508,7 @@ def prepare_rev_req_content(  # noqa D417 undocumented-param
 
 # TODO fix doc
 @keyword(name="Get PKIStatusInfo")
-def get_pkistatusinfo(pki_message: rfc9480.PKIMessage, index: Strint = 0) -> rfc9480.PKIStatusInfo:
+def get_pkistatusinfo(pki_message: PKIMessageTMP, index: Strint = 0) -> rfc9480.PKIStatusInfo:
     """Extract PKIStatusInfo from the PKIMessage based on the body type.
 
     The following body types are supported: "error", "rp", "ip", "cp", "kup".
@@ -3539,7 +3539,7 @@ def get_pkistatusinfo(pki_message: rfc9480.PKIMessage, index: Strint = 0) -> rfc
 
 @keyword(name="Verify PKIStatusInfo")
 def verify_pkistatusinfo(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     body_type: Optional[str] = None,
     status: Optional[str] = None,
     failinfos: Optional[str] = None,
@@ -3614,7 +3614,7 @@ def verify_pkistatusinfo(  # noqa D417 undocumented-param
 
 @keyword(name="Verify statusString")
 def verify_statusstring(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     any_text: Optional[str] = None,
     all_text: Optional[str] = None,
     index: Strint = 0,
@@ -3721,7 +3721,7 @@ def generate_unique_byte_values(  # noqa D417 undocumented-param
 def build_nested_pkimessage(  # noqa D417 undocumented-param
     sender: str = "tests@example.com",
     recipient: str = "testr@example.com",
-    other_messages: Optional[Union[rfc9480.PKIMessage, List[rfc9480.PKIMessage]]] = None,
+    other_messages: Optional[Union[PKIMessageTMP, List[PKIMessageTMP]]] = None,
     exclude_fields: Union[None, str] = "sender,senderKID",
     transaction_id: bytes = None,
     sender_nonce: bytes = None,
@@ -3759,6 +3759,9 @@ def build_nested_pkimessage(  # noqa D417 undocumented-param
     | ${nested_msg}= | Build Nested PKIMessage | other_messages=${list_of_messages} |
 
     """
+    
+    
+    
     pki_body = rfc9480.PKIBody()
     nested_content = rfc9480.NestedMessageContent().subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20)
@@ -3779,7 +3782,7 @@ def build_nested_pkimessage(  # noqa D417 undocumented-param
 
     pki_body["nested"] = nested_content
     if other_messages is not None:
-        if isinstance(other_messages, rfc9480.PKIMessage):
+        if isinstance(other_messages, PKIMessageTMP):
             other_messages = [other_messages]
 
         for x in other_messages:
@@ -3797,7 +3800,7 @@ class CertReq(univ.Sequence):
 
 
 def build_polling_request(  # noqa D417 undocumented-param
-    sender: str, recipient: str, resp_pki_message: Optional[rfc9480.PKIMessage] = None, cert_req_id: int = 0, **params
+    sender: str, recipient: str, resp_pki_message: Optional[PKIMessageTMP] = None, cert_req_id: int = 0, **params
 ):
     """Build a CMP Polling Request message (pollReq).
 
@@ -3900,7 +3903,7 @@ def prepare_poll_content_structure(
 def build_polling_response(  # noqa D417 undocumented-param
     sender: str = "tests@example.com",
     recipient: str = "testr@example.com",
-    req_pki_message: rfc9480.PKIMessage = None,
+    req_pki_message: PKIMessageTMP = None,
     check_after: Strint = 150,
     cert_req_id: Strint = 0,
     status_text: Optional[str] = None,
@@ -3993,12 +3996,12 @@ def prepare_popo_challenge_for_non_signing_key(
 
 
 def build_kem_based_mac_protected_message(  # noqa: D417 Missing argument description in the docstring
-    request: rfc9480.PKIMessage,
+    request: PKIMessageTMP,
     shared_secret: Optional[bytes] = None,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     kem_ct_info: Optional[rfc9480.InfoTypeAndValue] = None,
     client_key: Optional[KEMPublicKey] = None,
-) -> Tuple[bytes, rfc9480.PKIMessage]:
+) -> Tuple[bytes, PKIMessageTMP]:
     """Build a KEM based MAC protected message.
 
     Either sends the kem ciphertextinfo inside the general message or uses

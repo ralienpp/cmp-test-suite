@@ -26,7 +26,6 @@ from pyasn1.type import tag, univ
 from pyasn1.type.base import Asn1Type
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc6955, rfc9480, rfc9629
 from robot.api.deco import keyword, not_keyword
-from unit_tests.asn1_wrapper_class.pki_message_wrapper import PKIMessage, prepare_name
 
 from resources import asn1utils, cmputils, keyutils, utils
 from resources.asn1_structures import ChallengeASN1, PKIMessageTMP
@@ -41,6 +40,7 @@ from resources.envdatautils import (
 )
 from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
 from resources.oid_mapping import compute_hash
+from resources.prepareutils import prepare_name
 from resources.protectionutils import compute_and_prepare_mac
 from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, PrivateKey, Strint
 from resources.utils import get_openssl_name_notation
@@ -396,7 +396,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
 
 
 @not_keyword
-def validate_popdecc_version(pki_message: PKIMessage) -> None:
+def validate_popdecc_version(pki_message: PKIMessageTMP) -> None:
     """Validate the PKIMessage version against the presence of the encryptedRand and challenge fields.
 
     :param pki_message: The PKIMessage to validate.
@@ -412,7 +412,7 @@ def validate_popdecc_version(pki_message: PKIMessage) -> None:
 
 def _process_encrypted_rand(
     env_data: rfc9480.EnvelopedData,
-    pki_message: PKIMessage,
+    pki_message: PKIMessageTMP,
     password: Optional[Union[str, bytes]],
     ee_key: Optional[Union[PQKEMPrivateKey, ECDHPrivateKey, RSAPrivateKey, HybridKEMPrivateKey]],
     recip_index: int,

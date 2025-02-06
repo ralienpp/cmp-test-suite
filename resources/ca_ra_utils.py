@@ -1233,7 +1233,7 @@ def prepare_cert_response(
     failinfo: str = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     enc_cert: Optional[rfc9480.EnvelopedData] = None,
-    private_key: Optional[PrivateKey] = None,
+    private_key: Optional[rfc9480.EnvelopedData] = None,
     rspInfo: Optional[bytes] = None,
 ) -> CertResponseTMP:
     """Prepare a CertResponse structure for responding to a certificate request.
@@ -1244,7 +1244,7 @@ def prepare_cert_response(
     :param failinfo: Optional failure information.
     :param cert: An optional certificate object.
     :param enc_cert: Optional encrypted certificate as EnvelopedData.
-    :param private_key: Optional private key as EnvelopedData.
+    :param private_key: A private key inside the `EnvelopedData` structure
     :param rspInfo: Optional response information. Defaults to `None`.
     :return: A populated CertResponse structure.
     """

@@ -1761,7 +1761,6 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
             public_key=public_key,
             rand_int=rand_int,
             private_key=ca_key,
-            cmp_protection_cert=cmp_protection_cert,
             rand_sender=rand_sender,
             bad_witness=bad_witness,
             cert_req_id=cert_req_id,
@@ -1778,7 +1777,7 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
             bad_witness=bad_witness,
             iv=kwargs.get("iv", "A" * 16),
             rand_sender=rand_sender,
-            hash_alg=kwargs.get("hash_alg", None),
+            hash_alg=kwargs.get("hash_alg"),
         )
         if kem_ct_info is not None:
             tmp["header"]["generalInfo"].append(kem_ct_info)

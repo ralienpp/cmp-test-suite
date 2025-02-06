@@ -200,8 +200,8 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
     """
     recip_id = rfc5652.RecipientIdentifier()
 
-    if key is None and cert is None and issuer_and_ser is None:
-        raise ValueError("At least one of the arguments must be provided.")
+    if key is None and cert is None and issuer_and_ser is None and ski is None:
+        raise ValueError("Either a certificate, an issuer and serial number, or a key must be provided.")
 
     if issuer_and_ser is not None:
         recip_id["issuerAndSerialNumber"] = issuer_and_ser

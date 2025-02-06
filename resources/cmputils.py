@@ -476,12 +476,22 @@ def validate_archive_options(
 ) -> Optional[rfc9480.EncryptedKey]:
     """Validate the PKIArchiveOptions structure, to be used inside the Controls structure.
 
-    :param controls: The controls to validate.
-    :param must_be_present: Whether the archive options must be present.
-    :return: The encrypted private key, if present.
-    :raise ValueError: If the archive options are not present and `must_be_present` is True.
-    :raise NotImplementedError: If the keyGenParameters option is present.
+    Arguments:
+    ----------
+        - `controls`: The controls to validate.
+        - `must_be_present`: Whether the archive options must be present.
+
+    Returns:
+    --------
+        - The encrypted private key, if present.
+
+    Raises:
+    -------
+        - `ValueError`: If the archive options are not present and `must_be_present` is True.
+        - `NotImplementedError`: If the keyGenParameters option is present.
+        - `BadAsn1Data`: If the PKIArchiveOptions contains trailing data.
     """
+
     found = False
     archive_options = None
     for entry in controls:
@@ -497,8 +507,8 @@ def validate_archive_options(
         return None
 
     archive_options, rest = decoder.decode(archive_options, rfc4211.PKIArchiveOptions())
-    if rest != b"":
-        raise ValueError("PKIArchiveOptions contains trailing data.")
+    if rest:
+        raise BadAsn1Data("PKIArchiveOptions contains trailing data.", overwrite=True)
 
     option = archive_options.getName()
     if option == "encryptedPrivKey":

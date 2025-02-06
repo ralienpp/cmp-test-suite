@@ -538,7 +538,7 @@ def prepare_publication_information( # noqa D417 undocumented-param
 
     Returns:
     --------
-        - A populated `AttributeTypeAndValue` structure.
+        - The populated `AttributeTypeAndValue` structure.
 
     Raises:
     -------
@@ -591,7 +591,7 @@ def prepare_reg_token_controls( # noqa D417 undocumented-param
 
     Returns:
     --------
-        - A populated `AttributeTypeAndValue` structure.
+        - The populated `AttributeTypeAndValue` structure.
 
     :return: A populated `AttributeTypeAndValue` structure.
     """
@@ -629,7 +629,7 @@ def prepare_authorization_control( # noqa D417 undocumented-param
 
     Returns:
     --------
-        - A populated `AttributeTypeAndValue` structure.
+        - The populated `AttributeTypeAndValue` structure.
 
     Examples:
     --------
@@ -646,7 +646,7 @@ def prepare_authorization_control( # noqa D417 undocumented-param
 
 # TODO correct EncryptedKey logic to allow this for KeyAgreement or KEM as well.
 
-
+@keyword(name="Prepare Controls protocolEncrKey")
 def prepare_controls_protocol_encr_key(
     ca_public_key: Optional[PublicKey] = None, ca_cert: Optional[rfc9480.CMPCertificate] = None
 ) -> rfc4211.AttributeTypeAndValue:
@@ -654,10 +654,22 @@ def prepare_controls_protocol_encr_key(
 
     Used if the CA has information to send to the subscriber that needs to be encrypted.
 
-    :param ca_public_key: The public key of the CA.
-    :param ca_cert: The CA certificate.
-    :return: A populated `AttributeTypeAndValue` structure.
-    :raise ValueError: If neither `ca_public_key` nor `ca_cert` is provided.
+    Arguments:
+    ---------
+        - `ca_public_key`: The public key of the CA. Defaults to `None`.
+        - `ca_cert`: The CA certificate. Defaults to `None`.
+
+    Returns:
+    --------
+        - The populated `AttributeTypeAndValue` structure.
+
+    Raises:
+    -------
+        - `ValueError`: If neither `ca_public_key` nor `ca_cert` is provided.
+
+    Examples:
+    --------
+    | ${protocol_encr_key}= | Prepare Controls Protocol Encr Key | ca_public_key=${public_key} |
     """
     if ca_public_key is None and ca_cert is None:
         raise ValueError("One of `ca_public_key` or `ca_cert` must be provided.")

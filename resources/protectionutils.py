@@ -51,7 +51,7 @@ from resources.asn1_structures import (
     KemBMParameterAsn1,
     KemCiphertextInfoAsn1,
     KemCiphertextInfoValue,
-    KemOtherInfoAsn1,
+    KemOtherInfoAsn1, ProtectedPartTMP,
 )
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, compute_pbkdf2_from_parameter
@@ -331,7 +331,7 @@ def _prepare_aes_gmac_prot_alg_id(
 
 
 @not_keyword
-def prepare_pbkdf2_alg_id(salt: bytes, iterations: int = 100, length: int = 32, hash_alg="sha256"):
+def prepare_pbkdf2_alg_id(salt: bytes, iterations: int = 100, key_length: int = 32, hash_alg: str = "sha256"):
     """Prepare the `PBKDF2` AlgorithmIdentifier object for `rfc9480.PKIMessage` protection.
 
     :param salt: An optional salt for uniqueness. It can either be:
@@ -340,7 +340,7 @@ def prepare_pbkdf2_alg_id(salt: bytes, iterations: int = 100, length: int = 32, 
         - If not provided, a random 16-byte salt is generated.
     :param iterations: The number of iterations to be used for the key derivation function.
                        Defaults to 100.
-    :param length: The desired length of the derived key in bytes. Defaults to 32-bytes.
+    :param key_length: The desired length of the derived key in bytes. Defaults to 32-bytes.
     :param hash_alg: The name of the hash algorithm to use with HMAC. Defaults to "sha256".
     :return: Populated `PBKDF2` AlgorithmIdentifier object.
     """
@@ -350,7 +350,7 @@ def prepare_pbkdf2_alg_id(salt: bytes, iterations: int = 100, length: int = 32, 
     pbkdf2_params = rfc8018.PBKDF2_params()
     pbkdf2_params["salt"]["specified"] = univ.OctetString(salt)
     pbkdf2_params["iterationCount"] = iterations
-    pbkdf2_params["keyLength"] = length
+    pbkdf2_params["keyLength"] = key_length
     pbkdf2_params["prf"] = _prepare_hmac_alg_id(hash_alg)
 
     alg_id["parameters"] = pbkdf2_params
@@ -361,7 +361,7 @@ def prepare_pbkdf2_alg_id(salt: bytes, iterations: int = 100, length: int = 32, 
 
 
 def _prepare_pbmac1_parameters(
-    salt: Optional[Union[bytes, str]] = None, iterations=100, length=32, hash_alg="sha256"
+    salt: Optional[Union[bytes, str]] = None, iterations: int = 100, length: int = 32, hash_alg: str = "sha256"
 ) -> rfc8018.PBMAC1_params:
     """Prepare the PBMAC1 `rfc8018.PBMAC1_params` for `rfc9480.PKIMessage` protection, using PBKDF2 with HMAC.
 
@@ -1072,7 +1072,7 @@ def _prepare_prot_alg_id(
 @not_keyword
 def extract_protected_part(pki_message: rfc9480.PKIMessage) -> bytes:
     """Extract the protected part of a PKIMessage structure."""
-    protected_part = rfc9480.ProtectedPart()
+    protected_part = ProtectedPartTMP()
     protected_part["header"] = pki_message["header"]
     protected_part["body"] = pki_message["body"]
     return encoder.encode(protected_part)
@@ -2001,7 +2001,7 @@ def _prepare_kem_based_mac_parameter(
     mac_alg_id = rfc5280.AlgorithmIdentifier()
 
     if kdf == "pbkdf2":
-        kdf_alg_id = prepare_pbkdf2_alg_id(salt=salt, iterations=iterations, length=length, hash_alg=hash_alg)
+        kdf_alg_id = prepare_pbkdf2_alg_id(salt=salt, iterations=iterations, key_length=length, hash_alg=hash_alg)
     else:
         kdf_alg_id = prepare_kdf(kdf_name=f"{kdf}", hash_alg=hash_alg)
 
@@ -2211,7 +2211,7 @@ def prepare_kdf(
             salt = os.urandom(32)
 
         salt = str_to_bytes(salt)
-        return prepare_pbkdf2_alg_id(salt=salt, iterations=int(iterations), length=int(length), hash_alg=hash_alg)
+        return prepare_pbkdf2_alg_id(salt=salt, iterations=int(iterations), key_length=int(length), hash_alg=hash_alg)
 
     raise ValueError(f"Unsupported KDF algorithm: {kdf_name}")
 

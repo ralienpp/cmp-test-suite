@@ -19,6 +19,8 @@ def prepare_name(
 ) -> rfc9480.Name:
     """Prepare a `rfc9480.Name` object or fill a provided object.
 
+    When using a Null-DN set the common_name to "Null-DN".
+
     :param common_name: Common name in OpenSSL notation, e.g., "C=DE,ST=Bavaria,L= Munich,CN=Joe Mustermann"
     :param implicit_tag_id: the implicitTag id for the new object.
     :param name: An optional `pyasn1` Name object in which the data is parsed. Else creates a new object.

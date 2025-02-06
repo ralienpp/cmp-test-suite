@@ -522,7 +522,7 @@ def validate_archive_options(
 # RFC4210bis-16 Section 5.2.7. Publication Information
 
 @keyword(name="Prepare PKIPublicationInformation")
-def prepare_publication_information(
+def prepare_publication_information( # noqa D417 undocumented-param
     dont_publish: bool = False, pub_method: Optional[str] = "x500", pub_location: Optional[str] = None
 ) -> rfc4211.AttributeTypeAndValue:
     """Prepare the PKIPublicationInfo structure, to be used inside the Controls structure.
@@ -578,7 +578,8 @@ def prepare_publication_information(
     return attr
 
 @keyword(name="Prepare regToken Controls")
-def prepare_reg_token_controls(token: Union[str, bytes]) -> rfc4211.AttributeTypeAndValue:
+def prepare_reg_token_controls( # noqa D417 undocumented-param
+        token: Union[str, bytes]) -> rfc4211.AttributeTypeAndValue:
     """Prepare the regToken control, to be used inside the Controls structure.
 
     Only used for initialization of an end entity into the PKI, to verify the identity of the subject.
@@ -610,7 +611,8 @@ def prepare_reg_token_controls(token: Union[str, bytes]) -> rfc4211.AttributeTyp
     return attr
 
 
-def prepare_authorization_control(auth_info: Union[bytes, str]) -> rfc4211.AttributeTypeAndValue:
+def prepare_authorization_control( # noqa D417 undocumented-param
+        auth_info: Union[bytes, str]) -> rfc4211.AttributeTypeAndValue:
     """Prepare the authorization control, to be used inside the Controls structure.
 
     Used for the initial certificate request or on-going request to the CA.

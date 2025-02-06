@@ -13,7 +13,7 @@ help:
 	@echo  '  verify  - Run a bunch of checks, to see if there are any obvious deficiencies in the code '
 	@echo  '  verifyformat   -  Check formatting only '
 	@echo  '  stats   -  Write the key encapsulation statistics to a data/stats/ directory '
-	@echo  '  invalid-sig   -  Verify all pqc-certificates in data/pqc-certificates/ and show all invalid signatures '
+	@echo  '  check-sig   -  Verify all pqc-certificates in data/pqc-certificates/ and show all invalid signatures '
 	@echo  '  start-mock-ca   -  Start the mock CA server, so that it can listens to requests '
 	@echo  '  test-mock-ca   -  Run the test against the mock CA server '
 	@echo  ''

@@ -1075,7 +1075,6 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
     request: Optional[rfc9480.PKIMessage] = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     enc_cert: Optional[rfc5652.EnvelopedData] = None,
-    cert_req_id: Optional[int] = None,
     ca_pubs: Optional[Sequence[rfc9480.CMPCertificate]] = None,
     responses: Optional[Union[Sequence[CertResponseTMP], CertResponseTMP]] = None,
     exclude_fields: Optional[str] = None,
@@ -1088,13 +1087,33 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
     ---------
         - `cert`: The certificate to build the response for. Defaults to `None`.
         - `enc_cert`: The encrypted certificate to build the response for. Defaults to `None`.
-        - `cert_req_id`: The certificate request ID. Defaults to `None`.
         - `ca_pubs`: The CA certificates to include in the response. Defaults to `None`.
         - `responses`: The certificate responses to include in the response. Defaults to `None`.
         - `exclude_fields`: The fields to exclude from the response. Defaults to `None`.
         - `request`: The PKIMessage containing the certificate request. Defaults to `None`.
         - `set_header_fields`: Whether to patch the header fields, for the exchange. Defaults to `True`.
         - `kwargs`: Additional values to set for the header.
+
+    **kwargs:
+    --------
+        - additional values to set for the header.
+        - `private_key`: The private key securely wrapped in the `EnvelopedData` structure.
+        - `enforce_lwcmp`: Whether to enforce the Lightweight CMP (LwCMP) for the CA. Defaults to `True`.
+        - `hash_alg`: The hash algorithm to use for signing the certificate. Defaults to `sha256`.
+        - `eku_strict`: Whether to strictly enforce the EKU bits. Defaults to `True`.
+        (needed for raVerified)
+        - `ca_key`: The CA private key to sign the newly issued certificate with.
+        - `ca_cert`: The CA certificate matching the CA key.
+        - `cert_req_id`: The certificate request ID. Defaults to `0`, if cert is provided.
+        (else parsed from the request)
+
+    Returns:
+    -------
+        - The built PKIMessage and the certificates.
+
+    Raises:
+    ------
+        - ValueError: If the CA key and certificate are not provided and the certificate is not provided.
 
 
     """

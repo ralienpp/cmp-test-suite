@@ -225,7 +225,7 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
 
         return rid["issuerAndSerialNumber"]
 
-    elif recipient_info.getName() == "ori":
+    if recipient_info.getName() == "ori":
         if recipient_info["ori"]["oriType"] != rfc9629.id_ori_kem:
             raise NotImplementedError("Unsupported `oriType` in OriginatorRecipientInfo. Expected `id_ori_kem`.")
 
@@ -236,7 +236,7 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
 
         return rid["issuerAndSerialNumber"]
 
-    elif recipient_info.getName() == "kari":
+    if recipient_info.getName() == "kari":
         recipient_encrypted_key = recipient_info["kari"]["recipientEncryptedKeys"][kari_index]
         rid = recipient_encrypted_key["rid"]
         if rid.getName() != "issuerAndSerialNumber":
@@ -244,8 +244,8 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
 
         return rid["issuerAndSerialNumber"]
 
-    else:
-        raise ValueError("Unsupported recipient information type.")
+
+    raise ValueError("Unsupported recipient information type.")
 
 
 @keyword(name="Validate Rid For Encrypted Rand")

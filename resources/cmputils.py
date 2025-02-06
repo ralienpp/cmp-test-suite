@@ -2075,7 +2075,7 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
     if cert_status is None:
         cert_resp_msg: rfc9480.CertRepMessage = ca_message["body"][message_type]["response"]
         entry: rfc9480.CertResponse
-        for i, entry in enumerate(cert_resp_msg):
+        for _, entry in enumerate(cert_resp_msg):
             # remove the tagging.
             cert_req_id = int(entry["certReqId"])
             cert = copy_asn1_certificate(cert=entry["certifiedKeyPair"]["certOrEncCert"]["certificate"])
@@ -2554,7 +2554,7 @@ def prepare_general_name(name_type: str, name_str: str) -> rfc9480.GeneralName:
     if name_type == "rfc822Name":
         return rfc9480.GeneralName().setComponentByName("rfc822Name", name_str)
 
-    if name_type == "uniformResourceIdentifier" or name_type == "uri":
+    if name_type in ["uniformResourceIdentifier", "uri"]:
         return rfc9480.GeneralName().setComponentByName("uniformResourceIdentifier", name_str)
 
     raise NotImplementedError(f"GeneralName name_type is Unsupported: {name_type}")

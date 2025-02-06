@@ -46,7 +46,7 @@ from resources import (
 )
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, perform_ecdh
-from resources.envdatautils import get_aes_length
+from resources.envdatautils import get_aes_keywrap_length
 from resources.exceptions import BadAlg, BadAsn1Data
 from resources.oid_mapping import (
     compute_hash,
@@ -1552,7 +1552,7 @@ def validate_kem_recip_info_structure(
 
     kek_length = int(kem_recip_info["kekLength"])
     wrap_name = KEY_WRAP_OID_2_NAME[wrap_algorithm]
-    expected_length = get_aes_length(wrap_name)
+    expected_length = get_aes_keywrap_length(wrap_name)
     if kek_length != expected_length:
         raise ValueError(
             f"The `kekLength` field of the `KEMRecipientInfo` structure does not match the expected length "
@@ -1641,7 +1641,7 @@ def compute_decaps_from_asn1(private_key: PQKEMPrivateKey, kem_recip_info: rfc96
     key_enc_key = compute_hkdf(key_material=shared_secret, ukm=ukm, hash_alg=hash_alg, length=kek_length)
 
     key_wrap_oid = kem_recip_info["wrap"]["algorithm"]
-    aes_length = get_aes_length(KEY_WRAP_OID_2_NAME[key_wrap_oid])
+    aes_length = get_aes_keywrap_length(KEY_WRAP_OID_2_NAME[key_wrap_oid])
     kek_length = len(key_enc_key)
     if kek_length != aes_length:
         raise ValueError(

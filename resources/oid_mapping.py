@@ -15,6 +15,7 @@ from typing import Optional, Union
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa, ec
+from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE_OID_2_HASH,
@@ -195,8 +196,8 @@ def get_alg_oid_from_key_hash(
 
         return PQ_NAME_2_OID[name]
 
-    # if isinstance(key, AbstractCompositeSigPrivateKey):
-    #    alg_oid = key.get_oid(used_padding=use_pss, prehash=use_prehashed)
+    if isinstance(key, AbstractCompositeSigPrivateKey):
+        alg_oid = key.get_oid(used_padding=use_pss, pre_hash=use_prehashed)
 
     if alg_oid is not None:
         return alg_oid

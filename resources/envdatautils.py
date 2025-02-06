@@ -56,7 +56,7 @@ from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
 
 
 @not_keyword
-def get_aes_length(alg_name: str) -> int:
+def get_aes_keywrap_length(alg_name: str) -> int:
     """Retrieve the AES key length in bits for the specified key wrap algorithm.
 
     :param alg_name: The name of the key wrap algorithm (e.g., "aes128-wrap", "aes192-wrap", "aes256-wrap").
@@ -1188,7 +1188,7 @@ def prepare_kem_recip_info(
     kem_recip_info["kdf"] = prepare_kdf(kdf_name=kdf_name, hash_alg=hash_alg)
     if shared_secret is not None:
         key_enc_key = compute_kdf_from_alg_id(
-            kdf_alg_id=kem_recip_info["kdf"], ss=shared_secret, ukm=ukm, length=kek_length or get_aes_length(wrap_name)
+            kdf_alg_id=kem_recip_info["kdf"], ss=shared_secret, ukm=ukm, length=kek_length or get_aes_keywrap_length(wrap_name)
         )
 
     if encrypted_key is None:
@@ -1201,7 +1201,7 @@ def prepare_kem_recip_info(
 
     kem_recip_info["wrap"] = prepare_wrap_alg_id(wrap_name)
     kem_recip_info["encryptedKey"] = encrypted_key
-    kem_recip_info["kekLength"] = kek_length or get_aes_length(wrap_name)
+    kem_recip_info["kekLength"] = kek_length or get_aes_keywrap_length(wrap_name)
 
     return kem_recip_info
 

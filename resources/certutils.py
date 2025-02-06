@@ -33,6 +33,7 @@ from resources import (
     typingutils,
     utils,
 )
+from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import CMP_EKU_OID_2_NAME
 from resources.suiteenums import KeyUsageStrictness
@@ -929,18 +930,17 @@ def verify_signature_with_cert(
 
 
 def load_crl_from_der(der_data: bytes):
-    """
-    Load and parse a CRL from DER-encoded data using pyasn1-alt-modules.
+    """Load and parse a CRL from DER-encoded data using pyasn1-alt-modules.
 
     :param der_data: DER-encoded CRL data.
     :return: Decoded CRL object.
-    :raises ValueError: If the CRL cannot be decoded.
+    :raises BadAsn1Data: If the CRL cannot be decoded.
     """
     try:
         crl, _ = decoder.decode(der_data, asn1Spec=rfc5280.CertificateList())
         return crl
-    except Exception as e:
-        raise ValueError(f"Failed to load CRL from DER data: {e}")
+    except Exception:
+        raise BadAsn1Data("Failed to load CRL from DER data.") # pylint: disable=raise-missing-from
 
 
 def _write_crl_to_pem(crl: rfc5280.CertificateList, path: str):

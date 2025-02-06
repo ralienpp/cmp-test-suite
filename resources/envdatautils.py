@@ -798,6 +798,7 @@ def _prepare_recip_info(
         rfc9629.KEMRecipientInfo,
         rfc5652.KeyTransRecipientInfo,
         rfc5652.PasswordRecipientInfo,
+        rfc5652.RecipientInfo,
     ],
 ) -> rfc5652.RecipientInfo:
     """Prepare a RecipientInfo object with the underlying populated structure.
@@ -1018,7 +1019,7 @@ def build_env_data_for_exchange(
     use_rsa_oaep: bool = True,
     enc_oid: Optional[univ.ObjectIdentifier] = None,
     hybrid_key_recip: Optional[AbstractHybridRawPublicKey] = None,
-):
+) -> rfc9480.EnvelopedData:
     """Build an EnvelopedData structure for the provided public key and data.
 
     Prepare an EnvelopedData structure for the provided public key and data.

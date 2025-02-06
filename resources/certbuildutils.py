@@ -21,10 +21,10 @@ from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc6402, rfc9480, rfc9
 from pyasn1_alt_modules.rfc2459 import AttributeValue
 from robot.api.deco import keyword, not_keyword
 
+import resources.utils
 from resources import (
     certextractutils,
     certutils,
-    cmputils,
     convertutils,
     copyasn1utils,
     cryptoutils,
@@ -784,7 +784,7 @@ def modify_common_name_cert(  # noqa D417 undocumented-param
         utils.log_certificates([cert])
         raise ValueError("The certificate did not contain a value in the `issuer` field.")
 
-    issuer_name["CN"] = cmputils.modify_random_str(issuer_name["CN"], index=-1)
+    issuer_name["CN"] = resources.utils.modify_random_str(issuer_name["CN"], index=-1)
     data = ""
     for x, y in issuer_name.items():
         data += x + "=" + y + ","

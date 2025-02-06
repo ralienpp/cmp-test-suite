@@ -226,7 +226,7 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
 
 
 @keyword(name="Prepare IssuerAndSerialNumber")
-def prepare_issuer_and_serial_number(
+def prepare_issuer_and_serial_number( # noqa D417 undocumented-param
     cert: Optional[rfc9480.CMPCertificate] = None,
     modify_serial_number: bool = False,
     modify_issuer: bool = False,
@@ -835,7 +835,7 @@ def _prepare_recip_info(
 
 
 @keyword(name="Prepare RecipientInfo")
-def prepare_recip_info(
+def prepare_recip_info( # noqa D417 undocumented-param
     public_key_recip: Optional[PublicKey],
     private_key: Optional[ECDHPrivateKey] = None,
     cert_recip: Optional[rfc9480.CMPCertificate] = None,
@@ -930,7 +930,7 @@ def prepare_recip_info(
 
 
 @keyword(name="Prepare EncryptedKey For POPO")
-def prepare_enc_key_for_popo(
+def prepare_enc_key_for_popo( # noqa D417 undocumented-param
     enc_key_with_id: rfc4211.EncKeyWithID,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     recip_info: Optional[rfc5652.RecipientInfo] = None,
@@ -1303,7 +1303,7 @@ def prepare_ecc_cms_shared_info(
 
 
 @keyword(name="Prepare OriginatorIdentifierOrKey")
-def prepare_originator_identifier_or_key(
+def prepare_originator_identifier_or_key( # noqa D417 undocumented-param
     cert: Optional[rfc9480.CMPCertificate] = None,
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     invalid_ski: bool = False,
@@ -1521,7 +1521,7 @@ def _prepare_aes_warp_alg_id(
 
 
 @keyword(name="Prepare PasswordRecipientInfo")
-def prepare_password_recipient_info(
+def prepare_password_recipient_info( # noqa D417 undocumented-param
     password: Union[str, bytes],
     version: Union[str, int] = 0,
     cek: Optional[bytes] = None,

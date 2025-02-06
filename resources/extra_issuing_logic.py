@@ -124,7 +124,7 @@ def prepare_enc_key_with_id(
 
 # TODO fix doc for RF.
 @keyword(name="Prepare KEM EnvelopedData For POPO")
-def prepare_kem_env_data_for_popo(
+def prepare_kem_env_data_for_popo( # noqa D417 undocumented-param
     ca_cert: rfc9480.CMPCertificate,
     data: Optional[Union[Asn1Type, bytes, str]] = None,
     client_key: Optional[PrivateKey] = None,
@@ -254,7 +254,7 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
     raise ValueError("Unsupported recipient information type.")
 
 
-def validate_kemri_rid_for_encrypted_cert(
+def validate_kemri_rid_for_encrypted_cert( # noqa D417 undocumented-param
     pki_message: PKIMessageTMP,
     key: Optional[Union[KEMPublicKey, KEMPrivateKey]] = None,
     issuer: Optional[str] = None,

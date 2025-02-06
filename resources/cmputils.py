@@ -8,8 +8,6 @@
 import glob
 import logging
 import os
-import random
-import string
 import sys
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple, Union
@@ -52,6 +50,7 @@ from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.exceptions import BadAsn1Data
 from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKey, Strint, TradSigPrivKey
+from resources.utils import modify_random_str
 
 # When dealing with post-quantum crypto algorithms, we encounter big numbers, which wouldn't be pretty-printed
 # otherwise. This is just for cosmetic convenience.
@@ -470,28 +469,28 @@ def _prepare_archive_options(
     return attr
 
 
-def validate_archive_options(
+def validate_archive_options( # noqa D417 undocumented-param
     controls: rfc9480.Controls,
     must_be_present: bool = False,
 ) -> Optional[rfc9480.EncryptedKey]:
     """Validate the PKIArchiveOptions structure, to be used inside the Controls structure.
 
     Arguments:
-    ----------
+    ---------
         - `controls`: The controls to validate.
         - `must_be_present`: Whether the archive options must be present.
 
     Returns:
-    --------
+    -------
         - The encrypted private key, if present.
 
     Raises:
-    -------
+    ------
         - `ValueError`: If the archive options are not present and `must_be_present` is True.
         - `NotImplementedError`: If the keyGenParameters option is present.
         - `BadAsn1Data`: If the PKIArchiveOptions contains trailing data.
-    """
 
+    """
     found = False
     archive_options = None
     for entry in controls:
@@ -531,23 +530,25 @@ def prepare_publication_information( # noqa D417 undocumented-param
     PKIPublicationInfo structure.
 
     Arguments:
-    ----------
+    ---------
         - `dont_publish`: If True, the certificate should not be published. Defaults to `False`.
         - `pub_method`: The publication method to use. Defaults to "x500".
         - `pub_location`: The publication location. Defaults to `None`.
 
     Returns:
-    --------
+    -------
         - The populated `AttributeTypeAndValue` structure.
 
     Raises:
-    -------
+    ------
         - `ValueError`: If `pub_method` is not one of "dontCare", "x500", "web", "ldap".
 
     Examples:
     --------
     | ${publication_info}= | Prepare PKIPublicationInformation | dont_publish=True |
-    | ${publication_info}= | Prepare PKIPublicationInformation | dont_publish=True | pub_method=web | pub_location="https://example.com" |
+    | ${publication_info}= | Prepare PKIPublicationInformation | dont_publish=True | \
+    pub_method=web | pub_location="https://example.com" |
+
     """
     # TODO fix for more SinglePubInfo`s.
 
@@ -585,15 +586,16 @@ def prepare_reg_token_controls( # noqa D417 undocumented-param
     Only used for initialization of an end entity into the PKI, to verify the identity of the subject.
 
     Arguments:
-    ----------
+    ---------
         - `token`: The registration token to include in the control.
         (If string and starts with "0x", will be interpreted as hex.)
 
     Returns:
-    --------
+    -------
         - The populated `AttributeTypeAndValue` structure.
 
     :return: A populated `AttributeTypeAndValue` structure.
+
     """
     # A regToken control contains one-time information (either based on a
     #    secret value or other shared information) intended to be used by the
@@ -628,12 +630,13 @@ def prepare_authorization_control( # noqa D417 undocumented-param
         (If string and starts with "0x", will be interpreted as hex.)
 
     Returns:
-    --------
+    -------
         - The populated `AttributeTypeAndValue` structure.
 
     Examples:
     --------
     | ${auth_controls}= | Prepare Authorization Control | auth_info="0x123456" |
+
     """
     auth = str_to_bytes(auth_info)
     auth_info = rfc4211.Authenticator(auth)
@@ -647,7 +650,7 @@ def prepare_authorization_control( # noqa D417 undocumented-param
 # TODO correct EncryptedKey logic to allow this for KeyAgreement or KEM as well.
 
 @keyword(name="Prepare Controls protocolEncrKey")
-def prepare_controls_protocol_encr_key(
+def prepare_controls_protocol_encr_key( # noqa D417 undocumented-param
     ca_public_key: Optional[PublicKey] = None, ca_cert: Optional[rfc9480.CMPCertificate] = None
 ) -> rfc4211.AttributeTypeAndValue:
     """Prepare the protocolEncrKey structure, to be used inside the Controls structure.
@@ -660,16 +663,17 @@ def prepare_controls_protocol_encr_key(
         - `ca_cert`: The CA certificate. Defaults to `None`.
 
     Returns:
-    --------
+    -------
         - The populated `AttributeTypeAndValue` structure.
 
     Raises:
-    -------
+    ------
         - `ValueError`: If neither `ca_public_key` nor `ca_cert` is provided.
 
     Examples:
     --------
     | ${protocol_encr_key}= | Prepare Controls Protocol Encr Key | ca_public_key=${public_key} |
+
     """
     if ca_public_key is None and ca_cert is None:
         raise ValueError("One of `ca_public_key` or `ca_cert` must be provided.")
@@ -685,21 +689,23 @@ def prepare_controls_protocol_encr_key(
     return attr
 
 
-def validate_publication_information(controls: rfc9480.Controls, must_be_present: bool = False) -> None:
+def validate_publication_information( # noqa D417 undocumented-param
+        controls: rfc9480.Controls, must_be_present: bool = False) -> None:
     """Validate the PKIPublicationInfo structure, to be used inside the Controls structure.
 
     Arguments:
-    ----------
+    ---------
         - `controls`: The controls to validate.
         - `must_be_present`: Whether the publication information must be present. Defaults to `False`.
 
     Raises:
-    -------
+    ------
         - `ValueError`: If the publication information is invalid or missing.
         - `BadAsn1Data`: If the PKIPublicationInfo contains trailing data.
         - `ValueError`: If the publication method is "dontCare" and the pubInfos field is not omitted.
         - `ValueError`: If the publication location is not present and the publication method is not "dontCare".
         - `ValueError`: If the publication method is not one of "dontCare", "x500", "web", "ldap".
+
     """
     found = False
     publication_info_der = None
@@ -3571,7 +3577,8 @@ def prepare_rev_req_content(  # noqa D417 undocumented-param
 
 
 @keyword(name="Get PKIStatusInfo")
-def get_pkistatusinfo(pki_message: PKIMessageTMP, index: Strint = 0) -> rfc9480.PKIStatusInfo:
+def get_pkistatusinfo( # noqa D417 undocumented-param
+        pki_message: PKIMessageTMP, index: Strint = 0) -> rfc9480.PKIStatusInfo:
     """Extract PKIStatusInfo from the PKIMessage based on the body type.
 
     The following body types are supported: "error", "rp", "ip", "cp", "kup".
@@ -3584,10 +3591,12 @@ def get_pkistatusinfo(pki_message: PKIMessageTMP, index: Strint = 0) -> rfc9480.
     Returns:
     -------
         - The extracted `PKIStatusInfo` object.
+
     Examples:
     --------
     | ${pki_status_info}= | Get PKIStatusInfo | ${pki_message} |
     | ${pki_status_info}= | Get PKIStatusInfo | ${pki_message} | index=0 |
+
     """
     index = int(index)
     body_name = pki_message["body"].getName()
@@ -3737,24 +3746,6 @@ def verify_statusstring(  # noqa D417 undocumented-param
             raise ValueError(
                 f"The `statusString` does not contain all the required phrases from 'all_text': {all_text}."
             )
-
-
-@not_keyword
-def modify_random_str(data: str, index: Optional[int] = None) -> str:  # type: ignore[reportReturnType]
-    """Modify a random character with a digit or ascii letter (upper and lower).
-
-    :param data: String to change a random character.
-    :param index: Optional index to change the character.
-    :return: The changed string.
-    """
-    chars = list(data)
-    options = list(string.ascii_letters) + list(string.digits)
-    random_index: int = index or random.randint(0, len(data) - 1)
-    while 1:
-        option = random.choice(options)
-        if option != chars[random_index]:
-            chars[random_index] = option
-            return "".join(chars)
 
 
 def generate_unique_byte_values(  # noqa D417 undocumented-param

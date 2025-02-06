@@ -2387,6 +2387,7 @@ def protect_pkimessage_kem_based_mac( # noqa: D417 Missing argument description 
     --------
     | ${protected_message}= | Protect PKIMessage KEMBasedMAC | ${pki_message} | ${private_key} | ${peer_cert} |
     | ${protected_message}= | Protect PKIMessage KEMBasedMAC | ${pki_message} | ${ss} |
+
     """
     if private_key is None and kem_ct_info is None and not peer_cert and shared_secret is None:
         raise ValueError("Either `kem_ct_info` and `private_key` or `peer_cert` or `shared_secret` must be provided.")

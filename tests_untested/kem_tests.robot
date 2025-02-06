@@ -146,7 +146,7 @@ CA MUST Accept Encrypted Key For ML-KEM Private Key As POPO
     ${server_cert}=    Parse Certificate    ${der_data}
     ${key}=   Generate Key    ${DEFAULT_ML_KEM_KEY}
     ${cm}=    Get Next Common Name
-    ${popo}=   Prepare KEM Env Data For POPO   ca_cert=${server_cert}   client_key=${key}
+    ${popo}=   Prepare KEM EnvelopedData For POPO   ca_cert=${server_cert}   client_key=${key}
     ${ir}=    Build Ir From Key    ${key}   ${cm}
     ...     popo_structure=${popo}
     ...     sender=${SENDER}

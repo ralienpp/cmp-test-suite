@@ -5,7 +5,6 @@
 """Contains the logic, which allows a Client to have more flexibility in issuing a key.
 
 Because some keys like ML-KEM are not signing keys and need a different Proof-of-Possession mechanism.
-Also sometimes a user CA, RA wants to see the private key.
 
 """
 
@@ -123,7 +122,7 @@ def prepare_enc_key_with_id(
 
 
 # TODO fix doc for RF.
-@keyword(name="Prepare KEM Env Data For POPO")
+@keyword(name="Prepare KEM EnvelopedData For POPO")
 def prepare_kem_env_data_for_popo(
     ca_cert: rfc9480.CMPCertificate,
     data: Optional[Union[Asn1Type, bytes, str]] = None,
@@ -131,23 +130,30 @@ def prepare_kem_env_data_for_popo(
     rid_sender: str = "Null-DN",
     cert_req_id: int = 0,
     enc_key_sender: str = "CN=CMP-Test-Suite",
-    cek: Optional[bytes] = None,
+    cek: Optional[Union[bytes, str]] = None,
     key_encipherment: bool = True,
     hybrid_key_recip: Optional[HybridKEMPrivateKey] = None,
 ) -> rfc4211.ProofOfPossession:
-    """Prepare a `ProofOfPossession` structure for a KEM-based key exchange.
+    """Prepare a `ProofOfPossession` structure with a CA KEM certificate.
 
-    :param ca_cert: The CA certificate to use for the KEM-based key exchange.
-    :param data: The data to encrypt with the KEM-based key exchange.
-    :param client_key: The client's private key to send to the CA/RA.
-    :param rid_sender: The sender name to use for the `RecipientIdentifier` structure. Defaults to `Null-DN`.
-    :param cert_req_id: The certificate request ID to use for the `RecipientIdentifier` structure. Defaults to `0`.
-    :param enc_key_sender: The sender name to use for the `EncKeyWithID` structure. Defaults to `CN=CMP-Test-Suite`.
-    :param cek: The Content Encryption Key (CEK) to use for the KEM-based key exchange. Defaults to `None`.
-    :param key_encipherment: Whether to use the `keyEncipherment` or `keyAgreement` option for the `ProofOfPossession`
-    structure. Defaults to `True`.
-    :param hybrid_key_recip:  The hybrid key recipient to use for the KEM-based key exchange. Defaults to `None`.
-    :return: The `ProofOfPossession` structure for the KEM-based key exchange.
+    Built the `EnvelopedData` structure to present the new client key to the CA/RA.
+
+    Arguments:
+    ----------
+        - `ca_cert`: The CA certificate to use for the KEM-based key exchange.
+        - `data`: The data to encrypt with the KEM-based key exchange.
+        - `client_key`: The client's private key to send to the CA/RA.
+        - `rid_sender`: The sender name to use for the `RecipientIdentifier` structure. Defaults to `Null-DN`.
+        - `cert_req_id`: The certificate request ID to use for the `RecipientIdentifier` structure. Defaults to `0`.
+        - `enc_key_sender`: The sender name to use for the `EncKeyWithID` structure. Defaults to `CN=CMP-Test-Suite`.
+        - `cek`: The Content Encryption Key (CEK) to use for the KEM-based key exchange. Defaults to `None`.
+        - `key_encipherment`: Whether to use the `keyEncipherment` or `keyAgreement` option for the `ProofOfPossession`
+        structure. Defaults to `True`.
+        - `hybrid_key_recip`: The hybrid key recipient to use for the KEM-based key exchange. Defaults to `None`.
+
+    Returns:
+    --------
+        - The `ProofOfPossession` structure for the KEM-based key exchange.
     """
     if data is not None:
         if isinstance(data, Asn1Type):

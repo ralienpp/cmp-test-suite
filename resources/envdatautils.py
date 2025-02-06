@@ -1476,6 +1476,39 @@ def prepare_key_agreement_recipient_info(
 
     return key_agree_info
 
+def _prepare_aes_warp_alg_id(wrap_name: Optional[str], cek_length: int, fill_params_rand: bool = False) -> rfc5280.AlgorithmIdentifier:
+    """Prepare an AlgorithmIdentifier for AES key wrap algorithm.
+
+    :param wrap_name: Name of the AES key wrap algorithm (e.g., "aes256-wrap"). Defaults to `None`.
+    :param cek_length: Length of the content encryption key in bytes.
+    :param fill_params_rand: If `True`, fill the parameters with random data. Defaults to `False`.
+    (**MUST** be absent for AES key wrap algorithms.)
+    :return: The populated `AlgorithmIdentifier` structure.
+    """
+
+    if wrap_name is None:
+        if cek_length == 16:
+            wrap_name = "aes128-wrap"
+        elif cek_length == 32:
+            wrap_name = "aes256-wrap"
+        elif cek_length == 24:
+            wrap_name = "aes192-wrap"
+        else:
+            raise ValueError(f"Unsupported AES key wrap length: {cek_length}. Expected 16, 24, or 32 bytes."
+                             f"If used for negative nesting testing, provide the key wrap algorithm name."
+                             f"(`wrap_name`)")
+
+    oid = KEY_WRAP_NAME_2_OID.get(wrap_name)
+    if oid is None:
+        raise KeyError(f"Unsupported AES key wrap algorithm: {wrap_name}. Supported are: {KEY_WRAP_NAME_2_OID.keys()}")
+
+    alg_id = rfc5280.AlgorithmIdentifier()
+    alg_id["algorithm"] = oid
+
+    if fill_params_rand:
+        alg_id["parameters"] = univ.OctetString(os.urandom(32))
+
+    return alg_id
 
 @keyword(name="Prepare PasswordRecipientInfo")
 def prepare_password_recipient_info(

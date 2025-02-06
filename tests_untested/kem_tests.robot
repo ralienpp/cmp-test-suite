@@ -202,7 +202,7 @@ CA MUST support KEMBasedMAC
     ${ss}=   Validate Genp Kem Ct Info    ${genp}    ${KEM_KEY}
     ${key}=  Generate Default Key
     ${ir}=    Build ir from key  ${key}   ${cm}    sender=${SENDER}   recipient=${RECIPIENT}
-    ${protected_ir}=  Protect Pkimessage Kem Based Mac    ${ir}    shared_secret=${ss}
+    ${protected_ir}=  Protect PKIMessage KemBasedMac    ${ir}    shared_secret=${ss}
     ${response}=   Exchange PKIMessage    ${protected_ir}
     PKIStatus Must Be    ${response}   accepted
 
@@ -221,7 +221,7 @@ CA Reject invalid KEMBasedMAC Protected Message
     ${ss}=   Validate Genp Kem Ct Info    ${genp}    ${KEM_KEY}
     ${key}=  Generate Default Key
     ${ir}=    Build ir from key  ${key}   ${cm}    sender=${SENDER}   recipient=${RECIPIENT}
-    ${protected_ir}=  Protect Pkimessage Kem Based Mac    ${ir}    shared_secret=${ss}    bad_message_check=True
+    ${protected_ir}=  Protect PKIMessage KemBasedMac    ${ir}    shared_secret=${ss}    bad_message_check=True
     ${response}=   Exchange PKIMessage    ${protected_ir}
     PKIStatus Must Be    ${response}   rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}   badMessageCheck

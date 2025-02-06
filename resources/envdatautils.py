@@ -156,17 +156,19 @@ def prepare_enveloped_data(
 
     target["version"] = version
     infos = rfc5652.RecipientInfos()
-    if isinstance(recipient_infos, rfc5652.RecipientInfo):
+    if not isinstance(recipient_infos, (rfc5652.RecipientInfos, list)):
         recipient_infos = [recipient_infos]
-    infos.extend(recipient_infos)
+
+
+    for recipient_info in recipient_infos:
+        infos.append(_prepare_recip_info(recipient_info))
+
 
     target["encryptedContentInfo"] = prepare_encrypted_content_info(
         cek=cek, data_to_protect=data_to_protect, enc_oid=enc_oid
     )
 
-    # needs to be set this way, otherwise the structure is empty, if an empty
-    # list is parsed.
-    target.setComponentByName("recipientInfos", infos)
+    target["recipientInfos"] = infos
 
     return target
 

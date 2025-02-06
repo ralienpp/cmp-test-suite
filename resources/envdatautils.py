@@ -112,7 +112,9 @@ def prepare_encrypted_content_info(
 
     enc_content_info["contentType"] = enc_oid
     enc_content_info["contentEncryptionAlgorithm"]["algorithm"] = oid
-    enc_content_info["contentEncryptionAlgorithm"]["parameters"] = univ.OctetString(iv)
+    enc_content_info["contentEncryptionAlgorithm"]["parameters"] = encoder.encode(
+        univ.OctetString(iv)
+    )
 
     encrypted_content = compute_aes_cbc(decrypt=False, iv=iv, key=cek, data=data_to_protect)
 

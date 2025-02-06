@@ -693,16 +693,15 @@ def prepare_ktri(
 
     return _prepare_recip_info(ktri)
 
-
+@not_keyword
 def prepare_key_transport_recipient_info(
     version: int = 2,
     key_enc_alg_oid: univ.ObjectIdentifier = rfc9481.id_RSAES_OAEP,
     encrypted_key: Optional[bytes] = None,
-    cert: Optional[rfc9480.CMPCertificate] = None,
-    ski: Optional[bytes] = None,
-    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
     rid: Optional[rfc5652.RecipientIdentifier] = None,
     key_enc_alg_id: Optional[rfc5280.AlgorithmIdentifier] = None,
+    **kwargs,
 ) -> rfc5652.KeyTransRecipientInfo:
     """Create a `KeyTransRecipientInfo` structure for key transport encryption.
 
@@ -714,9 +713,7 @@ def prepare_key_transport_recipient_info(
     :param version: Version of the CMS structure. Defaults to 2.
     :param key_enc_alg_oid: OID for the key encryption algorithm. Defaults to RSAES-OAEP.
     :param encrypted_key: Encrypted key material (the content encryption key encrypted with the recipient's public key).
-    :param cert: Certificate to extract the recipient identifier from. Used to set the `rid` if provided.
-    :param ski: Subject Key Identifier as bytes. Used to set the `rid` if `cert` is not provided.
-    :param issuer_and_ser: `IssuerAndSerialNumber` structure. Used to set the `rid` if `cert` and `ski`
+    :param cmp_protection_cert: Certificate to extract the recipient identifier from. Used to set the `rid` if provided.
     are not provided. Defaults to `None`.
     :param rid: `RecipientIdentifier` structure. If provided, `cert`, `ski`, and `issuer_and_ser` are ignored.
     Defaults to `None`.
@@ -727,11 +724,13 @@ def prepare_key_transport_recipient_info(
     ktri_structure = rfc5652.KeyTransRecipientInfo()
     ktri_structure["version"] = rfc5652.CMSVersion(version)
 
-    if rid:
-        ktri_structure["rid"] = rid
+    rid = rid or prepare_recipient_identifier(cert=cmp_protection_cert,
+                                              issuer_and_ser=kwargs.get("issuer_and_ser"),
+                                              ski=kwargs.get("ski"),
+                                              bad_ski=kwargs.get("bad_ski"),
+                                              )
 
-    elif cert or ski or issuer_and_ser:
-        ktri_structure["rid"] = prepare_recipient_identifier(cert=cert, ski=ski, issuer_and_ser=issuer_and_ser)
+    ktri_structure["rid"] = rid
 
     if key_enc_alg_id is not None:
         # Ensure that parameters are properly encoded

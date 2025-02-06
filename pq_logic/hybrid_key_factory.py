@@ -24,7 +24,7 @@ from pq_logic.keys.xwing import XWingPrivateKey
 from pq_logic.pq_key_factory import PQKeyFactory
 from pq_logic.trad_key_factory import generate_ec_key, generate_trad_key
 
-ALL_CHEMPAT_POSS_COMBINATIONS = [
+ALL_CHEMPAT_COMBINATIONS = [
     {"pq_name": "sntrup761", "trad_name": "x25519", "curve": None},
     {"pq_name": "mceliece-348864", "trad_name": "x25519", "curve": None},
     {"pq_name": "mceliece-460896", "trad_name": "x25519", "curve": None},
@@ -44,7 +44,7 @@ ALL_CHEMPAT_POSS_COMBINATIONS = [
     {"pq_name": "ml-kem-1024", "trad_name": "ecdh", "curve": "brainpoolP384r1"},
 ]
 
-CHEMPAT_FRODOKEM_POSS_COMBINATIONS = [
+CHEMPAT_FRODOKEM_COMBINATIONS = [
     {"pq_name": "frodokem-976-aes", "trad_name": "x25519", "curve": None},
     {"pq_name": "frodokem-976-shake", "trad_name": "x25519", "curve": None},
     {"pq_name": "frodokem-976-aes", "trad_name": "ecdh", "curve": "secp256r1"},
@@ -59,7 +59,7 @@ CHEMPAT_FRODOKEM_POSS_COMBINATIONS = [
     {"pq_name": "frodokem-1344-shake", "trad_name": "x448", "curve": None},
 ]
 
-ALL_CHEMPAT_POSS_COMBINATIONS += CHEMPAT_FRODOKEM_POSS_COMBINATIONS
+ALL_CHEMPAT_COMBINATIONS += CHEMPAT_FRODOKEM_COMBINATIONS
 
 
 def _get_chempat_combinations(
@@ -75,7 +75,7 @@ def _get_chempat_combinations(
     if pq_name is None and trad_name is None and curve is None:
         return {"pq_name": "ml-kem-768", "trad_name": "x25519", "curve": None}
 
-    for entry in ALL_CHEMPAT_POSS_COMBINATIONS:
+    for entry in ALL_CHEMPAT_COMBINATIONS:
         if pq_name is not None and entry["pq_name"] != pq_name:
             continue
 
@@ -311,7 +311,7 @@ class HybridKeyFactory:
         """Return a dictionary of all possible hybrid key combinations to generate a stat table."""
         data = {"xwing": [{}]}
         data["composite-kem"] = ALL_COMPOSITE_KEM_COMBINATIONS
-        data["chempat"] = ALL_CHEMPAT_POSS_COMBINATIONS
+        data["chempat"] = ALL_CHEMPAT_COMBINATIONS
         return data
 
     @staticmethod

@@ -61,13 +61,13 @@ docs:
 	python -m robot.libdoc --pythonpath=./ resources/keyutils.py doc/keyutils.html
 	python -m robot.libdoc --pythonpath=./ resources/protectionutils.py doc/protectionutils.html
 	python -m robot.libdoc --pythonpath=./ resources/extra_issuing_logic.py doc/extra_issuing_logic.html
-	python -m robot.testdoc --pythonpath=./ tests/ doc/test-suites.html
+	python -m robot.testdoc tests/ doc/test-suites.html
 
 
 pq-docs:
 	python -m robot.libdoc --pythonpath=./ pq_logic/pq_compute_utils.py doc/pq_validation_utils.html
 	python -m robot.libdoc --pythonpath=./ pq_logic/hybrid_issuing.py doc/hybrid_issuing.py.html
-	python -m robot.libdoc --pythonpath=./ tests_untested/ doc/test-migration-suites.html
+	python -m robot.testdoc tests_untested/ doc/test-migration-suites.html
 
 
 

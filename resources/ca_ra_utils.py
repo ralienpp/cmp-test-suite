@@ -248,7 +248,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
         target=env_data,
         issuer_and_ser=issuer_and_ser,
         hybrid_key_recip=hybrid_kem_key,
-        enc_oid=rfc5652.id_encryptedData,
+        enc_oid=rfc5652.id_data,
     )
 
     challenge_obj = _prepare_witness_val(
@@ -1540,7 +1540,7 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
         cek=cek,
         target=target,
         data_to_protect=data,
-        enc_oid=rfc5652.id_encryptedData,
+        enc_oid=rfc5652.id_data,
     )
 
 

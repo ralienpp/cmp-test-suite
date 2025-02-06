@@ -578,9 +578,8 @@ def validate_encrypted_content_info(
     :raises BadAsn1Data: If the AES-CBC IV is not set in the `parameters` field.
     """
     if expected_raw_data:
-        # TODO verify OID (Is this the correct OID?)
-        if enc_content_info["contentType"] != rfc5652.id_encryptedData:
-            raise ValueError("The `contentType` MUST be id_encryptedData!")
+        if enc_content_info["contentType"] != rfc5652.id_data:
+            raise ValueError("The `contentType` MUST be id_data")
 
     elif for_pop and enc_content_info["contentType"] != rfc4211.id_ct_encKeyWithID:
         raise ValueError("The `contentType` MUST be id_ct_encKeyWithID!")

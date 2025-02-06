@@ -16,9 +16,8 @@ from resources.cmputils import patch_extra_certs
 from resources.envdatautils import (
     prepare_asymmetric_key_package,
     prepare_enveloped_data,
-    prepare_pwri_structure,
     prepare_signed_data,
-    wrap_key_password_based_key_management_technique,
+    wrap_key_password_based_key_management_technique, prepare_password_recipient_info,
 )
 from resources.keyutils import generate_key, load_private_key_from_file
 from resources.oid_mapping import sha_alg_name_to_oid
@@ -26,7 +25,7 @@ from resources.protectionutils import protect_pkimessage
 
 from unit_tests.utils_for_test import (
     build_pkimessage,
-    de_and_encode_pkimessage, _prepare_pbkdf2,
+    de_and_encode_pkimessage, _prepare_pbkdf2, prepare_pwri_structure,
 )
 
 
@@ -64,11 +63,11 @@ class TestValidateEnvelopeData(unittest.TestCase):
         THEN validate_envelopeData should validate the envelope data without raising errors and
         extract the correct RSA Key.
         """
-        encrypted_key = wrap_key_password_based_key_management_technique(
-            password=self.password, key_to_wrap=self.content_encryption_key,
-            parameters=_prepare_pbkdf2()
+
+        pwri = prepare_password_recipient_info(
+            password=self.password,
+            cek=self.content_encryption_key,
         )
-        pwri = prepare_pwri_structure(encrypted_key=encrypted_key)
 
         recip_info = rfc5652.RecipientInfo()
         recip_info = recip_info.setComponentByName("pwri", pwri)

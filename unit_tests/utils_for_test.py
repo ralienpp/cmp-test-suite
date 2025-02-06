@@ -5,31 +5,37 @@
 """Help Utility to build pki message structures or other stuff for the unittests and debugging."""
 import base64
 import datetime
+import os
 import os.path
 import textwrap
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Any
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509.extensions import ExtensionOID
+from pyasn1.type.base import Asn1Type
+
 from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, tag, univ
 from pyasn1.type.tag import Tag, tagClassContext, tagFormatSimple
 from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402, rfc8018, rfc9481
 from resources import certutils, cmputils, utils
+from resources.asn1_structures import PKIMessageTMP
 from resources.certbuildutils import build_certificate, build_csr
 from resources.certutils import parse_certificate
 from resources.cmputils import parse_csr
+from resources.convertutils import str_to_bytes
 from resources.cryptoutils import verify_signature
 from resources.envdatautils import (
     prepare_enveloped_data,
-    prepare_pwri_structure,
     wrap_key_password_based_key_management_technique,
 )
+from resources.exceptions import BadAsn1Data
 from resources.keyutils import generate_key, load_private_key_from_file, save_key
+from resources.protectionutils import prepare_pbkdf2_alg_id
 from resources.typingutils import PrivateKey, PrivateKeySig
 from resources.utils import (
     get_openssl_name_notation,
@@ -937,3 +943,54 @@ def _prepare_pbkdf2() -> rfc8018.PBKDF2_params:
     pbkdf2_params["prf"]["algorithm"] = rfc9481.id_hmacWithSHA256
     pbkdf2_params["prf"]["parameters"] = univ.Null()
     return pbkdf2_params
+
+
+@not_keyword
+def prepare_pwri_structure(
+    version: int = 0,
+    kdf_oid: univ.ObjectIdentifier = rfc9481.id_PBKDF2,
+    key_enc_alg_id: univ.ObjectIdentifier = rfc9481.id_aes256_wrap,
+    enc_key: bool = True,
+    encrypted_key: Optional[bytes] = None,
+    **kwargs,
+) -> rfc5652.PasswordRecipientInfo:
+    """Create a `PasswordRecipientInfo` (`pwri`) used to encrypt a content encryption key.
+
+    Prepares a default `PBKDF2_params` structure with the fixed salt b"AAAAAAAAAAAAAAAA".
+
+    :param version: The version number for the `PasswordRecipientInfo` structure. Defaults to 0.
+    :param kdf_oid: The Object Identifier (OID) for the key derivation algorithm.
+    :param key_enc_alg_id: The OID for the key encryption algorithm.
+    :param enc_key:  Flag indicating whether to include the encrypted key in the `PasswordRecipientInfo`.
+    If `True`, the `encryptedKey` field is populated. Defaults to `True`.
+    :param encrypted_key:The encrypted key bytes to include in the `PasswordRecipientInfo`.
+    If not provided and `enc_key` is `True`, a random 32-byte key is generated.
+    :param kwargs: Additional parameters to pass to the key derivation algorithm.
+    (salt, iteration_count, key_length, hash_alg, kdf_alg_id).
+    :return: The populated `PasswordRecipientInfo` structure.
+    """
+    salt = kwargs.get("salt", os.urandom(32))
+    salt = str_to_bytes(salt)
+
+    alg_id = kwargs.get("kdf_alg_id") or prepare_pbkdf2_alg_id(
+        salt=salt,
+        iterations=int(kwargs.get("iterations", 100000)),
+        key_length=int(kwargs.get("key_length", 32)),
+        hash_alg=kwargs.get("hash_alg", "sha256"),
+    )
+
+    alg_id["algorithm"] = kdf_oid
+
+    pwri = rfc5652.PasswordRecipientInfo().subtype(
+        implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3)
+    )
+    pwri["version"] = version
+    pwri["keyDerivationAlgorithm"] = alg_id.subtype(
+        implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0), cloneValueFlag=True
+    )
+    # must be of type KM_KW_ALG
+    pwri["keyEncryptionAlgorithm"]["algorithm"] = key_enc_alg_id
+    if enc_key:
+        pwri["encryptedKey"] = rfc5652.EncryptedKey(encrypted_key or os.urandom(32))
+
+    return pwri

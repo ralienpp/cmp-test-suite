@@ -125,7 +125,7 @@ def prepare_sig_alg_id(
 
     elif isinstance(signing_key, AbstractCompositeSigPrivateKey):
         # means an expired key is used.
-        domain_oid = signing_key.get_oid(used_padding=use_rsa_pss, pre_hash=use_pre_hash)
+        domain_oid = signing_key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
         alg_id["algorithm"] = domain_oid
 
     else:

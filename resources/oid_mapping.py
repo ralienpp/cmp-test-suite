@@ -197,7 +197,7 @@ def get_alg_oid_from_key_hash(
         return PQ_NAME_2_OID[name]
 
     if isinstance(key, AbstractCompositeSigPrivateKey):
-        alg_oid = key.get_oid(used_padding=use_pss, pre_hash=use_prehashed)
+        alg_oid = key.get_oid(use_pss=use_pss, pre_hash=use_prehashed)
 
     if alg_oid is not None:
         return alg_oid

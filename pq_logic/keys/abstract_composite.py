@@ -504,7 +504,7 @@ class AbstractCompositeSigPrivateKey(AbstractCompositePrivateKey, ABC):
         return encoder.encode(vals)
 
     @abstractmethod
-    def get_oid(self, used_padding: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
+    def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Return the Object Identifier for the composite signature algorithm."""
         pass
 

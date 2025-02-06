@@ -139,14 +139,14 @@ def _get_trad_name(
         ed448.Ed448PrivateKey,
         ed448.Ed448PublicKey,
     ],
-    use_padding: bool = False,
+    use_pss: bool = False,
     curve: Optional[str] = None,
     length: Optional[int] = None,
 ) -> str:
     """Retrieve the traditional algorithm name based on the key type.
 
     :param trad_key: The traditional key object.
-    :param use_padding: Whether to use RSA-PSS padding.
+    :param use_pss: Whether to use RSA-PSS padding.
     :param curve: Optional curve name for EC keys.
     :param length: Optional key length for RSA keys.
     :return: The traditional algorithm name.
@@ -158,7 +158,7 @@ def _get_trad_name(
     elif isinstance(trad_key, (rsa.RSAPublicKey, rsa.RSAPrivateKey)):
         key_size = length or trad_key.key_size
         trad_name = f"rsa{key_size}"
-        if use_padding:
+        if use_pss:
             trad_name += "-pss"
         else:
             trad_name += "-pkcs15"
@@ -188,9 +188,9 @@ def get_oid_cms_composite_signature(
     :return: The OID representing the composite signature configuration.
     :raises KeyError: If the OID cannot be resolved.
     """
-    stringified_trad_name = _get_trad_name(trad_key=trad_key, use_padding=use_pss, length=length)
-    to_add = "" if not pre_hash else "hash-"
-    oid_base = f"{to_add}{ml_dsa_name}-{stringified_trad_name}"
+    stringified_trad_name = _get_trad_name(trad_key=trad_key, use_pss=use_pss, length=length)
+    pre_hash = "" if not pre_hash else "hash-"
+    oid_base = f"{pre_hash}{ml_dsa_name}-{stringified_trad_name}"
     oid = CMS_COMPOSITE_NAME_2_OID.get(oid_base)
     if oid is None:
         raise InvalidKeyCombination(f"Invalid composite signature combination: {oid_base}")
@@ -215,7 +215,7 @@ class CompositeSigCMSPublicKey(AbstractCompositeSigPublicKey):
 
     def get_name(self, use_pss: bool = False, pre_hash: bool = False) -> str:
         """Return the name of the composite signature."""
-        stringified_trad_name = _get_trad_name(self.trad_key, use_padding=use_pss)
+        stringified_trad_name = _get_trad_name(self.trad_key, use_pss=use_pss)
         to_add = "" if not pre_hash else "hash-"
         oid_base = f"{to_add}{self.pq_key.name}-{stringified_trad_name}"
         return oid_base
@@ -413,7 +413,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
         """
         return CompositeSigCMSPublicKey(self.pq_key.public_key(), self.trad_key.public_key())
 
-    def get_oid(self, use_padding: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
+    def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Return the Object Identifier for the composite signature."""
         length = None
         if isinstance(self.trad_key, rsa.RSAPrivateKey):
@@ -422,7 +422,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
         return get_oid_cms_composite_signature(
             self.pq_key.name,
             self.trad_key,  # type: ignore
-            use_pss=use_padding,
+            use_pss=use_pss,
             pre_hash=pre_hash,
             length=length,
         )
@@ -449,7 +449,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
         if len(ctx) > 255:
             raise ValueError("Context length exceeds 255 bytes")
 
-        domain_oid = self.get_oid(use_padding=use_pss, pre_hash=pre_hash)
+        domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
         length_bytes = len(ctx).to_bytes(1, "big", signed=False)
 
         if pre_hash:

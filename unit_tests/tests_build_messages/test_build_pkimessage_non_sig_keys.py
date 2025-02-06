@@ -11,6 +11,7 @@ from pq_logic.tmp_oids import COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID, id_chempat_
 from resources.cmputils import build_ir_from_key
 from resources.keyutils import generate_key, load_public_key_from_spki
 from resources.oidutils import XWING_OID_STR, id_ml_kem_768_oid, PQ_NAME_2_OID
+from unit_tests.utils_for_test import de_and_encode_pkimessage
 
 
 def get_cert_template_from_pkimessage(request: rfc9480.PKIMessage, index: int = 0) -> rfc4211.CertTemplate:
@@ -51,9 +52,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         """
         key = generate_key("ml-kem-768")
         ir = build_ir_from_key(key)
-        der_data = encoder.encode(ir)
-        obj, rest = decoder.decode(der_data, rfc9480.PKIMessage())
-        self.assertEqual(rest, b"", "Decoding did not consume the entire input")
+        obj = de_and_encode_pkimessage(ir)
         spki = get_cert_template_from_pkimessage(obj)["publicKey"]
         spki_new = rfc5280.SubjectPublicKeyInfo()
 
@@ -75,9 +74,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         """
         key = generate_key("frodokem-1344-aes")
         ir = build_ir_from_key(key)
-        der_data = encoder.encode(ir)
-        obj, rest = decoder.decode(der_data, rfc9480.PKIMessage())
-        self.assertEqual(rest, b"", "Decoding did not consume the entire input")
+        obj = de_and_encode_pkimessage(ir)
         spki = get_cert_template_from_pkimessage(obj)["publicKey"]
         spki_new = rfc5280.SubjectPublicKeyInfo()
 
@@ -99,9 +96,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         """
         key = generate_key("xwing")
         ir = build_ir_from_key(key)
-        der_data = encoder.encode(ir)
-        obj, rest = decoder.decode(der_data, rfc9480.PKIMessage())
-        self.assertEqual(rest, b"", "Decoding did not consume the entire input")
+        obj = de_and_encode_pkimessage(ir)
         spki = get_cert_template_from_pkimessage(obj)["publicKey"]
         spki_new = rfc5280.SubjectPublicKeyInfo()
         spki_new["algorithm"] = spki["algorithm"]
@@ -123,9 +118,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         """
         key = generate_key("composite-kem", pq_name="ml-kem-768", trad_name="rsa", length="2048")
         ir = build_ir_from_key(key)
-        der_data = encoder.encode(ir)
-        obj, rest = decoder.decode(der_data, rfc9480.PKIMessage())
-        self.assertEqual(rest, b"", "Decoding did not consume the entire input")
+        obj = de_and_encode_pkimessage(ir)
         spki = get_cert_template_from_pkimessage(obj)["publicKey"]
         self.assertEqual(str(spki["algorithm"]["algorithm"]), str(id_mlkem768_rsa2048))
         pub_key = load_public_key_from_spki(spki)
@@ -144,9 +137,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         """
         key = generate_key("composite-dhkem")
         ir = build_ir_from_key(key)
-        der_data = encoder.encode(ir)
-        obj, rest = decoder.decode(der_data, rfc9480.PKIMessage())
-        self.assertEqual(rest, b"", "Decoding did not consume the entire input")
+        obj = de_and_encode_pkimessage(ir)
         spki = get_cert_template_from_pkimessage(obj)["publicKey"]
         spki_new = rfc5280.SubjectPublicKeyInfo()
 
@@ -170,9 +161,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         """
         key = generate_key("chempat", pq_name="sntrup761", trad_name="x25519")
         ir = build_ir_from_key(key)
-        der_data = encoder.encode(ir)
-        obj, rest = decoder.decode(der_data, rfc9480.PKIMessage())
-        self.assertEqual(rest, b"", "Decoding did not consume the entire input")
+        obj = de_and_encode_pkimessage(ir)
         spki = get_cert_template_from_pkimessage(obj)["publicKey"]
         spki_new = rfc5280.SubjectPublicKeyInfo()
 
@@ -186,3 +175,4 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         self.assertTrue(popo["keyEncipherment"].isValue)
         self.assertTrue(popo["keyEncipherment"]["subsequentMessage"].isValue)
         self.assertEqual(str(popo["keyEncipherment"]["subsequentMessage"]), "encrCert")
+

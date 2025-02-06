@@ -18,7 +18,7 @@ from resources.certutils import parse_certificate
 from resources.cmputils import prepare_cert_req_msg
 from resources.keyutils import load_private_key_from_file, generate_key
 from resources.utils import load_and_decode_pem_file
-from unit_tests.utils_for_test import compare_pyasn1_objects
+from unit_tests.utils_for_test import compare_pyasn1_objects, try_encode_pyasn1, try_decode_pyasn1
 
 
 class TestPrepareEncrCertForRequest(unittest.TestCase):
@@ -70,10 +70,11 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
         target = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext,
                                                                      tag.tagFormatSimple, 0))
 
-        enc_cert, rest = decoder.decode(encoder.encode(enc_cert), target)
+        der_data = try_encode_pyasn1(enc_cert)
+        enc_cert, rest = try_decode_pyasn1(der_data, target)
         if rest:
-            raise ValueError("The data is not correctly encoded.")
-        return cert, enc_cert
+            raise ValueError("The data could not be decoded correctly.")
+        return cert, enc_cert # type: ignore
 
     def test_prepare_enc_cert_with_ml_kem(self):
         """
@@ -88,9 +89,10 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ee_key=self.mlkem_key,
             cmp_protection_cert=self.ca_cert,
             expected_raw_data=True,
+            for_enc_rand=True
 
         )
-        decrypted_cert, rest = decoder.decode(der_cert, rfc9480.CMPCertificate())
+        decrypted_cert, rest = try_decode_pyasn1(der_cert, rfc9480.CMPCertificate())
         self.assertEqual(rest, b"")
         result = compare_pyasn1_objects(cert, decrypted_cert)
         self.assertTrue(result, "The decrypted certificate does not match the original certificate.")
@@ -111,8 +113,9 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ee_key=self.xwing_key,
             cmp_protection_cert=self.ca_cert,
             expected_raw_data=True,
+            for_enc_rand=True
         )
-        decrypted_cert, rest = decoder.decode(der_cert, rfc9480.CMPCertificate())
+        decrypted_cert, rest = try_decode_pyasn1(der_cert, rfc9480.CMPCertificate())
         self.assertEqual(rest, b"")
         result = compare_pyasn1_objects(cert, decrypted_cert)
         self.assertTrue(result, "The decrypted certificate does not match the original certificate.")
@@ -131,8 +134,9 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ee_key=comp_key,
             cmp_protection_cert=self.ca_cert,
             expected_raw_data=True,
+            for_enc_rand=True
         )
-        decrypted_cert, rest = decoder.decode(der_cert, rfc9480.CMPCertificate())
+        decrypted_cert, rest = try_decode_pyasn1(der_cert, rfc9480.CMPCertificate())
         self.assertEqual(rest, b"")
         result = compare_pyasn1_objects(cert, decrypted_cert)
         self.assertTrue(result, "The decrypted certificate does not match the original certificate.")
@@ -150,8 +154,11 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ee_key=self.xwing_key,
             cmp_protection_cert=self.ca_cert,
             expected_raw_data=True,
+            for_enc_rand=True
+            # currently needs to be validated extra.
+            # because encrCert, so the clients do not know the method, the CA-Will choose.
         )
-        decrypted_cert, rest = decoder.decode(der_cert, rfc9480.CMPCertificate())
+        decrypted_cert, rest = try_decode_pyasn1(der_cert, rfc9480.CMPCertificate())
         self.assertEqual(rest, b"")
         result = compare_pyasn1_objects(cert, decrypted_cert)
         self.assertTrue(result, "The decrypted certificate does not match the original certificate.")

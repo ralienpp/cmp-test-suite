@@ -74,6 +74,8 @@ class TestCAMessageWithEnvelopeDataPWRI(unittest.TestCase):
         ca_message = protect_pkimessage(ca_message, password=self.password, protection="password_based_mac")
         # extraCerts must contain the cert chain, of the newly issued cert chain.
         ca_message = patch_extra_certs(pki_message=ca_message, certs=[self.trusted_root])
+        ca_message = de_and_encode_pkimessage(ca_message)
+
         extracted_private_key = validate_not_local_key_gen(
             ca_message, trustanchors="data/unittest", password=self.password
         )
@@ -109,13 +111,12 @@ class TestCAMessageWithEnvelopeDataPWRI(unittest.TestCase):
 
         # MUST be protected by the same password.
         ca_message = protect_pkimessage(ca_message, password="TEST PASSWORD2", protection="password_based_mac")
+        ca_message = de_and_encode_pkimessage(ca_message)
 
         with self.assertRaises(ValueError):
              validate_not_local_key_gen(
                 ca_message, trustanchors="data/unittest", password=self.password
             )
-
-
 
 if __name__ == "__main__":
     unittest.main()

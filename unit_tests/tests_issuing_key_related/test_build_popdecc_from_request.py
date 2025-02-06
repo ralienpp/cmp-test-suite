@@ -10,6 +10,7 @@ from resources.asn1_structures import PKIMessageTMP, ChallengeASN1
 from resources.ca_ra_utils import build_popdecc_from_request
 from resources.cmputils import build_ir_from_key, prepare_popo_challenge_for_non_signing_key
 from resources.keyutils import generate_key, load_private_key_from_file
+from unit_tests.utils_for_test import de_and_encode_pkimessage
 
 
 class TestBuildPoPDeccFromRequest(unittest.TestCase):
@@ -46,9 +47,7 @@ class TestBuildPoPDeccFromRequest(unittest.TestCase):
                                  pvno=2,
                                popo_structure=popo)
         popdecc, num = build_popdecc_from_request(request=ir, ca_key=self.rsa_key)
-        der_data = encoder.encode(popdecc)
-        decoded_popdecc, rest = decoder.decode(der_data, asn1Spec=PKIMessageTMP())
-        self.assertEqual(rest, b"")
+        decoded_popdecc = de_and_encode_pkimessage(popdecc)
 
     def test_build_encrypted_rand_en_and_decode_able(self):
         """
@@ -62,9 +61,7 @@ class TestBuildPoPDeccFromRequest(unittest.TestCase):
                                popo_structure=popo)
 
         popdecc, num = build_popdecc_from_request(request=ir, ca_key=self.rsa_key)
-        der_data = encoder.encode(popdecc)
-        decoded_popdecc, rest = decoder.decode(der_data, asn1Spec=PKIMessageTMP())
-        self.assertEqual(rest, b"")
+        decoded_popdecc = de_and_encode_pkimessage(popdecc)
 
     def test_build_encr_rand_v3_but_req_v2(self):
         """

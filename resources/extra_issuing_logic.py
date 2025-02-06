@@ -509,7 +509,7 @@ def _process_encrypted_rand(
         ee_key=ee_key,
         expected_raw_data=True,
         expected_size=expected_size,
-        for_enc_rand=True,
+        for_pop=True,
     )
 
     obj, rest = decoder.decode(raw_bytes, asn1Spec=rfc9480.Rand())
@@ -763,6 +763,7 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
     server_cert: Optional[rfc9480.CMPCertificate] = None,
     password: Optional[Union[str, bytes]] = None,
     expected_recip_type: Optional[str] = None,
+    exclude_rid_check: bool = False,
 ) -> rfc9480.CMPCertificate:
     """Decrypt an encrypted certificate.
 
@@ -811,6 +812,7 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
         cmp_protection_cert=server_cert,
         expected_raw_data=True,
         expected_type=expected_recip_type,
+        for_pop=exclude_rid_check,
     )
 
     try:

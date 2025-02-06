@@ -10,13 +10,13 @@ from typing import Optional
 import requests
 from pyasn1.codec.der import decoder, encoder
 
-sys.path.append('.')
+sys.path.append(".")
 from resources import cmputils, keyutils
 from resources.asn1_structures import PKIMessageTMP
 
 
 def send_request_to_static_cert1() -> None:
-    """Example how to send a request to the Mock CA."""
+    """Send an example request to the Mock CA."""
     url = "http://127.0.0.1:5000/issuing"
     key = keyutils.generate_key("composite-sig")
     pki_message = cmputils.build_cr_from_key(key)

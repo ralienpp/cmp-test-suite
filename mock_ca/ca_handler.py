@@ -41,7 +41,6 @@ from resources.typingutils import PrivateKey, PublicKey
 from resources.utils import load_and_decode_pem_file
 
 
-
 @dataclass
 class SunHybridState:
     """A simple class to store the state of the SunHybridHandler."""
@@ -73,9 +72,7 @@ class MockCAState:
     sun_hybrid_state: SunHybridState = field(default_factory=SunHybridState)
 
     def store_transaction_certificate(
-            self, transaction_id: bytes,
-            sender: rfc9480.GeneralName,
-            certs: List[rfc9480.CMPCertificate]
+        self, transaction_id: bytes, sender: rfc9480.GeneralName, certs: List[rfc9480.CMPCertificate]
     ) -> None:
         """Store a transaction certificate.
 
@@ -131,6 +128,8 @@ def _build_error_from_exception(e: CMPTestSuiteError) -> rfc9480.PKIMessage:
 
 
 class CAHandler:
+    """A simple class to handle the CA operations."""
+
     def __init__(
         self, ca_cert: rfc9480.CMPCertificate, ca_key: PrivateKey, config: dict, ca_alt_key: Optional[PrivateKey] = None
     ):
@@ -191,7 +190,7 @@ class CAHandler:
 
         :return: The PKI message containing the response.
         """
-        logging.debug("Processing request with body: %s", pki_message['body'].getName())
+        logging.debug("Processing request with body: %s", pki_message["body"].getName())
         try:
             if pki_message["body"].getName() == "rr":
                 response = self.process_rr(pki_message)
@@ -405,6 +404,7 @@ handler.state = state
 
 @app.route("/pubkey/<serial_number>", methods=["GET"])
 def get_pubkey(serial_number):
+    """Get the Sun-Hybrid public key for the specified serial number."""
     serial_number = int(serial_number)
     sun_hybrid_cert = state.sun_hybrid_state.sun_hybrid_pub_keys[serial_number]
     return encoder.encode(sun_hybrid_cert)
@@ -412,6 +412,7 @@ def get_pubkey(serial_number):
 
 @app.route("/sig/<serial_number>", methods=["GET"])
 def get_signature(serial_number):
+    """Get the Sun-Hybrid signature for the specified serial number."""
     serial_number = int(serial_number)
     alt_sig = state.sun_hybrid_state.sun_hybrid_signatures[serial_number]
     return alt_sig

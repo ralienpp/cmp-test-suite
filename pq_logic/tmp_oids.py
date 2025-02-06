@@ -181,6 +181,7 @@ HASH_COMPOSITE_NAME_TO_OID = {
     "hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
 }
 id_rsa_kem_spki = univ.ObjectIdentifier("1.2.840.113549.1.9.16.3")
+
 PURE_OID_TO_HASH = {
     id_mldsa44_rsa2048_pss: "sha256",
     id_mldsa44_rsa2048_pkcs15: "sha256",
@@ -198,6 +199,23 @@ PURE_OID_TO_HASH = {
     id_mldsa87_ed448: None,
 }
 
+COMPOSITE_SIG_SIGNED_DATA_OID_HASH = {
+    id_mldsa44_rsa2048_pss: "sha256",
+    id_mldsa44_rsa2048_pkcs15: "sha256",
+    id_mldsa44_ed25519: "sha512",
+    id_mldsa44_ecdsa_p256: "sha256",
+    id_mldsa65_rsa3072_pss: "sha512",
+    id_mldsa65_rsa3072_pkcs15: "sha512",
+    id_mldsa65_rsa4096_pss: "sha512",
+    id_mldsa65_rsa4096_pkcs15: "sha512",
+    id_mldsa65_ecdsa_p384: "sha512",
+    id_mldsa65_ecdsa_brainpool_p256r1: "sha512",
+    id_mldsa65_ed25519: "sha512",
+    id_mldsa87_ecdsa_p384: "sha512",
+    id_mldsa87_ecdsa_brainpool_p384r1: "sha512",
+    id_mldsa87_ed448: "sha512",
+
+}
 
 ######################
 # Composite KEM

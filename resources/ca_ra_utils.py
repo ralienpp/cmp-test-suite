@@ -1289,7 +1289,7 @@ def _verify_encrypted_key_popo(
         env_data=popo_priv_key["encryptedKey"],
         password=password,
         ee_key=ca_key,
-        for_enc_rand=False,
+        for_pop=False,
         cmp_protection_cert=client_cert,
         protection_salt=protection_salt,
     )

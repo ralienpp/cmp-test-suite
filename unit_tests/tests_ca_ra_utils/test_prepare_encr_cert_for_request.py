@@ -89,7 +89,7 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ee_key=self.mlkem_key,
             cmp_protection_cert=self.ca_cert,
             expected_raw_data=True,
-            for_enc_rand=True
+            for_pop=True
 
         )
         decrypted_cert, rest = try_decode_pyasn1(der_cert, rfc9480.CMPCertificate())
@@ -113,7 +113,7 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ee_key=self.xwing_key,
             cmp_protection_cert=self.ca_cert,
             expected_raw_data=True,
-            for_enc_rand=True
+            for_pop=True
         )
         decrypted_cert, rest = try_decode_pyasn1(der_cert, rfc9480.CMPCertificate())
         self.assertEqual(rest, b"")
@@ -134,7 +134,7 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ee_key=comp_key,
             cmp_protection_cert=self.ca_cert,
             expected_raw_data=True,
-            for_enc_rand=True
+            for_pop=True
         )
         decrypted_cert, rest = try_decode_pyasn1(der_cert, rfc9480.CMPCertificate())
         self.assertEqual(rest, b"")
@@ -154,7 +154,7 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ee_key=self.xwing_key,
             cmp_protection_cert=self.ca_cert,
             expected_raw_data=True,
-            for_enc_rand=True
+            for_pop=True
             # currently needs to be validated extra.
             # because encrCert, so the clients do not know the method, the CA-Will choose.
         )

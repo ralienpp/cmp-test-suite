@@ -928,9 +928,9 @@ def verify_signature_with_cert(
         hash_alg=hash_alg,
     )
 
-
-def load_crl_from_der(der_data: bytes):
-    """Load and parse a CRL from DER-encoded data using pyasn1-alt-modules.
+@not_keyword
+def parse_crl(der_data: bytes):
+    """Parse a CRL from DER-encoded data.
 
     :param der_data: DER-encoded CRL data.
     :return: Decoded CRL object.

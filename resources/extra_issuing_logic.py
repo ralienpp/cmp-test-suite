@@ -254,7 +254,64 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
     raise ValueError("Unsupported recipient information type.")
 
 
-@keyword(name="Validate Rid For Encrypted Rand")
+def validate_kemri_rid_for_encrypted_cert(
+    pki_message: PKIMessageTMP,
+    key: Optional[Union[KEMPublicKey, KEMPrivateKey]] = None,
+    issuer: Optional[str] = None,
+    serial_number: Optional[int] = None,
+    cert_number: int = 0,
+) -> None:
+    """Validate the RecipientIdentifier inside the KEMRecipientInfo structure for the encrypted certificate.
+
+    Arguments:
+    ---------
+       - `pki_message`: The PKIMessage containing the KEMRecipientInfo structure.
+       - `key`: The KEM key to prepare the expected SubjectKeyIdentifier value. Defaults to `None`.
+       - `issuer`: The issuer name to validate against in openssl notation (e.g. `CN=Test-CA`). Defaults to `None`.
+       - `serial_number`: The serial number to validate against. Defaults to `None`.
+       - `cert_number`: The certificate number to validate against. Defaults to `0`.
+
+    Raises:
+    ------
+        - `ValueError`: If the RecipientIdentifier is not correctly populated with the expected values.
+        - `BadAsn1Data`: If the KEMRecipientInfo decoding has a remainder.
+        - `ValueError`: If the `oriType` is not `id_ori_kem`.
+        - `ValueError`: If neither the key or issuer and serial number are provided.
+
+    """
+    body_name = pki_message["body"].getName()
+    cert_key_pair: rfc9480.CertifiedKeyPair = asn1utils.get_asn1_value(
+        pki_message, query=f"body.{body_name}.response/{cert_number}.certifiedKeyPair"
+    )
+
+    recip_info = cert_key_pair["certOrEncCert"]["encryptedCert"]["envelopedData"]["recipientInfos"][0]
+    if recip_info.getName() != "ori":
+        raise ValueError("Unsupported recipient information type.")
+
+    ori = recip_info["ori"]
+    if ori["oriType"] != rfc9629.id_ori_kem:
+        raise ValueError("Unsupported `oriType` in OriginatorRecipientInfo. Expected `id_ori_kem`.")
+
+    if not isinstance(ori["oriValue"], rfc9629.KEMRecipientInfo):
+        kemri, rest = decoder.decode(ori["oriValue"], rfc9629.KEMRecipientInfo())
+        if rest:
+            raise BadAsn1Data("KEMRecipientInfo")
+    else:
+        kemri = ori["oriValue"]
+
+    rid = kemri["rid"]
+
+    rid_name = rid.getName()
+
+    expected_rid = prepare_recipient_identifier(key=key, issuer=issuer, serial_number=serial_number)
+
+    if encoder.encode(rid) != encoder.encode(expected_rid):
+        raise ValueError(
+            f"Expected RecipientIdentifier: {expected_rid.prettyPrint()}. Got: {rid_name}"
+            f" with value: {rid.prettyPrint()}"
+        )
+
+
 @keyword(name="Validate Rid in EnvelopedData")
 def validate_rid_for_encrypted_rand(
     env_data: rfc5652.EnvelopedData,

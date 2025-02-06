@@ -685,7 +685,7 @@ def prepare_ktri(
     ktri = prepare_key_transport_recipient_info(
         version=2,
         key_enc_alg_id=key_enc_alg_id,
-        cert=cmp_protection_cert,
+        cmp_protection_cert=cmp_protection_cert,
         encrypted_key=encrypted_key,
         issuer_and_ser=issuer_and_ser,
         rid=rid,

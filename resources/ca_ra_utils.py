@@ -239,7 +239,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
 
     rand_obj = _prepare_rand(sender=rand_sender, rand_int=rand_int, cert=ca_cert)
 
-    env_data = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
+    env_data = rfc9480.EnvelopedData().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
     issuer_and_ser = _prepare_issuer_and_ser_num_for_challenge(cert_req_id)
     env_data = build_env_data_for_exchange(
         public_key_recip=public_key,

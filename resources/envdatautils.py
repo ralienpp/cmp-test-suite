@@ -370,7 +370,8 @@ def prepare_encapsulated_content_info(content: bytes, override_oid: bool = False
 
     return encap_content_info
 
-
+# TODO fix for composite-sig-key,
+# fix for pq-keys
 def prepare_signer_info(
     signing_key: PrivateKeySig,
     cert: rfc9480.CMPCertificate,

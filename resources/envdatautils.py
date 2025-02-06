@@ -420,7 +420,7 @@ def prepare_signer_info(
     encap_content_info = prepare_encapsulated_content_info(e_content)
     der_encap_content_info = encoder.encode(encap_content_info)
 
-    signature = sign_data(der_encap_content_info, signing_key, sig_hash_name)
+    signature = sign_data(data=der_encap_content_info, key=signing_key, hash_alg=sig_hash_name)
     signature += b"" if not bad_sig else b"AA"
     signer_info["signature"] = univ.OctetString(signature)
 

@@ -1198,7 +1198,7 @@ def prepare_cert_or_enc_cert(
 
     return cert_or_enc_cert
 
-
+@not_keyword
 def prepare_certified_key_pair(
     cert: Optional[rfc9480.CMPCertificate] = None,
     enc_cert: Optional[rfc9480.EnvelopedData] = None,
@@ -1218,11 +1218,9 @@ def prepare_certified_key_pair(
     certified_key_pair = rfc9480.CertifiedKeyPair()
     certified_key_pair["certOrEncCert"] = prepare_cert_or_enc_cert(cert=cert, enc_cert=enc_cert)
 
-    if private_key is not None:
-        enc_key = rfc9480.EncryptedKey().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
 
-        enc_key["envelopedData"] = private_key
-        certified_key_pair["privateKey"] = enc_key
+    if private_key is not None:
+        certified_key_pair["privateKey"]["envelopedData"]  = private_key
 
     return certified_key_pair
 

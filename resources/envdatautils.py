@@ -1145,7 +1145,7 @@ def prepare_kem_recip_info(
     if kemct is not None:
         kem_recip_info["kemct"] = univ.OctetString(kemct)
 
-    if kemct is not None and shared_secret is not None:
+    if kemct is not None and (shared_secret is not None or encrypted_key is not None):
         pass
 
     elif public_key_recip is None and recip_cert is not None:

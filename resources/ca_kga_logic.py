@@ -1157,7 +1157,6 @@ def _compute_password_based_key_management_technique(
     """
     derive_key = cryptoutils.compute_pbkdf2_from_parameter(parameters, key=password)
     logging.info("Derived `PWRI` key: %s", derive_key.hex())
-    print("Derived `PWRI` key: %s", derive_key.hex())
     return keywrap.aes_key_unwrap(wrapping_key=derive_key, wrapped_key=encrypted_key)
 
 

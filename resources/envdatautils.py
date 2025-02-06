@@ -1262,7 +1262,7 @@ def prepare_key_agreement_algorithm_identifier(
     key_enc_alg_id["parameters"] = encoder.encode(ecc_cms_info)
     return key_enc_alg_id
 
-
+@not_keyword
 def prepare_ecc_cms_shared_info(
     key_wrap_oid: univ.ObjectIdentifier,
     supp_pub_info: int = 32,
@@ -1409,7 +1409,7 @@ def prepare_key_agreement_recipient_info(
     key_wrap_oid: univ.ObjectIdentifier = rfc9481.id_aes256_wrap,
     version: int = 3,
     ukm: Optional[bytes] = None,
-    negative_size: bool = False,
+    add_another: bool = False,
     length: int = 32,
     entity_u_info: Optional[bytes] = None,
     ecc_cms_info: Optional[bytes] = None,
@@ -1429,7 +1429,7 @@ def prepare_key_agreement_recipient_info(
     :param key_wrap_oid: OID for the key wrap algorithm.
     :param version: Version of the CMS structure. Defaults to 3.
     :param ukm: Optional user keying material.
-    :param negative_size: If True, adds duplicate entries for negative testing.
+    :param add_another: If True, adds duplicate entries for negative testing.
     :param length: Length of the shared ECC information in bytes.
     :param entity_u_info: Optional entity user information.
     :param ecc_cms_info: Optional pre-encoded ECC CMS shared information.
@@ -1460,7 +1460,7 @@ def prepare_key_agreement_recipient_info(
     )
     recip_keys = rfc5652.RecipientEncryptedKeys()
     recip_keys.append(recipient_encrypted_key)
-    if negative_size:
+    if add_another:
         # Add duplicate recipient encrypted key for negative testing
         recip_keys.append(recipient_encrypted_key)
 

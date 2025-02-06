@@ -1086,33 +1086,6 @@ def build_env_data_for_exchange(
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
-def _process_rid_kemri(
-    rid: Optional[rfc5652.RecipientIdentifier],
-    recip_cert: Optional[rfc9480.CMPCertificate],
-    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber],
-):
-    """Prepare the RecipientIdentifier structure, for the KEMRecipientInfo structure.
-
-    :param rid: The recipient identifier structure.
-    :param recip_cert: The recipient's certificate.
-    :param issuer_and_ser: The `IssuerAndSerialNumber` structure.
-    :return: The populated `RecipientIdentifier` structure.
-    """
-    if rid is None and recip_cert is not None:
-        rid = prepare_recipient_identifier(recip_cert)
-    elif issuer_and_ser is not None:
-        rid = rfc5652.RecipientIdentifier()
-        rid["issuerAndSerialNumber"] = issuer_and_ser
-
-    elif rid is not None:
-        pass
-
-    else:
-        raise ValueError("Either `rid` or `issuer_and_ser` must be provided.")
-
-    return rid or prepare_recipient_identifier(cert=recip_cert, issuer_and_ser=issuer_and_ser)
-
-
 def prepare_kem_recip_info(
     version: int = 0,
     rid: Optional[rfc5652.RecipientIdentifier] = None,
@@ -1123,13 +1096,13 @@ def prepare_kem_recip_info(
     cek: Optional[Union[bytes, str]] = None,
     hash_alg: str = "sha256",
     wrap_name: str = "aes256-wrap",
-    encrypted_key: Optional[univ.OctetString] = None,
+    encrypted_key: Optional[bytes] = None,
     kek_length: Optional[int] = None,
     kemct: Optional[bytes] = None,
-    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     hybrid_key_recip: Optional[HybridKEMPrivateKey] = None,
     shared_secret: Optional[bytes] = None,
     kem_oid: Optional[univ.ObjectIdentifier] = None,
+    **kwargs,
 ) -> rfc9629.KEMRecipientInfo:
     """Prepare a KEMRecipientInfo structure.
 
@@ -1147,7 +1120,6 @@ def prepare_kem_recip_info(
     :param encrypted_key: Pre-encrypted key. Defaults to None.
     :param kek_length: Length of the KEK in bytes. Defaults to None.
     :param kemct: KEM ciphertext. Defaults to None.
-    :param issuer_and_ser: Optional `IssuerAndSerialNumber` structure to set inside the `rid`. Defaults to None.
     :param hybrid_key_recip: The hybrid key recipient to use for encryption. Defaults to None.
     :param shared_secret: The shared secret to use for key derivation. Defaults to None.
     :param kem_oid: The Object Identifier for the KEM algorithm. Defaults to None.
@@ -1156,7 +1128,11 @@ def prepare_kem_recip_info(
     """
     key_enc_key = None
 
-    rid = _process_rid_kemri(rid, recip_cert, issuer_and_ser)
+    rid = rid or prepare_recipient_identifier(cert=recip_cert,
+                                              issuer_and_ser=kwargs.get("issuer_and_ser"),
+                                              ski=kwargs.get("ski"),
+                                              bad_ski=kwargs.get("bad_ski"),
+                                              )
     cek = str_to_bytes(cek or os.urandom(32))
 
     kem_recip_info = rfc9629.KEMRecipientInfo()

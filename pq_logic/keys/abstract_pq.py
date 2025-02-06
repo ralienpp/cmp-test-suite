@@ -416,7 +416,7 @@ class PQKEMPublicKey(PQPublicKey, ABC):
         return ss, ct
 
     @property
-    def claimed_nist_level(self) -> str:
+    def nist_level(self) -> str:
         """Return the claimed NIST security level as string."""
         return self.kem_method.details["claimed_nist_level"]
 
@@ -488,6 +488,6 @@ class PQKEMPrivateKey(PQPrivateKey, ABC):
         return key
 
     @property
-    def claimed_nist_level(self) -> str:
+    def nist_level(self) -> str:
         """Return the claimed NIST security level as string."""
-        return self.public_key().claimed_nist_level
+        return self.public_key().nist_level

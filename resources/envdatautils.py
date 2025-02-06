@@ -208,7 +208,7 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
         return recip_id
 
     if key is not None:
-        ski = x509.SubjectKeyIdentifier.from_public_key(key)
+        ski = x509.SubjectKeyIdentifier.from_public_key(key).digest
 
     elif cert is not None:
         ski = ski or certextractutils.get_field_from_certificate(cert, extension="ski")
@@ -1188,7 +1188,10 @@ def prepare_kem_recip_info(
     kem_recip_info["kdf"] = prepare_kdf(kdf_name=kdf_name, hash_alg=hash_alg)
     if shared_secret is not None:
         key_enc_key = compute_kdf_from_alg_id(
-            kdf_alg_id=kem_recip_info["kdf"], ss=shared_secret, ukm=ukm, length=kek_length or get_aes_keywrap_length(wrap_name)
+            kdf_alg_id=kem_recip_info["kdf"],
+            ss=shared_secret,
+            ukm=ukm,
+            length=kek_length or get_aes_keywrap_length(wrap_name),
         )
 
     if encrypted_key is None:

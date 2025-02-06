@@ -935,7 +935,7 @@ def prepare_rsa_pss_alg_id(hash_alg: str, salt_length: Optional[int] = None) -> 
     alg_id["parameters"] = pss_params
     return alg_id
 
-
+@not_keyword
 def prepare_dh_based_mac_alg_id(
     hash_alg: str = "sha1", mac_alg: str = "hmac", salt: Optional[Union[bytes, str]] = None
 ) -> rfc9480.AlgorithmIdentifier:
@@ -1184,7 +1184,7 @@ def protect_pkimessage(  # noqa: D417
         - `certs_dir`: Directory containing intermediate certificates to build a certificate chain.
           Defaults to `"./cert_logs"`.
         - `shared_secret`: Shared secret for DH-based MAC protection, if applicable.
-        - `bad_message_check`: Whether to manipulate the message protection.
+        - `bad_message_check`: Whether to manipulate the message protection. Defaults to `False`.
 
     `**params`: Additional options for customization:
         - `salt` (str, bytes): The salt value for key derivation functions (KDF).

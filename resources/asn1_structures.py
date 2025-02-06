@@ -147,6 +147,50 @@ class GenRepContentAsn1(univ.SequenceOf):
     componentType = InfoTypeAndValueAsn1()
 
 
+
+
+
+
+# TODO inform about the bug of using the wrong `CertifiedKeyPair` structure.
+
+class CertResponseTMP(univ.Sequence):
+    """Define the ASN.1 structure for the `CertResponse`.
+
+    CertResponse ::= SEQUENCE {
+        certReqId INTEGER,
+        status PKIStatusInfo,
+        certifiedKeyPair CertifiedKeyPair OPTIONAL,
+        rspInfo OCTET STRING OPTIONAL
+    }
+    """
+
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType('certReqId', univ.Integer()),
+        namedtype.NamedType('status', rfc9480.PKIStatusInfo()),
+        namedtype.OptionalNamedType('certifiedKeyPair', rfc9480.CertifiedKeyPair()),
+        namedtype.OptionalNamedType('rspInfo', univ.OctetString())
+    )
+
+class CertRepMessageTMP(univ.Sequence):
+    """Define the ASN.1 structure for the `CertRepMessage`.
+
+    CertRepMessage ::= SEQUENCE {
+         caPubs       [1] SEQUENCE SIZE (1..MAX) OF CMPCertificate
+                          OPTIONAL,
+         response         SEQUENCE OF CertResponse
+     }
+    """
+    componentType = namedtype.NamedTypes(
+        namedtype.OptionalNamedType(
+            'caPubs', univ.SequenceOf(
+                componentType=rfc9480.CMPCertificate()
+            ).subtype(sizeSpec=constraint.ValueSizeConstraint(1, float("inf")),
+                      explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))
+        ),
+        namedtype.NamedType('response', univ.SequenceOf(componentType=CertResponseTMP()))
+    )
+
+
 # The challenge change, so that the PKIBody needs to be overwritten.
 # So the only difference is the `popdecc: POPODecKeyChallContentAsn1`
 # body. The rest is the same as the `PKIBody` class.
@@ -155,14 +199,14 @@ class PKIBodyTMP(univ.Choice):
 
     componentType = namedtype.NamedTypes(
         namedtype.NamedType(
-            "ir", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
+            "ir", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
         ),
         namedtype.NamedType(
             "ip",
             rfc9480.CertRepMessage().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1)),
         ),
         namedtype.NamedType(
-            "cr", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2))
+            "cr", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2))
         ),
         namedtype.NamedType(
             "cp",
@@ -181,14 +225,14 @@ class PKIBodyTMP(univ.Choice):
             rfc9480.POPODecKeyRespContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 6)),
         ),
         namedtype.NamedType(
-            "kur", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 7))
+            "kur", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 7))
         ),
         namedtype.NamedType(
             "kup",
             rfc9480.CertRepMessage().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 8)),
         ),
         namedtype.NamedType(
-            "krr", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 9))
+            "krr", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 9))
         ),
         namedtype.NamedType(
             "krp",
@@ -202,7 +246,7 @@ class PKIBodyTMP(univ.Choice):
             rfc9480.RevRepContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 12)),
         ),
         namedtype.NamedType(
-            "ccr", rfc9480.CertReqMessages().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 13))
+            "ccr", CertRepMessageTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 13))
         ),
         namedtype.NamedType(
             "ccp",
@@ -271,25 +315,6 @@ class PKIMessageTMP(univ.Sequence):
             univ.SequenceOf(componentType=rfc9480.CMPCertificate())
             .subtype(subtypeSpec=constraint.ValueSizeConstraint(1, float("inf")))
             .subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)),
-        ),
+            ),
     )
 
-# TODO inform about the bug of using the wrong `CertifiedKeyPair` structure.
-
-class CertResponseTMP(univ.Sequence):
-    """Defines the ASN.1 structure for the `CertResponse`.
-
-    CertResponse ::= SEQUENCE {
-        certReqId INTEGER,
-        status PKIStatusInfo,
-        certifiedKeyPair CertifiedKeyPair OPTIONAL,
-        rspInfo OCTET STRING OPTIONAL
-    }
-    """
-
-    componentType = namedtype.NamedTypes(
-        namedtype.NamedType('certReqId', univ.Integer()),
-        namedtype.NamedType('status', rfc9480.PKIStatusInfo()),
-        namedtype.OptionalNamedType('certifiedKeyPair', rfc9480.CertifiedKeyPair()),
-        namedtype.OptionalNamedType('rspInfo', univ.OctetString())
-    )

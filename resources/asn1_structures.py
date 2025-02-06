@@ -192,6 +192,11 @@ class CertRepMessageTMP(univ.Sequence):
 
 
 class NestedMessageContentTMP(univ.SequenceOf):
+    """Defines the ASN.1 structure for the `NestedMessageContent`.
+
+    NestedMessageContent ::= SEQUENCE OF PKIMessage
+    """
+
     componentType = univ.Any()
 
 
@@ -332,6 +337,11 @@ class PKIMessageTMP(univ.Sequence):
 
 
 class PKIMessagesTMP(univ.SequenceOf):
+    """Defines the ASN.1 structure for the `PKIMessages`.
+
+    PKIMessages ::= SEQUENCE OF PKIMessage
+    """
+
     componentType = PKIMessageTMP()
     subtypeSpec = constraint.ValueSizeConstraint(1, MAX)
 

@@ -8,8 +8,7 @@ import requests
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
 
-sys.path.append(".")
-sys.path.append(".")
+sys.path.append('.')
 from resources import cmputils, keyutils
 from resources.asn1_structures import PKIMessageTMP
 

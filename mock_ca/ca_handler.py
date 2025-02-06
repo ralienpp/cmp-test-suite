@@ -38,9 +38,6 @@ from resources.protectionutils import (
 from resources.typingutils import PrivateKey, PublicKey
 from resources.utils import load_and_decode_pem_file
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)  # Set to DEBUG to see detailed logs
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -74,7 +71,9 @@ class MockCAState:
     sun_hybrid_state: SunHybridState = field(default_factory=SunHybridState)
 
     def store_transaction_certificate(
-        self, transaction_id: bytes, sender: rfc9480.GeneralName, certs: List[rfc9480.CMPCertificate]
+            self, transaction_id: bytes,
+            sender: rfc9480.GeneralName,
+            certs: List[rfc9480.CMPCertificate]
     ) -> None:
         """Store a transaction certificate.
 
@@ -312,7 +311,7 @@ class CAHandler:
         :param pki_message: The IR message.
         :return: The PKI message containing the response.
         """
-        logger.debug("Processing IR message")
+        logging.debug("Processing IR message")
         logging.debug("CA Key: {}".format(self.ca_key))
 
         pki_message, certs = build_ip_cmp_message(

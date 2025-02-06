@@ -73,19 +73,33 @@ def _prepare_issuer_and_ser_num_for_challenge(cert_req_id: int) -> rfc5652.Issue
     return issuer_and_ser_num
 
 
-def _prepare_rand(sender: Optional[Union[rfc9480.GeneralName, str]], rand_int: Optional[int] = None) -> rfc9480.Rand:
+def _prepare_rand(sender: Optional[Union[rfc9480.GeneralName, str]],
+                  rand_int: Optional[int] = None,
+                  cert: Optional[rfc9480.CMPCertificate] = None) -> rfc9480.Rand:
     """Prepare the `Rand` structure for the challenge.
 
     :param sender: The sender of the message.
     :param rand_int: The random number to use. Defaults to `None`.
+    :param cert: The certificate to use to populate the `Rand` sender field. Defaults to `None`.
     :return: The populated `Rand` structure.
+    :raises ValueError: If neither `sender` nor `cert` is provided.
     """
+
+    if sender is None and cert is None:
+        raise ValueError("Either `sender` or `cert` must be provided.")
+
     rand_obj = rfc9480.Rand()
     if rand_int is None:
         rand_int = int.from_bytes(os.urandom(4), "big")
 
     if isinstance(sender, str):
         sender = prepare_general_name("directoryName", sender)
+
+    if cert:
+        tmp = cert["tbsCertificate"]["subject"]
+        sender = rfc9480.GeneralName()
+        sender["directoryName"]["rdnSequence"] = tmp["rdnSequence"]
+
     rand_obj["sender"] = sender
     rand_obj["int"] = rand_int
     return rand_obj
@@ -129,6 +143,7 @@ def prepare_challenge(
     rand_sender: str = "CN=CMP-Test-Suite CA",
     rand_int: Optional[int] = None,
     iv: Union[str, bytes] = b"AAAAAAAAAAAAAAAA",
+    ca_cert: Optional[rfc9480.CMPCertificate] = None,
 ) -> Tuple[ChallengeASN1, Optional[bytes], Optional[rfc9480.InfoTypeAndValue]]:
     """Prepare a challenge for the PKIMessage.
 
@@ -139,13 +154,15 @@ def prepare_challenge(
     :param rand_sender: The sender inside the Rand structure. Defaults to "CN=CMP-Test-Suite CA".
     :param rand_int: The random number to use. Defaults to `None`.
     :param iv: The initialization vector to use, for AES-CBC. Defaults to `b"AAAAAAAAAAAAAAAA"`.
+    :param ca_cert: The CA certificate to use to populate the `Rand` sender field. Defaults to `None`.
     :return: The populated `Challenge` structure, the shared secret, and the info value (for KEMs/HybridKEMs).
     :raises ValueError: If the public key type is invalid. Must be either EC or KEM key.
+    If neither `sender` nor `cert` is provided.
     """
     challenge_obj = ChallengeASN1()
     info_val: Optional[rfc9480.InfoTypeAndValue] = None
 
-    rand = _prepare_rand(sender=rand_sender, rand_int=rand_int)
+    rand = _prepare_rand(sender=rand_sender, rand_int=rand_int, cert=ca_cert)
     data = encoder.encode(rand)
     challenge_obj = _prepare_witness_val(
         challenge_obj=challenge_obj, rand=rand, hash_alg=hash_alg, bad_witness=bad_witness
@@ -176,7 +193,7 @@ def prepare_challenge(
 @keyword(name="Prepare Challenge Encrypted Rand")
 def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in the docstring
     public_key: PublicKey,
-    rand_sender: Optional[Union[rfc9480.GeneralName, str]],
+    rand_sender: Optional[Union[rfc9480.GeneralName, str]] = None,
     rand_int: Optional[int] = None,
     hash_alg: Optional[str] = None,
     bad_witness: bool = False,
@@ -184,6 +201,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     private_key: Optional[PrivateKey] = None,
     hybrid_kem_key: Optional[HybridKEMPrivateKey] = None,
     challenge: Optional[Union[str, bytes]] = None,
+    ca_cert: Optional[rfc9480.CMPCertificate] = None,
 ) -> ChallengeASN1:
     """Prepare a `Challenge` structure with an encrypted random number.
 
@@ -199,6 +217,8 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
         - `bad_witness`: The hash of the challenge. Defaults to an empty byte string.
         - `cert_req_id`: The certificate request ID , used in the `rid` field. Defaults to `0`.
         - `hybrid_kem_key`: The hybrid KEM key to use. Defaults to `None`.
+        - `challenge`: The challenge to use. Defaults to an empty byte string.
+        - `ca_cert`: The CA certificate to use to populate the `Rand` sender field. Defaults to `None`.
 
     Returns:
     -------
@@ -206,7 +226,8 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
 
     Raises:
     ------
-        - ValueError: If the public key type is invalid.
+        - `ValueError`: If the public key type is invalid.
+        - `ValueError`: If neither `sender` nor `ca_cert` is provided.
 
     Examples:
     --------
@@ -216,7 +237,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     """
     challenge_obj = ChallengeASN1()
 
-    rand_obj = _prepare_rand(rand_sender, rand_int)
+    rand_obj = _prepare_rand(sender=rand_sender, rand_int=rand_int, cert=ca_cert)
 
     env_data = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
     issuer_and_ser = _prepare_issuer_and_ser_num_for_challenge(cert_req_id)

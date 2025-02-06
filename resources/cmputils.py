@@ -610,7 +610,7 @@ def prepare_reg_token_controls(token: Union[str, bytes]) -> rfc4211.AttributeTyp
     return attr
 
 
-def prepare_authorization_control(auth_info: Union[bytes, str] = None) -> rfc4211.AttributeTypeAndValue:
+def prepare_authorization_control(auth_info: Union[bytes, str]) -> rfc4211.AttributeTypeAndValue:
     """Prepare the authorization control, to be used inside the Controls structure.
 
     Used for the initial certificate request or on-going request to the CA.
@@ -618,18 +618,23 @@ def prepare_authorization_control(auth_info: Union[bytes, str] = None) -> rfc421
     The authenticator control contains information used on an ongoing basis to establish a
     non-cryptographic check of identity in communication with the CA.
     Examples: the hash of the mother's maiden name.
-
     For more information see RFC4211 Section 6.2.
 
-    :param auth_info: The authorization information, either as bytes or as a string.
-    If string and starts with "0x", will be interpreted as hex.
-    :return: A populated `AttributeTypeAndValue` structure.
+    Arguments:
+    ---------
+        - `auth_info`: The authorization information, either as bytes or as a string.
+        (If string and starts with "0x", will be interpreted as hex.)
+
+    Returns:
+    --------
+        - A populated `AttributeTypeAndValue` structure.
+
+    Examples:
+    --------
+    | ${auth_controls}= | Prepare Authorization Control | auth_info="0x123456" |
     """
-    if isinstance(auth_info, str):
-        if auth_info.startswith("0x"):
-            auth_info = bytes.fromhex(auth_info[2:])
-        else:
-            auth_info = rfc4211.Authenticator(auth_info)
+    auth = str_to_bytes(auth_info)
+    auth_info = rfc4211.Authenticator(auth)
 
     attr = rfc4211.AttributeTypeAndValue()
     attr["type"] = rfc4211.id_regCtrl_authenticator

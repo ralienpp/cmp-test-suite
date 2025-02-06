@@ -776,6 +776,8 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
         - `server_cert`: The server's CMPCertificate used for validating the EncCert.
         - `password`: A password for decryption if required by the enveloped data.
         - `expected_recip_type`: Expected recipient type to validate the encrypted data.
+        - `exclude_rid_check`: A flag indicating whether to exclude the RecipientIdentifier check. Defaults to `False`.
+        (should only be used for KEMRecipientInfo, because the rid should be the recipient cert)
 
     Returns:
     -------
@@ -796,10 +798,10 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
     cert_key_pair: rfc9480.CertifiedKeyPair = asn1utils.get_asn1_value(
         pki_message, query=f"body.{body_name}.response/{cert_number}.certifiedKeyPair"
     )
-    if cert_key_pair["certOrEncCert"].getName() != "envelopedData":
+    if cert_key_pair["certOrEncCert"]["encryptedCert"].getName() != "envelopedData":
         raise ValueError("The enc certificate field MUST be an `envelopedData` structure")
 
-    env_data = cert_key_pair["certOrEncCert"]["envelopedData"]
+    env_data = cert_key_pair["certOrEncCert"]["encryptedCert"]["envelopedData"]
 
     data = validate_enveloped_data(
         env_data=env_data,

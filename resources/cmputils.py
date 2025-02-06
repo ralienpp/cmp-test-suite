@@ -521,7 +521,7 @@ def validate_archive_options(
 
 # RFC4210bis-16 Section 5.2.7. Publication Information
 
-
+@keyword(name="Prepare PKIPublicationInformation")
 def prepare_publication_information(
     dont_publish: bool = False, pub_method: Optional[str] = "x500", pub_location: Optional[str] = None
 ) -> rfc4211.AttributeTypeAndValue:
@@ -530,8 +530,24 @@ def prepare_publication_information(
     Requesters may indicate that they wish the PKI to publish a certificate using the
     PKIPublicationInfo structure.
 
-    :return: A populated `AttributeTypeAndValue` structure.
-    :raise ValueError: If `pub_method` is not one of "dontCare", "x500", "web", "ldap".
+    Arguments:
+    ----------
+        - `dont_publish`: If True, the certificate should not be published. Defaults to `False`.
+        - `pub_method`: The publication method to use. Defaults to "x500".
+        - `pub_location`: The publication location. Defaults to `None`.
+
+    Returns:
+    --------
+        - A populated `AttributeTypeAndValue` structure.
+
+    Raises:
+    -------
+        - `ValueError`: If `pub_method` is not one of "dontCare", "x500", "web", "ldap".
+
+    Examples:
+    --------
+    | ${publication_info}= | Prepare PKIPublicationInformation | dont_publish=True |
+    | ${publication_info}= | Prepare PKIPublicationInformation | dont_publish=True | pub_method=web | pub_location="https://example.com" |
     """
     # TODO fix for more SinglePubInfo`s.
 
@@ -561,9 +577,20 @@ def prepare_publication_information(
 
     return attr
 
-
-def prepare_controls_reg_token_controls(token: bytes) -> rfc4211.AttributeTypeAndValue:
+@keyword(name="Prepare regToken Controls")
+def prepare_reg_token_controls(token: Union[str, bytes]) -> rfc4211.AttributeTypeAndValue:
     """Prepare the regToken control, to be used inside the Controls structure.
+
+    Only used for initialization of an end entity into the PKI, to verify the identity of the subject.
+
+    Arguments:
+    ----------
+        - `token`: The registration token to include in the control.
+        (If string and starts with "0x", will be interpreted as hex.)
+
+    Returns:
+    --------
+        - A populated `AttributeTypeAndValue` structure.
 
     :return: A populated `AttributeTypeAndValue` structure.
     """

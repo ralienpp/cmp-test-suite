@@ -255,6 +255,7 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
 
 
 @keyword(name="Validate Rid For Encrypted Rand")
+@keyword(name="Validate Rid in EnvelopedData")
 def validate_rid_for_encrypted_rand(
     env_data: rfc5652.EnvelopedData,
     cert_req_id: int,
@@ -272,6 +273,7 @@ def validate_rid_for_encrypted_rand(
     :param recip_index: The index of the recipientInfo to extract the `rid` field from. Defaults to `0`.
     :param kari_index: The index of the recipientEncryptedKeys to extract the `rid` field from. Defaults to `0`.
     challenge. Defaults to `False`.
+    (used for encrypted certificate validation)
     """
     recipient_infos: rfc9480 = env_data["recipientInfos"]
     recipient_info: rfc5652.RecipientInfo = recipient_infos[recip_index]
@@ -282,13 +284,12 @@ def validate_rid_for_encrypted_rand(
     # issuerAndSerialNumber choice containing a NULL-DN as issuer and the certReqId
     # as serialNumber. The client MAY ignore the rid field
 
-    if rid is not None:
-        issuer = rid["issuer"]
-        if not is_null_dn(issuer):
-            raise ValueError("`rid` field is not correctly populated with `NULL-DN`")
+    issuer = rid["issuer"]
+    if not is_null_dn(issuer):
+        raise ValueError("`rid` field is not correctly populated with `NULL-DN`")
 
-        if int(rid["serialNumber"]) != cert_req_id:
-            raise ValueError("`rid` field serialNumber is not equal to the `certReqId`")
+    if int(rid["serialNumber"]) != cert_req_id:
+        raise ValueError("`rid` field serialNumber is not equal to the `certReqId`")
 
 
 def _parse_pkimessage_from_der(raw_bytes: bytes) -> PKIMessageTMP:

@@ -71,7 +71,32 @@ def build_pkimessage(body_type="p10cr", **params):
     raise NotImplementedError("Only used for building the `p10cr` PKIBody.")
 
 
-def de_and_encode_pkimessage(pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+def try_encode_pyasn1(data, exclude_pretty_print: bool = False) -> bytes:
+    """Try to encode a pyasn1 object and raise a BadAsn1Data exception if it fails.
+
+    :param data: The pyasn1 object to encode.
+    :param exclude_pretty_print: If True, the exception message will not include the pretty-printed data.
+    :return: The encoded data.
+    """
+    try:
+        return encoder.encode(data)
+    except Exception as e:
+        data = data.prettyPrint() if not exclude_pretty_print else str(type(data))
+        raise BadAsn1Data(f"Error encoding data: {data}", overwrite=True)
+
+def try_decode_pyasn1(data, asn1_spec: Asn1Type) -> Tuple[Asn1Type, bytes]:
+    """Try to decode a DER-encoded data using the provided ASN.1 specification.
+
+    :param data: The DER-encoded data to decode.
+    :param asn1_spec: The PyASN1 specification to use for decoding.
+    :return: The decoded PyASN1 object.
+    """
+    try:
+        return decoder.decode(data, asn1_spec)
+    except Exception:
+        raise BadAsn1Data(f"Error decoding data for {type(asn1_spec)}", overwrite=True)
+
+def de_and_encode_pkimessage(pki_message: PKIMessageTMP) -> PKIMessageTMP:
     """Encode and decode a given PKIMessage, to simulate getting a message over the wire.
 
     :param pki_message: The `PKIMessage` object to encode and decode.
@@ -79,12 +104,12 @@ def de_and_encode_pkimessage(pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMess
     :raises ValueError: If the decoded data has leftover bytes,
                         indicating an incomplete or malformed message.
     """
-    der_data = encoder.encode(pki_message)
-    decoded_message, rest = decoder.decode(der_data, rfc9480.PKIMessage())
+    der_data = try_encode_pyasn1(pki_message, exclude_pretty_print=True)
+    decoded_message, rest = try_decode_pyasn1(der_data, asn1_spec=PKIMessageTMP())
     if rest != b"":
         raise ValueError("Decoded message contains unused bytes, indicating incomplete or incorrect decoding.")
 
-    return decoded_message
+    return decoded_message # type: ignore
 
 
 @not_keyword

@@ -57,8 +57,7 @@ from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
 
 @not_keyword
 def get_aes_length(alg_name: str) -> int:
-    """
-    Retrieve the AES key length in bits for the specified key wrap algorithm.
+    """Retrieve the AES key length in bits for the specified key wrap algorithm.
 
     :param alg_name: The name of the key wrap algorithm (e.g., "aes128-wrap", "aes192-wrap", "aes256-wrap").
     :return: The key length in bits corresponding to the specified algorithm.

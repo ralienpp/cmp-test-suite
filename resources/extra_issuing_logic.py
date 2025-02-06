@@ -17,7 +17,7 @@ import pyasn1.error
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
-from pq_logic.migration_typing import HybridKEMPrivateKey
+from pq_logic.migration_typing import HybridKEMPrivateKey, KEMPrivateKey, KEMPublicKey
 from pq_logic.pq_utils import is_kem_private_key, is_kem_public_key
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
@@ -36,6 +36,7 @@ from resources.envdatautils import (
     build_env_data_for_exchange,
     prepare_issuer_and_serial_number,
     prepare_one_asymmetric_key,
+    prepare_recipient_identifier,
 )
 from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
 from resources.oid_mapping import compute_hash
@@ -139,7 +140,7 @@ def prepare_kem_env_data_for_popo(
     Built the `EnvelopedData` structure to present the new client key to the CA/RA.
 
     Arguments:
-    ----------
+    ---------
         - `ca_cert`: The CA certificate to use for the KEM-based key exchange.
         - `data`: The data to encrypt with the KEM-based key exchange.
         - `client_key`: The client's private key to send to the CA/RA.
@@ -152,8 +153,9 @@ def prepare_kem_env_data_for_popo(
         - `hybrid_key_recip`: The hybrid key recipient to use for the KEM-based key exchange. Defaults to `None`.
 
     Returns:
-    --------
+    -------
         - The `ProofOfPossession` structure for the KEM-based key exchange.
+
     """
     if data is not None:
         if isinstance(data, Asn1Type):
@@ -212,14 +214,13 @@ def is_null_dn(name: rfc5280.Name) -> bool:
 
 # TODO verify with Alex, if this functions does too much,
 # otherwise add new arg to the `validate_enveloped_data` function.
-def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> Optional[rfc5652.IssuerAndSerialNumber]:
+def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> rfc5652.IssuerAndSerialNumber:
     """Extract and return the 'rid' field as an IssuerAndSerialNumber or RecipientKeyIdentifier.
 
     :param recipient_info:
     :param kari_index: The index inside the `RecipientEncryptedKeys` structure to extract the rid of.
     :return: The `IssuerAndSerialNumber` structure if not pwri.
-    :raises ValueError: If the 'rid' field type is invalid or not `issuerAndSerialNumber`,
-        If the recipient_info type is `PasswordRecipientInfo` and `allow_pwri`.
+    :raises ValueError: If the 'rid' field type is invalid or not `issuerAndSerialNumber`.
     """
     if recipient_info.getName() == "ktri":
         rid = recipient_info["ktri"]["rid"]
@@ -249,7 +250,6 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
             raise ValueError("Invalid 'rid' type in KeyAgreeRecipientIdentifier.")
 
         return rid["issuerAndSerialNumber"]
-
 
     raise ValueError("Unsupported recipient information type.")
 

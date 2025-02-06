@@ -28,4 +28,3 @@ def hash_name_to_instance(alg: str) -> hashes.HashAlgorithm:
         return ALLOWED_HASH_TYPES[alg]
     except KeyError as err:
         raise ValueError(f"Unsupported hash algorithm: {alg}") from err
-

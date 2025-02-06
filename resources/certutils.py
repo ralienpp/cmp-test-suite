@@ -940,7 +940,7 @@ def load_crl_from_der(der_data: bytes):
         crl, _ = decoder.decode(der_data, asn1Spec=rfc5280.CertificateList())
         return crl
     except Exception:
-        raise BadAsn1Data("Failed to load CRL from DER data.") # pylint: disable=raise-missing-from
+        raise BadAsn1Data("Failed to load CRL from DER data.")  # pylint: disable=raise-missing-from
 
 
 def _write_crl_to_pem(crl: rfc5280.CertificateList, path: str):

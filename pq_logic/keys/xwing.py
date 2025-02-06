@@ -29,10 +29,10 @@ from pq_logic.trad_typing import ECDHPrivateKey
 
 # TODO fix XWing serialization
 
-XWingLabel = br"""
+XWingLabel = rb"""
                 \./
                 /^\
-              """.replace(b'\n', b'').replace(b' ', b'')
+              """.replace(b"\n", b"").replace(b" ", b"")
 _XWING_OID_STR = "1.3.6.1.4.1.62253.25722"
 
 

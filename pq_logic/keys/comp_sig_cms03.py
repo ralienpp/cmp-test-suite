@@ -68,6 +68,7 @@ def get_valid_comb(
         f"No valid combination found for pq_name={pq_name}, trad_name={trad_name}, length={length}, curve={curve}"
     )
 
+
 # to avoid import conflicts will be removed in the future.
 def compute_hash(alg_name: str, data: bytes) -> bytes:
     """Calculate the hash of data using an algorithm given by its name.

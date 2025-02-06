@@ -2347,7 +2347,7 @@ def prepare_kem_other_info(
 def protect_pkimessage_kem_based_mac( # noqa: D417 Missing argument description in the docstring
     pki_message: rfc9480.PKIMessage,
     private_key: Optional[PQKEMPrivateKey] = None,
-    shared_secret: Optional[bytes, str] = None,
+    shared_secret: Optional[Union[bytes, str]] = None,
     peer_cert: Optional[rfc9480.CMPCertificate] = None,
     kem_ct_info: Optional[KemCiphertextInfoAsn1] = None,
     kdf: str = "kdf3",

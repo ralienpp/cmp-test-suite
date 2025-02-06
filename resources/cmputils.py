@@ -3759,9 +3759,6 @@ def build_nested_pkimessage(  # noqa D417 undocumented-param
     | ${nested_msg}= | Build Nested PKIMessage | other_messages=${list_of_messages} |
 
     """
-    
-    
-    
     pki_body = rfc9480.PKIBody()
     nested_content = rfc9480.NestedMessageContent().subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20)

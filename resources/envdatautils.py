@@ -112,9 +112,7 @@ def prepare_encrypted_content_info(
 
     enc_content_info["contentType"] = enc_oid
     enc_content_info["contentEncryptionAlgorithm"]["algorithm"] = oid
-    enc_content_info["contentEncryptionAlgorithm"]["parameters"] = encoder.encode(
-        univ.OctetString(iv)
-    )
+    enc_content_info["contentEncryptionAlgorithm"]["parameters"] = encoder.encode(univ.OctetString(iv))
 
     encrypted_content = compute_aes_cbc(decrypt=False, iv=iv, key=cek, data=data_to_protect)
 
@@ -159,10 +157,8 @@ def prepare_enveloped_data(
     if not isinstance(recipient_infos, (rfc5652.RecipientInfos, list)):
         recipient_infos = [recipient_infos]
 
-
     for recipient_info in recipient_infos:
         infos.append(_prepare_recip_info(recipient_info))
-
 
     target["encryptedContentInfo"] = prepare_encrypted_content_info(
         cek=cek, data_to_protect=data_to_protect, enc_oid=enc_oid
@@ -369,6 +365,7 @@ def prepare_encapsulated_content_info(content: bytes, override_oid: bool = False
     encap_content_info["eContent"] = econtent
 
     return encap_content_info
+
 
 # TODO fix for composite-sig-key,
 # fix for pq-keys
@@ -693,6 +690,7 @@ def prepare_ktri(
 
     return _prepare_recip_info(ktri)
 
+
 @not_keyword
 def prepare_key_transport_recipient_info(
     version: int = 2,
@@ -724,11 +722,12 @@ def prepare_key_transport_recipient_info(
     ktri_structure = rfc5652.KeyTransRecipientInfo()
     ktri_structure["version"] = rfc5652.CMSVersion(version)
 
-    rid = rid or prepare_recipient_identifier(cert=cmp_protection_cert,
-                                              issuer_and_ser=kwargs.get("issuer_and_ser"),
-                                              ski=kwargs.get("ski"),
-                                              bad_ski=kwargs.get("bad_ski"),
-                                              )
+    rid = rid or prepare_recipient_identifier(
+        cert=cmp_protection_cert,
+        issuer_and_ser=kwargs.get("issuer_and_ser"),
+        ski=kwargs.get("ski"),
+        bad_ski=kwargs.get("bad_ski"),
+    )
 
     ktri_structure["rid"] = rid
 
@@ -1080,7 +1079,7 @@ def build_env_data_for_exchange(
         )
         kem_recip_info = _prepare_recip_info(kem_recip_info)
         return prepare_enveloped_data(
-                recipient_infos=[kem_recip_info], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
+            recipient_infos=[kem_recip_info], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
 
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
@@ -1128,11 +1127,12 @@ def prepare_kem_recip_info(
     """
     key_enc_key = None
 
-    rid = rid or prepare_recipient_identifier(cert=recip_cert,
-                                              issuer_and_ser=kwargs.get("issuer_and_ser"),
-                                              ski=kwargs.get("ski"),
-                                              bad_ski=kwargs.get("bad_ski"),
-                                              )
+    rid = rid or prepare_recipient_identifier(
+        cert=recip_cert,
+        issuer_and_ser=kwargs.get("issuer_and_ser"),
+        ski=kwargs.get("ski"),
+        bad_ski=kwargs.get("bad_ski"),
+    )
     cek = str_to_bytes(cek or os.urandom(32))
 
     kem_recip_info = rfc9629.KEMRecipientInfo()
@@ -1205,10 +1205,10 @@ def prepare_kem_recip_info(
 
     return kem_recip_info
 
+
 @not_keyword
 def prepare_mqv_user_keying_material(
-    ephemeral_key: ec.EllipticCurvePrivateKey,
-    added_ukm: Optional[bytes] = None
+    ephemeral_key: ec.EllipticCurvePrivateKey, added_ukm: Optional[bytes] = None
 ) -> rfc5753.MQVuserKeyingMaterial:
     """Create an `MQVuserKeyingMaterial` structure for MQV key agreement.
 
@@ -1262,6 +1262,7 @@ def prepare_key_agreement_algorithm_identifier(
     )
     key_enc_alg_id["parameters"] = encoder.encode(ecc_cms_info)
     return key_enc_alg_id
+
 
 @not_keyword
 def prepare_ecc_cms_shared_info(
@@ -1477,7 +1478,10 @@ def prepare_key_agreement_recipient_info(
 
     return key_agree_info
 
-def _prepare_aes_warp_alg_id(wrap_name: Optional[str], cek_length: int, fill_params_rand: bool = False) -> rfc5280.AlgorithmIdentifier:
+
+def _prepare_aes_warp_alg_id(
+    wrap_name: Optional[str], cek_length: int, fill_params_rand: bool = False
+) -> rfc5280.AlgorithmIdentifier:
     """Prepare an AlgorithmIdentifier for AES key wrap algorithm.
 
     :param wrap_name: Name of the AES key wrap algorithm (e.g., "aes256-wrap"). Defaults to `None`.
@@ -1486,7 +1490,6 @@ def _prepare_aes_warp_alg_id(wrap_name: Optional[str], cek_length: int, fill_par
     (**MUST** be absent for AES key wrap algorithms.)
     :return: The populated `AlgorithmIdentifier` structure.
     """
-
     if wrap_name is None:
         if cek_length == 16:
             wrap_name = "aes128-wrap"
@@ -1495,9 +1498,11 @@ def _prepare_aes_warp_alg_id(wrap_name: Optional[str], cek_length: int, fill_par
         elif cek_length == 24:
             wrap_name = "aes192-wrap"
         else:
-            raise ValueError(f"Unsupported AES key wrap length: {cek_length}. Expected 16, 24, or 32 bytes."
-                             f"If used for negative nesting testing, provide the key wrap algorithm name."
-                             f"(`wrap_name`)")
+            raise ValueError(
+                f"Unsupported AES key wrap length: {cek_length}. Expected 16, 24, or 32 bytes."
+                f"If used for negative nesting testing, provide the key wrap algorithm name."
+                f"(`wrap_name`)"
+            )
 
     oid = KEY_WRAP_NAME_2_OID.get(wrap_name)
     if oid is None:
@@ -1510,6 +1515,7 @@ def _prepare_aes_warp_alg_id(wrap_name: Optional[str], cek_length: int, fill_par
         alg_id["parameters"] = univ.OctetString(os.urandom(32))
 
     return alg_id
+
 
 @keyword(name="Prepare PasswordRecipientInfo")
 def prepare_password_recipient_info(
@@ -1528,7 +1534,7 @@ def prepare_password_recipient_info(
     with the necessary parameters.
 
     Arguments:
-    ----------
+    ---------
         - `password`: The password to use for encryption.
         - `version`: The version number for the `PasswordRecipientInfo` structure. Defaults to `0`.
         - `cek`: The content encryption key to encrypt. Defaults to a random 32-byte key.
@@ -1547,12 +1553,13 @@ def prepare_password_recipient_info(
         - `wrap_name` (str): The name of the AES key wrap algorithm (e.g., "aes256-wrap"). Defaults to `None`.
 
     Returns:
-    --------
+    -------
         - A `PasswordRecipientInfo` structure ready to be included in `EnvelopedData`.
 
     Raises:
-    -------
+    ------
         - NotImplementedError: If an unsupported KDF is provided. (only supports "pbkdf2").
+
     """
     cek = cek or os.urandom(32)
     cek = str_to_bytes(cek)
@@ -1560,11 +1567,12 @@ def prepare_password_recipient_info(
     if kdf_name == "pbkdf2":
         salt = params.get("salt", os.urandom(32))
         salt = str_to_bytes(salt)
-        pbkdf2 = prepare_pbkdf2_alg_id(salt=salt,
-                                       iterations=int(params.get("iterations", 100000)),
-                                       key_length=int(params.get("key_length", 32)),
-                                       hash_alg=params.get("hash_alg", "sha256")
-                                       )
+        pbkdf2 = prepare_pbkdf2_alg_id(
+            salt=salt,
+            iterations=int(params.get("iterations", 100000)),
+            key_length=int(params.get("key_length", 32)),
+            hash_alg=params.get("hash_alg", "sha256"),
+        )
 
         encrypted_key = wrap_key_password_based_key_management_technique(
             password=password, key_to_wrap=cek, parameters=pbkdf2["parameters"]
@@ -1586,7 +1594,6 @@ def prepare_password_recipient_info(
     if params.get("aes_wrap"):
         pwri["keyEncryptionAlgorithm"] = _prepare_aes_warp_alg_id(params.get("wrap_name"), len(cek))
 
-
     pwri["keyEncryptionAlgorithm"]["algorithm"] = rfc9481.id_aes256_wrap
 
     if bad_encrypted_key:
@@ -1594,6 +1601,7 @@ def prepare_password_recipient_info(
 
     pwri["encryptedKey"] = rfc5652.EncryptedKey(encrypted_key)
     return pwri
+
 
 @not_keyword
 def wrap_key_password_based_key_management_technique(

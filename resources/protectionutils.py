@@ -51,7 +51,8 @@ from resources.asn1_structures import (
     KemBMParameterAsn1,
     KemCiphertextInfoAsn1,
     KemCiphertextInfoValue,
-    KemOtherInfoAsn1, ProtectedPartTMP,
+    KemOtherInfoAsn1,
+    ProtectedPartTMP,
 )
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, compute_pbkdf2_from_parameter

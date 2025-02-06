@@ -64,7 +64,6 @@ from pq_logic.pq_compute_utils import sign_data_with_alg_id, verify_csr_signatur
 from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONSE, ECDHPrivateKey
 
 
-
 def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descriptions in the docstring
     request: PKIMessagesTMP,
     signing_key: AbstractCompositeSigPrivateKey,

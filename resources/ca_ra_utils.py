@@ -25,7 +25,7 @@ from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc9480
 from robot.api.deco import keyword, not_keyword
 
 from resources import certbuildutils, cmputils, protectionutils
-from resources.asn1_structures import CAKeyUpdContent, ChallengeASN1, PKIMessageTMP, CertResponseTMP
+from resources.asn1_structures import CAKeyUpdContent, CertResponseTMP, ChallengeASN1, PKIMessageTMP
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certbuildutils import build_cert_from_cert_template, build_cert_from_csr
 from resources.certextractutils import get_extension, get_field_from_certificate
@@ -73,9 +73,11 @@ def _prepare_issuer_and_ser_num_for_challenge(cert_req_id: int) -> rfc5652.Issue
     return issuer_and_ser_num
 
 
-def _prepare_rand(sender: Optional[Union[rfc9480.GeneralName, str]],
-                  rand_int: Optional[int] = None,
-                  cert: Optional[rfc9480.CMPCertificate] = None) -> rfc9480.Rand:
+def _prepare_rand(
+    sender: Optional[Union[rfc9480.GeneralName, str]],
+    rand_int: Optional[int] = None,
+    cert: Optional[rfc9480.CMPCertificate] = None,
+) -> rfc9480.Rand:
     """Prepare the `Rand` structure for the challenge.
 
     :param sender: The sender of the message.
@@ -84,7 +86,6 @@ def _prepare_rand(sender: Optional[Union[rfc9480.GeneralName, str]],
     :return: The populated `Rand` structure.
     :raises ValueError: If neither `sender` nor `cert` is provided.
     """
-
     if sender is None and cert is None:
         raise ValueError("Either `sender` or `cert` must be provided.")
 
@@ -1153,8 +1154,12 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
             responses = prepare_cert_response(cert=cert, enc_cert=enc_cert, cert_req_id=cert_req_id)
     else:
         certs = [cert]
-        responses = prepare_cert_response(cert=cert, enc_cert=enc_cert, private_key=kwargs.get("private_key"),
-                                          cert_req_id=int(kwargs.get("cert_req_id", 0)))
+        responses = prepare_cert_response(
+            cert=cert,
+            enc_cert=enc_cert,
+            private_key=kwargs.get("private_key"),
+            cert_req_id=int(kwargs.get("cert_req_id", 0)),
+        )
 
     body = _prepare_ca_body("ip", responses=responses, ca_pubs=ca_pubs)
 
@@ -1198,6 +1203,7 @@ def prepare_cert_or_enc_cert(
 
     return cert_or_enc_cert
 
+
 @not_keyword
 def prepare_certified_key_pair(
     cert: Optional[rfc9480.CMPCertificate] = None,
@@ -1218,9 +1224,8 @@ def prepare_certified_key_pair(
     certified_key_pair = rfc9480.CertifiedKeyPair()
     certified_key_pair["certOrEncCert"] = prepare_cert_or_enc_cert(cert=cert, enc_cert=enc_cert)
 
-
     if private_key is not None:
-        certified_key_pair["privateKey"]["envelopedData"]  = private_key
+        certified_key_pair["privateKey"]["envelopedData"] = private_key
 
     return certified_key_pair
 

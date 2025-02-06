@@ -147,11 +147,8 @@ class GenRepContentAsn1(univ.SequenceOf):
     componentType = InfoTypeAndValueAsn1()
 
 
-
-
-
-
 # TODO inform about the bug of using the wrong `CertifiedKeyPair` structure.
+
 
 class CertResponseTMP(univ.Sequence):
     """Define the ASN.1 structure for the `CertResponse`.
@@ -165,11 +162,12 @@ class CertResponseTMP(univ.Sequence):
     """
 
     componentType = namedtype.NamedTypes(
-        namedtype.NamedType('certReqId', univ.Integer()),
-        namedtype.NamedType('status', rfc9480.PKIStatusInfo()),
-        namedtype.OptionalNamedType('certifiedKeyPair', rfc9480.CertifiedKeyPair()),
-        namedtype.OptionalNamedType('rspInfo', univ.OctetString())
+        namedtype.NamedType("certReqId", univ.Integer()),
+        namedtype.NamedType("status", rfc9480.PKIStatusInfo()),
+        namedtype.OptionalNamedType("certifiedKeyPair", rfc9480.CertifiedKeyPair()),
+        namedtype.OptionalNamedType("rspInfo", univ.OctetString()),
     )
+
 
 class CertRepMessageTMP(univ.Sequence):
     """Define the ASN.1 structure for the `CertRepMessage`.
@@ -180,22 +178,27 @@ class CertRepMessageTMP(univ.Sequence):
          response         SEQUENCE OF CertResponse
      }
     """
+
     componentType = namedtype.NamedTypes(
         namedtype.OptionalNamedType(
-            'caPubs', univ.SequenceOf(
-                componentType=rfc9480.CMPCertificate()
-            ).subtype(sizeSpec=constraint.ValueSizeConstraint(1, float("inf")),
-                      explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))
+            "caPubs",
+            univ.SequenceOf(componentType=rfc9480.CMPCertificate()).subtype(
+                sizeSpec=constraint.ValueSizeConstraint(1, float("inf")),
+                explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1),
+            ),
         ),
-        namedtype.NamedType('response', univ.SequenceOf(componentType=CertResponseTMP()))
+        namedtype.NamedType("response", univ.SequenceOf(componentType=CertResponseTMP())),
     )
+
 
 class NestedMessageContentTMP(univ.SequenceOf):
     componentType = univ.Any()
 
 
 nestedMessageContent = NestedMessageContentTMP().subtype(
-    explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20))
+    explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20)
+)
+
 
 # The challenge change, so that the PKIBody needs to be overwritten.
 # So the only difference is the `popdecc: POPODecKeyChallContentAsn1`
@@ -265,7 +268,7 @@ class PKIBodyTMP(univ.Choice):
             ),
         ),
         namedtype.NamedType(
-            "cann", # codespell:ignore
+            "cann",  # codespell:ignore
             rfc9480.CertAnnContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 16)),
         ),
         namedtype.NamedType(
@@ -307,6 +310,7 @@ class PKIBodyTMP(univ.Choice):
 
 MAX = float("inf")
 
+
 # Set the body to the temporary PKIBodyTMP.
 class PKIMessageTMP(univ.Sequence):
     """Defines the ASN.1 structure for the `PKIMessage`."""
@@ -323,13 +327,13 @@ class PKIMessageTMP(univ.Sequence):
             univ.SequenceOf(componentType=rfc9480.CMPCertificate())
             .subtype(subtypeSpec=constraint.ValueSizeConstraint(1, MAX))
             .subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)),
-            ),
+        ),
     )
 
 
 class PKIMessagesTMP(univ.SequenceOf):
     componentType = PKIMessageTMP()
-    subtypeSpec=constraint.ValueSizeConstraint(1, MAX)
+    subtypeSpec = constraint.ValueSizeConstraint(1, MAX)
 
 
 class ProtectedPartTMP(univ.Sequence):
@@ -339,13 +343,13 @@ class ProtectedPartTMP(univ.Sequence):
         header PKIHeader,
         body PKIBody
     """
+
     componentType = namedtype.NamedTypes(
-        namedtype.NamedType('header', rfc9480.PKIHeader()),
-        namedtype.NamedType('body', PKIBodyTMP())
+        namedtype.NamedType("header", rfc9480.PKIHeader()), namedtype.NamedType("body", PKIBodyTMP())
     )
+
 
 # Since pyasn1 does not naturally handle recursive definitions, this hack:
 #
 NestedMessageContentTMP._componentType = PKIMessagesTMP()
 nestedMessageContent._componentType = PKIMessagesTMP()
-

@@ -1477,100 +1477,93 @@ def prepare_key_agreement_recipient_info(
     return key_agree_info
 
 
-@not_keyword
+@keyword(name="Prepare PasswordRecipientInfo")
 def prepare_password_recipient_info(
     password: Union[str, bytes],
-    version: int = 0,
+    version: Union[str, int] = 0,
     cek: Optional[bytes] = None,
-    salt: Optional[bytes] = None,
     kdf_name: str = "pbkdf2",
+    bad_encrypted_key: bool = False,
+    exclude_kdf_alg_id: bool = False,
+    **params,
 ) -> rfc5652.PasswordRecipientInfo:
     """Prepare a `PasswordRecipientInfo` structure for password-based encryption.
 
-    :param password: The password to use for encryption.
-    :param version: The version number for the `PasswordRecipientInfo` structure. Defaults to 0.
-    :param cek: The content encryption key to encrypt. Defaults to a random 32-byte key.
-    :param salt: The salt to use for key derivation. Defaults to a random 32-byte salt.
-    :param kdf_name: The key derivation function to use. Defaults to "pbkdf2".
-    (which is the only one allowed for `PasswordRecipientInfo`).
-    :return: A `PasswordRecipientInfo` structure ready to be included in `EnvelopedData`.
+    The `PasswordRecipientInfo` structure is used to encrypt the content encryption key (CEK)
+    using a password and a key derivation function (KDF). This function prepares the structure
+    with the necessary parameters.
+
+    Arguments:
+    ----------
+        - `password`: The password to use for encryption.
+        - `version`: The version number for the `PasswordRecipientInfo` structure. Defaults to `0`.
+        - `cek`: The content encryption key to encrypt. Defaults to a random 32-byte key.
+        - `kdf_name`: The key derivation function to use. Defaults to "pbkdf2".
+        (which is the only one allowed for `PasswordRecipientInfo`).
+        - `bad_encrypted_key`: If `True`, manipulate the first byte of the encrypted key. Defaults to `False`.
+        - `exclude_kdf_alg_id`: If `True`, excludes the key derivation algorithm identifier. Defaults to `False`.
+
+    **params:
+    ---------
+        - `salt` (str, bytes): The salt value for the PasswordRecipientInfo structure. Defaults to 32 random bytes.
+        (will be interpreted as hex if it starts with "0x").
+        - `iterations` (str, int): The number of iterations for the key derivation function. Defaults to `100000`.
+        - `key_length` (str, int): The length of the derived key. Defaults to 32.
+        - `hash_alg` (str): The hash algorithm to use for the key derivation function. Defaults to "sha256".
+        - `wrap_name` (str): The name of the AES key wrap algorithm (e.g., "aes256-wrap"). Defaults to `None`.
+
+    Returns:
+    --------
+        - A `PasswordRecipientInfo` structure ready to be included in `EnvelopedData`.
+
+    Raises:
+    -------
+        - NotImplementedError: If an unsupported KDF is provided. (only supports "pbkdf2").
     """
     cek = cek or os.urandom(32)
     cek = str_to_bytes(cek)
+
     if kdf_name == "pbkdf2":
-        pbkdf2 = prepare_pbkdf2_alg_id(salt=salt or os.urandom(32))
+        salt = params.get("salt", os.urandom(32))
+        salt = str_to_bytes(salt)
+        pbkdf2 = prepare_pbkdf2_alg_id(salt=salt,
+                                       iterations=int(params.get("iterations", 100000)),
+                                       key_length=int(params.get("key_length", 32)),
+                                       hash_alg=params.get("hash_alg", "sha256")
+                                       )
 
         encrypted_key = wrap_key_password_based_key_management_technique(
             password=password, key_to_wrap=cek, parameters=pbkdf2["parameters"]
         )
+
     else:
         raise NotImplementedError(f"Unsupported KDF: {kdf_name}")
-
-    return prepare_pwri_structure(
-        encrypted_key=encrypted_key,
-        version=version,
-        key_der_alg_id=rfc9481.id_PBKDF2,
-        key_enc_alg_id=rfc9481.id_aes256_wrap,
-        enc_key=True,
-    )
-
-
-@not_keyword
-def prepare_pwri_structure(
-    version: int = 0,
-    key_der_alg_id: univ.ObjectIdentifier = rfc9481.id_PBKDF2,
-    key_enc_alg_id: univ.ObjectIdentifier = rfc9481.id_aes256_wrap,
-    enc_key: bool = True,
-    encrypted_key: Optional[bytes] = None,
-    **kwargs,
-) -> rfc5652.PasswordRecipientInfo:
-    """Create a `PasswordRecipientInfo` (`pwri`) used to encrypt a content encryption key.
-
-    Prepares a default `PBKDF2_params` structure with the fixed salt b"AAAAAAAAAAAAAAAA".
-
-    :param version: The version number for the `PasswordRecipientInfo` structure. Defaults to 0.
-    :param key_der_alg_id: The Object Identifier (OID) for the key derivation algorithm.
-    :param key_enc_alg_id: The OID for the key encryption algorithm.
-    :param enc_key:  Flag indicating whether to include the encrypted key in the `PasswordRecipientInfo`.
-    If `True`, the `encryptedKey` field is populated. Defaults to `True`.
-    :param encrypted_key:The encrypted key bytes to include in the `PasswordRecipientInfo`.
-    If not provided and `enc_key` is `True`, a random 32-byte key is generated.
-    :param kwargs: Additional parameters to pass to the key derivation algorithm.
-    (salt, iteration_count, key_length, hash_alg).
-    :return: The populated `PasswordRecipientInfo` structure.
-    """
-    salt = kwargs.get("salt", os.urandom(32))
-    salt = str_to_bytes(salt)
-
-    key_der_alg = prepare_pbkdf2_alg_id(
-        salt=salt,
-        iterations=int(kwargs.get("iterations", 100000)),
-        key_length=int(kwargs.get("key_length", 32)),
-        hash_alg=kwargs.get("hash_alg", "sha256"),
-    )
-    key_der_alg["algorithm"] = key_der_alg_id
-
-    # must be of type KM_KW_ALG
-    key_enc_alg = rfc5652.KeyEncryptionAlgorithmIdentifier()
-    key_enc_alg["algorithm"] = key_enc_alg_id
 
     pwri = rfc5652.PasswordRecipientInfo().subtype(
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3)
     )
-    pwri["version"] = version
-    pwri["keyDerivationAlgorithm"] = key_der_alg.subtype(
-        implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1), cloneValueFlag=True
-    )
-    pwri["keyEncryptionAlgorithm"] = key_enc_alg
-    if enc_key:
-        pwri["encryptedKey"] = rfc5652.EncryptedKey(encrypted_key or os.urandom(32))
+    pwri["version"] = int(version)
 
+    if not exclude_kdf_alg_id:
+        pwri["keyDerivationAlgorithm"] = pbkdf2.subtype(
+            implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0), cloneValueFlag=True
+        )
+
+    if params.get("aes_wrap"):
+        pwri["keyEncryptionAlgorithm"] = _prepare_aes_warp_alg_id(params.get("wrap_name"), len(cek))
+
+
+    pwri["keyEncryptionAlgorithm"]["algorithm"] = rfc9481.id_aes256_wrap
+
+    if bad_encrypted_key:
+        encrypted_key = utils.manipulate_first_byte(encrypted_key)
+
+    pwri["encryptedKey"] = rfc5652.EncryptedKey(encrypted_key)
     return pwri
-
 
 @not_keyword
 def wrap_key_password_based_key_management_technique(
-    password: str, parameters: rfc8018.PBKDF2_params, key_to_wrap: bytes
+    password: Union[str, bytes], parameters: rfc8018.PBKDF2_params, key_to_wrap: bytes
 ) -> bytes:
     """Derive a key from a password using PBKDF2 parameters and wrap the given AES key using the derived key.
 
@@ -1579,6 +1572,7 @@ def wrap_key_password_based_key_management_technique(
     :param key_to_wrap: The AES key to be wrapped.
     :return: The wrapped (encrypted) AES key.
     """
-    password = password.encode("utf-8")
+    password = str_to_bytes(password)
     derive_key = compute_pbkdf2_from_parameter(parameters, key=password)
+    logging.debug("Prepare PWRI - Derived Key: %s", derive_key.hex())
     return aes_key_wrap(wrapping_key=derive_key, key_to_wrap=key_to_wrap)

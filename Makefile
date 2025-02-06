@@ -43,10 +43,8 @@ unittest-docker: build-unittest
 	docker run --rm -t --workdir=/app unittest-image
 
 unittest:
-	# adjust path such that the unit tests can be started from the root directory, to make it easier to load
-	# example files from data/
-	PYTHONPATH=./resources python -m unittest discover -s unit_tests
-	# On Windows Powershell: `$env:PYTHONPATH = "./resources"; python -m unittest discover -s unit_tests`
+	# Run the unit tests for the test suite itself.
+	python -m unittest discover -s unit_tests -f -v
 
 check_ejbca:
 ifeq ($(env), ejbca)
@@ -99,4 +97,9 @@ start-mock-ca:
 
 test-mock-ca:
 	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests
+
+codespell:
+	codespell . --check-filenames --skip *.html,*.pem,*.xml,*venv*,*fips/*.py,*data/*,*/liboqs-python/*,*doc/*,*data/*,*data/pqc-certificates/*,*data/stats,
+
+
 

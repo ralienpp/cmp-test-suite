@@ -87,12 +87,12 @@ from pyasn1_alt_modules import rfc5652, rfc9480
 from robot.api.deco import not_keyword
 
 from resources.asn1_structures import CertResponseTMP, CertRepMessageTMP, PKIMessageTMP
-from resources.ca_ra_utils import prepare_cert_response, build_ip_cmp_message, prepare_certified_key_pair
+from resources.ca_ra_utils import prepare_cert_response, build_ip_cmp_message
 from resources.cmputils import patch_extra_certs
 from resources.envdatautils import prepare_enveloped_data, prepare_signed_data
 from resources.typingutils import PrivateKey
 
-from unit_tests.utils_for_test import prepare_pki_header, try_encode_pyasn1, try_decode_pyasn1
+from unit_tests.utils_for_test import prepare_pki_header, try_decode_pyasn1
 
 
 # TODO refactor this to ca_ra_utils.py
@@ -137,8 +137,7 @@ def prepare_cert_rep_msg(
     private_key: Optional[rfc9480.EnvelopedData] = None,
     enc_cert: Optional[rfc9480.EnvelopedData] = None,
 ) -> rfc9480.CertRepMessage:
-    """
-    Prepare a CertRepMessage structure for PKI communication.
+    """Prepare a CertRepMessage structure for PKI communication.
 
     This function constructs a CertRepMessage of the specified body type, containing certificate
     responses and optional CA certificates. It allows for adding custom status, fail information,
@@ -153,7 +152,8 @@ def prepare_cert_rep_msg(
     :param status: Status of the certificate request, defaults to "accepted".
     :param text: Optional additional text information about the status.
     :param failinfo: Optional failure information for the certificate request.
-    :param private_key: Optional private key in `EnvelopedData` format.
+    :param private_key: Optional private key in `EnvelopedData` format. Default is `None`.
+    :param enc_cert: Optional encrypted certificate in `EnvelopedData` format. Default is `None`.
     :raises ValueError: If `body_type` is unknown or unsupported.
     :return: A populated `CertRepMessage` structure.
     """

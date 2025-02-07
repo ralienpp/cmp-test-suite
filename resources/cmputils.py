@@ -34,7 +34,6 @@ from pyasn1_alt_modules import (
 from robot.api.deco import keyword, not_keyword
 from robot.libraries import DateTime
 
-import resources.prepareutils
 from resources import (
     asn1utils,
     certbuildutils,
@@ -44,6 +43,7 @@ from resources import (
     cryptoutils,
     keyutils,
     oid_mapping,
+    prepareutils,
     protectionutils,
     utils,
 )
@@ -764,7 +764,7 @@ def _prepare_poposigningkeyinput(sender: str, public_key: PublicKey) -> rfc4211.
     :return: A populated `POPOSigningKeyInput` structure.
     """
     popo_signing_key_input = rfc4211.POPOSigningKeyInput()
-    name_obj = resources.prepareutils.prepare_name(sender, 4)
+    name_obj = prepareutils.prepare_name(sender, 4)
     general_name = rfc9480.GeneralName().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0))
     general_name = general_name.setComponentByName("directoryName", name_obj)
     popo_signing_key_input["authInfo"]["sender"] = general_name
@@ -2624,7 +2624,7 @@ def prepare_general_name(name_type: str, name_str: str) -> rfc9480.GeneralName:
     :return: A `GeneralName` object with the encoded name based on the provided `name_type`.
     """
     if name_type == "directoryName":
-        name_obj = resources.prepareutils.prepare_name(name_str, 4)
+        name_obj = prepareutils.prepare_name(name_str, 4)
         general_name = rfc9480.GeneralName()
         return general_name.setComponentByName("directoryName", name_obj)
 

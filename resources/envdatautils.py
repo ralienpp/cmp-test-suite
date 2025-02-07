@@ -187,7 +187,7 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
         - `issuer_and_ser`: An IssuerAndSerialNumber structure to use. Defaults to `None`.
         - `ski`: A Subject Key Identifier as bytes. Defaults to `None`.
         - `key`: A public key to compute the identifier from. Defaults to `None`.
-        - `bad_ski`: If True, the Subject Key Identifier is modified. Defaults to `False`.
+        - `bad_ski`: If True, the SubjectKeyIdentifier is modified. Defaults to `False`.
 
     Returns:
     -------
@@ -197,6 +197,10 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
     ------
         - ValueError: If neither a certificate nor an issuer and serial number is provided or a key.
 
+    Examples:
+    --------
+    | ${recip_id}= | Prepare Recipient Identifier | cert=${cert} |
+    | ${recip_id}= | Prepare Recipient Identifier | key=${key} |
     """
     recip_id = rfc5652.RecipientIdentifier()
 

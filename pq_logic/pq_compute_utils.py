@@ -53,7 +53,9 @@ SignKey = Union[PrivateKeySig, CompositeSigCMSPrivateKey, PQSignaturePrivateKey]
 
 
 @keyword(name="Sign Data With Alg ID")
-def sign_data_with_alg_id(key: VerifyKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes) -> bytes:
+def sign_data_with_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
+    key: VerifyKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes
+) -> bytes:
     """Sign the provided data using the given algorithm identifier.
 
     Arguments:

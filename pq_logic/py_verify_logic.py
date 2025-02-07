@@ -29,7 +29,8 @@ from resources.oidutils import (
     id_ce_altSignatureValue,
     id_ce_subjectAltPublicKeyInfo,
 )
-from resources.typingutils import PublicKey, PublicKeySig
+from resources.typingutils import PublicKeySig
+from robot.api.deco import keyword
 
 import pq_logic
 from pq_logic import pq_compute_utils
@@ -394,10 +395,11 @@ def verify_hybrid_pkimessage_protection(
         )
 
 
+@keyword(name="Verify CRL Signature")
 def verify_crl_signature(
     crl: rfc5280.CertificateList,
     ca_cert: rfc9480.CMPCertificate,
-    alt_public_key: Optional[PublicKey] = None,
+    alt_public_key: Optional[PublicKeySig] = None,
     must_be_catalyst_signed: bool = False,
 ) -> None:
     """Verify the signature of a CRL with a CA certificate.

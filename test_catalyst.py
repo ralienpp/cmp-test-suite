@@ -12,7 +12,7 @@ import oqs
 from pq_logic.fips.fips204 import ML_DSA
 from pq_logic.hybrid_sig.catalyst_logic import (
     prepare_alt_signature_data,
-    validate_catalyst_extension,
+    validate_catalyst_extensions,
 )
 from pq_logic.keys.abstract_pq import PQPrivateKey, PQPublicKey
 from pq_logic.keys.sig_keys import MLDSAPublicKey
@@ -47,7 +47,7 @@ def log_cert_infos(asn1cert: rfc9480.CMPCertificate):
         asn1cert["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]
     )
     tmp += "\nCatalyst Extension: \n"
-    extension = validate_catalyst_extension(asn1cert)
+    extension = validate_catalyst_extensions(asn1cert)
     tmp += "Catalyst AltPubKey: " + may_return_oid_to_name(extension["spki"]["algorithm"]["algorithm"])
     tmp += "\nCatalyst AltSigAlg: " + may_return_oid_to_name(extension["alg_id"]["algorithm"])
 

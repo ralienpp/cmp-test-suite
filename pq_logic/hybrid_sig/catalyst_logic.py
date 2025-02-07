@@ -199,7 +199,7 @@ def sign_cert_catalyst(
     return certbuildutils.sign_cert(signing_key=trad_key, cert=cert, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
 
 
-def validate_catalyst_extension(
+def validate_catalyst_extensions(
     cert: rfc9480.CMPCertificate, sig_alg_must_be: Optional[str] = None
 ) -> Union[None, dict]:
     """Check if the certificate contains all required catalyst extensions.
@@ -285,7 +285,7 @@ def verify_catalyst_signature_migrated(
     :raises ValueError: If catalyst extensions are missing or verification fails.
     :raises InvalidSignature: If the traditional signature or the alternative signature verification fails.
     """
-    catalyst_ext = validate_catalyst_extension(cert)
+    catalyst_ext = validate_catalyst_extensions(cert)
     if catalyst_ext is None:
         raise ValueError("Catalyst extensions are not present, cannot perform migrated verification.")
 
@@ -331,7 +331,7 @@ def verify_catalyst_signature(
     :raises ValueError: If verification fails due to missing extensions or signature mismatches.
     :raises NotImplementedError: If certain verification paths are not implemented.
     """
-    catalyst_ext = validate_catalyst_extension(cert)
+    catalyst_ext = validate_catalyst_extensions(cert)
     public_key2 = keyutils.load_public_key_from_spki(catalyst_ext["spki"])
 
     if not migrated:

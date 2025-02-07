@@ -407,7 +407,7 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
     return cert_form4, cert_form1
 
 
-def sun_cert_template_to_cert(
+def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in the docstring
     cert_template: rfc4211.CertTemplate,
     issuer_cert: rfc9480.CMPCertificate,
     issuer_private_key: PrivateKeySig,
@@ -607,7 +607,9 @@ def prepare_sun_hybrid_pre_tbs_certificate(
 
 
 @keyword("Validate AltSubPubKeyExt")
-def validate_alt_pub_key_extn(cert: rfc9480.CMPCertificate) -> PrivateKeySig:
+def validate_alt_pub_key_extn(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate,
+) -> PrivateKeySig:
     """Validate the `AltSubPubKeyExt` extension in a certificate.
 
     Ensures that the AltSubPubKeyExt extension in the certificate is valid

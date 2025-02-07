@@ -476,7 +476,7 @@ def generate_certs_only_message(cert_path: str, cert_dir: str) -> bytes:
 
 
 @keyword(name="Prepare RelatedCertificate Extension")
-def prepare_related_cert_extension(
+def prepare_related_cert_extension(  # noqa: D417 Missing argument descriptions in the docstring
     cert_a: rfc9480.CMPCertificate, hash_alg: Optional[str] = None, critical: bool = False
 ) -> rfc5280.Extension:
     """Prepare the RelatedCertificate extension for a x509 certificate.

@@ -350,16 +350,29 @@ def compare_cert_template_and_cert(  # noqa D417 undocumented-param
 
 
 @keyword(name="Compare CSR And Cert")
-def compare_csr_and_cert(
-    csr: rfc6402.CertificationRequest, issued_cert: rfc9480.CMPCertificate, subject_strict: bool = False
+def compare_csr_and_cert( # noqa D417 undocumented-param
+    csr: rfc6402.CertificationRequest,
+    issued_cert: rfc9480.CMPCertificate,
+    subject_strict: bool = False
 ) -> bool:
     """Compare a CSR and the newly issued certificate to check if the server returned the correct status.
 
-    :param csr: The Certificate Signing Request (CSR) to compare.
-    :param issued_cert: The issued certificate to compare against.
-    :param subject_strict: A boolean flag to indicate if the comparison should be strict,
-    for the `subject` field, which means it must be equal.
-    :return: Whether the CSR and the issued certificate match.
+    Arguments:
+    ---------
+       - `csr`: The Certificate Signing Request (CSR) to compare.
+       - `issued_cert`: The issued certificate to compare against.
+       - `subject_strict`: Whether the `subject` field should be equal or just contain the `subject`
+       value. Defaults to `False`.
+
+    Returns:
+    -------
+        - `True` if the CSR and the issued certificate match; `False` otherwise.
+
+    Examples:
+    --------
+    | ${result}= | Compare CSR And Cert | ${csr} | ${issued_cert} |
+    | ${result}= | Compare CSR And Cert | ${csr} | ${issued_cert} | subject_strict=True |
+
     """
     extracted_subject = csr["certificationRequestInfo"]["subject"]
     cert_subject = issued_cert["tbsCertificate"]["subject"]

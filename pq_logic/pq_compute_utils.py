@@ -52,13 +52,28 @@ VerifyKey = Union[PQSignaturePublicKey, PublicKeySig, CompositeSigCMSPublicKey]
 SignKey = Union[PrivateKeySig, CompositeSigCMSPrivateKey, PQSignaturePrivateKey]
 
 
+@keyword(name="Sign Data With Alg ID")
 def sign_data_with_alg_id(key: VerifyKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes) -> bytes:
     """Sign the provided data using the given algorithm identifier.
 
-    :param key: The private key used to sign the data.
-    :param alg_id: The algorithm identifier specifying the algorithm and any associated parameters for signing.
-    :param data: The data to sign.
-    :return: The digital signature.
+    Arguments:
+    ---------
+        - `key`: The private key used to sign the data.
+        - `alg_id`: The algorithm identifier specifying the algorithm and any associated parameters for signing.
+        - `data`: The data to sign.
+
+    Returns:
+    -------
+        - The digital signature.
+
+    Raises:
+    ------
+        - `ValueError`: If the private key type is unsupported.
+
+    Examples:
+    --------
+    | ${signature} = | Sign Data With Alg ID | ${key} | ${alg_id} | ${data} |
+
     """
     oid = alg_id["algorithm"]
 

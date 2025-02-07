@@ -148,12 +148,12 @@ def prepare_cert_rep_msg(
     :param exclude_resp: Exclude the response component if `True`.
     :param cert: Optional end-entity certificate to include in the response.
     :param responses: List of `CertResponse` objects to include in the message.
-    :param cert_req_id: Certificate request ID for the response, defaults to 0.
-    :param status: Status of the certificate request, defaults to "accepted".
+    :param cert_req_id: Certificate request ID for the response. Defaults to `0`.
+    :param status: Status of the certificate request. Defaults to "accepted".
     :param text: Optional additional text information about the status.
     :param failinfo: Optional failure information for the certificate request.
-    :param private_key: Optional private key in `EnvelopedData` format. Default is `None`.
-    :param enc_cert: Optional encrypted certificate in `EnvelopedData` format. Default is `None`.
+    :param private_key: Optional private key in `EnvelopedData` format. Defaults to `None`.
+    :param enc_cert: Optional encrypted certificate in `EnvelopedData` format. Defaults to `None`.
     :raises ValueError: If `body_type` is unknown or unsupported.
     :return: A populated `CertRepMessage` structure.
     """

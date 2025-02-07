@@ -187,9 +187,9 @@ def load_truststore(  # noqa D417 undocumented-param
 
     Arguments:
     ---------
-         - `path`: path or directory to load the certificates from. Default is "./data/trustanchors".
+         - `path`: path or directory to load the certificates from. Defaults to "./data/trustanchors".
          - `allow_os_store`: whether to allow the truststore of the Operating System or not.
-            Default is False.
+            Defaults to False.
 
     Returns:
     -------
@@ -779,9 +779,9 @@ def certificates_are_trustanchors(  # noqa D417 undocumented-param
     ---------
         - `certs`: A single or a list of pyasn1 `CMPCertificate` objects to check.
         - `trustanchors`: A directory path to load additional trustanchors. Defaults to "./data/trustanchors".
-        - `allow_os_store`: Whether to allow the default OS store to be added to the trustanchors. Default is `True`.
-        - `verbose`: Whether to log all non-trustanchor certificates. Default is `True`.
-        - `allow_os_store`: Whether to allow the default OS store to be added to the trustanchors. Default is `True`.
+        - `allow_os_store`: Whether to allow the default OS store to be added to the trustanchors. Defaults to `True`.
+        - `verbose`: Whether to log all non-trustanchor certificates. Defaults to `True`.
+        - `allow_os_store`: Whether to allow the default OS store to be added to the trustanchors. Defaults to `True`.
 
     Raises:
     ------
@@ -832,7 +832,7 @@ def certificates_must_be_trusted(  # noqa D417 undocumented-param
         - `trustanchors`: A directory path to load additional PKI trustanchors. By setting to \
         ${None} can be disabled. Defaults to `./data/trustanchors`.
         - `allow_os_store` Whether to allow the default OS store to be added to the trust anchors.
-        Default is `True`.
+        Defaults to `True`.
         - `key_usage`: Human-readable representation of the KeyUsage attributes the entity certificate has to \
         have (e.g., "digitalSignature" to check if the EE certificate is allowed to sign data).
         Defaults to `digitalSignature`.

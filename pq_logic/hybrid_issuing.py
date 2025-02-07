@@ -931,6 +931,10 @@ def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in t
         - BadAsn1Data: If the ASN.1 data is invalid.
         - BadPOP: If the POP is invalid.
 
+    Examples:
+    --------
+    | ${ca_cert} = | Build Chameleon From P10cr | ${request} | ${ca_cert} | ${ca_key} |
+
     """
     cert, delta_cert = chameleon_logic.build_chameleon_cert_from_paired_csr(
         csr=request["body"]["p10cr"],

@@ -43,7 +43,7 @@ from pq_logic.tmp_oids import id_aa_relatedCertRequest, id_relatedCert
 
 
 @keyword(name="Prepare RequesterCertificate")
-def prepare_requester_certificate(
+def prepare_requester_certificate(  # noqa: D417 Missing argument descriptions in the docstring
     cert_a: rfc9480.CMPCertificate,
     cert_a_key: PrivateKey,
     uri: str,
@@ -51,8 +51,8 @@ def prepare_requester_certificate(
     hash_alg: Optional[str] = None,
     invalid_serial_number: bool = False,
     invalid_issuer: bool = False,
-    freshness: int = 0,
-    request_time: Optional[int] = None,
+    freshness: Strint = 0,
+    request_time: Optional[Strint] = None,
 ) -> RequesterCertificate:
     """Prepare the RequesterCertificate structure.
 
@@ -60,20 +60,36 @@ def prepare_requester_certificate(
     If the CA is a different one the URI SHOULD be a dataURI, containing inline degenerate PKCS#7 consisting
     of all the certificates and CRLs required to validate Cert A. If same CA SHOULD be a URL.
 
-    :param cert_a: Certificate A as CMPCertificate.
-    :param cert_a_key: The private key corresponding to the related certificate.
-    :param uri: URL location of Cert A or the complete chain of Cert A, all certificate contained must be DER-encoded.
-    :param bad_pop: Whether to manipulate the signature. Defaults to `False`.
-    :param hash_alg: The hash algorithm to use for the certificate, if the
-    private key is ecc. Defaults to `None`. if required takes the hash algorithm, from the signature algorithm.
-    :param invalid_serial_number: Whether to manipulate the serial number. Defaults to `False`.
-    :param invalid_issuer: Whether to manipulate the issuer. Defaults to `False`.
-    :param freshness: A value to modify The freshness of the BinaryTime. Defaults to `0`.
-    :param request_time: The time of the request. Defaults to `None`.
-    :return: Prepared RequesterCertificate.
+    Arguments:
+    ---------
+        - `cert_a`: Certificate A as CMPCertificate.
+        - `cert_a_key`: The private key corresponding to the related certificate.
+        - `uri`: URL location of Cert A or the complete chain of Cert A, all certificate contained must be DER-encoded.
+        - `bad_pop`: Whether to manipulate the signature. Defaults to `False`.
+        - `hash_alg`: The hash algorithm to use for the certificate, if the private key is ed25519. Defaults to `None`.
+        - `invalid_serial_number`: Whether to manipulate the serial number. Defaults to `False`.
+        - `invalid_issuer`: Whether to manipulate the issuer. Defaults to `False`.
+        - `freshness`: A value to modify The freshness of the BinaryTime. Defaults to `0`.
+        - `request_time`: The time of the request. Defaults to `None`.
+
+    Returns:
+    -------
+        - The populated `RequesterCertificate` structure.
+
+    Raises:
+    ------
+        - ValueError: If the hash algorithm could not be determined.
+
+    Examples:
+    --------
+    | ${req_cert} = | Prepare RequesterCertificate | ${cert_a} | ${cert_a_key} | ${uri} |
+    | ${req_cert} = | Prepare RequesterCertificate | ${cert_a} | ${cert_a_key} | ${uri} | bad_pop=True |
+
     """
     # get current UNIX time
-    current_time = request_time or (int(time.time()) + freshness)
+    current_time = request_time or (int(time.time()) + int(freshness))
+    current_time = int(current_time)
+
     bin_time = BinaryTime(current_time)
     cert_id = envdatautils.prepare_issuer_and_serial_number(
         cert=cert_a, modify_serial_number=invalid_serial_number, modify_issuer=invalid_issuer

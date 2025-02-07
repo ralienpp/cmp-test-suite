@@ -672,11 +672,26 @@ def build_delta_cert_from_paired_cert(paired_cert: rfc9480.CMPCertificate) -> rf
 
 
 @keyword(name="Get Chameleon Delta Public Key")
-def get_chameleon_delta_public_key(paired_cert: rfc9480.CMPCertificate) -> rfc5280.SubjectPublicKeyInfo:
+def get_chameleon_delta_public_key( # noqa: D417 Missing argument description in the docstring
+        paired_cert: rfc9480.CMPCertificate) -> rfc5280.SubjectPublicKeyInfo:
     """Extract the delta public key from a paired certificate.
 
-    :param paired_cert: The paired certificate.
-    :return: The extracted public key.
+    Arguments:
+    ---------
+        - `paired_cert`: The paired certificate.
+
+    Returns:
+    -------
+        - The extracted public key.
+
+    Raises:
+    ------
+        - `ValueError`: If the DCD extension is missing.
+        - `BadAsn1Data`: If the `DeltaCertificateDescriptor` has a remainder.
+
+    Examples:
+    --------
+    | ${spki} | Get Chameleon Delta Public Key | ${paired_cert} |
     """
     dcd = certextractutils.get_extension(paired_cert["tbsCertificate"]["extensions"], id_ce_deltaCertificateDescriptor)
 

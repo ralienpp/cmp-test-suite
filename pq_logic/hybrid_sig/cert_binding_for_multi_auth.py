@@ -208,7 +208,7 @@ def validate_related_cert_extension(
     validate_ku_and_eku_related_cert(cert_a=cert_a, related_cert=related_cert)
 
 
-def get_related_cert_from_list( # noqa: D417 Missing argument descriptions in the docstring
+def get_related_cert_from_list(  # noqa: D417 Missing argument descriptions in the docstring
     certs: List[rfc9480.CMPCertificate], cert_a: rfc9480.CMPCertificate
 ) -> rfc9480.CMPCertificate:
     """Get the related certificate from a list of certificates.
@@ -290,6 +290,7 @@ def validate_ku_and_eku_related_cert(cert_a: rfc9480.CMPCertificate, related_cer
         if ku_cert_b is None or set_a - set_b:
             raise ValueError()
 
+
 @not_keyword
 def extract_related_cert_request_attribute(csr: rfc6402.CertificationRequest) -> RequesterCertificate:
     """Extract the relatedCertRequest attribute from a given CSR.
@@ -362,7 +363,7 @@ def load_certificate_from_uri(uri: str, load_chain: bool) -> List[rfc9480.CMPCer
         return cert
 
 
-def validate_multi_auth_binding_csr(
+def validate_multi_auth_binding_csr( # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
     load_chain: bool = False,
     max_freshness_seconds: int = 500,
@@ -503,6 +504,7 @@ def generate_certs_only_message(cert_path: str, cert_dir: str) -> bytes:
     cms_der = cms_message.sign(serialization.Encoding.DER, [])
     return cms_der
 
+
 @keyword(name="Prepare RelatedCertificate Extension")
 def prepare_related_cert_extension(
     cert_a: rfc9480.CMPCertificate, hash_alg: Optional[str] = None, critical: bool = False
@@ -528,6 +530,7 @@ def prepare_related_cert_extension(
     --------
     | ${extn}= | Prepare RelatedCertificate Extension | ${cert_a} |
     | ${extn}= | Prepare RelatedCertificate Extension | ${cert_a} | critical=True |
+
     """
     # Notes:
     # For certificate chains, this extension MUST only be included in the end-entity certificate.

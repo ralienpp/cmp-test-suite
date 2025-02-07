@@ -228,13 +228,22 @@ def build_chameleon_base_certificate(
     base_cert = sign_cert(cert=base_cert, signing_key=ca_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
     return base_cert
 
-
+@keyword(name="Validate DCD Extension")
 def validate_dcd_extension(dcd_extensions: rfc5280.Extensions, base_cert_extensions: rfc5280.Extensions) -> None:
     """Validate the DCD extension to ensure it meets the defined constraints.
 
-    :param dcd_extensions: Extensions contained in the DCD.
-    :param base_cert_extensions: Extensions contained in the Base Certificate.
-    :raises ValueError: If any invalid extension is detected in the DCD.
+    Arguments:
+    ---------
+        - `dcd_extensions`: Extensions contained in the DCD.
+        - `base_cert_extensions`: Extensions contained in the Base Certificate.
+
+    Raises:
+    ------
+        - `ValueError`: If any invalid extension is detected in the DCD.
+
+    Examples:
+    --------
+    | Validate DCD Extension | ${dcd_extensions} | ${base_cert_extensions} |
     """
     base_cert_ext_map = {ext["extnID"]: ext for ext in base_cert_extensions}
 

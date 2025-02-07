@@ -617,7 +617,6 @@ def _compute_ss(client_key: ECDHPrivateKey, ca_cert: rfc9480.CMPCertificate) -> 
     raise ValueError(f"The provided public key type is not expected: {type(client_key).__name__}")
 
 
-# TODO fix doc
 def _prepare_pkmac_val(
     shared_secret: bytes, data: bytes, mac_alg: str, for_agreement: bool = True, bad_pop: bool = False, **mac_params
 ) -> rfc4211.ProofOfPossession:

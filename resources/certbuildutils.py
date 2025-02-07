@@ -1521,35 +1521,57 @@ def _sign_cert(
 
 
 @keyword(name="Build Cert from CSR")
-def build_cert_from_csr(
+def build_cert_from_csr(  # noqa D417 undocumented-param
     csr: rfc6402.CertificationRequest,
     ca_key: PrivateKey,
     extensions: Optional[rfc5280.Extensions] = None,
-    serial_number: Optional[Union[str, int]] = None,
     validity: Optional[rfc5280.Validity] = None,
     issuer: Optional[rfc9480.Name] = None,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
-    hash_alg: str = "sha256",
     include_extensions: bool = True,
-    alt_sign_key: Optional[PrivateKeySig] = None,
     **kwargs,
 ) -> rfc9480.CMPCertificate:
     """Build a certificate from a CSR.
 
-    :param csr: The CSR to build the certificate from.
-    :param ca_cert: The CA certificate.
-    :param ca_key: The CA private key.
-    :param extensions: Optional extensions to include in the certificate. Defaults to `None`.
-    If set, will exclude the extensions from the CSR.
-    :param serial_number: Optional serial number for the certificate. Defaults to `None`.
-    :param validity: Optional validity period for the certificate. Defaults to `None`.
-    :param issuer: The issuer of the certificate. Defaults to `None`.
-    :param hash_alg: The hash algorithm to use for signing. Defaults to `sha256`.
-    :param include_extensions: Whether to include the extensions from the CSR. Defaults to `True`.
-    :param alt_sign_key: Optional alternative signing key to use. Defaults to `None`.
-    :return: The certificate as raw bytes.
-    :raises ValueError: If neither the issuer nor the CA certificate is provided.
+    Arguments:
+    ---------
+        - `csr`: The CSR to build the certificate from.
+        - `ca_key`: The CA private key.
+        - `extensions`: Optional extensions to include in the certificate. Defaults to `None`.
+        - `validity`: Optional validity period for the certificate. Defaults to `None`.
+        - `issuer`: The issuer of the certificate. Defaults to `None`.
+        - `ca_cert`: The CA certificate. Defaults to `None`.
+        - `include_extensions`: Whether to include the extensions from the CSR. Defaults to `True`.
+
+    **kwargs:
+    ---------
+        - `serial_number`: The serial number for the certificate. Defaults to `None`.
+        - `hash_alg`: The hash algorithm to use for signing. Defaults to `sha256`.
+        - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `True`.
+        - `use_pre_hash`: Whether to use pre-hash for composite keys or not. Defaults to `False`.
+        - `days`: The number of days for which the certificate remains valid. Defaults to `3650` days.
+        - `critical`: Whether the catalyst extensions are critical. Defaults to `False`.
+        - `hash_alg`: The hash algorithm to use for signing. Defaults to `sha256`.
+        - `alt_hash_alg`: The hash algorithm to use for the alternative signing key. Defaults to `sha256`.
+        - `alt_use_rsa_pss`: Whether to use RSA-PSS for the alternative signing key. Defaults to `False`.
+        - `alt_sign_key`: Optional alternative signing key to use. Defaults to `None`.
+
+    Returns:
+    -------
+        - The build certificate.
+
+    Raises:
+    ------
+        - `ValueError`: If neither the issuer nor the CA certificate is provided.
+
+    Examples:
+    --------
+    | ${cert}= | Build Cert from CSR | csr=${csr} | ca_key=${ca_key} | ca_cert=${ca_cert} |
+    | ${cert}= | Build Cert from CSR | csr=${csr} | ca_key=${ca_key} | ca_cert=${ca_cert} | days=3650 |
+
     """
+    hash_alg = kwargs.get("hash_alg", "sha256")
+
     if issuer is None and ca_cert is None:
         raise ValueError(
             "Either the issuer or the CA certificate have to be provided.to build a certificate, from a CSR."
@@ -1560,9 +1582,9 @@ def build_cert_from_csr(
     tbs_cert = _prepare_shared_tbs_cert(
         issuer=issuer,
         subject=csr["certificationRequestInfo"]["subject"],
-        serial_number=serial_number,
+        serial_number=kwargs.get("serial_number", None),
         validity=validity,
-        days=kwargs.get("days", 3650),
+        days=int(kwargs.get("days", 3650)),
         public_key=csr["certificationRequestInfo"]["subjectPublicKeyInfo"],
     )
 
@@ -1581,14 +1603,7 @@ def build_cert_from_csr(
 
     cert = rfc9480.CMPCertificate()
     cert["tbsCertificate"] = tbs_cert
-
-    if alt_sign_key is not None:
-        # so that the catalyst logic can be in the matching file.
-        from pq_logic.hybrid_sig.catalyst_logic import sign_cert_catalyst
-
-        return sign_cert_catalyst(cert=cert, trad_key=ca_key, pq_key=alt_sign_key, hash_alg=hash_alg, **kwargs)
-
-    return sign_cert(cert=cert, signing_key=ca_key, hash_alg=hash_alg, **kwargs)
+    return _sign_cert(cert=cert, ca_key=ca_key, **kwargs)
 
 
 @not_keyword

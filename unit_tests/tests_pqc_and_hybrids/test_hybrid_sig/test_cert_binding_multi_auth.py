@@ -88,7 +88,7 @@ class TestCertBindingMultiAuth(unittest.TestCase):
         with self.assertRaises(ValueError):
             get_related_cert_from_list(certs, cert_a)
 
-    @patch("pq_logic.hybrid_sig.cert_binding_for_multi_auth.load_certificate_from_uri")
+    @patch("pq_logic.hybrid_sig.cert_binding_for_multi_auth.utils.load_certificate_from_uri")
     def test_cert_binding_multi_auth_build_csr(self, mock_load_cert):
         """
         GIVEN a certificate and a private key.

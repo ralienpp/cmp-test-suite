@@ -91,7 +91,7 @@ class TestMayLoadAltPublicKey(unittest.TestCase):
 
 
 
-    @patch("pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00.fetch_value_from_location")
+    @patch("pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00.utils.fetch_value_from_location")
     def test_load_from_hybrid_sun_cert_form4(self, mock_fetch):
         """
         GIVEN a hybrid SUN certificate in form 4.
@@ -123,7 +123,7 @@ class TestMayLoadAltPublicKey(unittest.TestCase):
         public_key = may_extract_alt_key_from_cert(cert4, other_certs=None)
         self.assertEqual(public_key, self.comp_key.pq_key.public_key())
 
-    @patch("pq_logic.pq_compute_utils.get_cert_discovery_cert")
+    @patch("pq_logic.pq_compute_utils.utils.load_certificate_from_uri")
     def test_load_key_from_cert_discovery(self, mock_get_cert):
         """
         GIVEN a certificate with a subject info access extension.
@@ -134,7 +134,7 @@ class TestMayLoadAltPublicKey(unittest.TestCase):
         discovery_cert = generate_certificate(private_key=self.mldsa_key, hash_alg="sha256")
 
         mock_get_cert.side_effect = [
-            discovery_cert,
+            [discovery_cert],
         ]
 
         sig_alg_id = discovery_cert["tbsCertificate"]["signature"]

@@ -5,7 +5,7 @@
 """Utility functions for verifying hybrid signatures."""
 
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
@@ -126,7 +126,10 @@ def verify_csr_signature(  # noqa: D417 Missing argument descriptions in the doc
 
 
 def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions in the docstring
-    cert: rfc9480.CMPCertificate, other_certs: Optional[List[rfc9480.CMPCertificate]] = None
+    cert: rfc9480.CMPCertificate,
+    other_certs: Optional[List[rfc9480.CMPCertificate]] = None,
+    load_chain: bool = False,
+    timeout: Union[int, str] = 20,
 ) -> Optional[PQSignaturePublicKey]:
     """May extract the alternative public key from a certificate.
 
@@ -139,6 +142,9 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
     ---------
         - `cert`: The certificate from which to extract the alternative public key.
         - `other_certs`: A list of other certificates to search for the related certificate.
+        - `load_chain`: Whether to load the chain of certificates. Defaults to `False`.
+        (relevant for the related certificate extension).
+        - `timeout`: The timeout for loading the certificate. Defaults to `20` seconds.
 
     Returns:
     -------
@@ -198,8 +204,9 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
 
     if rel_cert_desc is not None:
         logging.info("Validate signature with cert discovery.")
-        uri = str(rel_cert_desc["uniformResourceIdentifier"])
-        other_cert = certdiscovery.fetch_cert_from_url(uri)
+        other_cert = utils.load_certificate_from_uri(
+            uri=rel_cert_desc["uniformResourceIdentifier"], load_chain=load_chain, timeout=timeout
+        )[0]
         certdiscovery.validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc=rel_cert_desc)
         pq_key = load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
         return pq_key

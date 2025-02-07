@@ -101,20 +101,27 @@ def prepare_pkmac_popo(
         salt=salt,
     )
 
-
-# TODO fix doc for RF.
 @keyword(name="Prepare EncKeyWithID")
 def prepare_enc_key_with_id(
     private_key: PrivateKey, sender: Optional[str] = None, use_string: bool = False
 ) -> rfc4211.EncKeyWithID:
     """Prepare the private key for the Proof-of-Possession structure.
 
-    :param private_key: A private key to prepare for the PoP structure. Should be a non-signing key.
-    :param sender: The sender name to include in the PoP structure. Defaults to `None`.
-    (must be present if PoP)
-    :param use_string: Whether to use a string for the sender name. Defaults to `False`.
-    Otherwise, a `GeneralName` structure is used, which sets the distinguished name.
-    :return: The DER-encoded PoP structure.
+    Arguments:
+    ---------
+        - `private_key`: A private key to prepare for the PoP structure. Should be a non-signing key.
+        - `sender`: The sender name to include in the PoP structure (e.g., `CN=CMP-Test-Suite`).
+         Defaults to `None` (must be present if PoP).
+        - `use_string`: Whether to use a string for the sender name. Defaults to `False`.
+        Otherwise, a `GeneralName` structure is used, which sets the distinguished name.
+
+    Returns:
+    -------
+      - The populated `EncKeyWithID` structure.
+
+    Examples:
+    ---------
+    | ${enc_key} = | Prepare EncKeyWithID | ${private_key} | ${sender} | use_string=${True} |
     """
     one_asym_key = prepare_one_asymmetric_key(private_key)
 

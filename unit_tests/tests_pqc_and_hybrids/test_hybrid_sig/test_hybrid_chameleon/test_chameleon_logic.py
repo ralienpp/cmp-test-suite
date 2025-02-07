@@ -5,6 +5,7 @@
 import unittest
 
 from pq_logic.hybrid_sig.chameleon_logic import build_paired_csr, verify_paired_csr_signature
+from resources.exceptions import BadPOP
 from resources.keyutils import generate_key
 
 # TODO add doc
@@ -22,4 +23,17 @@ class TestChameleonLogic(unittest.TestCase):
 
         csr = build_paired_csr(delta_private_key=delta_ec_key, base_private_key=rsa_key)
         verify_paired_csr_signature(csr)
+
+    def test_verify_paired_csr_invalid_signature(self):
+        """
+        GIVEN an EC and RSA private key.
+        WHEN building a paired CSR, and verifying the invalid signature.
+        THEN a BadPOP is raised.
+        """
+        delta_ec_key = generate_key("ec")
+        rsa_key = generate_key("rsa")
+
+        csr = build_paired_csr(delta_private_key=delta_ec_key, base_private_key=rsa_key, bad_alt_pop=True)
+        with self.assertRaises(BadPOP):
+            verify_paired_csr_signature(csr)
 

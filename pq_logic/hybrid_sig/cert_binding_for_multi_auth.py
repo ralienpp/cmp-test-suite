@@ -366,7 +366,7 @@ def load_certificate_from_uri(uri: str, load_chain: bool) -> List[rfc9480.CMPCer
 def validate_multi_auth_binding_csr( # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
     load_chain: bool = False,
-    max_freshness_seconds: int = 500,
+    max_freshness_seconds: Strint = 500,
     trustanchors: str = "./data/trustanchors",
     allow_os_store: bool = False,
     crl_check: bool = False,
@@ -404,7 +404,7 @@ def validate_multi_auth_binding_csr( # noqa: D417 Missing argument descriptions 
 
     request_time = int(attributes["requestTime"])
     current_time = int(time.time())
-    if abs(current_time - request_time) > max_freshness_seconds:
+    if abs(current_time - request_time) > int(max_freshness_seconds):
         raise ValueError("BinaryTime is not sufficiently fresh.")
 
     location_info = attributes["locationInfo"]

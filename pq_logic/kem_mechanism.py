@@ -18,6 +18,7 @@ from resources.oid_mapping import hash_name_to_instance
 
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
+# TODO refactor to add trad wrapper classes for better support and cleaner code.
 
 def perform_ecdh(private_key: ECDHPrivateKey, public_key: ECDHPublicKey) -> bytes:
     """Derive a shared secret using Elliptic Curve Diffie-Hellman (ECDH) key exchange.

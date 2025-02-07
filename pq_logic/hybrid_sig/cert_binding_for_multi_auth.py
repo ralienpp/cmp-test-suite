@@ -553,7 +553,7 @@ def prepare_related_cert_extension(
 
 
 @keyword(name="Build Related Certificate")
-def build_related_cert_from(  # noqa: D417 Missing argument descriptions in the docstring
+def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
     ca_key: PrivateKey,
     ca_cert: rfc9480.CMPCertificate,
@@ -582,6 +582,10 @@ def build_related_cert_from(  # noqa: D417 Missing argument descriptions in the 
        - InvalidSignature: If the POP of the related certificate is invalid.
        - ValueError: If the last certificate in the chain is not a trust anchor.
        - ValueError: If the certificate chain is not valid.
+
+    Examples:
+    --------
+    | ${cert} = | Build Related Certificate | ${csr} | ${ca_key} | ${ca_cert} |
 
     """
     if related_cert is None:

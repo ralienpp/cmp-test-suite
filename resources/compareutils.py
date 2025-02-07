@@ -272,9 +272,6 @@ def _compare_issuer_and_subject_template_and_cert(
     return True
 
 
-# TODO maybe change to only Py.
-
-
 @keyword(name="Compare CertTemplate And Cert")
 def compare_cert_template_and_cert(  # noqa D417 undocumented-param
     cert_template: rfc4211.CertTemplate,

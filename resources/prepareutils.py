@@ -4,6 +4,8 @@
 
 """Utility functions for preparing data which is not tied to a specific keyword."""
 
+# TODO refactor to shared prepare utils used by the CA and Client logic used.
+
 from typing import Optional
 
 from cryptography import x509

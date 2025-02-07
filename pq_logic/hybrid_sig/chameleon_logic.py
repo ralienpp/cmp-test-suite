@@ -284,6 +284,7 @@ def validate_dcd_extension(  # noqa: D417 Missing argument descriptions in the d
 #################
 
 
+@not_keyword
 def prepare_delta_cert_req(
     signing_key: PrivateKeySig,
     delta_common_name: Optional[str] = None,
@@ -513,6 +514,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
     return delta_req
 
 
+@not_keyword
 def build_delta_cert(
     csr: rfc6402.CertificationRequest,
     delta_value: DeltaCertificateRequestValue,
@@ -558,6 +560,7 @@ def build_delta_cert(
     )
 
 
+@not_keyword
 def build_chameleon_cert_from_paired_csr(
     csr: rfc6402.CertificationRequest,
     ca_key: PrivateKeySig,

@@ -13,10 +13,10 @@ import pyasn1.error
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from pq_logic import pq_compute_utils
 from pq_logic.key_pyasn1_utils import parse_key_from_one_asym_key
 from pq_logic.keys.abstract_pq import PQKEMPublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
-from pq_logic.pq_compute_utils import verify_csr_signature, verify_signature_with_alg_id
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import CA_RESPONSE, ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
@@ -24,41 +24,26 @@ from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc9480
 from robot.api.deco import keyword, not_keyword
 
-from resources import certbuildutils, cmputils, protectionutils
-from resources.asn1_structures import CAKeyUpdContent, CertResponseTMP, ChallengeASN1, PKIMessageTMP
-from resources.ca_kga_logic import validate_enveloped_data
-from resources.certbuildutils import build_cert_from_cert_template, build_cert_from_csr
-from resources.certextractutils import get_extension, get_field_from_certificate
-from resources.certutils import (
-    build_cmp_chain_from_pkimessage,
-    cert_in_list,
-    certificates_must_be_trusted,
-    check_is_cert_signer,
-    load_certificates_from_dir,
-    validate_certificate_pkilint,
-    validate_cmp_extended_key_usage,
+from resources import (
+    ca_kga_logic,
+    certbuildutils,
+    certutils,
+    cmputils,
+    compareutils,
+    envdatautils,
+    keyutils,
+    protectionutils,
+    utils,
 )
-from resources.cmputils import compare_general_name_and_name, prepare_general_name, prepare_pkistatusinfo
+from resources.asn1_structures import CAKeyUpdContent, CertResponseTMP, ChallengeASN1, PKIMessageTMP
+from resources.certextractutils import get_extension, get_field_from_certificate
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.cryptoutils import compute_aes_cbc, perform_ecdh
-from resources.envdatautils import (
-    _prepare_recip_info,
-    build_env_data_for_exchange,
-    prepare_enveloped_data,
-    prepare_kem_recip_info,
-)
 from resources.exceptions import BadAsn1Data, BadPOP, BadRequest, NotAuthorized
 from resources.extra_issuing_logic import is_null_dn
-from resources.keyutils import load_public_key_from_spki
 from resources.oid_mapping import compute_hash, get_hash_from_oid, sha_alg_name_to_oid
 from resources.prepareutils import prepare_name
-from resources.protectionutils import (
-    compute_mac_from_alg_id,
-    prepare_kem_ciphertextinfo,
-    prepare_sha_alg_id,
-)
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
-from resources.utils import manipulate_first_byte
 
 
 def _prepare_issuer_and_ser_num_for_challenge(cert_req_id: int) -> rfc5652.IssuerAndSerialNumber:
@@ -94,7 +79,7 @@ def _prepare_rand(
         rand_int = int.from_bytes(os.urandom(4), "big")
 
     if isinstance(sender, str):
-        sender = prepare_general_name("directoryName", sender)
+        sender = cmputils.prepare_general_name("directoryName", sender)
 
     if cert:
         tmp = cert["tbsCertificate"]["subject"]
@@ -120,7 +105,7 @@ def _prepare_witness_val(
     """
     witness = b""
     if hash_alg:
-        challenge_obj["owf"] = prepare_sha_alg_id(hash_alg or "sha256")
+        challenge_obj["owf"] = protectionutils.prepare_sha_alg_id(hash_alg or "sha256")
         num_bytes = (int(rand["int"])).to_bytes(4, "big")
         witness = compute_hash(hash_alg, num_bytes)
         logging.info("valid witness value: %s", witness.hex())
@@ -129,7 +114,7 @@ def _prepare_witness_val(
         if not hash_alg:
             witness = os.urandom(32)
         else:
-            witness = manipulate_first_byte(witness)
+            witness = utils.manipulate_first_byte(witness)
 
     challenge_obj["witness"] = univ.OctetString(witness)
     return challenge_obj
@@ -178,10 +163,10 @@ def prepare_challenge(
         shared_secret = perform_ecdh(ca_key, public_key)
     elif isinstance(public_key, PQKEMPublicKey):
         shared_secret, ct = public_key.encaps()
-        info_val = prepare_kem_ciphertextinfo(key=public_key, ct=ct)
+        info_val = protectionutils.prepare_kem_ciphertextinfo(key=public_key, ct=ct)
     elif is_kem_public_key(public_key):
         shared_secret, ct = public_key.encaps(ca_key)
-        info_val = prepare_kem_ciphertextinfo(key=public_key, ct=ct)
+        info_val = protectionutils.prepare_kem_ciphertextinfo(key=public_key, ct=ct)
     else:
         raise ValueError(f"Invalid public key type, to prepare a challenge: {type(public_key).__name__}")
 
@@ -242,7 +227,7 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
 
     env_data = rfc9480.EnvelopedData().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
     issuer_and_ser = _prepare_issuer_and_ser_num_for_challenge(cert_req_id)
-    env_data = build_env_data_for_exchange(
+    env_data = envdatautils.build_env_data_for_exchange(
         public_key_recip=public_key,
         data=encoder.encode(rand_obj),
         private_key=private_key,
@@ -320,7 +305,7 @@ def validate_oob_cert_hash(  # noqa: D417 Missing argument descriptions in the d
     #
     # 1. MUST be self-signed
     # 2. MUST have the same issuer and subject.
-    if not check_is_cert_signer(ca_cert, ca_cert):
+    if not certutils.check_is_cert_signer(ca_cert, ca_cert):
         raise ValueError("CA cert is not self-signed")
 
     # 3. If the subject field contains a "NULL-DN", then both subjectAltNames and issuerAltNames
@@ -348,7 +333,7 @@ def validate_oob_cert_hash(  # noqa: D417 Missing argument descriptions in the d
     # Validate other self-signed features.
     # 4. The values of all other extensions must be suitable for a self-signed certificate
     # (e.g., key identifiers for subject and issuer must be the same).
-    validate_certificate_pkilint(ca_cert)
+    certutils.validate_certificate_pkilint(ca_cert)
 
 
 def _prepare_cert_with_cert(
@@ -424,7 +409,7 @@ def build_ckuann(
 
     body["ckuann"] = body_content
 
-    if not check_is_cert_signer(new_cert, new_cert):
+    if not certutils.check_is_cert_signer(new_cert, new_cert):
         new_with_new = _prepare_cert_with_cert(new_cert, signing_key=new_key)
     else:
         new_with_new = new_cert
@@ -530,7 +515,7 @@ def get_public_key_from_cert_req_msg(cert_req_msg: rfc4211.CertReqMsg) -> Public
     old_spki["algorithm"] = spki["algorithm"]
     old_spki["subjectPublicKey"] = spki["subjectPublicKey"]
 
-    return load_public_key_from_spki(old_spki)
+    return keyutils.load_public_key_from_spki(old_spki)
 
 
 def _verify_pop_signature(
@@ -553,7 +538,7 @@ def _verify_pop_signature(
 
         popo_sig = popo["signature"]
         public_key = get_public_key_from_cert_req_msg(cert_req_msg)
-        verify_signature_with_alg_id(
+        pq_compute_utils.verify_signature_with_alg_id(
             public_key=public_key,
             alg_id=popo_sig["algorithmIdentifier"],
             data=encoder.encode(cert_req_msg["certReq"]),
@@ -586,21 +571,23 @@ def _verify_ra_verified(
     :param strict: Whether the RA certificate must have the `cmcRA` EKU bit set.
     Defaults to `True`.
     """
-    ra_certs = load_certificates_from_dir(allowed_ra_dir)
+    ra_certs = certutils.load_certificates_from_dir(allowed_ra_dir)
     may_ra_cert = pki_message["extraCerts"][0]
-    result = cert_in_list(may_ra_cert, ra_certs)
+    result = certutils.cert_in_list(may_ra_cert, ra_certs)
 
     if not result:
         raise NotAuthorized("RA certificate not in allowed RA directory.")
 
     eku_cert = get_field_from_certificate(may_ra_cert, extension="eku")
-    validate_cmp_extended_key_usage(eku_cert, ext_key_usages="cmcRA", strict="STRICT" if strict else "LAX")
+    certutils.validate_cmp_extended_key_usage(eku_cert, ext_key_usages="cmcRA", strict="STRICT" if strict else "LAX")
 
-    cert_chain = build_cmp_chain_from_pkimessage(
+    cert_chain = certutils.build_cmp_chain_from_pkimessage(
         pki_message,
     )
     try:
-        certificates_must_be_trusted(cert_chain=cert_chain, trustanchors=trustanchor, allow_os_store=allow_os_store)
+        certutils.certificates_must_be_trusted(
+            cert_chain=cert_chain, trustanchors=trustanchor, allow_os_store=allow_os_store
+        )
     except InvalidSignature as err:
         raise NotAuthorized("RA certificate not trusted.") from err
 
@@ -702,7 +689,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
     name = cert_req_msg["popo"].getName()
 
     if name in ["raVerified", "signature"]:
-        cert = build_cert_from_cert_template(
+        cert = certbuildutils.build_cert_from_cert_template(
             cert_req_msg["certReq"]["certTemplate"],
             ca_key=ca_key,
             ca_cert=ca_cert,
@@ -710,7 +697,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
         return cert, None
 
     elif name == "keyEncipherment":
-        cert = build_cert_from_cert_template(
+        cert = certbuildutils.build_cert_from_cert_template(
             cert_template=cert_req_msg["certReq"]["certTemplate"],
             ca_key=ca_key,
             ca_cert=ca_cert,
@@ -764,7 +751,7 @@ def verify_sig_pop_for_pki_request(  # noqa: D417 Missing argument descriptions 
     elif pki_message["p10cr"]:
         csr = pki_message["p10cr"]
         try:
-            verify_csr_signature(csr)
+            pq_compute_utils.verify_csr_signature(csr)
         except InvalidSignature:
             raise BadPOP("POP verification for `p10cr` failed.")
 
@@ -851,13 +838,13 @@ def build_cp_from_p10cr(  # noqa: D417 Missing argument descriptions in the docs
     if request and set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
 
-    verify_csr_signature(request["body"]["p10cr"])
+    pq_compute_utils.verify_csr_signature(request["body"]["p10cr"])
 
     if cert is None:
         if ca_key is None or ca_cert is None:
             raise ValueError("Either `cert` or `ca_key` and `ca_cert` must be provided to build a CA CMP message.")
 
-    cert = cert or build_cert_from_csr(
+    cert = cert or certbuildutils.build_cert_from_csr(
         csr=request["body"]["p10cr"], ca_key=ca_key, ca_cert=ca_cert, hash_alg=kwargs.get("hash_alg", "sha256")
     )
 
@@ -1141,8 +1128,8 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
             )
         else:
             logging.warning("Request was a p10cr, this is not allowed for IP messages.")
-            verify_csr_signature(request["body"]["p10cr"])
-            cert = build_cert_from_csr(
+            pq_compute_utils.verify_csr_signature(request["body"]["p10cr"])
+            cert = certbuildutils.build_cert_from_csr(
                 csr=request["body"]["p10cr"],
                 ca_key=kwargs.get("ca_key"),
                 ca_cert=kwargs.get("ca_cert"),
@@ -1254,7 +1241,7 @@ def prepare_cert_response(
     """
     cert_response = CertResponseTMP()
     cert_response["certReqId"] = univ.Integer(int(cert_req_id))
-    cert_response["status"] = prepare_pkistatusinfo(texts=text, status=status, failinfo=failinfo)
+    cert_response["status"] = cmputils.prepare_pkistatusinfo(texts=text, status=status, failinfo=failinfo)
 
     if cert or enc_cert or private_key:
         cert_response["certifiedKeyPair"] = prepare_certified_key_pair(cert, enc_cert, private_key)
@@ -1285,7 +1272,7 @@ def _verify_encrypted_key_popo(
     Defaults to `None`.
     :param expected_name: The expected identifier name. Defaults to `None`.
     """
-    data = validate_enveloped_data(
+    data = ca_kga_logic.validate_enveloped_data(
         env_data=popo_priv_key["encryptedKey"],
         password=password,
         ee_key=ca_key,
@@ -1307,7 +1294,9 @@ def _verify_encrypted_key_popo(
             if idf_name != expected_name:
                 raise ValueError(f"EncKeyWithID identifier name mismatch. Expected: {expected_name}. Got: {idf_name}")
         else:
-            result = compare_general_name_and_name(enc_key["identifier"]["generalName"], prepare_name(expected_name))
+            result = compareutils.compare_general_name_and_name(
+                enc_key["identifier"]["generalName"], prepare_name(expected_name)
+            )
             if not result:
                 logging.debug(enc_key["identifier"].prettyPrint())
                 raise ValueError("EncKeyWithID identifier name mismatch.")
@@ -1377,7 +1366,7 @@ def process_popo_priv_key(  # noqa: D417 Missing argument descriptions in the do
         if isinstance(client_public_key, ECDHPublicKey) and shared_secret is None:
             shared_secret = perform_ecdh(private_key=ca_key, public_key=client_public_key)
 
-        mac = compute_mac_from_alg_id(
+        mac = protectionutils.compute_mac_from_alg_id(
             key=shared_secret,
             data=encoder.encode(cert_req_msg["certReq"]),
             alg_id=popo_priv_key["agreeMAC"]["algId"],
@@ -1434,13 +1423,13 @@ def build_cert_from_cert_req_msg(  # noqa: D417 Missing argument descriptions in
         logging.debug("regInfo is present in the CertReqMsg,but server logic is not supported yet.")
 
     if request["popo"]["signature"].isValue:
-        cert = cert or build_cert_from_cert_template(
+        cert = cert or certbuildutils.build_cert_from_cert_template(
             cert_req["certTemplate"],
             ca_key=ca_signing_key,
             ca_cert=ca_cert,
         )
     elif popo.getName() == "keyEncipherment":
-        cert = build_cert_from_cert_template(csr=cert_req["certTemplate"])
+        cert = certbuildutils.build_cert_from_cert_template(csr=cert_req["certTemplate"])
         process_popo_priv_key(cert_req_msg=request, ca_key=ca_key)
 
     elif popo.getName() == "keyAgreement":
@@ -1458,7 +1447,7 @@ def build_cert_from_cert_req_msg(  # noqa: D417 Missing argument descriptions in
         cert_req_id = cert_req["certReqId"]
     cert_response["certReqId"] = univ.Integer(int(cert_req_id))
 
-    status = prepare_pkistatusinfo(texts="Certificate issued", status="accepted")
+    status = cmputils.prepare_pkistatusinfo(texts="Certificate issued", status="accepted")
     cert_response["status"] = status
     cert_response["certifiedKeyPair"] = prepare_certified_key_pair(cert=cert)
     return cert_response
@@ -1527,7 +1516,7 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
         - `ValueError`: If arguments are invalid or missing.
 
     """
-    new_ee_cert = new_ee_cert or build_cert_from_cert_template(
+    new_ee_cert = new_ee_cert or certbuildutils.build_cert_from_cert_template(
         cert_template=cert_req_msg["certReq"]["certTemplate"],
         issuer=ca_cert["tbsCertificate"]["subject"],
         ca_key=signing_key,
@@ -1541,13 +1530,14 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
     if str(popo_type["subsequentMessage"]) != "encrCert":
         raise ValueError("Only encrCert is supported for KEM keys")
 
-    public_key = client_pub_key or load_public_key_from_spki(new_ee_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+    spki = new_ee_cert["tbsCertificate"]["subjectPublicKeyInfo"]
+    public_key = client_pub_key or keyutils.load_public_key_from_spki(spki)
 
     target = rfc5652.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
 
     ss, ct, kem_oid = _perform_encaps_with_keys(public_key, hybrid_kem_key)
     cek = kwargs.get("cek") or os.urandom(32)
-    kem_recip_info = prepare_kem_recip_info(
+    kem_recip_info = envdatautils.prepare_kem_recip_info(
         recip_cert=new_ee_cert,
         public_key_recip=public_key,
         cek=cek,
@@ -1557,8 +1547,8 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
         kem_oid=kem_oid,
     )
     data = encoder.encode(new_ee_cert)
-    kem_recip_info = _prepare_recip_info(kem_recip_info)
-    return prepare_enveloped_data(
+    kem_recip_info = envdatautils._prepare_recip_info(kem_recip_info)
+    return envdatautils.prepare_enveloped_data(
         recipient_infos=[kem_recip_info],
         cek=cek,
         target=target,
@@ -1741,7 +1731,7 @@ def build_rp_from_rr(
     rfc9480.RevRepContent()
 
     for _ in range(len(request["body"]["rr"])):
-        status_info = prepare_pkistatusinfo(status=status, failinfo=fail_info)
+        status_info = cmputils.prepare_pkistatusinfo(status=status, failinfo=fail_info)
         body["rr"]["status"].append(status_info)
 
     pki_message["body"] = body

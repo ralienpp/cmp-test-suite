@@ -21,7 +21,7 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
-from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, protectionutils
+from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, protectionutils, utils
 from resources.asn1_structures import PKIMessagesTMP
 from resources.ca_ra_utils import build_ca_message
 from resources.certextractutils import extract_extension_from_csr, get_extension
@@ -34,9 +34,9 @@ from resources.oidutils import (
     id_ce_altSignatureValue,
 )
 from resources.typingutils import PrivateKey, TradSigPrivKey
-from resources import utils
 from robot.api.deco import keyword, not_keyword
 
+from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig import chameleon_logic, sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig.catalyst_logic import (
     load_catalyst_public_key,
@@ -50,7 +50,6 @@ from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey, Abs
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
-from pq_logic import pq_compute_utils
 from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONSE, ECDHPrivateKey
 
 

@@ -503,16 +503,31 @@ def generate_certs_only_message(cert_path: str, cert_dir: str) -> bytes:
     cms_der = cms_message.sign(serialization.Encoding.DER, [])
     return cms_der
 
-
+@keyword(name="Prepare RelatedCertificate Extension")
 def prepare_related_cert_extension(
     cert_a: rfc9480.CMPCertificate, hash_alg: Optional[str] = None, critical: bool = False
 ) -> rfc5280.Extension:
     """Prepare the RelatedCertificate extension for a x509 certificate.
 
-    :param cert_a: The certificate for which to prepare the extension.
-    :param hash_alg: The hash algorithm to use for the certificate. Defaults to `None`.
-    :param critical: Whether the extension should be marked as critical. Defaults to `False`.
-    :return: The prepared extension.
+    Arguments:
+    ---------
+        - `cert_a`: The certificate for which to prepare the extension.
+        - `hash_alg`: The hash algorithm to use for the certificate. Defaults to `None`.
+        (must be provided for ed25519 and ML-DSA.)
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
+
+    Returns:
+    -------
+        - The prepared extension.
+
+    Raises:
+    ------
+        - ValueError: If the hash algorithm could not be determined.
+
+    Examples:
+    --------
+    | ${extn}= | Prepare RelatedCertificate Extension | ${cert_a} |
+    | ${extn}= | Prepare RelatedCertificate Extension | ${cert_a} | critical=True |
     """
     # Notes:
     # For certificate chains, this extension MUST only be included in the end-entity certificate.
@@ -522,6 +537,9 @@ def prepare_related_cert_extension(
 
     # for negative testing or ed-keys and so on.
     hash_alg = hash_alg or get_hash_from_oid(cert_a["tbsCertificate"]["signature"]["algorithm"], only_hash=True)
+
+    if hash_alg is None:
+        raise ValueError("The hash algorithm could not be determined.")
 
     cert_hash = cmputils.calculate_cert_hash(cert=cert_a, hash_alg=hash_alg)
     extension = rfc5280.Extension()

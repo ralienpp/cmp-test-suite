@@ -102,8 +102,8 @@ def _prepare_octet_string_field(value: bytes, tag_number: int) -> univ.OctetStri
     """
     return univ.OctetString(value).subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, tag_number))
 
-
-def _prepare_pki_message(
+@not_keyword
+def prepare_pki_message(
     sender: str = "tests@example.com",
     recipient: str = "testr@example.com",
     exclude_fields: Optional[str] = None,
@@ -237,7 +237,7 @@ def build_cmp_error_message(  # noqa D417 undocumented-param
     pki_body = rfc9480.PKIBody()
     pki_body["error"] = err_body
 
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -350,7 +350,7 @@ def build_p10cr_from_csr(  # noqa D417 undocumented-param
     | ${pki_message}= | Build P10cr From CSR | ${csr} | implicit_confirm=True |
 
     """
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -1211,7 +1211,7 @@ def build_key_update_request(  # noqa D417 undocumented-param
     pki_body["kur"].append(cert_request_msg)
     pki_body["kur"].extend(utils.ensure_list(cert_req_msg))
 
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -1311,7 +1311,7 @@ def build_ir_from_key(  # noqa D417 undocumented-param
     pki_body["ir"].extend(utils.ensure_list(cert_req_msg))
 
     # To ensure that the prepared messageTime is newer.
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -1398,7 +1398,7 @@ def build_cr_from_key(  # noqa D417 undocumented-param
     pki_body["cr"].extend(utils.ensure_list(cert_req_msg))
 
     # To ensure that the prepared messageTime is newer.
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -1494,7 +1494,7 @@ def build_crr_from_key(  # noqa D417 undocumented-param
     pki_body["crr"].extend(utils.ensure_list(cert_req_msg))
 
     # To ensure that the prepared messageTime is newer.
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -1580,7 +1580,7 @@ def build_ir_from_csr(  # noqa D417 undocumented-param
     pki_body["ir"].extend(utils.ensure_list(cert_req_msg))
 
     # To ensure that the prepared messageTime is newer.
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -1667,7 +1667,7 @@ def build_cr_from_csr(  # noqa D417 undocumented-param
     pki_body["cr"].extend(utils.ensure_list(cert_req_msg))
 
     # To ensure that the prepared messageTime is newer.
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -1754,7 +1754,7 @@ def build_crr_from_csr(  # noqa D417 undocumented-param
     pki_body["crr"].extend(utils.ensure_list(cert_req_msg))
 
     # To ensure that the prepared messageTime is newer.
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -2172,7 +2172,7 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
 
     pki_body = rfc9480.PKIBody()
     pki_body["certConf"] = _prepare_cert_conf(cert_status_list)
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -2266,7 +2266,7 @@ def build_cert_conf(  # noqa D417 undocumented-param
     pki_body = rfc9480.PKIBody()
     pki_body["certConf"] = _prepare_cert_conf(cert_status)
 
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -3325,7 +3325,7 @@ def build_cmp_revoke_request(  # noqa D417 undocumented-param
 
     pki_body = rfc4210.PKIBody()
     pki_body["rr"] = rev_req_content
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -3786,7 +3786,7 @@ def build_nested_pkimessage(  # noqa D417 undocumented-param
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20)
     )
 
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=exclude_fields,
@@ -3865,7 +3865,7 @@ def build_polling_request(  # noqa D417 undocumented-param
                 params[key] = value
 
     # for newer messageTime is positioned here.
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=params.get("exclude_fields"),
@@ -3974,7 +3974,7 @@ def build_polling_response(  # noqa D417 undocumented-param
             if key not in params:
                 params[key] = value
 
-    pki_message = _prepare_pki_message(
+    pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
         exclude_fields=params.get("exclude_fields"),

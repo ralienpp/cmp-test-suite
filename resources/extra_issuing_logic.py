@@ -499,7 +499,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
             rand_name = get_openssl_name_notation(rand["sender"]["directoryName"])
             raise ValueError(f"Expected sender name: {expected_sender}. Got: {rand_name}")
 
-    response = cmputils._prepare_pki_message(
+    response = cmputils.prepare_pki_message(
         **kwargs,
     )
 

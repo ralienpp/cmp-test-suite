@@ -431,7 +431,7 @@ def build_ckuann(
         body_content[body_name]["oldWithNew"] = old_with_new
         body_content[body_name]["newWithOld"] = new_with_old
 
-    pki_message = cmputils._prepare_pki_message(pvno=pvno, sender=sender, recipient=recipient, **kwargs)
+    pki_message = cmputils.prepare_pki_message(pvno=pvno, sender=sender, recipient=recipient, **kwargs)
     pki_message["body"] = body
     return pki_message
 
@@ -850,7 +850,7 @@ def build_cp_from_p10cr(  # noqa: D417 Missing argument descriptions in the docs
 
     responses = prepare_cert_response(cert=cert, cert_req_id=cert_req_id)
     body = _prepare_ca_body(body_name="cp", responses=responses, ca_pubs=ca_pubs)
-    pki_message = cmputils._prepare_pki_message(**kwargs)
+    pki_message = cmputils.prepare_pki_message(**kwargs)
     pki_message["body"] = body
     return pki_message, cert
 
@@ -1011,7 +1011,7 @@ def build_cp_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
         kwargs = _set_header_fields(request, kwargs)
 
     body = _prepare_ca_body("ip", responses=responses, ca_pubs=kwargs.get("ca_pubs"))
-    pki_message = cmputils._prepare_pki_message(**kwargs)
+    pki_message = cmputils.prepare_pki_message(**kwargs)
     pki_message["body"] = body
     return pki_message, certs
 
@@ -1149,7 +1149,7 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
 
     body = _prepare_ca_body("ip", responses=responses, ca_pubs=ca_pubs)
 
-    pki_message = cmputils._prepare_pki_message(exclude_fields=exclude_fields, **kwargs)
+    pki_message = cmputils.prepare_pki_message(exclude_fields=exclude_fields, **kwargs)
     pki_message["body"] = body
     return pki_message, certs
 
@@ -1638,7 +1638,7 @@ def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions i
     if request and set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
 
-    pki_message = cmputils._prepare_pki_message(exclude_fields=exclude_fields, **kwargs)
+    pki_message = cmputils.prepare_pki_message(exclude_fields=exclude_fields, **kwargs)
     pki_message["body"]["pkiconf"] = rfc9480.PKIConfirmContent("").subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 19)
     )
@@ -1692,7 +1692,7 @@ def build_ca_message(
     if request and set_header_fields:
         pki_header_fields = _set_header_fields(request, pki_header_fields)
 
-    pki_message = cmputils._prepare_pki_message(**pki_header_fields)
+    pki_message = cmputils.prepare_pki_message(**pki_header_fields)
     pki_message["body"] = _prepare_ca_body(body_name, responses=responses)
     return pki_message
 
@@ -1725,7 +1725,7 @@ def build_rp_from_rr(
     if request and set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
 
-    pki_message = cmputils._prepare_pki_message(**kwargs)
+    pki_message = cmputils.prepare_pki_message(**kwargs)
 
     body = rfc9480.PKIBody()
     rfc9480.RevRepContent()
@@ -1812,7 +1812,7 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
     if set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
 
-    pki_message = cmputils._prepare_pki_message(**kwargs)
+    pki_message = cmputils.prepare_pki_message(**kwargs)
     tmp = PKIMessageTMP()
     tmp["header"] = pki_message["header"]
 

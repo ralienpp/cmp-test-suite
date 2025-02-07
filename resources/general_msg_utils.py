@@ -910,7 +910,7 @@ def build_general_message(  # noqa D417 undocumented-param
 
     body_content = _append_messages(messages=messages, body_content=body_content, fill_value=negative, ca_cert=ca_cert)
 
-    pki_message = cmputils._prepare_pki_message(
+    pki_message = cmputils.prepare_pki_message(
         sender=sender, recipient=recipient, exclude_fields=exclude_fields, **params
     )
     pki_body = rfc9480.PKIBody()
@@ -1329,7 +1329,7 @@ def build_genp_kem_ct_info_from_genm(  # noqa: D417 Missing argument description
 
     kem_oid = get_kem_oid_from_key(public_key)
 
-    genm = cmputils._prepare_pki_message(**kwargs)
+    genm = cmputils.prepare_pki_message(**kwargs)
 
     kem_ct_info = KemCiphertextInfoAsn1()
     kem_ct_info["ct"] = univ.OctetString(ct)

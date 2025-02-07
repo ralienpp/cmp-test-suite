@@ -301,16 +301,30 @@ def _get_catalyst_info_vals(
     return prot_alg_id, public_key_info, alt_sig, other_fields
 
 
+@keyword(name="Verify Hybrid PKIMessage Protection")
 def verify_hybrid_pkimessage_protection(
     pki_message: rfc9480.PKIMessage,
     public_key: Optional[PublicKeySig] = None,
 ) -> None:
     """Verify the protection of a PKIMessage with a hybrid protection scheme.
 
-    :param pki_message: The PKIMessage to verify.
-    :param public_key: The public key to use for verification.
-    (allowed in case of self-signed certificates.)
-    :raises InvalidSignature: If the protection of the PKIMessage is invalid.
+    Verifies the protection of a PKIMessage with a hybrid protection, which
+    includes a composite signature and an alternative signature.
+
+    Arguments:
+    ---------
+        - `pki_message`: The PKIMessage to verify.
+        - `public_key`: The public key to use for verification.
+        (allowed in case of self-signed certificates.)
+
+    Raises:
+    ------
+        - `BadMessageCheck`: If the protection of the PKIMessage is invalid.
+
+    Examples:
+    --------
+    | Verify Hybrid PKIMessage Protection | ${pki_message} | ${public_key} |
+
     """
     prot_alg_id = pki_message["header"]["protectionAlg"]
 

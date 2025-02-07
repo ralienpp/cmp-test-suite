@@ -199,23 +199,44 @@ def sign_cert_catalyst(
     return certbuildutils.sign_cert(signing_key=trad_key, cert=cert, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
 
 
-def validate_catalyst_extensions(
+# TODO update to check for other algorithms.
+
+
+def validate_catalyst_extensions( # noqa: D417 Missing a parameter in the Docstring
     cert: rfc9480.CMPCertificate, sig_alg_must_be: Optional[str] = None
 ) -> Union[None, dict]:
     """Check if the certificate contains all required catalyst extensions.
 
     Required Extensions:
+    --------------------
     - subjectAltPublicKeyInfo
     - altSignatureAlgorithm
     - altSignatureValue
 
-    :param cert: The certificate to check.
-    :param sig_alg_must_be: The signature algorithm that the alternative signature must match.
-    :return: A dictionary with extension values if all are present, else None.
-    (keys are: "signature", "spki", "alg_id")
-    :raises ValueError: If only some catalyst extensions are present or if extensions are malformed.
-    :raises BadAlg: If the signature algorithm does not match the expected value.
-    :raises KeyError: If the signature algorithm is not PQ-signature algorithm.
+    Arguments:
+    ---------
+       - `cert`: The certificate to check.
+       - `sig_alg_must_be`: The signature algorithm name to be expected
+       (e.g., "ml-dsa-44", "ml-dsa-44-sha512" can only be a pq-algorithm).
+       Defaults to `None`.
+
+    Returns:
+    -------
+        - A dictionary with extension values if all are present, else `None`.
+        (keys are: "signature", "spki", "alg_id")
+
+    Raises:
+    ------
+        - `ValueError`: If only some catalyst extensions are present.
+        - `BadAlg`: If the signature algorithm does not match the expected value.
+        - `KeyError`: If the signature algorithm is not PQ-signature algorithm.
+        - `BadAsn1Data`: If extensions are malformed.
+
+    Examples:
+    --------
+    | ${catalyst_ext} = | Validate Catalyst Extensions | ${cert} |
+    | ${catalyst_ext} = | Validate Catalyst Extensions | ${cert} | sig_alg_must_be=ml-dsa-44 |
+
     """
     required_extensions = {id_ce_subjectAltPublicKeyInfo, id_ce_altSignatureAlgorithm, id_ce_altSignatureValue}
 
@@ -244,7 +265,7 @@ def validate_catalyst_extensions(
         alt_signature_value, rest = decoder.decode(extensions[id_ce_altSignatureValue], asn1Spec=AltSignatureValueExt())
 
         if rest:
-            raise ValueError("Invalid altSignatureValue extension content.")
+            raise BadAsn1Data("Invalid altSignatureValue extension content.")
 
         if sig_alg_must_be is not None:
             if "." in sig_alg_must_be:
@@ -261,7 +282,7 @@ def validate_catalyst_extensions(
         }
 
     except pyasn1.error.PyAsn1Error as e:
-        raise ValueError(f"Invalid extension content or verification error: {e}")
+        raise BadAsn1Data(f"Invalid extension content or verification error: {e}")
 
 
 def verify_catalyst_signature_migrated(

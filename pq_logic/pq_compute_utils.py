@@ -204,9 +204,10 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
 
     if rel_cert_desc is not None:
         logging.info("Validate signature with cert discovery.")
-        other_cert = utils.load_certificate_from_uri(
+        other_certs = utils.load_certificate_from_uri(
             uri=rel_cert_desc["uniformResourceIdentifier"], load_chain=load_chain, timeout=timeout
-        )[0]
+        )
+        other_cert = other_certs[0]
         certdiscovery.validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc=rel_cert_desc)
         pq_key = load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
         return pq_key

@@ -1679,6 +1679,31 @@ def get_correct_ca_body_name(request: rfc9480.PKIMessage) -> str:
 
     raise ValueError(f"Invalid body name: {body_name}")
 
+@not_keyword
+def build_ca_message(
+        responses: Union[PKIMessageTMP, Sequence[CertResponseTMP]],
+        request: Optional[rfc9480.PKIMessage] = None,
+        set_header_fields: bool = True,
+        body_name: Optional[str] = None,
+        **pki_header_fields,
+) -> PKIMessageTMP:
+    """Build a PKIMessage for a CA response.
+
+    :param responses: The responses to include in the message.
+    :param request: The PKIMessage containing the certificate request. Defaults to `None`.
+    :param set_header_fields: Whether to set patch the header fields, for the exchange. Defaults to `True`.
+    :param pki_header_fields: Additional key-value pairs to set in the header.
+    :param body_name: The name of the body to use for the response. Defaults to `None`.
+    :return: The PKIMessage for the CA response.
+    """
+    body_name = body_name or get_correct_ca_body_name(request)
+
+    if request and set_header_fields:
+        pki_header_fields = _set_header_fields(request, pki_header_fields)
+
+    pki_message = cmputils._prepare_pki_message(**pki_header_fields)
+    pki_message["body"] = _prepare_ca_body(body_name, responses=responses)
+    return pki_message
 
 def build_rp_from_rr(
     request: rfc9480.PKIMessage,
@@ -1727,7 +1752,6 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
     request: rfc9480.PKIMessage,
     ca_key: Optional[ECDHPrivateKey] = None,
     rand_int: Optional[int] = None,
-    cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
     cert_req_id: Optional[int] = None,
     request_index: Union[int, str] = 0,
     expected_size: Optional[Union[str, int]] = 1,

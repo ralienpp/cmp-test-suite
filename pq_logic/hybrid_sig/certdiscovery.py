@@ -18,14 +18,13 @@ from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import certutils
 from resources.compareutils import compare_alg_id_without_tag
 from resources.oidutils import CMS_COMPOSITE_OID_2_NAME
-from robot.api.deco import keyword
+from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_structures import OnRelatedCertificateDescriptor, RelatedCertificateDescriptor
 from pq_logic.tmp_oids import id_ad_certDiscovery, id_ad_relatedCertificateDescriptor
 
 
-@keyword(name="Prepare RelatedCertificateDescriptor")
-def prepare_related_certificate_descriptor(
+def _prepare_related_certificate_descriptor(
     url: str,
     other_cert: rfc9480.CMPCertificate = None,
     signature_algorithm: rfc5280.AlgorithmIdentifier = None,
@@ -34,10 +33,10 @@ def prepare_related_certificate_descriptor(
     """Prepare a `RelatedCertificateDescriptor` wrapped in an `AnotherName` structure.
 
     :param url: The URI for the secondary certificate.
-    :param other_cert: The primary certificate to infer algorithms from.
-    :param signature_algorithm: Signature algorithm to use.
-    :param public_key_algorithm: Public key algorithm to use.
-    :return: The populated `GeneralName` containing the descriptor.
+    :param other_cert: The secondary certificate to extract the algorithms from. Defaults to `None`.
+    :param signature_algorithm: The signature algorithm to set for the descriptor. Defaults to `None`.
+    :param public_key_algorithm: The public key algorithm to set for the descriptor. Defaults to `None`.
+    :return: The `GeneralName` object containing the `RelatedCertificateDescriptor`.
     """
     other_name = OnRelatedCertificateDescriptor().subtype(
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)
@@ -66,6 +65,7 @@ def prepare_related_certificate_descriptor(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1), cloneValueFlag=True
         )
 
+
     gen_name["otherName"] = other_name
     return gen_name
 
@@ -79,6 +79,22 @@ def prepare_subject_info_access_syntax_extension(
     other_cert: Optional[rfc9480.CMPCertificate] = None,
 ) -> rfc5280.Extension:
     """Prepare a SubjectInfoAccessSyntax extension for certDiscovery.
+
+    Arguments:
+    ---------
+        - url: The location of the other associated certificate. Defaults to `https://example.com/secondary_certificate.pem`.
+        - critical: Whether the extension is critical. Defaults to `False`.
+        - signature_algorithm: The signature algorithm to be included. Defaults to `None`.
+        - public_key_algorithm: The public key algorithm to be included. Defaults to `None`.
+        - other_cert: The primary certificate to infer algorithms from. Defaults to `None`.
+
+    Returns:
+    -------
+        - The populated `Extension`.
+
+    Examples:
+    --------
+    | ${ext}= | Prepare SubjectInfoAccessSyntax Extension | https://example.com/secondary_certificate.pem | ${other_cert} |
 
     :param url: The location of the other associated certificate.
     :param critical: Whether the extension is critical.
@@ -94,7 +110,7 @@ def prepare_subject_info_access_syntax_extension(
 
     access_description["accessMethod"] = id_ad_certDiscovery
 
-    access_description["accessLocation"] = prepare_related_certificate_descriptor(
+    access_description["accessLocation"] = _prepare_related_certificate_descriptor(
         url=url,
         other_cert=other_cert,
         signature_algorithm=signature_algorithm,

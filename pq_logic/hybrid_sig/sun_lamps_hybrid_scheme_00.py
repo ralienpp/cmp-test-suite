@@ -34,7 +34,6 @@ from pq_logic.keys.comp_sig_cms03 import (
     CompositeSigCMSPublicKey,
     compute_hash,
 )
-from pq_logic.pq_utils import fetch_value_from_location
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE_OID_2_HASH,
     id_altSignatureExt,
@@ -655,7 +654,7 @@ def validate_alt_pub_key_extn(  # noqa: D417 Missing argument descriptions in th
     if not location.isValue:
         raise ValueError("The location is not a value, the public key can not be fetched.")
 
-    actual_value = fetch_value_from_location(str(location))
+    actual_value = utils.fetch_value_from_location(str(location))
     public_key = process_public_key(actual_value)
 
     hash_alg_oid = decoded_ext["hashAlg"]["algorithm"]
@@ -746,7 +745,9 @@ def validate_alt_sig_extn(  # noqa: D417 Missing argument descriptions in the do
     data = encoder.encode(cert["tbsCertificate"])
 
     if signature is None:
-        signature = fetch_value_from_location(decoded_ext["location"]) if decoded_ext["location"].isValue else None
+        signature = (
+            utils.fetch_value_from_location(decoded_ext["location"]) if decoded_ext["location"].isValue else None
+        )
     sig_alg_id = decoded_ext["altSigAlgorithm"]
 
     hash_alg = get_hash_from_oid(decoded_ext["hashAlg"]["algorithm"])
@@ -802,7 +803,7 @@ def _parse_alt_sig_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> r
     if to_by_val:
         if not location:
             raise ValueError("Location is required to fetch the signature for ByValue conversion.")
-        fetched_signature = fetch_value_from_location(location)
+        fetched_signature = utils.fetch_value_from_location(location)
         if not fetched_signature:
             raise ValueError(f"Failed to fetch signature from location: {location}")
         new_signature = fetched_signature
@@ -854,7 +855,7 @@ def _parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: bo
         logging.info("used hash alg %s", hash_alg)
 
     else:
-        public_key = fetch_value_from_location(loc)
+        public_key = utils.fetch_value_from_location(loc)
         public_key = process_public_key(public_key)
 
     new_extension = prepare_sun_hybrid_alt_sub_pub_key_ext(
@@ -977,7 +978,7 @@ def get_sun_hybrid_alt_pub_key(  # noqa: D417 Missing argument descriptions in t
             "The location in the AltSubPubKeyExt extension must be a value,to load the public key from the location."
         )
 
-    actual_value = fetch_value_from_location(str(location))
+    actual_value = utils.fetch_value_from_location(str(location))
 
     obj, rest = decoder.decode(actual_value, rfc5280.SubjectPublicKeyInfo())
     if rest != b"":

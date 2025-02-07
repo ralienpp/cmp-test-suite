@@ -34,11 +34,11 @@ from resources.convertutils import pyasn1_time_obj_to_py_datetime
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
 from resources.typingutils import PrivateKey, Strint
+from resources.utils import load_certificate_from_uri
 from robot.api.deco import keyword, not_keyword
 from unit_tests.utils_for_test import convert_to_crypto_lib_cert
 
 from pq_logic.hybrid_structures import RelatedCertificate, RequesterCertificate
-from pq_logic.pq_utils import load_certificate_from_uri
 from pq_logic.tmp_oids import id_aa_relatedCertRequest, id_relatedCert
 
 

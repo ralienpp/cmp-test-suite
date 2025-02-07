@@ -4,17 +4,12 @@
 
 """Utility to handle extra functionality which is only used for "./pq_logic"."""
 
-import logging
-from typing import Any, List, Optional, Union, get_args
+from typing import Any, Union, get_args
 
-import requests
 from cryptography.hazmat.primitives.asymmetric import rsa
-from pyasn1.codec.der import decoder
 from pyasn1.type import univ
-from pyasn1_alt_modules import rfc5990, rfc9480
-from resources import certutils, utils
+from pyasn1_alt_modules import rfc5990
 from resources.oidutils import PQ_KEM_NAME_2_OID
-from resources.typingutils import Strint
 from robot.api.deco import not_keyword
 
 from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeKEMPublicKey
@@ -66,52 +61,3 @@ def is_kem_private_key(key: Any) -> bool:
         return True
 
     return False
-
-
-@not_keyword
-def fetch_value_from_location(location: str) -> Optional[bytes]:
-    """Fetch some value from a given url.
-
-    :param location: The location to fetch the value from.
-    :return: The fetched value as bytes.
-    :raise: ValueError, if the data cannot be fetched.
-    """
-    if not location:
-        return None
-    try:
-        response = requests.get(location)
-        response.raise_for_status()
-        return response.content
-    except Exception as e:
-        raise ValueError(f"Failed to fetch value from {location}: {e}")
-
-
-def load_certificate_from_uri(uri: str, load_chain: bool, timeout: Strint = 20) -> List[rfc9480.CMPCertificate]:
-    """Get the related certificate using the provided URI.
-
-    :param uri: The URI of the secondary certificate.
-    :param load_chain: Whether to load a chain or a single certificate.
-    :param timeout: The timeout for the fetching. Default is `20` seconds.
-    :return: The parsed certificate or chain.
-    :raise ValueError: If the fetching fails.
-    """
-    try:
-        logging.info(f"Fetching secondary certificate from {uri}")
-        response = requests.get(uri, timeout=int(timeout))
-        response.raise_for_status()
-
-    except requests.RequestException as e:
-        raise ValueError(f"Failed to fetch secondary certificate: {e}")
-
-    if not load_chain:
-        cert, rest = decoder.decode(response.content, rfc9480.CMPCertificate())
-        if rest:
-            raise ValueError("The decoding of the fetching certificate had a remainder.")
-
-        return [cert]
-
-    else:
-        certs = response.content.split(b"-----END CERTIFICATE-----\n")
-        certs = [cert for cert in certs if cert.strip()]
-        cert = [certutils.parse_certificate(utils.decode_pem_string(cert)) for cert in certs]
-        return cert

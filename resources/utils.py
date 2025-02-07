@@ -14,6 +14,7 @@ from collections import Counter
 from itertools import combinations
 from typing import Any, Iterable, List, Optional, Tuple, Union
 
+import requests
 from pq_logic.hybrid_structures import CompositeCiphertextValue, CompositeSignatureValue
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, univ
@@ -687,3 +688,58 @@ def manipulate_composite_kemct(  # noqa: D417 Missing argument description in th
     out.append(kem_ct1)
     out.append(kem_ct2)
     return encoder.encode(out)
+
+
+@not_keyword
+def fetch_value_from_location(location: str, timeout: Optional[Union[str, int]] = 20) -> Optional[bytes]:
+    """Fetch some value from a given url.
+
+    :param location: The location to fetch the value from.
+    :param timeout: The timeout for the request. Default is `20` seconds.
+    :return: The fetched value as bytes.
+    :raise: ValueError, if the data cannot be fetched.
+    """
+    if not location:
+        return None
+    try:
+        response = requests.get(location, timeout=int(timeout))
+        response.raise_for_status()
+        return response.content
+    except Exception as e:
+        raise ValueError(f"Failed to fetch value from {location}: {e}")
+
+
+def load_certificate_from_uri(  # noqa: D417 Missing argument description in the docstring
+    uri: str, load_chain: bool = False, timeout: Union[str, int] = 20
+) -> List[rfc9480.CMPCertificate]:
+    """Get the related certificate using the provided URI.
+
+    Arguments:
+    ---------
+       - `uri`: The URI to load the certificate from.
+       - `load_chain`: Whether to load a chain or a single certificate. Defaults to `False`.
+       - `timeout`: The timeout for the request. Defaults to `20` seconds.
+
+    Returns:
+    -------
+       - The loaded certificate(s) as a list.
+
+    Raises:
+    ------
+       - `ValueError`: If the fetching fails.
+       - `ValueError`: If the decoding of the fetching certificate had a remainder.
+
+    """
+    content = fetch_value_from_location(uri, timeout)
+
+    if not load_chain:
+        cert, rest = decoder.decode(content, rfc9480.CMPCertificate())
+        if rest:
+            raise ValueError("The decoding of the fetching certificate had a remainder.")
+
+        return [cert]
+
+    certs = content.split(b"-----END CERTIFICATE-----\n")
+    certs = [cert for cert in certs if cert.strip()]
+    cert = [certutils.parse_certificate(decode_pem_string(cert)) for cert in certs]
+    return cert

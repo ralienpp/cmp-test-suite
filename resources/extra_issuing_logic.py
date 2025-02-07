@@ -765,7 +765,7 @@ def compute_dh_static_pop(
         public_key = load_public_key_from_cert(ca_cert)
         ss = perform_ecdh(private_key=private_key, public_key=public_key)
 
-    # as of rfc 2875
+    # as of RFC 2875
     # If either the subject or
     # issuer name in the CA certificate is empty, then the alternative name
     # should be used in its place.
@@ -816,10 +816,10 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
     ---------
         - `pki_message`: The PKIMessage containing the EncCert to be extracted.
         - `cert_number`: The index of the certified key pair in the response to extract. Defaults to `0`.
-        - `ee_private_key`: The end-entity private key to decrypt the EncCert if it is encrypted.
-        - `server_cert`: The server's CMPCertificate used for validating the EncCert.
-        - `password`: A password for decryption if required by the enveloped data.
-        - `expected_recip_type`: Expected recipient type to validate the encrypted data.
+        - `ee_private_key`: The end-entity private key to decrypt the EncCert if it is encrypted. Defaults to `None`.
+        - `server_cert`: The server's CMPCertificate used for validating the EncCert. Defaults to `None`.
+        - `password`: A password for decryption if required by the enveloped data. Defaults to `None`.
+        - `expected_recip_type`: Expected recipient type to validate the encrypted data. Defaults to `None`.
         - `exclude_rid_check`: A flag indicating whether to exclude the RecipientIdentifier check. Defaults to `False`.
         (should only be used for KEMRecipientInfo, because the rid should be the recipient cert)
 

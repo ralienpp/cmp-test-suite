@@ -32,7 +32,7 @@ from resources.protectionutils import (
     verify_rsassa_pss_from_alg_id,
 )
 from resources.typingutils import PrivateKeySig, PublicKeySig
-from robot.api.deco import keyword, not_keyword
+from robot.api.deco import keyword
 
 import pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig import chameleon_logic
@@ -222,11 +222,30 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
     return None
 
 
-@not_keyword
-def verify_signature_with_alg_id(public_key, alg_id: rfc9480.AlgorithmIdentifier, data: bytes, signature: bytes):
+@keyword(name="Verify Signature With Alg ID")
+def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
+    public_key: VerifyKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes, signature: bytes
+) -> None:
     """Verify the provided data and signature using the given algorithm identifier.
 
     Supports traditional-, pq- and composite signature algorithm.
+
+    Arguments:
+    ---------
+        - `public_key`: The public key to verify the signature.
+        - `alg_id`: An `AlgorithmIdentifier` specifying the algorithm and any associated parameters for signature verification.
+        - `data`: The original message or data whose signature needs verification, as a byte string.
+        - `signature`: The digital signature to verify, as a byte string.
+
+    Raises:
+    ------
+        - `ValueError`: If the algorithm identifier is unsupported or invalid.
+        - `InvalidSignature`: If the signature does not match the provided data under the given algorithm and public key.
+
+    Examples:
+    --------
+    | Verify Signature With Alg ID | ${public_key} | ${alg_id} | ${data} | ${signature} |
+
 
     :param public_key: The public key object used to verify the signature.
     :param alg_id: An `AlgorithmIdentifier` specifying the algorithm and any
@@ -238,6 +257,7 @@ def verify_signature_with_alg_id(public_key, alg_id: rfc9480.AlgorithmIdentifier
     :raises ValueError: If the algorithm identifier is unsupported or invalid.
     :raises InvalidSignature: If the signature does not match the provided data
                               under the given algorithm and public key.
+
     """
     oid = alg_id["algorithm"]
 

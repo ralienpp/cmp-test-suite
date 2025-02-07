@@ -396,7 +396,7 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
 
 
 @keyword(name="Verify CRL Signature")
-def verify_crl_signature(
+def verify_crl_signature(  # noqa D417 undocumented-param
     crl: rfc5280.CertificateList,
     ca_cert: rfc9480.CMPCertificate,
     alt_public_key: Optional[PublicKeySig] = None,
@@ -406,13 +406,22 @@ def verify_crl_signature(
 
     Can also be used to verify the signature of a CRL signed with an alternative key.
 
-    :param crl: The CRL to verify.
-    :param ca_cert: The CA certificate to use for verification.
-    :param alt_public_key: An alternative public key to use for verification. Defaults to `None`.
-    :param must_be_catalyst_signed: If set, the CRL is also signed with an
-    alternative key. Defaults to `False`.
-    :raises InvalidSignature: If the signature is invalid.
-    :raises InvalidAltSignature: If the alternative signature is invalid.
+    Arguments:
+    ---------
+        - `crl`: The CRL to verify.
+        - `ca_cert`: The CA certificate to use for verification.
+        - `alt_public_key`: An alternative public key to use for verification.
+        - `must_be_catalyst_signed`: If set, the CRL is also signed with an alternative key.
+
+    Raises:
+    ------
+        - `InvalidSignature`: If the signature is invalid.
+        - `InvalidAltSignature`: If the alternative signature is invalid.
+
+    Examples:
+    --------
+    | Verify CRL Signature | ${crl} | ${ca_cert} | ${alt_public_key} | ${must_be_catalyst_signed} |
+
     """
     crl_tbs = encoder.encode(crl["tbsCertList"])
     crl_signature = crl["signature"].asOctets()

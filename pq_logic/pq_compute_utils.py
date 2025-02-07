@@ -51,7 +51,8 @@ from pq_logic.tmp_oids import id_altSubPubKeyExt, id_ce_deltaCertificateDescript
 VerifyKey = Union[PQSignaturePublicKey, PublicKeySig, CompositeSigCMSPublicKey]
 SignKey = Union[PrivateKeySig, CompositeSigCMSPrivateKey, PQSignaturePrivateKey]
 
-def sign_data_with_alg_id(key, alg_id: rfc9480.AlgorithmIdentifier, data: bytes) -> bytes:
+
+def sign_data_with_alg_id(key: VerifyKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes) -> bytes:
     """Sign the provided data using the given algorithm identifier.
 
     :param key: The private key used to sign the data.

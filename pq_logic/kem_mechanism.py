@@ -20,7 +20,8 @@ from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 # TODO refactor to add trad wrapper classes for better support and cleaner code.
 
-def perform_ecdh(private_key: ECDHPrivateKey, public_key: ECDHPublicKey) -> bytes:
+
+def _perform_ecdh(private_key: ECDHPrivateKey, public_key: ECDHPublicKey) -> bytes:
     """Derive a shared secret using Elliptic Curve Diffie-Hellman (ECDH) key exchange.
 
     Supports `ec`, `x25519`, and `x448` curves.
@@ -127,7 +128,7 @@ class ECDHKEM(KemMechanism):
         if not self.private_key:
             self.private_key = self.generate_matching_private_key(peer_pub_key)
 
-        shared_secret = perform_ecdh(self.private_key, peer_pub_key)
+        shared_secret = _perform_ecdh(self.private_key, peer_pub_key)
         ephemeral_public_key = self.private_key.public_key()
         return shared_secret, ECDHKEM.encode_public_key(ephemeral_public_key)
 
@@ -155,7 +156,7 @@ class ECDHKEM(KemMechanism):
                 enc_pub_key = x448.X448PublicKey.from_public_bytes(enc)
         else:
             enc_pub_key = enc
-        return perform_ecdh(self.private_key, enc_pub_key)
+        return _perform_ecdh(self.private_key, enc_pub_key)
 
 
 KEY_TYPE_TO_ID = {

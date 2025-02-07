@@ -5,7 +5,7 @@
 """Utility functions for verifying hybrid signatures."""
 
 import logging
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
@@ -45,16 +45,13 @@ from pq_logic.hybrid_sig.certdiscovery import (
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
+from pq_logic.migration_typing import SignKey, VerifyKey
 from pq_logic.tmp_oids import id_altSubPubKeyExt, id_ce_deltaCertificateDescriptor, id_relatedCert
-
-# TODO refactor.
-VerifyKey = Union[PQSignaturePublicKey, PublicKeySig, CompositeSigCMSPublicKey]
-SignKey = Union[PrivateKeySig, CompositeSigCMSPrivateKey, PQSignaturePrivateKey]
 
 
 @keyword(name="Sign Data With Alg ID")
 def sign_data_with_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
-    key: VerifyKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes
+    key: SignKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes
 ) -> bytes:
     """Sign the provided data using the given algorithm identifier.
 

@@ -96,6 +96,7 @@ def prepare_validity(  # noqa D417 undocumented-param
     return validity
 
 
+@not_keyword
 def prepare_sig_alg_id(
     signing_key: PrivateKeySig,
     hash_alg: str,

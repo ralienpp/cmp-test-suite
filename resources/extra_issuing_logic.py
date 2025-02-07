@@ -55,7 +55,7 @@ def prepare_pkmac_popo(  # noqa D417 undocumented-param
     mac_alg: str = "password_based_mac",
     salt: Optional[Union[bytes, str]] = None,
     hash_alg: str = "sha256",
-    iterations: int = 100000,
+    iterations: Strint = 100000,
 ) -> rfc4211.ProofOfPossession:
     """Prepare the Proof-of-Possession structure for the PKMAC value.
 
@@ -98,7 +98,7 @@ def prepare_pkmac_popo(  # noqa D417 undocumented-param
         mac_alg=mac_alg,
         for_agreement=False,
         hash_alg=hash_alg,
-        iterations=iterations,
+        iterations=int(iterations),
         salt=salt,
     )
 
@@ -410,11 +410,11 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     pki_message: bytes,
     ee_key: Optional[EnvDataPrivateKey] = None,
     password: Optional[Union[str, bytes]] = None,
-    challenge_size: Union[str, int] = 1,
-    index: Union[str, int] = 0,
-    cert_req_id: Union[str, int] = 0,
-    recip_index: Union[str, int] = 0,
-    expected_size: Union[str, int] = 1,
+    challenge_size: Strint = 1,
+    challenge_index: Strint = 0,
+    cert_req_id: Strint = 0,
+    recip_index: Strint = 0,
+    expected_size: Strint = 1,
     expected_sender: Optional[str] = None,
     iv: Union[str, bytes] = "A" * 16,
     **kwargs,
@@ -470,7 +470,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
         raise BadRequest(f"Expected {challenge_size} challenges, got {len(pki_message['body']['popdecc'])}")
 
     popdecc = pki_message["body"]["popdecc"]
-    challenge = popdecc[index]
+    challenge = popdecc[int(challenge_index)]
     validate_popdecc_version(pki_message)  # type: ignore
 
     if challenge["encryptedRand"].isValue:
@@ -479,9 +479,9 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
             pki_message=pki_message,  # type: ignore
             password=password,
             ee_key=ee_key,
-            recip_index=recip_index,
-            cert_req_id=cert_req_id,
-            expected_size=expected_size,
+            recip_index=int(recip_index),
+            cert_req_id=int(cert_req_id),
+            expected_size=int(expected_size),
         )
 
     else:

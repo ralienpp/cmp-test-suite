@@ -912,7 +912,7 @@ def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descr
         "Form3": (False, True),
         "Form4": (False, False),
     }
-
+    # Make a copy of the certificate, so that the original is not modified.
     tmp_cert = copy_asn1_certificate(cert)
 
     if target_form not in form_map:

@@ -11,7 +11,7 @@ import datetime
 from typing import Any, Optional, Union
 
 from cryptography.hazmat.primitives import serialization
-from pq_logic.keys.abstract_composite import AbstractCompositePublicKey, AbstractCompositePrivateKey
+from pq_logic.keys.abstract_composite import AbstractCompositePrivateKey, AbstractCompositePublicKey
 from pq_logic.keys.abstract_pq import PQSignaturePublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ

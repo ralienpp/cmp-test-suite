@@ -7,23 +7,22 @@
 import logging
 
 from pyasn1_alt_modules import rfc9480
-from robot.api.deco import keyword
-
-from pq_logic.pq_utils import is_kem_public_key
 from resources import asn1utils, certextractutils
 from resources.certutils import load_public_key_from_cert
 from resources.exceptions import UnknownOID
-from resources.oidutils import HYBRID_NAME_2_OID, PQ_NAME_2_OID, PQ_OID_2_NAME, HYBRID_OID_2_NAME
+from resources.oidutils import HYBRID_NAME_2_OID, HYBRID_OID_2_NAME, PQ_NAME_2_OID, PQ_OID_2_NAME
+from robot.api.deco import keyword
 
-from pq_logic.keys.abstract_composite import AbstractCompositeKEMPublicKey, AbstractCompositeSigPublicKey
-from pq_logic.keys.abstract_pq import PQKEMPublicKey, PQPublicKey, PQSignaturePublicKey
-from pq_logic.keys.xwing import XWingPublicKey
+from pq_logic.keys.abstract_composite import AbstractCompositeSigPublicKey
+from pq_logic.keys.abstract_pq import PQPublicKey, PQSignaturePublicKey
+from pq_logic.pq_utils import is_kem_public_key
 
 # https://www.ietf.org/archive/id/draft-ietf-lamps-kyber-certificates-06.txt
 # section 3:
 # When any of the ML-KEM AlgorithmIdentifier appears in the
 # SubjectPublicKeyInfo field of an X.509 certificate, the key usage
 # certificate extension MUST only contain `keyEncipherment`.
+
 
 @keyword(name="Validate Migration Alg ID")
 def validate_migration_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
@@ -42,6 +41,7 @@ def validate_migration_alg_id(  # noqa: D417 Missing argument descriptions in th
     Examples:
     --------
     | Validate Migration Alg ID | ${alg_id} |
+
     """
     if alg_id["algorithm"] not in PQ_OID_2_NAME:
         if alg_id["parameters"].isValue:
@@ -134,8 +134,10 @@ def validate_migration_oid_in_certificate(  # noqa: D417 Missing argument descri
 
     name_oid = PQ_NAME_2_OID.get(name) or HYBRID_NAME_2_OID.get(name)
     if name_oid is None:
-        raise ValueError(f"The name {name} is not supported."
-                         f" Supported names are: {list(PQ_NAME_2_OID.keys()) + list(HYBRID_NAME_2_OID.keys())}")
+        raise ValueError(
+            f"The name {name} is not supported."
+            f" Supported names are: {list(PQ_NAME_2_OID.keys()) + list(HYBRID_NAME_2_OID.keys())}"
+        )
 
     if PQ_NAME_2_OID.get(name) is not None:
         if str(pub_oid) != str(PQ_NAME_2_OID[name]):

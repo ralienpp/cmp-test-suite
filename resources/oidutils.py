@@ -13,6 +13,7 @@ from pq_logic.tmp_oids import (
     CHEMPAT_OID_2_NAME,
     CMS_COMPOSITE_OID_2_HASH,
     COMPOSITE_KEM_OID_2_NAME,
+    COMPOSITE_SIG_OID_2_NAME,
     FALCON_NAME_2_OID,
     FRODOKEM_NAME_2_OID,
     FRODOKEM_OID_2_NAME,
@@ -23,7 +24,7 @@ from pq_logic.tmp_oids import (
     PURE_COMPOSITE_NAME_TO_OID,
     PURE_OID_TO_HASH,
     id_ce_deltaCertificateDescriptor,
-    id_sntrup761_str, COMPOSITE_SIG_NAME_2_OID, COMPOSITE_SIG_OID_2_NAME,
+    id_sntrup761_str,
 )
 from pyasn1.type import univ
 from pyasn1_alt_modules import (

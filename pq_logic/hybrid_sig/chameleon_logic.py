@@ -183,6 +183,7 @@ def build_chameleon_base_certificate(
     use_rsa_pss: bool = False,
     critical: bool = False,
     hash_alg: Optional[str] = None,
+    bad_sig: bool = False,
 ) -> rfc9480.CMPCertificate:
     """Issue a Base Certificate with the DeltaCertificateDescriptor (DCD) extension.
 
@@ -193,6 +194,7 @@ def build_chameleon_base_certificate(
     :param critical: Whether the DCD extension is critical. Defaults to `False`.
     :param hash_alg: Hash algorithm used for signing the paired certificate (e.g., 'sha256').
     (if not provided, it will be extracted from the Delta Certificate).
+    :param bad_sig: Whether to make the signature invalid. Defaults to `False`.
     :return: A fully signed Base Certificate structure.
     """
     # As of Section 4 Note:
@@ -225,7 +227,10 @@ def build_chameleon_base_certificate(
 
     base_cert = rfc9480.CMPCertificate()
     base_cert["tbsCertificate"] = base_tbs_cert
-    base_cert = sign_cert(cert=base_cert, signing_key=ca_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
+    base_cert = sign_cert(cert=base_cert, signing_key=ca_key, hash_alg=hash_alg,
+                          use_rsa_pss=use_rsa_pss,
+                          bad_sig=bad_sig
+                          )
     return base_cert
 
 @keyword(name="Validate DCD Extension")

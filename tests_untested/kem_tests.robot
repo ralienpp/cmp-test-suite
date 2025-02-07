@@ -196,7 +196,7 @@ CA MUST support KEMBasedMAC
     [Tags]    kem-based-mac   genm
     ${result}=   Is Certificate And Key Set    ${KEM_CERT}   ${KEM_KEY}
     SKIP IF  not ${result}    KEM Certificate and Key not set
-    ${info_val}=    Prepare KEM CiphertextInfo   ${KEM_KEY}
+    ${info_val}=    Prepare KEMCiphertextInfo   ${KEM_KEY}
     ${genm}=   Build General Message   ${info_val}   sender=${SENDER}   recipient=${RECIPIENT}
     ${genp}=   Exchange PKIMessage    ${genm}
     ${ss}=   Validate Genp Kem Ct Info    ${genp}    ${KEM_KEY}
@@ -215,7 +215,7 @@ CA Reject invalid KEMBasedMAC Protected Message
     [Tags]    kem-based-mac   genm
     ${result}=   Is Certificate And Key Set    ${KEM_CERT}   ${KEM_KEY}
     SKIP IF  not ${result}    KEM Certificate and Key not set
-    ${info_val}=    Prepare KEM CiphertextInfo   ${KEM_KEY}
+    ${info_val}=    Prepare KEMCiphertextInfo   ${KEM_KEY}
     ${genm}=   Build General Message   ${info_val}   sender=${SENDER}   recipient=${RECIPIENT}
     ${genp}=   Exchange PKIMessage    ${genm}
     ${ss}=   Validate Genp Kem Ct Info    ${genp}    ${KEM_KEY}

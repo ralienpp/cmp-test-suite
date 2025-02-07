@@ -2285,6 +2285,7 @@ def _prepare_aes_wrap_alg_id(name: str) -> rfc9480.AlgorithmIdentifier:
     return aes_wrap
 
 
+@keyword(name="Prepare KEMCiphertextInfo")
 def prepare_kem_ciphertextinfo(  # noqa: D417 Missing argument description in the docstring
     key: Union[KEMPublicKey, KEMPrivateKey],
     ct: Optional[bytes] = None,
@@ -2301,11 +2302,16 @@ def prepare_kem_ciphertextinfo(  # noqa: D417 Missing argument description in th
 
     Returns:
     -------
-        - The populated `InfoTypeAndValue` object.
+        - The populated `InfoTypeAndValue` structure.
 
     Raises:
     ------
         - `ValueError`: if the `key` is not a `KEMPublicKey` or `KEMPrivateKey`.
+
+    Examples:
+    --------
+    | ${info_value}= | Prepare KEM CiphertextInfo | ${key} |
+    | ${info_value}= | Prepare KEM CiphertextInfo | ${key} | ${ct} |
 
     """
     oid = get_kem_oid_from_key(key)

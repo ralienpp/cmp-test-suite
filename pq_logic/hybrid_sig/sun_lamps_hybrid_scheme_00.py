@@ -17,7 +17,6 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc2986, rfc4211, rfc5280, rfc6402, rfc9480
@@ -25,8 +24,8 @@ from resources import certbuildutils, certextractutils, cryptoutils, keyutils, u
 from resources.convertutils import copy_asn1_certificate
 from resources.oid_mapping import get_hash_from_oid, sha_alg_name_to_oid
 from resources.protectionutils import prepare_sha_alg_id
-from resources.typingutils import PublicKey
-from robot.api.deco import not_keyword
+from resources.typingutils import PrivateKeySig, PublicKey
+from robot.api.deco import keyword, not_keyword
 
 from pq_logic import pq_compute_utils
 from pq_logic.combined_factory import CombinedKeyFactory
@@ -67,7 +66,7 @@ def _hash_public_key(public_key, hash_alg: str) -> bytes:
 #############
 
 
-def prepare_alt_sub_pub_key_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
+def _prepare_alt_sub_pub_key_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
     """Prepare the Alternative Subject Public Key Hash Algorithm Attribute.
 
     :param hash_alg: The hash algorithm name (e.g., "sha256").
@@ -82,7 +81,7 @@ def prepare_alt_sub_pub_key_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
     return attr
 
 
-def prepare_alt_sub_pub_key_loc_attr(location: str) -> rfc2986.Attribute:
+def _prepare_alt_sub_pub_key_loc_attr(location: str) -> rfc2986.Attribute:
     """Prepare the Alternative Subject Public Key Location Attribute.
 
     :param location: URI string representing the location of the alternative public key.
@@ -94,7 +93,7 @@ def prepare_alt_sub_pub_key_loc_attr(location: str) -> rfc2986.Attribute:
     return attr
 
 
-def prepare_alt_sig_value_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
+def _prepare_alt_sig_value_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
     """Prepare the Alternative Signature Value Hash Algorithm Attribute.
 
     :param hash_alg: The hash algorithm name (e.g., "sha256").
@@ -109,7 +108,7 @@ def prepare_alt_sig_value_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
     return attr
 
 
-def prepare_alt_sig_value_loc_attr(location: str) -> rfc2986.Attribute:
+def _prepare_alt_sig_value_loc_attr(location: str) -> rfc2986.Attribute:
     """Prepare the Alternative Signature Value Location Attribute.
 
     :param location: URI string representing the location of the alternative signature.
@@ -121,7 +120,7 @@ def prepare_alt_sig_value_loc_attr(location: str) -> rfc2986.Attribute:
     return attr
 
 
-def prepare_sun_hybrid_csr_attributes(
+def prepare_sun_hybrid_csr_attributes(  # noqa: D417 Missing argument descriptions in the docstring
     pub_key_hash_alg: Optional[str] = None,
     pub_key_location: Optional[str] = None,
     sig_hash_alg: Optional[str] = None,
@@ -129,25 +128,36 @@ def prepare_sun_hybrid_csr_attributes(
 ) -> List[rfc2986.Attribute]:
     """Prepare all alternative public key and signature attributes.
 
-    :param pub_key_hash_alg: AlgorithmIdentifier for the public key hash algorithm (optional).
-    :param pub_key_location: URI string for the alternative public key location (optional).
-    :param sig_hash_alg: AlgorithmIdentifier for the signature hash algorithm (optional).
-    :param sig_value_location: URI string for the alternative signature location (optional).
-    :return: List of rfc2986.Attribute objects.
+    Arguments:
+    ---------
+        - `pub_key_hash_alg`: The hash algorithm name to be used to hash the alternative public key.
+        - `pub_key_location`: The location of the alternative public key.
+        - `sig_hash_alg`: The hash algorithm name to be used to hash the alternative signature.
+        - `sig_value_location`: The location of the alternative signature.
+
+    Returns:
+    -------
+        - A list of `Attribute` objects representing the alternative public key and signature attributes.
+
+    Examples:
+    --------
+    | ${attributes}= | Prepare Sun Hybrid CSR Attributes | pub_key_hash_alg=sha256 | http://example.com/pub_key |
+    | ${attributes}= | Prepare Sun Hybrid CSR Attributes | pub_key_hash_alg=sha256 | pub_key_location=http://example.com/pub_key |
+
     """
     attributes = []
 
     if pub_key_hash_alg is not None:
-        attributes.append(prepare_alt_sub_pub_key_hash_alg_attr(pub_key_hash_alg))
+        attributes.append(_prepare_alt_sub_pub_key_hash_alg_attr(pub_key_hash_alg))
 
     if pub_key_location is not None:
-        attributes.append(prepare_alt_sub_pub_key_loc_attr(pub_key_location))
+        attributes.append(_prepare_alt_sub_pub_key_loc_attr(pub_key_location))
 
     if sig_hash_alg is not None:
-        attributes.append(prepare_alt_sig_value_hash_alg_attr(sig_hash_alg))
+        attributes.append(_prepare_alt_sig_value_hash_alg_attr(sig_hash_alg))
 
     if sig_value_location is not None:
-        attributes.append(prepare_alt_sig_value_loc_attr(sig_value_location))
+        attributes.append(_prepare_alt_sig_value_loc_attr(sig_value_location))
 
     return attributes
 

@@ -168,7 +168,7 @@ def _prepare_dcd_extensions(
 
 ### as of Section 4.2. Issuing a Base Certificate
 
-
+@not_keyword
 def build_chameleon_base_certificate(
     delta_cert: rfc9480.CMPCertificate,
     base_tbs_cert: rfc5280.TBSCertificate,

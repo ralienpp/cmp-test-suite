@@ -23,16 +23,7 @@ from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
 from resources import certbuildutils, cmputils, keyutils, protectionutils
 from resources.asn1_structures import PKIMessagesTMP
-from resources.ca_ra_utils import (
-    build_cp_from_p10cr,
-    build_ip_cmp_message,
-    get_cert_req_msg_from_pkimessage,
-    get_correct_ca_body_name,
-    get_public_key_from_cert_req_msg,
-    prepare_cert_response,
-    prepare_encr_cert_for_request,
-    verify_sig_pop_for_pki_request,
-)
+from resources import ca_ra_utils
 from resources.certextractutils import extract_extension_from_csr, get_extension
 from resources.convertutils import copy_asn1_certificate
 from resources.exceptions import BadAlg, BadAsn1Data, InvalidAltSignature, InvalidKeyCombination, UnknownOID
@@ -111,14 +102,14 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
             serial_number=serial_number,
             issuer_cert=issuer_cert,
         )
-        pki_message = build_cp_from_p10cr(request=request, cert=cert4, cert_req_id=-1)
+        pki_message = ca_ra_utils.build_cp_from_p10cr(request=request, cert=cert4, cert_req_id=-1)
 
     elif request["body"].getName() in ["ir", "cr"]:
         cert_index = cert_index if cert_index is not None else 0
         cert_req_msg: rfc4211.CertReqMsg = request["body"]["ir"][cert_index]
-        public_key = get_public_key_from_cert_req_msg(cert_req_msg)
+        public_key = ca_ra_utils.get_public_key_from_cert_req_msg(cert_req_msg)
         if isinstance(public_key, AbstractCompositeSigPublicKey):
-            verify_sig_pop_for_pki_request(request, cert_index)
+            ca_ra_utils.verify_sig_pop_for_pki_request(request, cert_index)
             cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_cert_template_to_cert(
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
                 issuer_cert=issuer_cert,
@@ -128,7 +119,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
                 sig_loc=sig_loc,
             )
 
-            pki_message, _ = build_ip_cmp_message(
+            pki_message, _ = ca_ra_utils.build_ip_cmp_message(
                 cert=cert4,
                 request=request,
                 cert_req_id=cert_req_msg or cert_req_msg["certReq"]["certReqId"],
@@ -214,7 +205,7 @@ def build_enc_cert_response(
     cert_req_msg: rfc4211.CertReqMsg = request["body"]["ir"][cert_index]
     cert_req_id = cert_req_id or cert_req_msg["certReq"]["certReqId"]
 
-    enc_cert = prepare_encr_cert_for_request(
+    enc_cert = ca_ra_utils.prepare_encr_cert_for_request(
         cert_req_msg=cert_req_msg,
         signing_key=signing_key,
         hash_alg=hash_alg,
@@ -224,7 +215,7 @@ def build_enc_cert_response(
         client_pub_key=client_pub_key,
     )
 
-    cert_response = prepare_cert_response(
+    cert_response = ca_ra_utils.prepare_cert_response(
         request=request,
         enc_cert=enc_cert,
         cert_req_id=cert_req_id,
@@ -282,7 +273,7 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
     if request["body"].getName() == "p10cr":
         raise ValueError("Only IR or CR is supported to build a encrypted certificate response.")
 
-    cert_req_msg = get_cert_req_msg_from_pkimessage(
+    cert_req_msg = ca_ra_utils.get_cert_req_msg_from_pkimessage(
         pki_message=request,
         index=cert_index,
     )
@@ -336,7 +327,7 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
             client_pub_key=public_key,
         )
     else:
-        pki_message, _ = build_ip_cmp_message(
+        pki_message, _ = ca_ra_utils.build_ip_cmp_message(
             cert=cert,
             request=request,
             cert_req_id=int(cert_req_msg["certReq"]["certReqId"]),
@@ -458,7 +449,7 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
     alt_sig_alg_id = get_extension(cert_template["extensions"], id_ce_altSignatureAlgorithm)
     alt_sig = get_extension(cert_template["extensions"], id_ce_altSignatureValue)
 
-    first_key = get_public_key_from_cert_req_msg(cert_req_msg)
+    first_key = ca_ra_utils.get_public_key_from_cert_req_msg(cert_req_msg)
 
     if cert_req_msg["popo"].getName() == "keyEncipherment":
         _verify_alt_sig_for_pop(
@@ -704,7 +695,7 @@ def build_catalyst_signed_cert_from_p10cr(
     if cert_req_id is None:
         cert_req_id = -1
 
-    return build_cp_from_p10cr(cert=cert, request=request, cert_req_id=int(cert_req_id))
+    return ca_ra_utils.build_cp_from_p10cr(cert=cert, request=request, cert_req_id=int(cert_req_id))
 
 
 def _process_single_catalyst_request(
@@ -763,7 +754,7 @@ def _process_single_catalyst_request(
 
     enc_cert = None
     if cert_req_msg["popo"].getName() == "keyEncipherment":
-        enc_cert = prepare_encr_cert_for_request(
+        enc_cert = ca_ra_utils.prepare_encr_cert_for_request(
             cert_req_msg=cert_req_msg,
             signing_key=ca_key,
             hash_alg=hash_alg,
@@ -773,7 +764,7 @@ def _process_single_catalyst_request(
             client_pub_key=None,
         )
 
-    cert_response = prepare_cert_response(
+    cert_response = ca_ra_utils.prepare_cert_response(
         cert=new_ee_cert,
         cert_req_id=int(cert_req_id),
         enc_cert=enc_cert,
@@ -811,7 +802,7 @@ def _process_catalyst_requests(
 
     body_name = requests["body"].getName()
     for idx, cert_req_ms in enumerate(requests["body"][body_name]):
-        verify_sig_pop_for_pki_request(
+        ca_ra_utils.verify_sig_pop_for_pki_request(
             pki_message=requests,
             cert_index=idx,
         )
@@ -877,7 +868,7 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
 
     elif request["body"].getName() in ["ir", "cr", "kur", "ccr"]:
         if cert_index is not None:
-            cert_req_msg = get_cert_req_msg_from_pkimessage(
+            cert_req_msg = ca_ra_utils.get_cert_req_msg_from_pkimessage(
                 pki_message=request,
                 index=int(cert_index),
             )
@@ -910,7 +901,7 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
             f"Body type needs to be either `p10cr` or `ir` or `cr` or `kur` or `crr`.Got: {request['body'].getName()}"
         )
 
-    body_name = get_correct_ca_body_name(request=request)
+    body_name = ca_ra_utils.get_correct_ca_body_name(request=request)
     pki_message = build_ca_pki_message(body_type=body_name, responses=cert_responses)
     return pki_message, certs
 
@@ -952,7 +943,7 @@ def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in t
         ca_cert=ca_cert,
         ca_key=ca_key,
     )
-    pki_message, cert = build_cp_from_p10cr(cert=cert, request=request, **kwargs)
+    pki_message, cert = ca_ra_utils.build_cp_from_p10cr(cert=cert, request=request, **kwargs)
     if cmp_protection_cert is None:
         pki_message["extraCerts"].append(cmp_protection_cert)
 

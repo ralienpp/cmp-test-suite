@@ -21,9 +21,9 @@ class CMPTestSuiteError(Exception, ABC):
     error_details: List[str]
     bit_num: int = -1
 
-    def __init__(self, message: str,
-                 extra_details: Optional[Union[List[str], str]] = None,
-                 failinfo: Optional[str] = None):
+    def __init__(
+        self, message: str, extra_details: Optional[Union[List[str], str]] = None, failinfo: Optional[str] = None
+    ):
         """Initialize the exception with the message.
 
         :param message: The message to display.

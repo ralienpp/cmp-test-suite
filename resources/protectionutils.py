@@ -935,6 +935,7 @@ def prepare_rsa_pss_alg_id(hash_alg: str, salt_length: Optional[int] = None) -> 
     alg_id["parameters"] = pss_params
     return alg_id
 
+
 @not_keyword
 def prepare_dh_based_mac_alg_id(
     hash_alg: str = "sha1", mac_alg: str = "hmac", salt: Optional[Union[bytes, str]] = None
@@ -2109,6 +2110,7 @@ def compute_kem_based_mac_from_alg_id(
 
     raise ValueError(f"Unsupported MAC algorithm: {may_return_oid_to_name(mac_oid)}")
 
+
 @not_keyword
 def prepare_kem_based_mac_alg_id(
     kem_context: Optional[KemOtherInfoAsn1] = None,
@@ -2182,6 +2184,7 @@ def _prepare_ansi_x9_kdf(
 
     return kdf
 
+
 @not_keyword
 def prepare_kdf(
     kdf_name: str,
@@ -2215,6 +2218,7 @@ def prepare_kdf(
         return prepare_pbkdf2_alg_id(salt=salt, iterations=int(iterations), key_length=int(length), hash_alg=hash_alg)
 
     raise ValueError(f"Unsupported KDF algorithm: {kdf_name}")
+
 
 @not_keyword
 def prepare_wrap_alg_id(name: str, fill_rand_params: bool = False) -> rfc9629.KeyEncryptionAlgorithmIdentifier:
@@ -2317,6 +2321,7 @@ def prepare_kem_ciphertextinfo(  # noqa: D417 Missing argument description in th
 
     return info_value
 
+
 @not_keyword
 def prepare_kem_other_info(
     transaction_id: bytes, context: Optional[bytes] = None, static_string: Union[List[str], str] = "CMP-KEM"
@@ -2343,8 +2348,9 @@ def prepare_kem_other_info(
 
     return other_info
 
+
 @keyword(name="Protect PKIMessage KEMBasedMAC")
-def protect_pkimessage_kem_based_mac( # noqa: D417 Missing argument description in the docstring
+def protect_pkimessage_kem_based_mac(  # noqa: D417 Missing argument description in the docstring
     pki_message: rfc9480.PKIMessage,
     private_key: Optional[PQKEMPrivateKey] = None,
     shared_secret: Optional[Union[bytes, str]] = None,

@@ -470,7 +470,7 @@ def _prepare_archive_options(
     return attr
 
 
-def validate_archive_options( # noqa D417 undocumented-param
+def validate_archive_options(  # noqa D417 undocumented-param
     controls: rfc9480.Controls,
     must_be_present: bool = False,
 ) -> Optional[rfc9480.EncryptedKey]:
@@ -521,8 +521,9 @@ def validate_archive_options( # noqa D417 undocumented-param
 
 # RFC4210bis-16 Section 5.2.7. Publication Information
 
+
 @keyword(name="Prepare PKIPublicationInformation")
-def prepare_publication_information( # noqa D417 undocumented-param
+def prepare_publication_information(  # noqa D417 undocumented-param
     dont_publish: bool = False, pub_method: Optional[str] = "x500", pub_location: Optional[str] = None
 ) -> rfc4211.AttributeTypeAndValue:
     """Prepare the PKIPublicationInfo structure, to be used inside the Controls structure.
@@ -579,9 +580,11 @@ def prepare_publication_information( # noqa D417 undocumented-param
 
     return attr
 
+
 @keyword(name="Prepare regToken Controls")
-def prepare_reg_token_controls( # noqa D417 undocumented-param
-        token: Union[str, bytes]) -> rfc4211.AttributeTypeAndValue:
+def prepare_reg_token_controls(  # noqa D417 undocumented-param
+    token: Union[str, bytes],
+) -> rfc4211.AttributeTypeAndValue:
     """Prepare the regToken control, to be used inside the Controls structure.
 
     Only used for initialization of an end entity into the PKI, to verify the identity of the subject.
@@ -614,8 +617,9 @@ def prepare_reg_token_controls( # noqa D417 undocumented-param
     return attr
 
 
-def prepare_authorization_control( # noqa D417 undocumented-param
-        auth_info: Union[bytes, str]) -> rfc4211.AttributeTypeAndValue:
+def prepare_authorization_control(  # noqa D417 undocumented-param
+    auth_info: Union[bytes, str],
+) -> rfc4211.AttributeTypeAndValue:
     """Prepare the authorization control, to be used inside the Controls structure.
 
     Used for the initial certificate request or on-going request to the CA.
@@ -650,8 +654,9 @@ def prepare_authorization_control( # noqa D417 undocumented-param
 
 # TODO correct EncryptedKey logic to allow this for KeyAgreement or KEM as well.
 
+
 @keyword(name="Prepare Controls protocolEncrKey")
-def prepare_controls_protocol_encr_key( # noqa D417 undocumented-param
+def prepare_controls_protocol_encr_key(  # noqa D417 undocumented-param
     ca_public_key: Optional[PublicKey] = None, ca_cert: Optional[rfc9480.CMPCertificate] = None
 ) -> rfc4211.AttributeTypeAndValue:
     """Prepare the protocolEncrKey structure, to be used inside the Controls structure.
@@ -690,8 +695,9 @@ def prepare_controls_protocol_encr_key( # noqa D417 undocumented-param
     return attr
 
 
-def validate_publication_information( # noqa D417 undocumented-param
-        controls: rfc9480.Controls, must_be_present: bool = False) -> None:
+def validate_publication_information(  # noqa D417 undocumented-param
+    controls: rfc9480.Controls, must_be_present: bool = False
+) -> None:
     """Validate the PKIPublicationInfo structure, to be used inside the Controls structure.
 
     Arguments:
@@ -3578,8 +3584,9 @@ def prepare_rev_req_content(  # noqa D417 undocumented-param
 
 
 @keyword(name="Get PKIStatusInfo")
-def get_pkistatusinfo( # noqa D417 undocumented-param
-        pki_message: PKIMessageTMP, index: Strint = 0) -> rfc9480.PKIStatusInfo:
+def get_pkistatusinfo(  # noqa D417 undocumented-param
+    pki_message: PKIMessageTMP, index: Strint = 0
+) -> rfc9480.PKIStatusInfo:
     """Extract PKIStatusInfo from the PKIMessage based on the body type.
 
     The following body types are supported: "error", "rp", "ip", "cp", "kup".

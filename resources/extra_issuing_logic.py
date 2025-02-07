@@ -47,7 +47,7 @@ from resources.utils import get_openssl_name_notation
 
 
 @keyword(name="Prepare PKMAC POPO")
-def prepare_pkmac_popo(
+def prepare_pkmac_popo(  # noqa D417 undocumented-param
     cert_request: rfc4211.CertRequest,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     private_key: Optional[PrivateKey] = None,
@@ -80,9 +80,10 @@ def prepare_pkmac_popo(
         - `ValueError`: If the shared secret or the private key and CA certificate are not provided.
 
     Examples:
-    ---------
+    --------
     | ${popo} = | Prepare PKMAC POPO | ${cert_request} | ${shared_secret} |
     | ${popo} = | Prepare PKMAC POPO | ${cert_request} | ${ca_cert} |
+
     """
     if shared_secret is None:
         if private_key is None or ca_cert is None:
@@ -101,8 +102,9 @@ def prepare_pkmac_popo(
         salt=salt,
     )
 
+
 @keyword(name="Prepare EncKeyWithID")
-def prepare_enc_key_with_id(
+def prepare_enc_key_with_id(  # noqa D417 undocumented-param
     private_key: PrivateKey, sender: Optional[str] = None, use_string: bool = False
 ) -> rfc4211.EncKeyWithID:
     """Prepare the private key for the Proof-of-Possession structure.
@@ -120,8 +122,9 @@ def prepare_enc_key_with_id(
       - The populated `EncKeyWithID` structure.
 
     Examples:
-    ---------
+    --------
     | ${enc_key} = | Prepare EncKeyWithID | ${private_key} | ${sender} | use_string=${True} |
+
     """
     one_asym_key = prepare_one_asymmetric_key(private_key)
 
@@ -143,8 +146,9 @@ def prepare_enc_key_with_id(
     logging.debug("Private key for PoP:  %s", data.prettyPrint())
     return data
 
+
 @keyword(name="Prepare KEM EnvelopedData For POPO")
-def prepare_kem_env_data_for_popo( # noqa D417 undocumented-param
+def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
     ca_cert: rfc9480.CMPCertificate,
     data: Optional[Union[Asn1Type, bytes, str]] = None,
     client_key: Optional[PrivateKey] = None,
@@ -177,9 +181,10 @@ def prepare_kem_env_data_for_popo( # noqa D417 undocumented-param
         - The `ProofOfPossession` structure for the KEM-based key exchange.
 
     Examples:
-    ---------
+    --------
     | ${popo} = | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} |
     | ${popo} = | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} | rid_sender=${rid} |
+
     """
     if data is not None:
         if isinstance(data, Asn1Type):
@@ -278,7 +283,7 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
     raise ValueError("Unsupported recipient information type.")
 
 
-def validate_kemri_rid_for_encrypted_cert( # noqa D417 undocumented-param
+def validate_kemri_rid_for_encrypted_cert(  # noqa D417 undocumented-param
     pki_message: PKIMessageTMP,
     key: Optional[Union[KEMPublicKey, KEMPrivateKey]] = None,
     issuer: Optional[str] = None,
@@ -303,7 +308,7 @@ def validate_kemri_rid_for_encrypted_cert( # noqa D417 undocumented-param
         - `ValueError`: If neither the key or issuer and serial number are provided.
 
     Examples:
-    ---------
+    --------
     | Validate KEMRI Rid For Encrypted Cert | ${pki_message} | ${key} | ${issuer} | ${serial_number} |
     | Validate KEMRI Rid For Encrypted Cert | ${pki_message} | ${key} | cert_number=1 |
 
@@ -342,7 +347,7 @@ def validate_kemri_rid_for_encrypted_cert( # noqa D417 undocumented-param
 
 
 @keyword(name="Validate Rid For encryptedRand")
-def validate_rid_for_encrypted_rand(
+def validate_rid_for_encrypted_rand(  # noqa D417 undocumented-param
     env_data: rfc5652.EnvelopedData,
     cert_req_id: Strint,
     recip_index: Strint = 0,
@@ -364,6 +369,7 @@ def validate_rid_for_encrypted_rand(
     Raises:
     ------
         - `ValueError`: If the `rid` field is not correctly populated with `NULL-DN` and `certReqId` as `serialNumber`.
+
     """
     recipient_infos: rfc9480 = env_data["recipientInfos"]
     recipient_info: rfc5652.RecipientInfo = recipient_infos[int(recip_index)]
@@ -453,7 +459,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
         - `ValueError`: If the `rid` field is not correctly populated with NULL-DN and `cert_req_id` as `serialNumber`.
 
     Examples:
-    ---------
+    --------
     | ${response} = | Process PKIMessage With Popdecc | ${pki_message} | ${ee_key} |
     | ${response} = | Process PKIMessage With Popdecc | ${pki_message} | password=${password} |
 

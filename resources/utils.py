@@ -687,5 +687,3 @@ def manipulate_composite_kemct(  # noqa: D417 Missing argument description in th
     out.append(kem_ct1)
     out.append(kem_ct2)
     return encoder.encode(out)
-
-

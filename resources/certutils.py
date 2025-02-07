@@ -928,6 +928,7 @@ def verify_signature_with_cert(
         hash_alg=hash_alg,
     )
 
+
 @not_keyword
 def parse_crl(der_data: bytes):
     """Parse a CRL from DER-encoded data.

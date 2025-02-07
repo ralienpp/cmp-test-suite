@@ -932,11 +932,27 @@ def process_public_key(data: bytes):
     return keyutils.load_public_key_from_spki(obj)
 
 
-def get_sun_hybrid_alt_pub_key(extensions: rfc9480.Extensions) -> Optional[PublicKey]:
+def get_sun_hybrid_alt_pub_key(  # noqa: D417 Missing argument descriptions in the docstring
+    extensions: rfc9480.Extensions,
+) -> Optional[PublicKey]:
     """Extract the alternative public key from a certificate.
 
-    :param extensions: The extensions of the certificate.
-    :return: The alternative public key.
+    Arguments:
+    ---------
+        - `extensions`: The extensions of the certificate.
+
+    Returns:
+    -------
+        - The alternative public key.
+
+    Raises:
+    ------
+        - ValueError: If the extension is missing or invalid.
+
+    Examples:
+    --------
+    | ${pub_key}= | Get Sun Hybrid Alt Pub Key | ${extensions} |
+
     """
     extn = certextractutils.get_extension(extensions, id_altSubPubKeyExt)
 

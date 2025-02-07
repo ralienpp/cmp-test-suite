@@ -408,13 +408,25 @@ def compare_csr_and_cert( # noqa D417 undocumented-param
 
     return True
 
-
-def compare_alg_id_without_tag(first: rfc9480.AlgorithmIdentifier, second: rfc9480.AlgorithmIdentifier) -> bool:
+@keyword(name="Compare Alg ID Without Tag")
+def compare_alg_id_without_tag( # noqa D417 undocumented-param
+        first: rfc9480.AlgorithmIdentifier,
+        second: rfc9480.AlgorithmIdentifier) -> bool:
     """Compare `AlgorithmIdentifier` without considering the tag.
 
-    :param first: The first `AlgorithmIdentifier` to compare.
-    :param second: The second `AlgorithmIdentifier` to compare.
-    :return: `True` if both the OID and parameters match, `False` otherwise.
+    Arguments:
+    ---------
+        - `first`: The first `AlgorithmIdentifier` to compare.
+        - `second`: The second `AlgorithmIdentifier` to compare.
+
+    Returns:
+    -------
+        - `True` if both the OID and parameters match, `False` otherwise.
+
+    Examples:
+    --------
+    | ${result}= | Compare Alg ID Without Tag | ${first} | ${second} |
+
     """
     oid_first, params_first = first["algorithm"], first["parameters"]
     oid_second, params_second = second["algorithm"], second["parameters"]

@@ -770,7 +770,7 @@ def _patch_extensions(extensions: rfc9480.Extensions, extension: rfc5280.Extensi
     raise ValueError("The extension was not inside the `Extensions` structure.")
 
 
-def parse_alt_sig_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> rfc9480.CMPCertificate:
+def _parse_alt_sig_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> rfc9480.CMPCertificate:
     """Parse and convert the AltSignatureExt extension in the given certificate.
 
     Converts the extension to either ByValue or ByReference format as specified.
@@ -817,7 +817,7 @@ def parse_alt_sig_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> rf
     return cert
 
 
-def parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> rfc9480.CMPCertificate:
+def _parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> rfc9480.CMPCertificate:
     """Parse and convert the AltSubPubKeyExt extension in the given certificate.
 
     Converts the extension to either ByValue or ByReference format as specified.
@@ -865,15 +865,32 @@ def parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: boo
     return cert
 
 
-def convert_cert_to_target_form(cert, target_form: str):
+@keyword("Convert Sun-Hybrid Cert to Target Form")
+def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate, target_form: str
+):
     """Convert the AltSubPubKeyExt and AltSignatureExt extensions inside a certificate to a specified form.
 
     First updates the alternative subject public key extension and then the alt signature extensions.
 
-    :param cert: The certificate to modify.
-    :param target_form: Target form, one of: "Form1", "Form2", "Form3", or "Form4".
-    :return: The modified certificate with updated extensions.
-    :raises ValueError: If the target form is invalid or the required extensions are missing.
+    Arguments:
+    ---------
+        - `cert`: The certificate to modify.
+        - `target_form`: Target form, one of: "Form1", "Form2", "Form3", or "Form4".
+
+    Returns:
+    -------
+        - The modified certificate with updated extensions.
+
+    Raises:
+    ------
+        - `ValueError`: If the required extensions are missing or invalid.
+        - `KeyError`: If the target form is invalid.
+
+    Examples:
+    --------
+    | Convert Sun-Hybrid Cert to Target Form | ${cert} | Form1 |
+
     """
     # -------------------------------------- #
     # AltSubKeyValueExt    AltSignatureExt   #
@@ -890,15 +907,17 @@ def convert_cert_to_target_form(cert, target_form: str):
         "Form4": (False, False),
     }
 
+    tmp_cert = copy_asn1_certificate(cert)
+
     if target_form not in form_map:
         raise ValueError("Invalid target form. Use 'Form1', 'Form2', 'Form3', or 'Form4'.")
 
     to_by_val_alt_sub_pub, to_by_val_alt_sig = form_map[target_form]
 
-    cert = parse_alt_sub_pub_key_extension(cert, to_by_val_alt_sub_pub)
-    cert = parse_alt_sig_extension(cert, to_by_val_alt_sig)
+    tmp_cert = _parse_alt_sub_pub_key_extension(tmp_cert, to_by_val_alt_sub_pub)
+    tmp_cert = _parse_alt_sig_extension(tmp_cert, to_by_val_alt_sig)
 
-    return cert
+    return tmp_cert
 
 
 def process_public_key(data: bytes):

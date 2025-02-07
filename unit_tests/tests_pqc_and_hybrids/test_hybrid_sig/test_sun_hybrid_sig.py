@@ -8,7 +8,7 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import (
-    convert_cert_to_target_form,
+    convert_sun_hybrid_cert_to_target_form,
     sun_csr_to_cert,
     validate_alt_pub_key_extn,
     validate_alt_sig_extn,
@@ -217,7 +217,7 @@ class TestSunHybridScheme(unittest.TestCase):
             hash_alg="sha256",
         )
 
-        cert_form4_other = convert_cert_to_target_form(cert_form1, "Form4")
+        cert_form4_other = convert_sun_hybrid_cert_to_target_form(cert_form1, "Form4")
 
         extn1 = get_extension(extensions=cert_form4["tbsCertificate"]["extensions"],
                              oid=id_altSubPubKeyExt)
@@ -253,7 +253,7 @@ class TestSunHybridScheme(unittest.TestCase):
             _extract_alt_sig(cert_form1)
         ]
 
-        cert_form1_other = convert_cert_to_target_form(cert_form4, "Form1")
+        cert_form1_other = convert_sun_hybrid_cert_to_target_form(cert_form4, "Form1")
         self.assertTrue(compare_pyasn1_objects(cert_form1_other, cert_form4))
 
 

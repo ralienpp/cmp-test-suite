@@ -308,7 +308,10 @@ def build_csr(  # noqa D417 undocumented-param
     return csr
 
 
-@keyword(name="Generate Signed CSR")
+# TODO remove
+
+
+@not_keyword
 def generate_signed_csr(  # noqa D417 undocumented-param
     common_name: str, key: Union[PrivateKeySig, str, None] = None, return_as_pem: bool = True, **params
 ) -> Tuple[Union[bytes, rfc6402.CertificationRequest], PrivateKeySig]:
@@ -1339,43 +1342,59 @@ def build_cert_from_cert_template(
     cert_template: rfc9480.CertTemplate,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,
-    use_rsa_pss: bool = True,
-    use_pre_hash: bool = False,
     hash_alg: str = "sha256",
+    **kwargs,
 ) -> rfc9480.CMPCertificate:
     """Build a certificate from a CertTemplate.
 
-    :param cert_template: The CertTemplate to build the certificate from.
-    :param ca_cert: The CA certificate.
-    :param ca_key: The CA private key.
-    :param use_rsa_pss: Whether to use RSA-PSS or not. Defaults to `True`.
-    :param use_pre_hash: Whether to use pre-hash or not. Defaults to `False`.
-    :param hash_alg: The hash algorithm to use (e.g. "sha256").
+    Arguments:
+    ---------
+        - `cert_template`: The CertTemplate to build the certificate from.
+        - `ca_cert`: The CA certificate.
+        - `ca_key`: The CA private key.
+        - `hash_alg`: The hash algorithm to use (e.g. "sha256"). Defaults to `sha256`.
+
+    **kwargs:
+    ---------
+        - `use_rsa_pss`: Whether to use RSA-PSS or not. Defaults to `True`.
+        - `bad_sig`: Whether to create a certificate with a invalid signature. Defaults to `False`.
+        - `use_pre_hash`: Whether to use pre-hash for composite keys or not. Defaults to `False`.
+        - `alt_sign_key`: An alternative key to sign the certificate with. Defaults to `None`.
+        - `alt_hash_alg`: The hash algorithm to use with the alternative key. Defaults to `None`.
+        - `alt_use_rsa_pss`: Whether to use RSA-PSS with the alternative key. Defaults to `False`.
+
+    Returns:
+    -------
+        - The built certificate.
+
+    Raises:
+    ------
+        - `BadCertTemplate`: If the `notBefore` date is too far in the past.
+
+    Examples:
+    --------
+    | ${cert}= | Build Cert From CertTemplate | cert_template=${cert_template} | ca_cert=${ca_cert} | ca_key=${ca_key} |
+
     """
     tbs_certs = prepare_tbs_certificate_from_template(
         cert_template=cert_template,
         issuer=ca_cert["tbsCertificate"]["subject"],
         ca_key=ca_key,
         hash_alg=hash_alg,
-        use_rsa_pss=use_rsa_pss,
-        use_pre_hash=use_pre_hash,
+        use_rsa_pss=kwargs.get("use_rsa_pss", True),
+        use_pre_hash=kwargs.get("use_pre_hash", False),
     )
     cert = rfc9480.CMPCertificate()
     cert["tbsCertificate"] = tbs_certs
-    return sign_cert(
-        cert=cert,
-        signing_key=ca_key,
-        hash_alg=hash_alg,
-        use_rsa_pss=use_rsa_pss,
-    )
+    return _sign_cert(cert=cert, ca_key=ca_key, **kwargs)
 
 
 def _prepare_shared_tbs_cert(
     subject: Union[str, rfc9480.Name],
     issuer: Union[rfc9480.CMPCertificate, rfc9480.Name],
-    serial_number: Optional[int] = None,
+    serial_number: Optional[Union[str, int]] = None,
     validity: Optional[Union[rfc4211.OptionalValidity, rfc5280.Validity]] = None,
-    days: int = 3650,
+    days: Union[str, int] = 3650,
     public_key: Optional[rfc5280.SubjectPublicKeyInfo] = None,
 ) -> rfc5280.TBSCertificate:
     """Prepare some attributes of `TBSCertificate` structure, for a certificate.
@@ -1402,7 +1421,7 @@ def _prepare_shared_tbs_cert(
     tbs_cert["issuer"] = issuer
     if serial_number is None:
         serial_number = x509.random_serial_number()
-    tbs_cert["serialNumber"] = serial_number
+    tbs_cert["serialNumber"] = int(serial_number)
     tbs_cert["version"] = rfc5280.Version("v3").subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
     )
@@ -1414,7 +1433,7 @@ def _prepare_shared_tbs_cert(
     if isinstance(validity, rfc5280.Validity):
         tbs_cert["validity"] = validity
     else:
-        tbs_cert["validity"] = _default_validity(days=days, optional_validity=validity)
+        tbs_cert["validity"] = _default_validity(days=int(days), optional_validity=validity)
 
     return tbs_cert
 
@@ -1466,6 +1485,39 @@ def prepare_tbs_certificate_from_template(
     )
 
     return tbs_cert
+
+
+def _sign_cert(
+    cert: rfc9480.CMPCertificate,
+    ca_key: PrivateKey,
+    **kwargs,
+) -> rfc9480.CMPCertificate:
+    """Sign a certificate.
+
+    :param cert: The certificate to sign.
+    :param ca_key: The CA private key to sign the certificate with.
+    :param kwargs: Additional keyword arguments.
+    :return: The signed certificate.
+    """
+    alt_sign_key = kwargs.get("alt_sign_key", None)
+
+    if alt_sign_key is not None:
+        # so that the catalyst logic can be in the matching file.
+        from pq_logic.hybrid_sig.catalyst_logic import sign_cert_catalyst
+
+        alt_sign_key = convertutils.ensure_is_sign_key(alt_sign_key)
+
+        return sign_cert_catalyst(
+            cert=cert,
+            trad_key=ca_key,
+            pq_key=alt_sign_key,
+            hash_alg=kwargs.get("hash_alg", "sha256"),
+            critical=kwargs.get("critical", False),
+            pq_hash_alg=kwargs.get("alt_hash_alg", None),
+            use_rsa_pss=kwargs.get("alt_use_rsa_pss", False),
+        )
+
+    return sign_cert(cert=cert, signing_key=ca_key, hash_alg=kwargs.get("hash_alg", "sha256"), **kwargs)
 
 
 @keyword(name="Build Cert from CSR")

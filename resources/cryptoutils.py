@@ -62,7 +62,7 @@ def sign_data(  # noqa D417 undocumented-param
 
     Returns:
     -------
-        - The signed data as a byte sequence.
+        - The computed signature as bytes.
 
     Raises:
     ------

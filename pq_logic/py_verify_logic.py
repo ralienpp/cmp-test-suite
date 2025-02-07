@@ -229,6 +229,10 @@ def verify_sun_hybrid_cert(  # noqa D417 undocumented-param
         - `ValueError`: If the alternative issuer key is not found.
         - `BadAsn1Data`: If the AlternativePublicKeyInfo extension contains remainder data.
 
+    Examples:
+    --------
+    | Verify Sun Hybrid Cert | ${cert} | ${issuer_cert} |
+
     """
     if alt_issuer_key is None:
         alt_issuer_key = pq_compute_utils.may_extract_alt_key_from_cert(issuer_cert, other_certs=other_certs)

@@ -34,7 +34,7 @@ from resources.oidutils import (
     id_ce_altSignatureValue,
 )
 from resources.typingutils import PrivateKey, TradSigPrivKey
-from resources.utils import manipulate_composite_sig, manipulate_first_byte
+from resources import utils
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_sig import chameleon_logic, sun_lamps_hybrid_scheme_00
@@ -50,7 +50,7 @@ from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey, Abs
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
-from pq_logic.pq_compute_utils import sign_data_with_alg_id, verify_csr_signature, verify_signature_with_alg_id
+from pq_logic import pq_compute_utils
 from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONSE, ECDHPrivateKey
 
 
@@ -93,7 +93,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
         issuer_cert = cert_chain[0]
 
     if request["body"].getName() == "p10cr":
-        verify_csr_signature(csr=request["body"]["p10cr"])
+        pq_compute_utils.verify_csr_signature(csr=request["body"]["p10cr"])
         cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_csr_to_cert(
             csr=request["body"]["p10cr"],
             issuer_private_key=signing_key.trad_key,
@@ -342,7 +342,7 @@ def _prepare_sig_popo(signing_key, data, hash_alg: str, use_rsa_pss: bool) -> rf
     """
     popo: rfc4211.ProofOfPossession
     sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=signing_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
-    sig = sign_data_with_alg_id(key=signing_key, alg_id=sig_alg, data=data)
+    sig = pq_compute_utils.sign_data_with_alg_id(key=signing_key, alg_id=sig_alg, data=data)
     popo = cmputils.prepare_popo(signature=sig, signing_key=signing_key)
     popo["signature"]["signature"] = univ.BitString.fromOctetString(sig)
     return popo
@@ -371,9 +371,9 @@ def _compute_second_pop_catalyst(
     cert_request["certTemplate"]["extensions"].append(alt_spki)
 
     data = encoder.encode(cert_request)
-    sig = sign_data_with_alg_id(key=alt_key, alg_id=sig_alg, data=data)
+    sig = pq_compute_utils.sign_data_with_alg_id(key=alt_key, alg_id=sig_alg, data=data)
     if bad_alt_pop:
-        sig = manipulate_first_byte(sig)
+        sig = utils.manipulate_first_byte(sig)
     extn = prepare_alt_signature_value_extn(signature=sig, critical=False)
     cert_request["certTemplate"]["extensions"].append(extn)
     return cert_request
@@ -412,7 +412,7 @@ def _verify_alt_sig_for_pop(
     alt_signature_algorithm = decoder.decode(alt_sig_alg_id["extnValue"], asn1Spec=rfc5280.AlgorithmIdentifier())[0]
     alt_signature_value, _ = decoder.decode(alt_sig["extnValue"], asn1Spec=AltSignatureValueExt())
     try:
-        verify_signature_with_alg_id(
+        pq_compute_utils.verify_signature_with_alg_id(
             public_key=alt_pub_key,
             signature=alt_signature_value.asOctets(),
             alg_id=alt_signature_algorithm,
@@ -463,7 +463,7 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
 
         public_key = CompositeSigCMSPublicKey(pq_key=first_key, trad_key=alt_pub_key)
         CompositeSigCMSPublicKey.validate_oid(oid, public_key)
-        verify_signature_with_alg_id(
+        pq_compute_utils.verify_signature_with_alg_id(
             public_key=public_key,
             alg_id=sig_alg_oid,
             data=encoder.encode(cert_req_msg["certReq"]),
@@ -474,7 +474,7 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
     elif isinstance(alt_pub_key, PQKEMPublicKey):
         alg_id = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
         data = encoder.encode(cert_req_msg["certReq"])
-        verify_signature_with_alg_id(
+        pq_compute_utils.verify_signature_with_alg_id(
             public_key=first_key,
             alg_id=alg_id,
             data=data,
@@ -484,7 +484,7 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
         alg_id = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
 
         try:
-            verify_signature_with_alg_id(
+            pq_compute_utils.verify_signature_with_alg_id(
                 public_key=first_key,
                 signature=cert_req_msg["popo"]["signature"]["signature"].asOctets(),
                 alg_id=alg_id,
@@ -542,10 +542,10 @@ def prepare_catalyst_cert_req_msg_approach(
         cert_req["certTemplate"]["extensions"].append(extn)
         data = encoder.encode(cert_req)
         sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=comp_key, use_rsa_pss=True, hash_alg=hash_alg)  # type: ignore
-        sig = sign_data_with_alg_id(key=comp_key, alg_id=sig_alg, data=data)
+        sig = pq_compute_utils.sign_data_with_alg_id(key=comp_key, alg_id=sig_alg, data=data)
 
         if bad_pop:
-            sig = manipulate_composite_sig(sig)
+            sig = utils.manipulate_composite_sig(sig)
 
         popo = cmputils.prepare_popo(signature=sig, alg_oid=sig_alg["algorithm"])
 
@@ -569,7 +569,7 @@ def prepare_catalyst_cert_req_msg_approach(
 
         data = encoder.encode(cert_req)
         sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=first_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
-        sig = sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
+        sig = pq_compute_utils.sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
         popo = cmputils.prepare_popo(signature=sig, signing_key=first_key, alg_oid=sig_alg["algorithm"])
 
     elif isinstance(alt_key, PQKEMPrivateKey) and isinstance(first_key, TradSigPrivKey):
@@ -579,10 +579,10 @@ def prepare_catalyst_cert_req_msg_approach(
 
         data = encoder.encode(cert_req)
         sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=first_key, use_rsa_pss=True, hash_alg=hash_alg)
-        sig = sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
+        sig = pq_compute_utils.sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
 
         if bad_pop:
-            sig = manipulate_first_byte(sig)
+            sig = utils.manipulate_first_byte(sig)
 
         popo = cmputils.prepare_popo(signature=sig, signing_key=first_key, alg_oid=sig_alg["algorithm"])
 
@@ -663,7 +663,7 @@ def build_catalyst_signed_cert_from_p10cr(
     (indicated by the `AltSignatureAlgorithm` extension.)
     :return:
     """
-    verify_csr_signature(csr=request["body"]["p10cr"])
+    pq_compute_utils.verify_csr_signature(csr=request["body"]["p10cr"])
     crs_extensions = extract_extension_from_csr(request["body"]["p10cr"])
 
     alt_sig_alg = None

@@ -34,7 +34,6 @@ from resources.convertutils import pyasn1_time_obj_to_py_datetime
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
 from resources.typingutils import PrivateKey, Strint
-from resources.utils import load_certificate_from_uri
 from robot.api.deco import keyword, not_keyword
 from unit_tests.utils_for_test import convert_to_crypto_lib_cert
 
@@ -380,7 +379,7 @@ def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions
     location_info = attributes["locationInfo"]
     signature = attributes["signature"].asOctets()
 
-    cert_chain = load_certificate_from_uri(location_info, load_chain=load_chain)
+    cert_chain = utils.load_certificate_from_uri(location_info, load_chain=load_chain)
     cert_a = cert_chain[0]
 
     extensions = certextractutils.extract_extension_from_csr(csr)
@@ -532,7 +531,7 @@ def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in 
     ca_cert: rfc9480.CMPCertificate,
     related_cert: Optional[rfc9480.CMPCertificate] = None,
     critical: bool = False,
-    load_chain: bool = False,
+    **kwargs,
 ) -> rfc9480.CMPCertificate:
     """Build the related certificate from a CSR.
 
@@ -543,6 +542,13 @@ def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in 
        - `ca_cert`: The CA certificate matching the private key.
        - `related_cert`: The related certificate. Defaults to `None`.
        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
+
+    **kwargs:
+    ---------
+       - `trustanchors`: The directory containing the trust anchors. Defaults to `./data/trustanchors`.
+       - `allow_os_store`: Whether to allow the OS trust store. Defaults to `False`.
+       - `crl_check`: Whether to check the CRL. Defaults to `False`.
+       - `max_freshness_seconds`: How fresh the `BinaryTime` must be. Defaults to `500`.
        - `load_chain`: Whether to load a chain or a single certificate, from the URI. Defaults to `False`.
 
     Returns:
@@ -562,7 +568,14 @@ def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in 
 
     """
     if related_cert is None:
-        related_cert = validate_multi_auth_binding_csr(csr, load_chain=load_chain)
+        related_cert = validate_multi_auth_binding_csr(
+            csr,
+            load_chain=kwargs.get("load_chain", False),
+            trustanchors=kwargs.get("trustanchors", "./data/trustanchors"),
+            allow_os_store=kwargs.get("allow_os_store", False),
+            crl_check=kwargs.get("crl_check", False),
+            max_freshness_seconds=kwargs.get("max_freshness_seconds", 500),
+        )
 
     extn = prepare_related_cert_extension(related_cert, critical=critical)
 

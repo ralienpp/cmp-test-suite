@@ -577,38 +577,46 @@ def _prepare_invalid_extensions(
     return extensions
 
 
-# TODO fix doc
-def sign_cert(
+def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
     signing_key: typingutils.PrivSignCertKey,
     cert: rfc9480.CMPCertificate,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = False,
-    modify_signature: bool = False,
     bad_sig: bool = False,
 ) -> rfc9480.CMPCertificate:
     """Sign a `CMPCertificate` object with the provided private key.
 
-    :param signing_key: The private key used to sign the certificate.
-    :param cert: The certificate to sign.
-    :param hash_alg: The hash algorithm used for signing. Defaults to "sha256".
-    :param use_rsa_pss: Whether to use RSA-PSS for signing. Defaults to `False`.
-    :param modify_signature: The signature will be modified by changing the first byte.
-    :return: The signed `CMPCertificate` object.
+    Arguments:
+    ---------
+        - `signing_key`: The private key used to sign the certificate.
+        - `cert`: The certificate to sign.
+        - `hash_alg`: The hash algorithm used for signing. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
+        - `modify_signature`: The signature will be modified by changing the first byte.
+        - `bad_sig`: The signature will be manipulated to be invalid.
+
+    Returns:
+    -------
+        - The signed `CMPCertificate` object with the attached `signature` and the `signatureAlgorithm`.
+
+    Examples:
+    --------
+    | ${signed_cert}= | Sign Cert | ${signing_key} | ${cert} |
+    | ${signed_cert}= | Sign Cert | ${signing_key} | ${cert} | use_rsa_pss=True |
+    | ${signed_cert}= | Sign Cert | ${signing_key} | ${cert} | bad_sig=True |
+
     """
     der_tbs_cert = encoder.encode(cert["tbsCertificate"])
     signature = cryptoutils.sign_data(data=der_tbs_cert, key=signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
 
     logging.info("Certificate signature: %s", signature.hex())
 
-    if modify_signature:
-        signature = utils.manipulate_first_byte(signature)
-        logging.info("Modified certificate signature: %s", signature.hex())
-
     if bad_sig:
         if isinstance(signing_key, AbstractCompositeSigPrivateKey):
             signature = utils.manipulate_composite_sig(signature)
         else:
             signature = utils.manipulate_first_byte(signature)
+        logging.info("Modified certificate signature: %s", signature.hex())
 
     cert["signature"] = univ.BitString.fromOctetString(signature)
     cert["signatureAlgorithm"] = prepare_sig_alg_id(signing_key=signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)

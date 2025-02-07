@@ -141,8 +141,9 @@ def prepare_sun_hybrid_csr_attributes(  # noqa: D417 Missing argument descriptio
 
     Examples:
     --------
-    | ${attributes}= | Prepare Sun Hybrid CSR Attributes | pub_key_hash_alg=sha256 | http://example.com/pub_key |
-    | ${attributes}= | Prepare Sun Hybrid CSR Attributes | pub_key_hash_alg=sha256 | pub_key_location=http://example.com/pub_key |
+    | ${attributes}= | Prepare Sun Hybrid CSR Attributes | pub_key_hash_alg=sha256 | https://example.com/pub_key |
+    | ${attributes}= | Prepare Sun Hybrid CSR Attributes | pub_key_hash_alg=sha256 \
+    | pub_key_location=https://example.com/pub_key |
 
     """
     attributes = []
@@ -265,7 +266,8 @@ def prepare_sun_hybrid_alt_signature_ext(  # noqa: D417 Missing argument descrip
 
     Examples:
     --------
-    | ${extn}= | Prepare Sun Hybrid Alt Signature Ext | signature=${signature} | by_val=True | alt_sig_algorithm=${alg_id} |
+    | ${extn}= | Prepare Sun Hybrid Alt Signature Ext | signature=${sig} | by_val=True \
+    | alt_sig_algorithm=${alg_id} |
 
     """
     # Input validation
@@ -333,6 +335,7 @@ def _extract_sun_hybrid_attrs_from_csr(csr: rfc6402.CertificationRequest) -> Dic
     return extracted_values
 
 
+@keyword(name="Sun CSR To Cert")
 def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
     issuer_private_key: PrivateKeySig,
@@ -365,7 +368,7 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
 
     Examples:
     --------
-    | ${cert_form4}= | Sun CSR To Cert | csr=${csr} | issuer_private_key=${issuer_private_key} | alt_private_key=${alt_private_key} |
+    | ${cert_form4}= | Sun CSR To Cert | csr=${csr} | issuer_private_key=${key} | alt_private_key=${alt_key} |
 
     """
     public_key = CompositeSigCMSPublicKey.from_spki(csr["certificationRequestInfo"]["subjectPublicKeyInfo"])
@@ -417,7 +420,7 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     hash_alg: Optional[str] = None,
     serial_number: Optional[int] = None,
 ) -> Tuple[rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
-    """Convert a certificate template to a certificate, with the sun hybrid method.
+    r"""Convert a certificate template to a certificate, with the sun hybrid method.
 
     Arguments:
     ---------
@@ -436,8 +439,8 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
 
     Examples:
     --------
-    | ${cert_form4} ${cert_form1}= | Sun Cert Template To Cert | cert_template=${cert_template} | \
-    issuer_cert=${issuer_cert} | issuer_private_key=${key} |\\ alt_private_key=${alt_key} |
+    | ${cert_form4} ${cert_form1}= | Sun Cert Template To Cert | cert_template=${cert_template} \|
+    issuer_cert=${issuer_cert} | issuer_private_key=${key} | alt_private_key=${alt_key} |
 
     """
     tbs_cert = certbuildutils.prepare_tbs_certificate_from_template(

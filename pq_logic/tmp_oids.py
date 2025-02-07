@@ -164,6 +164,9 @@ PURE_COMPOSITE_NAME_TO_OID = {
     "ml-dsa-87-ecdsa-brainpoolp384r1": id_mldsa87_ecdsa_brainpool_p384r1,
     "ml-dsa-87-ed448": id_mldsa87_ed448,
 }
+
+PURE_COMPOSITE_SIG_OID_TO_NAME = {y: x for x, y in PURE_COMPOSITE_NAME_TO_OID.items()}
+
 HASH_COMPOSITE_NAME_TO_OID = {
     "hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
     "hash-ml-dsa-44-rsa2048-pkcs15": id_hash_mldsa44_rsa2048_pkcs15_sha256,
@@ -180,6 +183,8 @@ HASH_COMPOSITE_NAME_TO_OID = {
     "hash-ml-dsa-87-ecdsa-brainpoolp384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
     "hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
 }
+HASH_COMPOSITE_SIG_OID_TO_NAME = {y: x for x, y in HASH_COMPOSITE_NAME_TO_OID.items()}
+
 id_rsa_kem_spki = univ.ObjectIdentifier("1.2.840.113549.1.9.16.3")
 
 PURE_OID_TO_HASH = {
@@ -503,3 +508,9 @@ COMPOSITE_KEM_NAME_2_OID.update(COMPOSITE_FRODOKEM_NAME_2_OID)
 COMPOSITE_KEM_NAME_2_OID.update(COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID)
 
 COMPOSITE_KEM_OID_2_NAME = {str(oid): name for name, oid in COMPOSITE_KEM_NAME_2_OID.items()}
+
+COMPOSITE_SIG_OID_2_NAME = {}
+COMPOSITE_SIG_OID_2_NAME.update(PURE_COMPOSITE_SIG_OID_TO_NAME)
+COMPOSITE_SIG_OID_2_NAME.update(HASH_COMPOSITE_SIG_OID_TO_NAME)
+
+COMPOSITE_SIG_NAME_2_OID = {name: str(oid) for oid, name in COMPOSITE_SIG_OID_2_NAME.items()}

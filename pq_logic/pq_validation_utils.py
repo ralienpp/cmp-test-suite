@@ -7,11 +7,15 @@
 import logging
 
 from pyasn1_alt_modules import rfc9480
+from robot.api.deco import keyword
+
+from pq_logic.pq_utils import is_kem_public_key
 from resources import asn1utils, certextractutils
 from resources.certutils import load_public_key_from_cert
-from resources.oidutils import HYBRID_NAME_2_OID, PQ_NAME_2_OID, PQ_OID_2_NAME
+from resources.exceptions import UnknownOID
+from resources.oidutils import HYBRID_NAME_2_OID, PQ_NAME_2_OID, PQ_OID_2_NAME, HYBRID_OID_2_NAME
 
-from pq_logic.keys.abstract_composite import AbstractCompositeKEMPublicKey
+from pq_logic.keys.abstract_composite import AbstractCompositeKEMPublicKey, AbstractCompositeSigPublicKey
 from pq_logic.keys.abstract_pq import PQKEMPublicKey, PQPublicKey, PQSignaturePublicKey
 from pq_logic.keys.xwing import XWingPublicKey
 
@@ -122,10 +126,16 @@ def validate_migration_oid_in_certificate(  # noqa: D417 Missing argument descri
     Raises:
     ------
         - `ValueError`: If the OID does not match the name.
-        - `NotImplementedError`: If the OID is not supported.
+        - `UnknownOID`: If the OID is unknown.
+        - `ValueError`: If the name is not supported.
 
     """
     pub_oid = cert["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]
+
+    name_oid = PQ_NAME_2_OID.get(name) or HYBRID_NAME_2_OID.get(name)
+    if name_oid is None:
+        raise ValueError(f"The name {name} is not supported."
+                         f" Supported names are: {list(PQ_NAME_2_OID.keys()) + list(HYBRID_NAME_2_OID.keys())}")
 
     if PQ_NAME_2_OID.get(name) is not None:
         if str(pub_oid) != str(PQ_NAME_2_OID[name]):
@@ -135,4 +145,4 @@ def validate_migration_oid_in_certificate(  # noqa: D417 Missing argument descri
         if str(pub_oid) != str(HYBRID_NAME_2_OID[name]):
             raise ValueError(f"The OID {pub_oid} does not match the name {name}.")
     else:
-        raise NotImplementedError(f"Unsupported OID: {pub_oid}")
+        raise UnknownOID(pub_oid)

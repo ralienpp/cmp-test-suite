@@ -23,7 +23,7 @@ from pq_logic.tmp_oids import (
     PURE_COMPOSITE_NAME_TO_OID,
     PURE_OID_TO_HASH,
     id_ce_deltaCertificateDescriptor,
-    id_sntrup761_str,
+    id_sntrup761_str, COMPOSITE_SIG_NAME_2_OID, COMPOSITE_SIG_OID_2_NAME,
 )
 from pyasn1.type import univ
 from pyasn1_alt_modules import (
@@ -505,12 +505,9 @@ XWING_OID_STR = "1.3.6.1.4.1.62253.25722"
 
 ALL_COMPOSITE_SIG_COMBINATIONS = [
     {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"},
-    {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"},
     {"pq_name": "ml-dsa-44", "trad_name": "ed25519", "curve": None},
     {"pq_name": "ml-dsa-44", "trad_name": "ecdsa", "curve": "secp256r1"},
     {"pq_name": "ml-dsa-65", "trad_name": "rsa", "length": "3072"},
-    {"pq_name": "ml-dsa-65", "trad_name": "rsa", "length": "3072"},
-    {"pq_name": "ml-dsa-65", "trad_name": "rsa", "length": "4096"},
     {"pq_name": "ml-dsa-65", "trad_name": "rsa", "length": "4096"},
     {"pq_name": "ml-dsa-65", "trad_name": "ecdsa", "curve": "secp384r1"},
     {"pq_name": "ml-dsa-65", "trad_name": "ecdsa", "curve": "brainpoolP256r1"},
@@ -524,13 +521,9 @@ ALL_COMPOSITE_SIG_COMBINATIONS = [
 CMS_COMPOSITE_OID_2_HASH.update(PURE_OID_TO_HASH)
 CMS_COMPOSITE_OID_2_HASH.update(PREHASH_OID_2_HASH)
 
-# custom from oqs
-
-
 CMS_COMPOSITE_NAME_2_OID = {}
 CMS_COMPOSITE_NAME_2_OID.update(PURE_COMPOSITE_NAME_TO_OID)
 CMS_COMPOSITE_NAME_2_OID.update(HASH_COMPOSITE_NAME_TO_OID)
-
 
 CMS_COMPOSITE_OID_2_NAME: Dict[univ.ObjectIdentifier, str] = {y: x for x, y in CMS_COMPOSITE_NAME_2_OID.items()}
 
@@ -572,7 +565,7 @@ HYBRID_OID_2_NAME = {}
 HYBRID_OID_2_NAME.update(COMPOSITE_KEM_OID_2_NAME)
 HYBRID_OID_2_NAME.update(CHEMPAT_OID_2_NAME)
 HYBRID_OID_2_NAME.update({univ.ObjectIdentifier(XWING_OID_STR): "xwing"})
-HYBRID_OID_2_NAME.update(CMS_COMPOSITE_NAME_2_OID)
+HYBRID_OID_2_NAME.update(COMPOSITE_SIG_OID_2_NAME)
 
 HYBRID_NAME_2_OID = {y: x for x, y in HYBRID_OID_2_NAME.items()}
 
@@ -580,7 +573,7 @@ ALL_KNOWN_PROTECTION_OIDS.update(PQ_OID_2_NAME)
 ALL_KNOWN_PROTECTION_OIDS.update(KEM_OID_2_NAME)
 ALL_KNOWN_PROTECTION_OIDS.update({rfc9481.rsaEncryption: "rsa_encryption"})
 ALL_KNOWN_PROTECTION_OIDS.update(TRAD_STR_OID_TO_KEY_NAME)
-
+ALL_KNOWN_PROTECTION_OIDS.update(HYBRID_OID_2_NAME)
 # Extension Object Identifiers (OIDs)
 id_ce_subjectAltPublicKeyInfo = rfc5280.id_ce + (72,)
 id_ce_altSignatureAlgorithm = rfc5280.id_ce + (73,)

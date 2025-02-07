@@ -26,7 +26,7 @@ from pyasn1.type.base import Asn1Type
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc6955, rfc9480, rfc9629
 from robot.api.deco import keyword, not_keyword
 
-from resources import asn1utils, cmputils, keyutils, utils
+from resources import asn1utils, cmputils, compareutils, keyutils, utils
 from resources.asn1_structures import ChallengeASN1, PKIMessageTMP
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.certutils import load_public_key_from_cert
@@ -490,7 +490,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     num = rand["int"]
     if expected_sender is not None:
         sender = prepare_name(expected_sender)
-        if not cmputils.compare_general_name_and_name(rand["sender"], sender):
+        if not compareutils.compare_general_name_and_name(rand["sender"], sender):
             rand_name = get_openssl_name_notation(rand["sender"]["directoryName"])
             raise ValueError(f"Expected sender name: {expected_sender}. Got: {rand_name}")
 

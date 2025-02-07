@@ -22,6 +22,7 @@ from pyasn1_alt_modules import rfc5280, rfc6664, rfc9480, rfc9481
 from pyasn1_alt_modules.rfc2437 import rsaEncryption
 from robot.api.deco import keyword, not_keyword
 
+import resources.compareutils
 from resources import (
     asn1utils,
     certextractutils,
@@ -313,7 +314,7 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
     if protectionutils.get_protection_type_from_pkimessage(pki_message) == "sig":
         cert_name: rfc9480.Name = asn1utils.get_asn1_value(pki_message["extraCerts"][0], query="tbsCertificate.subject")
 
-        are_same_names = cmputils.compare_general_name_and_name(general_name=sender_name, name=cert_name)
+        are_same_names = resources.compareutils.compare_general_name_and_name(general_name=sender_name, name=cert_name)
 
         if not are_same_names:
             if allow_failure:

@@ -40,7 +40,6 @@ from resources import (
     certbuildutils,
     certextractutils,
     certutils,
-    compareutils,
     convertutils,
     cryptoutils,
     keyutils,
@@ -2635,53 +2634,6 @@ def prepare_general_name(name_type: str, name_str: str) -> rfc9480.GeneralName:
         return rfc9480.GeneralName().setComponentByName("uniformResourceIdentifier", name_str)
 
     raise NotImplementedError(f"GeneralName name_type is Unsupported: {name_type}")
-
-
-@keyword(name="Compare GeneralName And Name")
-def compare_general_name_and_name(  # noqa D417 # undocumented-param
-    general_name: rfc5280.GeneralName, name: rfc5280.Name
-) -> bool:
-    """Compare a `pyasn1` GeneralName with a `pyasn1` Name.
-
-    Compares a `GeneralName` object (which may be of type `directoryName` or `rfc822Name`) with a
-    `Name` object. It checks if they match based on the specified naming convention.
-
-    Note:
-    ----
-        - For `directoryName`, it performs a direct comparison.
-        - For `rfc822Name`, it converts the `Name` object into an OpenSSL-style string and then compares it.
-
-    Arguments:
-    ---------
-        - `general_name`: The `pyasn1` GeneralName object to compare.
-        - `name`: The `pyasn1` Name object to compare with the GeneralName.
-
-    Returns:
-    -------
-        - `True` if the `GeneralName` and `Name` match, `False` otherwise.
-
-    Raises:
-    ------
-        - `NotImplementedError`: If the `GeneralName` is of another type than `directoryName` or `rfc822Name`.
-
-    Examples:
-    --------
-    | Compare GeneralName and Name | ${general_name} | ${name} |
-
-    """
-    if general_name.getName() == "directoryName":
-        return compareutils.compare_pyasn1_names(general_name["directoryName"], name, "without_tag")
-
-    if general_name.getName() == "rfc822Name":
-        str_name = utils.get_openssl_name_notation(name, oids=None)
-        if str_name is None:
-            return False
-        return str_name == str(general_name[general_name.getName()])
-
-    raise NotImplementedError(
-        f"GeneralName type '{general_name.getName()}' is not supported. Supported types are: "
-        "'directoryName' and 'rfc822Name'."
-    )
 
 
 def prepare_info_value(

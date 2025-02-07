@@ -16,9 +16,9 @@ from resources.certbuildutils import generate_certificate, generate_signed_csr
 from resources.prepareutils import prepare_name
 from resources.certextractutils import get_field_from_certificate
 from resources.cmputils import (
-    compare_general_name_and_name,
     prepare_general_name,
 )
+from resources.compareutils import compare_general_name_and_name
 from resources.utils import decode_pem_string
 
 from unit_tests.utils_for_test import convert_to_crypto_lib_cert

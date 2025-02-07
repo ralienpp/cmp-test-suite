@@ -143,15 +143,13 @@ def prepare_enc_key_with_id(
     logging.debug("Private key for PoP:  %s", data.prettyPrint())
     return data
 
-
-# TODO fix doc for RF.
 @keyword(name="Prepare KEM EnvelopedData For POPO")
 def prepare_kem_env_data_for_popo( # noqa D417 undocumented-param
     ca_cert: rfc9480.CMPCertificate,
     data: Optional[Union[Asn1Type, bytes, str]] = None,
     client_key: Optional[PrivateKey] = None,
     rid_sender: str = "Null-DN",
-    cert_req_id: int = 0,
+    cert_req_id: Strint = 0,
     enc_key_sender: str = "CN=CMP-Test-Suite",
     cek: Optional[Union[bytes, str]] = None,
     key_encipherment: bool = True,
@@ -178,6 +176,10 @@ def prepare_kem_env_data_for_popo( # noqa D417 undocumented-param
     -------
         - The `ProofOfPossession` structure for the KEM-based key exchange.
 
+    Examples:
+    ---------
+    | ${popo} = | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} |
+    | ${popo} = | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} | rid_sender=${rid} |
     """
     if data is not None:
         if isinstance(data, Asn1Type):
@@ -192,7 +194,7 @@ def prepare_kem_env_data_for_popo( # noqa D417 undocumented-param
         data = prepare_enc_key_with_id(private_key=client_key, sender=enc_key_sender)
         data = encoder.encode(data)
 
-    issuer_and_ser = prepare_issuer_and_serial_number(serial_number=cert_req_id, issuer=rid_sender)
+    issuer_and_ser = prepare_issuer_and_serial_number(serial_number=int(cert_req_id), issuer=rid_sender)
 
     env_data = rfc5652.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))
 
@@ -281,7 +283,7 @@ def validate_kemri_rid_for_encrypted_cert( # noqa D417 undocumented-param
     key: Optional[Union[KEMPublicKey, KEMPrivateKey]] = None,
     issuer: Optional[str] = None,
     serial_number: Optional[int] = None,
-    cert_number: int = 0,
+    cert_number: Strint = 0,
 ) -> None:
     """Validate the RecipientIdentifier inside the KEMRecipientInfo structure for the encrypted certificate.
 

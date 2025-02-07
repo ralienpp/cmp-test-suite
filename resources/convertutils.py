@@ -11,7 +11,7 @@ import datetime
 from typing import Any, Optional, Union
 
 from cryptography.hazmat.primitives import serialization
-from pq_logic.keys.abstract_composite import AbstractCompositePublicKey
+from pq_logic.keys.abstract_composite import AbstractCompositePublicKey, AbstractCompositePrivateKey
 from pq_logic.keys.abstract_pq import PQSignaturePublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
@@ -26,7 +26,7 @@ from resources.typingutils import PrivateKeySig, PublicKey
 @not_keyword
 def ensure_is_sign_key(key: Any) -> PrivateKeySig:
     """Ensure provided key is allowed to sign."""
-    if not isinstance(key, PrivateKeySig) or isinstance(key, AbstractCompositePublicKey):
+    if not isinstance(key, (PrivateKeySig, AbstractCompositePrivateKey)):
         raise ValueError(f"the provided key is not allowed to be used for signing: {type(key)}")
     return key
 

@@ -39,6 +39,7 @@ def sign_data(  # noqa D417 undocumented-param
     hash_alg: Union[str, None, hashes.HashAlgorithm] = None,
     use_rsa_pss: bool = False,
     ctx: Optional[Union[bytes, str]] = b"",
+    use_pre_hash: bool = False,
 ) -> bytes:
     """Sign `data` with a private key, using a specified hashing algorithm. Supports ECDSA, ED448, ED25519, RSA, DSA.
 
@@ -47,17 +48,10 @@ def sign_data(  # noqa D417 undocumented-param
         - `data`: The data to be signed.
         - `key`: The private key object used to sign the data.
         - `hash_alg`: Hash algorithm for signing (e.g., "sha256"). If not given, use default algorithm for the key type.
-        - `use_rsa_pss`: Whether to use RSA-PSS padding for RSA keys. Defaults to False.
+        - `use_rsa_pss`: Whether to use RSA-PSS padding for RSA keys. Defaults to `False`.
         - `ctx`: Context data for the signature. Defaults to an empty byte sequence.
         (If a string begins with "0x", it will be interpreted as a hex.)
-
-    Key Types and Signing:
-        - `EllipticCurvePrivateKey`: ECDSA
-        - `RSAPrivateKey`: RSA with PKCS1v15 padding
-        - `Ed25519PrivateKey` and `Ed448PrivateKey`: No hashing algorithm needs to be provided
-        - `DSAPrivateKey`: DSA
-        - `CompositeSigCMSPrivateKey`: Composite Signature Key with CMS03.
-        - `PQSignaturePrivateKey`: Post-Quantum Signature Key
+        - `use_pre_hash`: Whether to use the pre-hash version for the composite key. Defaults to `False`.
 
     Returns:
     -------
@@ -82,7 +76,7 @@ def sign_data(  # noqa D417 undocumented-param
         hash_alg = hash_name_to_instance(hash_alg)  # type: ignore
 
     if isinstance(key, CompositeSigCMSPrivateKey):
-        return key.sign(data=data, use_pss=use_rsa_pss, ctx=ctx)
+        return key.sign(data=data, use_pss=use_rsa_pss, ctx=ctx, pre_hash=use_pre_hash)
 
     if isinstance(
         key,

@@ -164,7 +164,7 @@ def sign_csr(  # noqa D417 undocumented-param
         - `other_key`: Optional private key to sign the CSR.
         Will be ignored if Ed25519 and Ed448 are used.
         - `use_rsa_pss`: Whether to use RSA-PSS for the signature algorithm. Defaults to `False`.
-        - `bad_pop`: Whether to manipulate the signature for negative testing.
+        - `bad_pop`: Whether to manipulate the signature for negative testing. Defaults to `False`.
         - `use_pre_hash`: Whether to use the pre-hashed version for PQ-keys and CompositeSig-keys.
 
     Returns:
@@ -183,7 +183,9 @@ def sign_csr(  # noqa D417 undocumented-param
 
     """
     der_data = encoder.encode(csr["certificationRequestInfo"])
-    signature = cryptoutils.sign_data(data=der_data, key=other_key or signing_key, hash_alg=hash_alg)
+    signature = cryptoutils.sign_data(
+        data=der_data, key=other_key or signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss
+    )
     logging.info(f"CSR Signature: {signature}")
     if bad_pop:
         if isinstance(signing_key, AbstractCompositeSigPrivateKey):
@@ -586,6 +588,7 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
     hash_alg: str = "sha256",
     use_rsa_pss: bool = False,
     bad_sig: bool = False,
+    use_pre_hash: bool = False,
 ) -> rfc9480.CMPCertificate:
     """Sign a `CMPCertificate` object with the provided private key.
 
@@ -597,6 +600,7 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
         - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
         - `modify_signature`: The signature will be modified by changing the first byte.
         - `bad_sig`: The signature will be manipulated to be invalid.
+        - `use_pre_hash`: Whether to use the pre-hashed version for composite keys. Defaults to `False`.
 
     Returns:
     -------
@@ -610,7 +614,13 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
 
     """
     der_tbs_cert = encoder.encode(cert["tbsCertificate"])
-    signature = cryptoutils.sign_data(data=der_tbs_cert, key=signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
+    signature = cryptoutils.sign_data(
+        data=der_tbs_cert,
+        key=signing_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        use_pre_hash=use_pre_hash,
+    )
 
     logging.info("Certificate signature: %s", signature.hex())
 
@@ -622,7 +632,12 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
         logging.info("Modified certificate signature: %s", signature.hex())
 
     cert["signature"] = univ.BitString.fromOctetString(signature)
-    cert["signatureAlgorithm"] = prepare_sig_alg_id(signing_key=signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
+    cert["signatureAlgorithm"] = prepare_sig_alg_id(
+        signing_key=signing_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        use_pre_hash=use_pre_hash,
+    )
 
     return cert
 
@@ -1499,7 +1514,7 @@ def _sign_cert(
     :param kwargs: Additional keyword arguments.
     :return: The signed certificate.
     """
-    alt_sign_key = kwargs.get("alt_sign_key", None)
+    alt_sign_key = kwargs.get("alt_sign_key")
 
     if alt_sign_key is not None:
         # so that the catalyst logic can be in the matching file.
@@ -1513,11 +1528,18 @@ def _sign_cert(
             pq_key=alt_sign_key,
             hash_alg=kwargs.get("hash_alg", "sha256"),
             critical=kwargs.get("critical", False),
-            pq_hash_alg=kwargs.get("alt_hash_alg", None),
+            pq_hash_alg=kwargs.get("alt_hash_alg"),
             use_rsa_pss=kwargs.get("alt_use_rsa_pss", False),
         )
 
-    return sign_cert(cert=cert, signing_key=ca_key, hash_alg=kwargs.get("hash_alg", "sha256"), **kwargs)
+    return sign_cert(
+        cert=cert,
+        signing_key=ca_key,
+        hash_alg=kwargs.get("hash_alg", "sha256"),
+        use_rsa_pss=kwargs.get("use_rsa_pss", True),
+        use_pre_hash=kwargs.get("use_pre_hash", False),
+        bad_sig=kwargs.get("bad_sig", False),
+    )
 
 
 @keyword(name="Build Cert from CSR")

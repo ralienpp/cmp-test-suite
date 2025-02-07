@@ -695,16 +695,32 @@ def extract_sun_hybrid_alt_sig(cert: rfc9480.CMPCertificate) -> bytes:
     return decoded_ext["plainOrHash"].asOctets()
 
 
-def validate_alt_sig_extn(cert: rfc9480.CMPCertificate, alt_pub_key, signature: Optional[bytes] = None):
+@keyword("Validate AltSignatureExt")
+def validate_alt_sig_extn(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate, alt_pub_key, signature: Optional[bytes] = None
+):
     """Validate the `AltSignatureExt` extension in a certificate.
 
     Verifies the alternative signature in the AltSignatureExt extension
     against the pre-tbsCertificate data.
 
-    :param cert: The certificate to validate.
-    :param alt_pub_key: The alternative public key used to verify the signature.
-    :param signature: The alternative signature which can be cached.
-    :raises ValueError: If the extension is missing, critical, or invalid.
+    Arguments:
+    ---------
+        - `cert`: The certificate to validate the extension inside.
+        - `alt_pub_key`: The alternative public key used to verify the signature.
+        - `signature`: The alternative signature which can be cached.
+
+    Raises:
+    ------
+        - `ValueError`: If the extension is missing, critical, or invalid.
+        - `ValueError`: If the fetched signature was invalid.
+        - `InvalidSignature`: If the signature verification fails.
+
+    Examples:
+    --------
+    | Validate AltSignatureExt | ${cert} | ${alt_pub_key} |
+    | Validate AltSignatureExt | ${cert} | ${alt_pub_key} | ${signature} |
+
     """
     old_extensions = cert["tbsCertificate"]["extensions"]
 

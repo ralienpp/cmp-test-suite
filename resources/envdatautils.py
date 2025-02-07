@@ -1413,6 +1413,8 @@ def prepare_recipient_encrypted_keys(
     return recipient_encrypted_keys
 
 
+# TODO fix for complete Support!!!
+@not_keyword
 def prepare_key_agreement_recipient_info(
     cmp_cert: rfc9480.CMPCertificate,
     key_agreement_oid: univ.ObjectIdentifier,

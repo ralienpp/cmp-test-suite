@@ -34,8 +34,8 @@ from resources.certbuildutils import build_cert_from_csr
 from resources.convertutils import pyasn1_time_obj_to_py_datetime
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
-from resources.typingutils import PrivateKey
-from robot.api.deco import keyword
+from resources.typingutils import PrivateKey, Strint
+from robot.api.deco import keyword, not_keyword
 from unit_tests.utils_for_test import convert_to_crypto_lib_cert
 
 from pq_logic.hybrid_structures import RelatedCertificate, RequesterCertificate
@@ -290,7 +290,7 @@ def validate_ku_and_eku_related_cert(cert_a: rfc9480.CMPCertificate, related_cer
         if ku_cert_b is None or set_a - set_b:
             raise ValueError()
 
-
+@not_keyword
 def extract_related_cert_request_attribute(csr: rfc6402.CertificationRequest) -> RequesterCertificate:
     """Extract the relatedCertRequest attribute from a given CSR.
 

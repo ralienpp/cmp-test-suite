@@ -197,15 +197,28 @@ def validate_related_cert_extension(
     validate_ku_and_eku_related_cert(cert_a=cert_a, related_cert=related_cert)
 
 
-def get_related_cert_from_list(
+def get_related_cert_from_list( # noqa: D417 Missing argument descriptions in the docstring
     certs: List[rfc9480.CMPCertificate], cert_a: rfc9480.CMPCertificate
 ) -> rfc9480.CMPCertificate:
     """Get the related certificate from a list of certificates.
 
-    :param certs: The list of certificates to search.
-    :param cert_a: The certificate for which to find the related certificate.
-    :return: The related certificate if found, otherwise `None`.
-    :raises ValueError: If no related certificate is found.
+    Arguments:
+    ---------
+        - `certs`: The list of certificates to search.
+        - `cert_a`: The certificate for which to find the related certificate.
+
+    Returns:
+    -------
+        - The related certificate.
+
+    Raises:
+    ------
+        - ValueError: If the related certificate is not found.
+
+    Examples:
+    --------
+    | ${related_cert}= | Get Related Cert From List | ${certs} | ${cert_a} |
+
     """
     hash_alg = get_hash_from_oid(cert_a["tbsCertificate"]["signature"]["algorithm"], only_hash=True)
     signature = _get_related_cert_sig(cert_a)

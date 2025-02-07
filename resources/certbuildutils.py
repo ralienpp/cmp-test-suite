@@ -1338,7 +1338,7 @@ def _default_validity(
 
 
 @keyword(name="Build Cert From CertTemplate")
-def build_cert_from_cert_template(
+def build_cert_from_cert_template(  # noqa D417 undocumented-param
     cert_template: rfc9480.CertTemplate,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,

@@ -302,6 +302,11 @@ def validate_kemri_rid_for_encrypted_cert( # noqa D417 undocumented-param
         - `ValueError`: If the `oriType` is not `id_ori_kem`.
         - `ValueError`: If neither the key or issuer and serial number are provided.
 
+    Examples:
+    ---------
+    | Validate KEMRI Rid For Encrypted Cert | ${pki_message} | ${key} | ${issuer} | ${serial_number} |
+    | Validate KEMRI Rid For Encrypted Cert | ${pki_message} | ${key} | cert_number=1 |
+
     """
     body_name = pki_message["body"].getName()
     cert_key_pair: rfc9480.CertifiedKeyPair = asn1utils.get_asn1_value(

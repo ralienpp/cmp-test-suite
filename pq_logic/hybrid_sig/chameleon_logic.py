@@ -313,8 +313,8 @@ def prepare_delta_cert_req(
     return delta_req
 
 
-@keyword(name="Build Paired CSRs")
-def build_paired_csrs(
+@keyword(name="Build Paired CSR")
+def build_paired_csr(
     base_private_key,
     delta_private_key,
     base_common_name: str = "CN=Hans Mustermann",
@@ -448,10 +448,16 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
     ------
         - ValueError: If the Delta Certificate Request attribute is missing.
         - BadPOP: If the signature is invalid.
+    Examples:
+    --------
+    | ${delta_req} | Verify Paired CSR Signature | ${csr} |
 
     """
-    pq_compute_utils.verify_csr_signature(csr=csr)
-    attributes, delta_req, delta_sig = extract_chameleon_attributes(csr=csr)
+    csr_der = copy.copy(encoder.encode(csr))
+    csr_tmp = decoder.decode(csr_der, asn1Spec=rfc6402.CertificationRequest())[0]
+
+    pq_compute_utils.verify_csr_signature(csr=csr_tmp)
+    attributes, delta_req, delta_sig = extract_chameleon_attributes(csr=csr_tmp)
 
     if delta_req is None:
         raise ValueError("Delta Certificate Request attribute is missing.")

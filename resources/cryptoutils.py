@@ -33,12 +33,13 @@ from resources.oid_mapping import compute_hash, get_hash_from_oid, hash_name_to_
 from resources.typingutils import ECDHPrivKeyTypes, ECDHPubKeyTypes, PrivateKeySig, PublicKeySig
 
 
-# TODO fix doc
+
 def sign_data(  # noqa D417 undocumented-param
     data: bytes,
     key: PrivateKeySig,
     hash_alg: Union[str, None, hashes.HashAlgorithm] = None,
     use_rsa_pss: bool = False,
+    ctx: Optional[Union[bytes, str]] = b"",
 ) -> bytes:
     """Sign `data` with a private key, using a specified hashing algorithm. Supports ECDSA, ED448, ED25519, RSA, DSA.
 
@@ -47,12 +48,17 @@ def sign_data(  # noqa D417 undocumented-param
         - `data`: The data to be signed.
         - `key`: The private key object used to sign the data.
         - `hash_alg`: Hash algorithm for signing (e.g., "sha256"). If not given, use default algorithm for the key type.
+        - `use_rsa_pss`: Whether to use RSA-PSS padding for RSA keys. Defaults to False.
+        - `ctx`: Context data for the signature. Defaults to an empty byte sequence.
+        (If a string begins with "0x", it will be interpreted as a hex.)
 
     Key Types and Signing:
         - `EllipticCurvePrivateKey`: ECDSA
         - `RSAPrivateKey`: RSA with PKCS1v15 padding
         - `Ed25519PrivateKey` and `Ed448PrivateKey`: No hashing algorithm needs to be provided
         - `DSAPrivateKey`: DSA
+        - `CompositeSigCMSPrivateKey`: Composite Signature Key with CMS03.
+        - `PQSignaturePrivateKey`: Post-Quantum Signature Key
 
     Returns:
     -------
@@ -64,16 +70,19 @@ def sign_data(  # noqa D417 undocumented-param
 
     Example:
     -------
-    | Sign Data | ${data} | ${private_key} | sha256 |
-
+    | ${sig} | Sign Data | ${data} | ${private_key} | sha256 |
+    | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True |
+    | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True | ctx=0x1234 |
     """
+    ctx = convertutils.str_to_bytes(ctx)
+
     if isinstance(hash_alg, hashes.HashAlgorithm):
         pass
     elif hash_alg is not None:
         hash_alg = hash_name_to_instance(hash_alg)  # type: ignore
 
     if isinstance(key, CompositeSigCMSPrivateKey):
-        return key.sign(data=data, use_pss=use_rsa_pss)
+        return key.sign(data=data, use_pss=use_rsa_pss, ctx=ctx)
 
     if isinstance(
         key,
@@ -92,7 +101,7 @@ def sign_data(  # noqa D417 undocumented-param
     if isinstance(key, PQSignaturePrivateKey):
         # TODO maybe think about a better solution.
         hash_alg = key.check_hash_alg(hash_alg)
-        return key.sign(data, hash_alg=hash_alg)
+        return key.sign(data, hash_alg=hash_alg, ctx=ctx)
 
     raise ValueError(f"Unsupported private key type: {type(key).__name__}.")
 

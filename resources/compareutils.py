@@ -347,10 +347,8 @@ def compare_cert_template_and_cert(  # noqa D417 undocumented-param
 
 
 @keyword(name="Compare CSR And Cert")
-def compare_csr_and_cert( # noqa D417 undocumented-param
-    csr: rfc6402.CertificationRequest,
-    issued_cert: rfc9480.CMPCertificate,
-    subject_strict: bool = False
+def compare_csr_and_cert(  # noqa D417 undocumented-param
+    csr: rfc6402.CertificationRequest, issued_cert: rfc9480.CMPCertificate, subject_strict: bool = False
 ) -> bool:
     """Compare a CSR and the newly issued certificate to check if the server returned the correct status.
 
@@ -405,10 +403,11 @@ def compare_csr_and_cert( # noqa D417 undocumented-param
 
     return True
 
+
 @keyword(name="Compare Alg ID Without Tag")
-def compare_alg_id_without_tag( # noqa D417 undocumented-param
-        first: rfc9480.AlgorithmIdentifier,
-        second: rfc9480.AlgorithmIdentifier) -> bool:
+def compare_alg_id_without_tag(  # noqa D417 undocumented-param
+    first: rfc9480.AlgorithmIdentifier, second: rfc9480.AlgorithmIdentifier
+) -> bool:
     """Compare `AlgorithmIdentifier` without considering the tag.
 
     Arguments:

@@ -150,9 +150,7 @@ def sign_data_rsa_pss(
     :return: The signature as a byte string.
     :raises ValueError: If the hash algorithm name is not supported.
     """
-    if hash_alg is None:
-        hash_alg = "sha256"
-
+    hash_alg = "sha256" if hash_alg is None else hash_alg
     hash_algorithm = hash_name_to_instance(hash_alg)
     pss_padding = padding.PSS(mgf=padding.MGF1(hash_algorithm), salt_length=salt_length or hash_algorithm.digest_size)
     return private_key.sign(data=data, padding=pss_padding, algorithm=hash_algorithm)

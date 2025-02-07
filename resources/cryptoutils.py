@@ -522,7 +522,7 @@ def compute_hkdf(hash_alg: str, key_material: bytes, ukm: Optional[bytes] = None
 
 
 def verify_signature(  # noqa D417 undocumented-param
-    public_key: PublicKeySig,
+    public_key: Union[PublicKeySig, PQSignaturePublicKey],
     signature: bytes,
     data: bytes,
     hash_alg: Optional[Union[str, hashes.HashAlgorithm]] = None,
@@ -545,6 +545,7 @@ def verify_signature(  # noqa D417 undocumented-param
         - `Ed25519PublicKey` and `Ed448PublicKey`: Verifies without a hash algorithm.
         - `DSAPublicKey`: Verifies using the provided hash algorithm.
         - Unsupported key types (e.g., `X25519PublicKey`, `X448PublicKey`): Raises an error.
+        - `PQSignaturePublicKey`: Verifies using the provided hash algorithm or `None`.
 
     Raises:
     ------

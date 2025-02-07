@@ -168,6 +168,7 @@ def _prepare_dcd_extensions(
 
 ### as of Section 4.2. Issuing a Base Certificate
 
+
 @not_keyword
 def build_chameleon_base_certificate(
     delta_cert: rfc9480.CMPCertificate,
@@ -327,7 +328,7 @@ def prepare_delta_cert_req(
 
 
 @keyword(name="Build Paired CSR")
-def build_paired_csr(
+def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstring
     base_private_key: PrivateKeySig,
     delta_private_key: PrivateKeySig,
     base_common_name: str = "CN=Hans Mustermann",

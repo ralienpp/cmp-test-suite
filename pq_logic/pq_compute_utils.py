@@ -232,14 +232,15 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
     Arguments:
     ---------
         - `public_key`: The public key to verify the signature.
-        - `alg_id`: An `AlgorithmIdentifier` specifying the algorithm and any associated parameters for signature verification.
+        - `alg_id`: An `AlgorithmIdentifier` specifying the algorithm and any associated parameters for
+        signature verification.
         - `data`: The original message or data whose signature needs verification, as a byte string.
         - `signature`: The digital signature to verify, as a byte string.
 
     Raises:
     ------
         - `ValueError`: If the algorithm identifier is unsupported or invalid.
-        - `InvalidSignature`: If the signature does not match the provided data under the given algorithm and public key.
+        - `InvalidSignature`: If the signature is invalid.
 
     Examples:
     --------

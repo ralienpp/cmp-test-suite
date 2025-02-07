@@ -70,7 +70,7 @@ def _prepare_related_certificate_descriptor(
 
 
 @keyword(name="Prepare SubjectInfoAccessSyntax Extension")
-def prepare_subject_info_access_syntax_extension( # noqa D417 undocumented-param
+def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-param
     url: str = "https://example.com/secondary_certificate.pem",
     critical: bool = False,
     signature_algorithm: Optional[rfc5280.AlgorithmIdentifier] = None,
@@ -93,7 +93,7 @@ def prepare_subject_info_access_syntax_extension( # noqa D417 undocumented-param
 
     Examples:
     --------
-    | ${ext}= | Prepare SubjectInfoAccessSyntax Extension | https://example.com/secondary_certificate.pem | ${other_cert} |
+    | ${ext}= | Prepare SubjectInfoAccessSyntax Extension | https://example.com/sec_cert.pem | ${other_cert} |
 
     :param url: The location of the other associated certificate.
     :param critical: Whether the extension is critical.

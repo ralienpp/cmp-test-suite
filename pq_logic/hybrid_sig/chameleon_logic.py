@@ -590,11 +590,27 @@ def build_chameleon_cert_from_paired_csr(
     return paired_cert, delta_cert
 
 
-def build_delta_cert_from_paired_cert(paired_cert: rfc9480.CMPCertificate) -> rfc9480.CMPCertificate:
+def build_delta_cert_from_paired_cert( # noqa: D417 Missing argument description in the docstring
+        paired_cert: rfc9480.CMPCertificate) -> rfc9480.CMPCertificate:
     """Prepare a paired certificate from a Base Certificate with a Delta Certificate Descriptor (DCD) extension.
 
-    :param paired_cert: The Base Certificate with the DCD extension.
-    :return: The paired certificate.
+    Arguments:
+    ---------
+        - `paired_cert`: The paired certificate with the DCD extension.
+
+    Returns:
+    -------
+        - The re-build delta certificate.
+
+    Raises:
+    ------
+        - `ValueError`: If the DCD extension is missing.
+        - `BadAsn1Data`: If the `DeltaCertificateDescriptor` has a remainder.
+        - `ValueError`: If `DCD` Extensions are not inside the Delta Certificate.
+
+    Examples:
+    --------
+    | ${delta_cert} | Build Delta Cert From Paired Cert | ${paired_cert} |
     """
     paired_cert_tmp = copy_asn1_certificate(paired_cert)
 

@@ -47,6 +47,9 @@ from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKe
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.tmp_oids import id_altSubPubKeyExt, id_ce_deltaCertificateDescriptor, id_relatedCert
 
+# TODO refactor.
+VerifyKey = Union[PQSignaturePublicKey, PublicKeySig, CompositeSigCMSPublicKey]
+SignKey = Union[PrivateKeySig, CompositeSigCMSPrivateKey, PQSignaturePrivateKey]
 
 def sign_data_with_alg_id(key, alg_id: rfc9480.AlgorithmIdentifier, data: bytes) -> bytes:
     """Sign the provided data using the given algorithm identifier.
@@ -112,7 +115,7 @@ def verify_csr_signature(  # noqa: D417 Missing argument descriptions in the doc
         raise BadPOP("The signature verification failed.") from e
 
 
-def may_extract_alt_key_from_cert(
+def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions in the docstring
     cert: rfc9480.CMPCertificate, other_certs: Optional[List[rfc9480.CMPCertificate]] = None
 ) -> Optional[PQSignaturePublicKey]:
     """May extract the alternative public key from a certificate.
@@ -122,9 +125,20 @@ def may_extract_alt_key_from_cert(
     if the issuer's certificate is a composite signature certificate, extracts the pq_key from the composite signature
     keys.
 
-    :param cert: The certificate from which to extract the alternative public key.
-    :param other_certs: A list of other certificates to search for the related certificate.
-    :return: The extracted alternative public key or None if not found.
+    Arguments:
+    ---------
+        - `cert`: The certificate from which to extract the alternative public key.
+        - `other_certs`: A list of other certificates to search for the related certificate.
+
+    Returns:
+    -------
+        - The extracted alternative public key or `None` if not found.
+
+    Examples:
+    --------
+    | ${alt_key} = | May Extract Alt Key From Cert | ${cert} |
+    | ${alt_key} = | May Extract Alt Key From Cert | ${cert} | ${other_certs} |
+
     """
     extensions = cert["tbsCertificate"]["extensions"]
     extn_rel_cert = get_extension(extensions, id_relatedCert)

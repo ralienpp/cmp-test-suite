@@ -370,6 +370,11 @@ def validate_rid_for_encrypted_rand(  # noqa D417 undocumented-param
     ------
         - `ValueError`: If the `rid` field is not correctly populated with `NULL-DN` and `certReqId` as `serialNumber`.
 
+    Examples:
+    --------
+    | Validate Rid For encryptedRand | ${env_data} | cert_req_id=1 |
+    | Validate Rid For encryptedRand | ${env_data} | cert_req_id=2 | ${recip_index} | ${kari_index} |
+
     """
     recipient_infos: rfc9480 = env_data["recipientInfos"]
     recipient_info: rfc5652.RecipientInfo = recipient_infos[int(recip_index)]

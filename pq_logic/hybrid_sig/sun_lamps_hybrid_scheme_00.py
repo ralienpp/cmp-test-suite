@@ -606,15 +606,29 @@ def prepare_sun_hybrid_pre_tbs_certificate(
     return cert, extn_alt_sig2, extn_alt_pub2
 
 
-def validate_alt_pub_key_extn(cert: rfc9480.CMPCertificate):
+@keyword("Validate AltSubPubKeyExt")
+def validate_alt_pub_key_extn(cert: rfc9480.CMPCertificate) -> PrivateKeySig:
     """Validate the `AltSubPubKeyExt` extension in a certificate.
 
     Ensures that the AltSubPubKeyExt extension in the certificate is valid
     and that the hash of the alternative public key matches the expected value.
 
-    :param cert: The certificate to validate.
-    :return: The loaded alternative public key if the extension is valid.
-    :raises ValueError: If the extension is missing, critical, or invalid.
+    Arguments:
+    ---------
+        - `cert`: The certificate to validate the extension inside.
+
+    Raises:
+    ------
+        - ValueError: If the extension is missing, critical, or invalid.
+
+    Returns:
+    -------
+        - The alternative public key.
+
+    Examples:
+    --------
+    | Validate AltSubPubKeyExt | ${cert} |
+
     """
     decoded_ext = None
 

@@ -11,15 +11,7 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc5652, rfc6402, rfc9480
-from resources import certextractutils, compareutils, utils
-from resources.certbuildutils import (
-    build_cert_from_csr,
-    build_csr,
-    csr_add_extensions,
-    prepare_sig_alg_id,
-    prepare_single_value_attr,
-    sign_cert,
-)
+from resources import certbuildutils, certextractutils, compareutils, utils
 from resources.convertutils import copy_asn1_certificate, subjectPublicKeyInfo_from_pubkey
 from resources.copyasn1utils import copy_name, copy_validity
 from resources.cryptoutils import sign_data
@@ -228,7 +220,7 @@ def build_chameleon_base_certificate(
 
     base_cert = rfc9480.CMPCertificate()
     base_cert["tbsCertificate"] = base_tbs_cert
-    base_cert = sign_cert(
+    base_cert = certbuildutils.sign_cert(
         cert=base_cert, signing_key=ca_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss, bad_sig=bad_sig
     )
     return base_cert
@@ -319,7 +311,9 @@ def prepare_delta_cert_req(
         delta_req["extensions"].extend(extensions)
 
     if not omit_sig_alg_id:
-        sig_alg_id = prepare_sig_alg_id(signing_key=signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
+        sig_alg_id = certbuildutils.prepare_sig_alg_id(
+            signing_key=signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss
+        )
         alg_id = rfc5280.AlgorithmIdentifier().subtype(
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 2)
         )
@@ -358,7 +352,7 @@ def build_paired_csr(
     :return: Combined Certification Request for Paired Certificates.
     """
     # Step 1: Build certificationRequestInfo
-    base_csr = build_csr(
+    base_csr = certbuildutils.build_csr(
         signing_key=base_private_key,
         extensions=base_extensions,
         common_name=base_common_name,
@@ -377,7 +371,7 @@ def build_paired_csr(
     )
 
     # Step 3: Add attribute.
-    delta_cert_attr = prepare_single_value_attr(id_at_deltaCertificateRequest, delta_request)
+    delta_cert_attr = certbuildutils.prepare_single_value_attr(id_at_deltaCertificateRequest, delta_request)
     base_csr["certificationRequestInfo"]["attributes"].append(delta_cert_attr)
 
     # Step 4: Sign the CertificationRequestInfo using the private key of the delta certificate
@@ -389,7 +383,7 @@ def build_paired_csr(
         delta_signature = utils.manipulate_first_byte(delta_signature)
 
     # Step 5: Prepare
-    delta_sig_attr = prepare_single_value_attr(
+    delta_sig_attr = certbuildutils.prepare_single_value_attr(
         id_at_deltaCertificateRequestSignature, DeltaCertificateRequestSignatureValue.fromOctetString(delta_signature)
     )
 
@@ -400,7 +394,7 @@ def build_paired_csr(
     base_csr_info = encoder.encode(base_csr["certificationRequestInfo"])
     base_signature = sign_data(data=base_csr_info, key=base_private_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
 
-    base_csr["signatureAlgorithm"] = prepare_sig_alg_id(
+    base_csr["signatureAlgorithm"] = certbuildutils.prepare_sig_alg_id(
         signing_key=base_private_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss
     )
 
@@ -545,12 +539,12 @@ def build_delta_cert(
     csr_tmp["certificationRequestInfo"]["subjectPublicKeyInfo"] = delta_value["subjectPKInfo"]
 
     if delta_value["extensions"].isValue:
-        csr_tmp = csr_add_extensions(
+        csr_tmp = certbuildutils.csr_add_extensions(
             csr_tmp,
             delta_value["extensions"],
         )
 
-    return build_cert_from_csr(
+    return certbuildutils.build_cert_from_csr(
         csr=csr_tmp,
         ca_key=ca_key,
         ca_cert=ca_cert,
@@ -581,7 +575,9 @@ def build_chameleon_cert_from_paired_csr(
     Starts with the Base and then Delta Certificate.
     """
     delta_req = verify_paired_csr_signature(csr=csr)
-    cert = build_cert_from_csr(csr=csr, ca_key=ca_key, ca_cert=ca_cert, alt_sign_key=alt_key, use_rsa_pss=use_rsa_pss)
+    cert = certbuildutils.build_cert_from_csr(
+        csr=csr, ca_key=ca_key, ca_cert=ca_cert, alt_sign_key=alt_key, use_rsa_pss=use_rsa_pss
+    )
 
     delta_cert = build_delta_cert(
         csr=csr,

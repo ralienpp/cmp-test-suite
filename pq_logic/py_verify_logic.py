@@ -172,6 +172,11 @@ def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
         - `ValueError`: If the `cert` contains a PQ signature algorithm.
         - It Should be a traditional algorithm for migration strategy.
 
+    Examples:
+    --------
+    | Verify Composite Signature with Hybrid Cert | ${data} | ${signature} | ${sig_alg} | ${cert} |
+    | Verify Composite Signature with Hybrid Cert | ${data} | ${signature} | ${sig_alg} | ${cert} | ${other_certs} |
+
     """
     if sig_alg["algorithm"] not in CMS_COMPOSITE_OID_2_NAME:
         raise ValueError("The signature algorithm is not a composite signature.")

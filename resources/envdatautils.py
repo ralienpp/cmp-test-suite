@@ -571,7 +571,7 @@ def prepare_asymmetric_key_package(
         asym_key_package.append(prepare_one_asymmetric_key(private_key=key))
     return asym_key_package
 
-
+@not_keyword
 def prepare_one_asymmetric_key(
     private_key,
     version: str = "v2",

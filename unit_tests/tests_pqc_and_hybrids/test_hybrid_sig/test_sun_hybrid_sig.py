@@ -164,7 +164,7 @@ class TestSunHybridScheme(unittest.TestCase):
         self.assertIn("signatureAlgorithm", cert)
         self.assertIn("signature", cert)
 
-    @patch("pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00.fetch_value_from_location")
+    @patch("pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00.utils.fetch_value_from_location")
     def test_validate_pub_key_extn(self, mock_fetch):
         """
         GIVEN a certificate with an alt public key extension.
@@ -220,10 +220,10 @@ class TestSunHybridScheme(unittest.TestCase):
         cert_form4_other = convert_sun_hybrid_cert_to_target_form(cert_form1, "Form4")
 
         extn1 = get_extension(extensions=cert_form4["tbsCertificate"]["extensions"],
-                             oid=id_altSubPubKeyExt)
+                              oid=id_altSubPubKeyExt)
 
         extn2 = get_extension(extensions=cert_form4_other["tbsCertificate"]["extensions"],
-                             oid=id_altSubPubKeyExt)
+                              oid=id_altSubPubKeyExt)
 
         self.assertTrue(compare_pyasn1_objects(extn1, extn2))
         extn1 = get_extension(extensions=cert_form4["tbsCertificate"]["extensions"],
@@ -235,7 +235,7 @@ class TestSunHybridScheme(unittest.TestCase):
         self.assertTrue(compare_pyasn1_objects(extn1, extn2))
         self.assertTrue(compare_pyasn1_objects(cert_form4, cert_form4_other))
 
-    @patch("pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00.fetch_value_from_location")
+    @patch("pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00.utils.fetch_value_from_location")
     def test_convert_from4_to_form1(self, mock_fetch):
         """
         GIVEN a certificate in form 4.
@@ -254,13 +254,7 @@ class TestSunHybridScheme(unittest.TestCase):
         ]
 
         cert_form1_other = convert_sun_hybrid_cert_to_target_form(cert_form4, "Form1")
-        self.assertTrue(compare_pyasn1_objects(cert_form1_other, cert_form4))
-
-
-
-
-
-
+        self.assertTrue(compare_pyasn1_objects(cert_form1_other, cert_form1))
 
 
 if __name__ == "__main__":

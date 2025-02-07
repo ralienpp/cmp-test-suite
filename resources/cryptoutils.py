@@ -68,7 +68,7 @@ def sign_data(  # noqa D417 undocumented-param
         - `ValueError` if an unsupported key type is provided or if the required hash algorithm is not specified.
 
     Examples:
-    -------
+    --------
     | ${sig} | Sign Data | ${data} | ${private_key} | sha256 |
     | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True |
     | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True | ctx=0x1234 |
@@ -364,7 +364,7 @@ def do_dh_key_exchange_password_based(  # noqa: D417
     - `bytes`: Shared secret key derived from the Diffie-Hellman key exchange.
 
     Examples:
-    -------
+    --------
     | ${shared_secret} = | Do DH Key Exchange Password Based | password=my_password | peer_key=${public_key} |
 
     """
@@ -434,6 +434,7 @@ def compute_aes_cbc(key: bytes, data: bytes, iv: bytes, decrypt: bool = True) ->
     return encryptor.update(padded_data) + encryptor.finalize()
 
 
+# TODO Refactor compute_shared_secret(private_key, peer_part, password)
 @not_keyword
 def perform_ecdh(private_key: ECDHPrivKeyTypes, public_key: ECDHPubKeyTypes) -> bytes:
     """Derive a shared secret using Elliptic Curve Diffie-Hellman (ECDH) key exchange.

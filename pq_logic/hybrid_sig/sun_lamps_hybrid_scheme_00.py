@@ -675,13 +675,15 @@ def validate_alt_pub_key_extn(cert: rfc9480.CMPCertificate) -> PrivateKeySig:
     return CombinedKeyFactory.load_public_key_from_spki(spki)
 
 
-def get_sun_hybrid_alt_sig(cert: rfc9480.CMPCertificate) -> bytes:
+@not_keyword
+def extract_sun_hybrid_alt_sig(cert: rfc9480.CMPCertificate) -> bytes:
     """Get the alternative signature extension from the certificate.
 
     Expects the certificate to be in Form 1.
 
-    :param cert: The certificate to extract the extension from.
+    :param cert: The certificate to extract the alternative signature from.
     :return: The alternative signature.
+    :raises ValueError: If the extension is missing or invalid.
     """
     decoded_ext = None
     for x in cert["tbsCertificate"]["extensions"]:

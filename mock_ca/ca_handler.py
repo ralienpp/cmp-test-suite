@@ -15,7 +15,7 @@ from cryptography import x509
 from flask import Flask, Response, request
 from pq_logic.hybrid_issuing import build_chameleon_from_p10cr, build_sun_hybrid_cert_from_request
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
-from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import get_sun_hybrid_alt_sig
+from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import extract_sun_hybrid_alt_sig
 from pq_logic.py_verify_logic import verify_hybrid_pkimessage_protection
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
@@ -374,7 +374,7 @@ class CAHandler:
         )
 
         public_key = sun_lamps_hybrid_scheme_00.get_sun_hybrid_alt_pub_key(cert1["tbsCertificate"]["extensions"])
-        alt_sig = get_sun_hybrid_alt_sig(cert1)
+        alt_sig = extract_sun_hybrid_alt_sig(cert1)
         self.state.sun_hybrid_state.sun_hybrid_certs[serial_number] = cert4
         self.state.sun_hybrid_state.sun_hybrid_pub_keys[serial_number] = public_key
         self.state.sun_hybrid_state.sun_hybrid_signatures[serial_number] = alt_sig

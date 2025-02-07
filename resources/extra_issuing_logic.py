@@ -341,12 +341,12 @@ def validate_kemri_rid_for_encrypted_cert( # noqa D417 undocumented-param
         )
 
 
-@keyword(name="Validate Rid in EnvelopedData")
+@keyword(name="Validate Rid For encryptedRand")
 def validate_rid_for_encrypted_rand(
     env_data: rfc5652.EnvelopedData,
-    cert_req_id: int,
-    recip_index: int = 0,
-    kari_index: int = 0,
+    cert_req_id: Strint,
+    recip_index: Strint = 0,
+    kari_index: Strint = 0,
 ) -> None:
     """Validate the `issuerAndSerialNumber` field inside the encryptRand EnvelopedData structure.
 
@@ -354,17 +354,21 @@ def validate_rid_for_encrypted_rand(
     EnvelopedData structure using the issuerAndSerialNumber choice. The issuer field
     MUST be the NULL-DN and the serialNumber MUST be the certReqId.
 
-    :param env_data: The EnvelopedData structure containing the encryptedRand.
-    :param cert_req_id: The certificate request ID to validate against the serialNumber.
-    :param recip_index: The index of the recipientInfo to extract the `rid` field from. Defaults to `0`.
-    :param kari_index: The index of the recipientEncryptedKeys to extract the `rid` field from. Defaults to `0`.
-    challenge. Defaults to `False`.
-    (used for encrypted certificate validation)
+    Arguments:
+    ---------
+       - `env_data`: The EnvelopedData structure containing the encryptedRand.
+       - `cert_req_id`: The certificate request ID to validate against the serialNumber.
+       - `recip_index`: The index of the recipientInfo to extract the `rid` field from. Defaults to `0`.
+       - `kari_index`: The index of the recipientEncryptedKeys to extract the `rid` field from. Defaults to `0`.
+
+    Raises:
+    ------
+        - `ValueError`: If the `rid` field is not correctly populated with `NULL-DN` and `certReqId` as `serialNumber`.
     """
     recipient_infos: rfc9480 = env_data["recipientInfos"]
-    recipient_info: rfc5652.RecipientInfo = recipient_infos[recip_index]
+    recipient_info: rfc5652.RecipientInfo = recipient_infos[int(recip_index)]
 
-    rid = _extract_rid(recipient_info=recipient_info, kari_index=kari_index)
+    rid = _extract_rid(recipient_info=recipient_info, kari_index=int(kari_index))
 
     # The sender MUST populate the rid field in the EnvelopedData sequence using the
     # issuerAndSerialNumber choice containing a NULL-DN as issuer and the certReqId
@@ -374,7 +378,7 @@ def validate_rid_for_encrypted_rand(
     if not is_null_dn(issuer):
         raise ValueError("`rid` field is not correctly populated with `NULL-DN`")
 
-    if int(rid["serialNumber"]) != cert_req_id:
+    if int(rid["serialNumber"]) != int(cert_req_id):
         raise ValueError("`rid` field serialNumber is not equal to the `certReqId`")
 
 

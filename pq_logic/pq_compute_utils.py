@@ -313,9 +313,9 @@ def _compute_protection(
 
 
 @keyword(name="Protect Hybrid PKIMessage")
-def protect_hybrid_pkimessage(
+def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in the docstring
     pki_message: rfc9480.PKIMessage,
-    private_key: Union[PrivateKeySig, CompositeSigCMSPrivateKey, PQSignaturePrivateKey],
+    private_key: SignKey,
     protection: str = "signature",
     do_patch: bool = True,
     alt_signing_key: Optional[Union[PrivateKeySig, PQSignaturePrivateKey]] = None,
@@ -324,6 +324,45 @@ def protect_hybrid_pkimessage(
     **params,
 ):
     """Protect a PKIMessage with a hybrid protection scheme.
+
+    Supports the following protection types:
+    - `signature`: Protect the message with a pq or traditional signature.
+    - `composite`: Protect the message with a composite signature (must not be a single key).
+    - `catalyst`: Protect the message with an alternative signature (can be done with a secondary key).
+
+    Note:
+    ----
+      - The extraCerts are not included in the PKIMessage (can be done with `Patch ExtraCerts`).
+
+    Arguments:
+    ---------
+        - `pki_message`: The PKIMessage to protect.
+        - `private_key`: The private key used for the primary signature.
+        - `protection`: The protection type to use. Defaults to `signature`.
+        - `do_patch`: Whether to patch the sender and senderKID fields.
+        - `alt_signing_key`: The alternative signing key to use for composite protection,
+        or the catalyst signature.
+        - `include_alt_pub_key`: Whether to include the alternative public key in the message.
+        - `bad_message_check`: Whether to manipulate the signature. Defaults to `False`.
+
+    **params:
+    --------
+        - `cert`: The certificate to patch the sender and senderKID fields.
+        - `do_patch`: Whether to patch the sender and senderKID fields. Defaults to `True`.
+        - `hash_alg`: The hash algorithm to use for signing. Defaults to `sha256`.
+        - `use_rsa_pss`: Whether to use RSA-PSS padding for signing. Defaults to `True`.
+        - `use_pre_hash`: Whether to use pre-hashing for signing. Defaults to `False`.
+
+    Raises:
+    ------
+        - `ValueError`: If the protection type is not supported.
+
+    Examples:
+    --------
+    | Protect Hybrid PKIMessage | ${pki_message} | ${private_key} | do_patch=True | alt_signing_key=${alt_signing_key} |
+    | Protect Hybrid PKIMessage | ${pki_message} | ${private_key} | bad_message_check=True | protection=composite |
+
+
 
     :param pki_message: The PKIMessage to protect.
     :param protection: The protection type to use.
@@ -334,6 +373,7 @@ def protect_hybrid_pkimessage(
     :param include_alt_pub_key: Whether to include the alternative public key in the message.
     :param bad_message_check: Whether to manipulate the message signature. Defaults to `False`.
     :return: The protected `PKIMessage`.
+
     """
     pki_message = patch_sender_and_sender_kid(
         do_patch=do_patch,

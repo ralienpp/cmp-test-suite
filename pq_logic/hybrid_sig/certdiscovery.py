@@ -18,7 +18,7 @@ from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import certutils
 from resources.compareutils import compare_alg_id_without_tag
 from resources.oidutils import CMS_COMPOSITE_OID_2_NAME
-from robot.api.deco import keyword, not_keyword
+from robot.api.deco import keyword
 
 from pq_logic.hybrid_structures import OnRelatedCertificateDescriptor, RelatedCertificateDescriptor
 from pq_logic.tmp_oids import id_ad_certDiscovery, id_ad_relatedCertificateDescriptor
@@ -65,13 +65,12 @@ def _prepare_related_certificate_descriptor(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1), cloneValueFlag=True
         )
 
-
     gen_name["otherName"] = other_name
     return gen_name
 
 
 @keyword(name="Prepare SubjectInfoAccessSyntax Extension")
-def prepare_subject_info_access_syntax_extension(
+def prepare_subject_info_access_syntax_extension( # noqa D417 undocumented-param
     url: str = "https://example.com/secondary_certificate.pem",
     critical: bool = False,
     signature_algorithm: Optional[rfc5280.AlgorithmIdentifier] = None,
@@ -102,6 +101,7 @@ def prepare_subject_info_access_syntax_extension(
     :param public_key_algorithm: The public key algorithm to be included.
     :param other_cert: Optional. The primary certificate to infer algorithms from.
     :return: The populated `Extension`.
+
     """
     extension = rfc5280.Extension()
 

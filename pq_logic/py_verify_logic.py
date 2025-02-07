@@ -303,7 +303,7 @@ def _get_catalyst_info_vals(
 
 
 @keyword(name="Verify Hybrid PKIMessage Protection")
-def verify_hybrid_pkimessage_protection(
+def verify_hybrid_pkimessage_protection( # noqa D417 undocumented-param
     pki_message: rfc9480.PKIMessage,
     public_key: Optional[PublicKeySig] = None,
 ) -> None:

@@ -920,6 +920,7 @@ def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descr
     return tmp_cert
 
 
+@not_keyword
 def process_public_key(data: bytes):
     """Process the public key from the given bytes, in any sun hybrid form (1-4).
 

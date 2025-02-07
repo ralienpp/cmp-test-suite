@@ -95,13 +95,6 @@ def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-para
     --------
     | ${ext}= | Prepare SubjectInfoAccessSyntax Extension | https://example.com/sec_cert.pem | ${other_cert} |
 
-    :param url: The location of the other associated certificate.
-    :param critical: Whether the extension is critical.
-    :param signature_algorithm: The signature algorithm to be included.
-    :param public_key_algorithm: The public key algorithm to be included.
-    :param other_cert: Optional. The primary certificate to infer algorithms from.
-    :return: The populated `Extension`.
-
     """
     extension = rfc5280.Extension()
 

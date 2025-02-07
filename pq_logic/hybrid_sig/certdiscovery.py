@@ -9,7 +9,7 @@ https://datatracker.ietf.org/doc/draft-lamps-okubo-certdiscovery/
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import requests
 from pyasn1.codec.der import decoder, encoder
@@ -17,7 +17,6 @@ from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import certutils
 from resources.compareutils import compare_alg_id_without_tag
-from resources.oidutils import CMS_COMPOSITE_OID_2_NAME
 from robot.api.deco import keyword
 
 from pq_logic.hybrid_structures import OnRelatedCertificateDescriptor, RelatedCertificateDescriptor
@@ -238,32 +237,62 @@ def validate_related_certificate_descriptor_alg_ids(
             )
 
 
-def validate_cert_discovery(
+def validate_cert_discovery(  # noqa: D417 Missing argument descriptions in the docstring
     primary_cert: rfc9480.CMPCertificate,
-    issuer_cert: rfc9480.CMPCertificate,
-    cert_chain_secondary: List[rfc9480.CMPCertificate],
-):
+    cert_chain_secondary: Optional[List[rfc9480.CMPCertificate]] = None,
+    issuer_cert: Optional[rfc9480.CMPCertificate] = None,
+    verify_openssl: bool = True,
+    crl_check: bool = False,
+    verbose: bool = True,
+    timeout: Optional[Union[str, int]] = 60,
+    fetch_timeout: Optional[Union[str, int]] = 20,
+) -> rfc9480.CMPCertificate:
     """Validate a certificate using the certDiscovery access method.
 
-    :param primary_cert: The primiary certificate.
-    :return: True if validation succeeds, False otherwise.
+    Arguments:
+    ---------
+        - `primary_cert`: The primary certificate to validate.
+        - `issuer_cert`: The issuer certificate.
+        - `cert_chain_secondary`: The chain of secondary certificates.
+        - `verify_openssl`: Whether to verify the certificate chain using OpenSSL. Defaults to `True`.
+        - `crl_check`: Whether to check the CRL. Defaults to `False`.
+        - `verbose`: Whether to print verbose output. Defaults to `True`.
+        - `timeout`: The timeout for the OpenSSL verification. Defaults to `60` seconds.
+        - `fetch_timeout`: The timeout for fetching the secondary certificate. Defaults to `20` seconds.
+
+    Returns:
+    -------
+        - The validated secondary certificate.
+
+    Raises:
+    ------
+        - `ValueError`: If the issuer is not a signer of the secondary certificate.
+        - `ValueError`: If the OpenSSL verification fails.
+
+    Examples:
+    --------
+    | ${secondary_cert}= | Validate Cert Discovery | ${primary_cert} | ${cert_chain_secondary} |
+    | ${secondary_cert}= | Validate Cert Discovery | ${primary_cert} | ${cert_chain_secondary} | ${issuer_cert} |
+
     """
     rel_cert_desc: RelatedCertificateDescriptor = extract_related_cert_des_from_sis_extension(
         primary_cert["tbsCertificate"]["extensions"]
     )
-    url = str(rel_cert_desc["uniformResourceIdentifier"])
 
-    other_cert = get_cert_discovery_cert(url)
+    other_cert = fetch_cert_from_url(uri=rel_cert_desc["uniformResourceIdentifier"], timeout=fetch_timeout)
     validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc)
 
-    if certutils.check_is_cert_signer(cert=other_cert, poss_issuer=issuer_cert):
+    if not certutils.check_is_cert_signer(cert=other_cert, poss_issuer=issuer_cert):
         raise ValueError("The Signature was correct, with traditional algorithm!")
 
     if cert_chain_secondary is not None:
         cert_chain = certutils.build_chain_from_list(ee_cert=other_cert, cert_dir=cert_chain_secondary)
-        certutils.verify_cert_chain_openssl(cert_chain)
+    else:
+        cert_chain = [other_cert]
 
-    if rel_cert_desc["signatureAlgorithm"] in CMS_COMPOSITE_OID_2_NAME:
-        # TODO implement
-        raise NotImplementedError("Currently not supported.")
-        # verify_cert_hybrid(primary_cert, other_cert, issuer_cert)
+    if verify_openssl:
+        certutils.verify_cert_chain_openssl(
+            cert_chain=cert_chain, crl_check=crl_check, verbose=verbose, timeout=timeout
+        )
+
+    return other_cert

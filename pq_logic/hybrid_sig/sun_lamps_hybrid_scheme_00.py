@@ -167,22 +167,37 @@ def prepare_sun_hybrid_csr_attributes(  # noqa: D417 Missing argument descriptio
 #############
 
 
-def prepare_sun_hybrid_alt_sub_pub_key_ext(
-    public_key: rsa.RSAPublicKey,
+def prepare_sun_hybrid_alt_sub_pub_key_ext(  # noqa: D417 Missing argument descriptions in the docstring
+    public_key: PublicKey,
     by_val: bool,
     hash_alg: Optional[str] = None,
     location: Optional[str] = None,
     critical: bool = False,
 ) -> rfc5280.Extension:
-    """Prepare the `AltSubPubKeyExt` as an rfc5280.Extension.
+    """Prepare the `AltSubPubKeyExt` as an Extension.
 
-    :param public_key: Cryptography RSA public key representing the alternative public key or its hash value.
-    :param by_val: Boolean indicating byVal. If True, the public_key contains the actual key value.
-                    If False, the public_key contains the hash of the alternative public key.
-    :param hash_alg: The hash algorithm name (e.g., "sha256"). Required if by_val is False.
-    :param location: Optional URI string representing the location of the alternative public key.
-    :return: `Extension` instance representing the AltSubPubKeyExt.
-    :raises ValueError: If inputs are invalid (e.g., missing required fields).
+    Arguments:
+    ---------
+        - `public_key`: The alternative public key.
+        - `by_val`: Boolean indicating byVal. If `True`, the public_key contains the actual key value.
+                    If `False`, the public_key contains the hash of the alternative public key.
+        - `hash_alg`: The hash algorithm name (e.g., "sha256"). Required if by_val is `False`.
+        - `location`: Optional URI string representing the location of the alternative public key.
+        - `critical`: Whether the extension is critical. Defaults to `False`.
+
+    Returns:
+    -------
+        - - The populated Extension.
+
+    Raises:
+    ------
+        - ValueError: If by_val is `False` and hash_alg is not provided.
+
+    Examples:
+    --------
+    | ${extn}= | Prepare Sun Hybrid Alt Sub Pub Key Ext | public_key=${public_key} | by_val=True |
+    | ${extn}= | Prepare Sun Hybrid Alt Sub Pub Key Ext | public_key=${public_key} | by_val=False | hash_alg=sha256 |
+
     """
     public_key_der = public_key.public_bytes(
         encoding=serialization.Encoding.DER, format=serialization.PublicFormat.SubjectPublicKeyInfo

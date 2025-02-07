@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Logic for building/validating Chameleon certificates/certification requests."""
+
 import copy
 from typing import List, Optional, Tuple
 
@@ -227,14 +228,16 @@ def build_chameleon_base_certificate(
 
     base_cert = rfc9480.CMPCertificate()
     base_cert["tbsCertificate"] = base_tbs_cert
-    base_cert = sign_cert(cert=base_cert, signing_key=ca_key, hash_alg=hash_alg,
-                          use_rsa_pss=use_rsa_pss,
-                          bad_sig=bad_sig
-                          )
+    base_cert = sign_cert(
+        cert=base_cert, signing_key=ca_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss, bad_sig=bad_sig
+    )
     return base_cert
 
+
 @keyword(name="Validate DCD Extension")
-def validate_dcd_extension(dcd_extensions: rfc5280.Extensions, base_cert_extensions: rfc5280.Extensions) -> None:
+def validate_dcd_extension(  # noqa: D417 Missing argument descriptions in the docstring
+    dcd_extensions: rfc5280.Extensions, base_cert_extensions: rfc5280.Extensions
+) -> None:
     """Validate the DCD extension to ensure it meets the defined constraints.
 
     Arguments:
@@ -249,6 +252,7 @@ def validate_dcd_extension(dcd_extensions: rfc5280.Extensions, base_cert_extensi
     Examples:
     --------
     | Validate DCD Extension | ${dcd_extensions} | ${base_cert_extensions} |
+
     """
     base_cert_ext_map = {ext["extnID"]: ext for ext in base_cert_extensions}
 
@@ -444,6 +448,7 @@ def extract_chameleon_attributes(
 
     return non_signature_attributes, delta_cert_request, delta_cert_request_signature
 
+
 @keyword(name="Verify Paired CSR Signature")
 def verify_paired_csr_signature(  # noqa: D417 Missing argument description in the docstring
     csr: rfc6402.CertificationRequest,
@@ -596,8 +601,9 @@ def build_chameleon_cert_from_paired_csr(
     return paired_cert, delta_cert
 
 
-def build_delta_cert_from_paired_cert( # noqa: D417 Missing argument description in the docstring
-        paired_cert: rfc9480.CMPCertificate) -> rfc9480.CMPCertificate:
+def build_delta_cert_from_paired_cert(  # noqa: D417 Missing argument description in the docstring
+    paired_cert: rfc9480.CMPCertificate,
+) -> rfc9480.CMPCertificate:
     """Prepare a paired certificate from a Base Certificate with a Delta Certificate Descriptor (DCD) extension.
 
     Arguments:
@@ -617,6 +623,7 @@ def build_delta_cert_from_paired_cert( # noqa: D417 Missing argument description
     Examples:
     --------
     | ${delta_cert} | Build Delta Cert From Paired Cert | ${paired_cert} |
+
     """
     paired_cert_tmp = copy_asn1_certificate(paired_cert)
 
@@ -694,8 +701,9 @@ def build_delta_cert_from_paired_cert( # noqa: D417 Missing argument description
 
 
 @keyword(name="Get Chameleon Delta Public Key")
-def get_chameleon_delta_public_key( # noqa: D417 Missing argument description in the docstring
-        paired_cert: rfc9480.CMPCertificate) -> rfc5280.SubjectPublicKeyInfo:
+def get_chameleon_delta_public_key(  # noqa: D417 Missing argument description in the docstring
+    paired_cert: rfc9480.CMPCertificate,
+) -> rfc5280.SubjectPublicKeyInfo:
     """Extract the delta public key from a paired certificate.
 
     Arguments:
@@ -714,6 +722,7 @@ def get_chameleon_delta_public_key( # noqa: D417 Missing argument description in
     Examples:
     --------
     | ${spki} | Get Chameleon Delta Public Key | ${paired_cert} |
+
     """
     dcd = certextractutils.get_extension(paired_cert["tbsCertificate"]["extensions"], id_ce_deltaCertificateDescriptor)
 

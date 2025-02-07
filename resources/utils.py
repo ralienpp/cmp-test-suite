@@ -17,7 +17,7 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 import requests
 from pq_logic.hybrid_structures import CompositeCiphertextValue, CompositeSignatureValue
 from pyasn1.codec.der import decoder, encoder
-from pyasn1.type import base, univ
+from pyasn1.type import base, char, univ
 from pyasn1_alt_modules import rfc2986, rfc5280, rfc6402, rfc9480
 from robot.api.deco import keyword, not_keyword
 
@@ -710,7 +710,7 @@ def fetch_value_from_location(location: str, timeout: Optional[Union[str, int]] 
 
 
 def load_certificate_from_uri(  # noqa: D417 Missing argument description in the docstring
-    uri: str, load_chain: bool = False, timeout: Union[str, int] = 20
+    uri: Union[str, char.IA5String], load_chain: bool = False, timeout: Union[str, int] = 20
 ) -> List[rfc9480.CMPCertificate]:
     """Get the related certificate using the provided URI.
 
@@ -729,8 +729,13 @@ def load_certificate_from_uri(  # noqa: D417 Missing argument description in the
        - `ValueError`: If the fetching fails.
        - `ValueError`: If the decoding of the fetching certificate had a remainder.
 
+    Examples:
+    --------
+    | ${certs}= | Load Certificate From URI | uri=${uri} | load_chain=False |
+    | ${certs}= | Load Certificate From URI | uri=${uri} | load_chain=True | timeout=20 |
+
     """
-    content = fetch_value_from_location(uri, timeout)
+    content = fetch_value_from_location(str(uri), timeout)
 
     if not load_chain:
         cert, rest = decoder.decode(content, rfc9480.CMPCertificate())

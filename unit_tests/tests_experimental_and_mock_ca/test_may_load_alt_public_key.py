@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives import serialization
 
 from pq_logic.hybrid_sig.cert_binding_for_multi_auth import prepare_related_cert_extension
 from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax_extension
-from pq_logic.hybrid_sig.chameleon_logic import build_paired_csrs, build_chameleon_cert_from_paired_csr
+from pq_logic.hybrid_sig.chameleon_logic import build_paired_csr, build_chameleon_cert_from_paired_csr
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import sun_csr_to_cert
 from pq_logic.pq_compute_utils import may_extract_alt_key_from_cert, protect_hybrid_pkimessage
 from resources.certbuildutils import generate_certificate
@@ -75,7 +75,7 @@ class TestMayLoadAltPublicKey(unittest.TestCase):
         WHEN loading the public key,
         THEN the public key is loaded correctly.
         """
-        csrs = build_paired_csrs(
+        csrs = build_paired_csr(
             base_private_key=self.comp_key.trad_key,
             delta_private_key=self.comp_key.pq_key,
         )

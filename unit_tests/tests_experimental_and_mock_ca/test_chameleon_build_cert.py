@@ -7,7 +7,7 @@ import unittest
 from pyasn1.codec.der import encoder, decoder
 from pyasn1_alt_modules import rfc5280, rfc9480, rfc6402
 
-from pq_logic.hybrid_sig.chameleon_logic import build_paired_csrs, build_chameleon_cert_from_paired_csr, \
+from pq_logic.hybrid_sig.chameleon_logic import build_paired_csr, build_chameleon_cert_from_paired_csr, \
     build_chameleon_cert_from_paired_csr, build_delta_cert, extract_chameleon_attributes, \
     build_delta_cert_from_paired_cert
 from resources.certbuildutils import prepare_extensions
@@ -32,7 +32,7 @@ class TestBuildChameleonCert(unittest.TestCase):
         THEN the certificate is correctly built.
         """
 
-        paired_csr = build_paired_csrs(
+        paired_csr = build_paired_csr(
             delta_private_key=self.mldsa_key,
             base_private_key=self.ec_key,
         )
@@ -56,7 +56,7 @@ class TestBuildChameleonCert(unittest.TestCase):
         WHEN building a paired certificate.
         THEN the certificate is correctly built.
         """
-        paired_csr = build_paired_csrs(
+        paired_csr = build_paired_csr(
             delta_private_key=self.mldsa_key,
             base_private_key=self.ec_key,
         )
@@ -77,7 +77,7 @@ class TestBuildChameleonCert(unittest.TestCase):
         WHEN building a delta certificate.
         THEN the certificate is correctly built.
         """
-        paired_csr = build_paired_csrs(
+        paired_csr = build_paired_csr(
             delta_private_key=self.mldsa_key,
             base_private_key=self.ec_key,
         )
@@ -118,7 +118,7 @@ class TestBuildChameleonCert(unittest.TestCase):
         delta_extensions = prepare_extensions(
             key=self.mldsa_key,
         )
-        paired_csr = build_paired_csrs(
+        paired_csr = build_paired_csr(
             delta_private_key=self.mldsa_key,
             base_private_key=self.ec_key,
             base_extensions=base_extensions,

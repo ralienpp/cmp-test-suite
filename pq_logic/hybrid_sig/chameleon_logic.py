@@ -460,8 +460,9 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
 
     Raises:
     ------
-        - ValueError: If the Delta Certificate Request attribute is missing.
-        - BadPOP: If the signature is invalid.
+        - `ValueError`: If the Delta Certificate Request attribute is missing.
+        - `BadPOP`: If the signature is invalid.
+
     Examples:
     --------
     | ${delta_req} | Verify Paired CSR Signature | ${csr} |

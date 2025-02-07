@@ -21,12 +21,23 @@ from pq_logic.keys.xwing import XWingPublicKey
 # SubjectPublicKeyInfo field of an X.509 certificate, the key usage
 # certificate extension MUST only contain `keyEncipherment`.
 
-
-def validate_migration_alg_id(alg_id: rfc9480.AlgorithmIdentifier) -> None:
+@keyword(name="Validate Migration Alg ID")
+def validate_migration_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
+    alg_id: rfc9480.AlgorithmIdentifier,
+) -> None:
     """Validate a post-quantum or hybrid algorithm identifier.
 
-    :param alg_id: The `AlgorithmIdentifier`.
-    :raises ValueError: If the `parameters` field must be absent.
+    Arguments:
+    ---------
+        - `alg_id`: The `AlgorithmIdentifier` to validate.
+
+    Raises:
+    ------
+        - `ValueError`: If the `parameters` field is not absent.
+
+    Examples:
+    --------
+    | Validate Migration Alg ID | ${alg_id} |
     """
     if alg_id["algorithm"] not in PQ_OID_2_NAME:
         if alg_id["parameters"].isValue:
@@ -37,6 +48,16 @@ def validate_migration_alg_id(alg_id: rfc9480.AlgorithmIdentifier) -> None:
                 f" field to be set: {alg_id['parameters']}"
             )
 
+    elif alg_id["algorithm"] in HYBRID_OID_2_NAME:
+        if alg_id["parameters"].isValue:
+            name = HYBRID_OID_2_NAME.get(alg_id["algorithm"])
+            name = name or HYBRID_OID_2_NAME.get(str(alg_id["algorithm"]))
+            raise ValueError(
+                f"The Hybrid algorithm identifier {name} does not `allow` the parameters"
+                f" field to be set: {alg_id['parameters']}"
+            )
+    else:
+        raise UnknownOID(oid=alg_id["algorithm"])
 
 
 @keyword(name="Validate Migration Certificate KeyUsage")

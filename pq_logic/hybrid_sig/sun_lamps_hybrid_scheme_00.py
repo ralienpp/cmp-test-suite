@@ -410,8 +410,8 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
 def sun_cert_template_to_cert(
     cert_template: rfc4211.CertTemplate,
     issuer_cert: rfc9480.CMPCertificate,
-    issuer_private_key,
-    alt_private_key,
+    issuer_private_key: PrivateKeySig,
+    alt_private_key: PrivateKeySig,
     pub_key_loc: Optional[str],
     sig_loc: Optional[str],
     hash_alg: Optional[str] = None,
@@ -419,15 +419,26 @@ def sun_cert_template_to_cert(
 ) -> Tuple[rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Convert a certificate template to a certificate, with the sun hybrid method.
 
-    :param cert_template: The certificate template, to built the certificate from.
-    :param issuer_cert: The issuer's certificate to use for constructing the certificate.
-    :param issuer_private_key: The private key of the issuer for signing.
-    :param alt_private_key: The alternative private key for creating the alternative signature.
-    :param pub_key_loc: The location of the alternative public key.
-    :param sig_loc: The location of the alternative signature.
-    :param hash_alg: The hash algorithm to use for signing the certificate (e.g., "sha256").
-    :param serial_number: The serial number to use for the certificate. Defaults to `None`.
-    :return: A tuple of the Form4 and Form1 certificates.
+    Arguments:
+    ---------
+        - `cert_template`: The certificate template, to built the certificate from.
+        - `issuer_cert`: The issuer's certificate to use for constructing the certificate.
+        - `issuer_private_key`: The private key of the issuer for signing.
+        - `alt_private_key`: The alternative private key for creating the alternative signature.
+        - `pub_key_loc`: The location of the alternative public key.
+        - `sig_loc`: The location of the alternative signature.
+        - `hash_alg`: The hash algorithm to use for signing the certificate (e.g., "sha256").
+        - `serial_number`: The serial number to use for the certificate. Defaults to `None`.
+
+    Returns:
+    -------
+        - A tuple of the Form4 and Form1 certificates.
+
+    Examples:
+    --------
+    | ${cert_form4} ${cert_form1}= | Sun Cert Template To Cert | cert_template=${cert_template} | \
+    issuer_cert=${issuer_cert} | issuer_private_key=${key} |\\ alt_private_key=${alt_key} |
+
     """
     tbs_cert = certbuildutils.prepare_tbs_certificate_from_template(
         cert_template=cert_template,

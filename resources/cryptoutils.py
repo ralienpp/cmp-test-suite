@@ -33,7 +33,6 @@ from resources.oid_mapping import compute_hash, get_hash_from_oid, hash_name_to_
 from resources.typingutils import ECDHPrivKeyTypes, ECDHPubKeyTypes, PrivateKeySig, PublicKeySig
 
 
-
 def sign_data(  # noqa D417 undocumented-param
     data: bytes,
     key: PrivateKeySig,
@@ -73,6 +72,7 @@ def sign_data(  # noqa D417 undocumented-param
     | ${sig} | Sign Data | ${data} | ${private_key} | sha256 |
     | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True |
     | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True | ctx=0x1234 |
+
     """
     ctx = convertutils.str_to_bytes(ctx)
 

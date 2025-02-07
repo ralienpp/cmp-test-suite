@@ -8,7 +8,7 @@ Provides functionality for generating positive and negative structures for testi
 Also has the functionality for validating the Responses from the Server.
 
 Note the functions all validate the message size and sometimes the responses item size
-returned by the server/CA. This is to enforce LwCMP, per default, which was the
+returned by the server/CA. This is to enforce LwCMP, per default, which was
 the target goal of the Test-Suite.
 
 """

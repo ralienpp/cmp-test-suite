@@ -1679,13 +1679,14 @@ def get_correct_ca_body_name(request: rfc9480.PKIMessage) -> str:
 
     raise ValueError(f"Invalid body name: {body_name}")
 
+
 @not_keyword
 def build_ca_message(
-        responses: Union[PKIMessageTMP, Sequence[CertResponseTMP]],
-        request: Optional[rfc9480.PKIMessage] = None,
-        set_header_fields: bool = True,
-        body_name: Optional[str] = None,
-        **pki_header_fields,
+    responses: Union[PKIMessageTMP, Sequence[CertResponseTMP]],
+    request: Optional[rfc9480.PKIMessage] = None,
+    set_header_fields: bool = True,
+    body_name: Optional[str] = None,
+    **pki_header_fields,
 ) -> PKIMessageTMP:
     """Build a PKIMessage for a CA response.
 
@@ -1704,6 +1705,7 @@ def build_ca_message(
     pki_message = cmputils._prepare_pki_message(**pki_header_fields)
     pki_message["body"] = _prepare_ca_body(body_name, responses=responses)
     return pki_message
+
 
 def build_rp_from_rr(
     request: rfc9480.PKIMessage,

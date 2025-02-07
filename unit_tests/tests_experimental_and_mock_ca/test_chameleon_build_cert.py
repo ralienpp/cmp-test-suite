@@ -5,9 +5,9 @@
 import unittest
 
 from pyasn1.codec.der import encoder, decoder
-from pyasn1_alt_modules import rfc5280, rfc9480, rfc6402
+from pyasn1_alt_modules import rfc5280, rfc9480
 
-from pq_logic.hybrid_sig.chameleon_logic import build_paired_csr, build_chameleon_cert_from_paired_csr, \
+from pq_logic.hybrid_sig.chameleon_logic import build_paired_csr, \
     build_chameleon_cert_from_paired_csr, build_delta_cert, extract_chameleon_attributes, \
     build_delta_cert_from_paired_cert
 from resources.certbuildutils import prepare_extensions
@@ -95,14 +95,12 @@ class TestBuildChameleonCert(unittest.TestCase):
         decoded_cert, rest = decoder.decode(der_data, asn1Spec=rfc9480.CMPCertificate())
         self.assertEqual(rest, b"")
 
-        delta_cert_build["tbsCertificate"]["extensions"] = delta_cert["tbsCertificate"]["extensions"]
         result = compare_pyasn1_objects(delta_cert_build,
                                         delta_cert
                                         )
 
-
-
         self.assertTrue(result)
+
 
 
     def test_build_delta_cert_from_extension_with_skis(self):

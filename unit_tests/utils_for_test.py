@@ -427,8 +427,13 @@ def compare_pyasn1_objects(first: base.Asn1Type, second: base.Asn1Type) -> bool:
     :param second: The second object to compare.
     :return: True if the structures are identical; False otherwise.
     """
-    return encoder.encode(first) == encoder.encode(second)
+    result = encoder.encode(first) == encoder.encode(second)
+    if not result:
+        for field in first.keys(): # type: ignore
+            if encoder.encode(first[field]) != encoder.encode(first[field]): # type: ignore
+                print(f"{field}: {first[field].prettyPrint()} != {second[field].prettyPrint()}") # type: ignore
 
+    return result
 
 @not_keyword
 def convert_to_crypto_lib_cert(cert: Union[rfc9480.CMPCertificate, x509.Certificate]) -> x509.Certificate:

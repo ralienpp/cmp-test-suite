@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Logic for building/validating Chameleon certificates/certification requests."""
-
+import copy
 from typing import List, Optional, Tuple
 
 from cryptography.exceptions import InvalidSignature
@@ -439,7 +439,7 @@ def extract_chameleon_attributes(
 
     return non_signature_attributes, delta_cert_request, delta_cert_request_signature
 
-
+@keyword(name="Verify Paired CSR Signature")
 def verify_paired_csr_signature(  # noqa: D417 Missing argument description in the docstring
     csr: rfc6402.CertificationRequest,
 ) -> DeltaCertificateRequestValue:
@@ -480,18 +480,18 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
     )
 
     attr.extend(attributes)
-    csr["certificationRequestInfo"]["attributes"] = attr
+    csr_tmp["certificationRequestInfo"]["attributes"] = attr
     if delta_req["signatureAlgorithm"].isValue:
         sig_alg_id = delta_req["signatureAlgorithm"]
     else:
-        sig_alg_id = csr["signatureAlgorithm"]
+        sig_alg_id = csr_tmp["signatureAlgorithm"]
 
     if not delta_req["subjectPKInfo"].isValue:
         raise ValueError("Delta Certificate Request 'subjectPKInfo' is missing.")
 
     public_key = CombinedKeyFactory.load_public_key_from_spki(delta_req["subjectPKInfo"])
 
-    data = encoder.encode(csr["certificationRequestInfo"])
+    data = encoder.encode(csr_tmp["certificationRequestInfo"])
     try:
         pq_compute_utils.verify_signature_with_alg_id(
             alg_id=sig_alg_id, data=data, public_key=public_key, signature=delta_sig.asOctets()

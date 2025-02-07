@@ -235,7 +235,7 @@ def prepare_sun_hybrid_alt_sub_pub_key_ext(  # noqa: D417 Missing argument descr
     return extension
 
 
-def prepare_sun_hybrid_alt_signature_ext(
+def prepare_sun_hybrid_alt_signature_ext(  # noqa: D417 Missing argument descriptions in the docstring
     signature: bytes,
     by_val: bool,
     alt_sig_algorithm: rfc9480.AlgorithmIdentifier,
@@ -243,18 +243,30 @@ def prepare_sun_hybrid_alt_signature_ext(
     location: Optional[str] = None,
     critical: bool = False,
 ) -> rfc5280.Extension:
-    """
-    Prepare the `AltSignatureExt` as an rfc5280.Extension.
+    """Prepare the `AltSignatureExt` as an Extension.
 
-    :param signature: Bytes representing the alternative signature or its hash value.
-    :param by_val: Boolean indicating byVal. If True, the signature contains the actual signature value.
-                   If False, the signature contains the hash of the alternative signature.
-    :param alt_sig_algorithm: AlgorithmIdentifier for the alternative signature algorithm.
-    :param hash_alg: The hash algorithm name (e.g., "sha256"). Required if by_val is False.
-    :param location: Optional URI string representing the location of the alternative signature.
-    :param critical: Whether the extension is critical.
-    :return: rfc5280.Extension instance representing the AltSignatureExt.
-    :raises ValueError: If inputs are invalid (e.g., missing required fields).
+    Arguments:
+    ---------
+        - `signature`: Bytes representing the alternative signature or its hash value.
+        - `by_val`: Boolean indicating byVal. If `True`, the signature contains the actual signature value.
+                    If `False`, the signature contains the hash of the alternative signature.
+        - `alt_sig_algorithm`: AlgorithmIdentifier for the alternative signature algorithm.
+        - `hash_alg`: The hash algorithm name (e.g., "sha256"). Required if by_val is `False`. Defaults to `None`.
+        - `location`: Optional URI string representing the location of the alternative signature. Defaults to `None`.
+        - `critical`: Whether the extension is critical. Defaults to `False`.
+
+    Returns:
+    -------
+        - The populated Extension.
+
+    Raises:
+    ------
+        - ValueError: If the signature is empty or if hash_alg is not provided when by_val is `False`.
+
+    Examples:
+    --------
+    | ${extn}= | Prepare Sun Hybrid Alt Signature Ext | signature=${signature} | by_val=True | alt_sig_algorithm=${alg_id} |
+
     """
     # Input validation
     if not signature:

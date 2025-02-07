@@ -328,8 +328,8 @@ def prepare_delta_cert_req(
 
 @keyword(name="Build Paired CSR")
 def build_paired_csr(
-    base_private_key,
-    delta_private_key,
+    base_private_key: PrivateKeySig,
+    delta_private_key: PrivateKeySig,
     base_common_name: str = "CN=Hans Mustermann",
     delta_common_name: Optional[str] = None,
     base_extensions: Optional[rfc5280.Extensions] = None,
@@ -338,18 +338,29 @@ def build_paired_csr(
     hash_alg: str = "sha256",
     use_rsa_pss: bool = False,
 ) -> rfc6402.CertificationRequest:
-    """Create a paired CSR for Paired Certificates.
+    """Create a paired CSR for a Base and Delta Certificate Request.
 
-    :param base_common_name: Subject of the Base Certificate. Defaults to "CN=Hans Mustermann".
-    :param base_extensions: Extensions for the Base Certificate. Defaults to `None`.
-    :param base_private_key: Private key for signing the Base Certificate CSR.
-    :param delta_common_name: Subject of the Delta Certificate. Defaults to `None`.
-    :param delta_extensions: Extensions for the Delta Certificate. Defaults to `None`.
-    :param bad_alt_pop: Whether to make the secondary signature invalid. Defaults to `False`.
-    :param delta_private_key: Private key for signing the Delta Certificate CSR.
-    :param hash_alg: Hash algorithm used for signing. Defaults to "sha256".
-    :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to `False`.
-    :return: Combined Certification Request for Paired Certificates.
+    Arguments:
+    ---------
+        - `base_private_key`: Private key for signing the Base CSR.
+        - `delta_private_key`: Private key for signing the `DeltaCertificateRequestValue`.
+        - `base_common_name`: Subject of the Base Certificate. Defaults to "CN=Hans Mustermann".
+        - `delta_common_name`: Subject of the Delta Certificate. Defaults to `None`.
+        - `base_extensions`: Extensions for the Base Certificate. Defaults to `None`.
+        - `delta_extensions`: Extensions for the Delta Certificate. Defaults to `None`.
+        - `bad_alt_pop`: Whether to make the secondary signature invalid. Defaults to `False`.
+        - `hash_alg`: Hash algorithm used for signing. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use PSS-padding for signing. Defaults to `False`.
+
+    Returns:
+    -------
+        - The paired Certification Request.
+
+    Examples:
+    --------
+    | ${csr} | Build Paired CSR | ${base_private_key} | ${delta_private_key} | ${base_common_name} |
+    | ${csr} | Build Paired CSR | ${base_private_key} | ${delta_private_key} | ${base_common_name} | use_rsa_pss=True |
+
     """
     # Step 1: Build certificationRequestInfo
     base_csr = certbuildutils.build_csr(

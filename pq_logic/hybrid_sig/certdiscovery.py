@@ -119,8 +119,9 @@ def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-para
 
     return extension
 
+
 @keyword(name="Extract RelatedCertificateDescriptor from SIA Extension")
-def extract_related_cert_des_from_sis_extension(
+def extract_related_cert_des_from_sis_extension(  # noqa D417 undocumented-param
     extension: rfc5280.Extension, index: Optional[int] = None
 ) -> RelatedCertificateDescriptor:
     """Parse a SubjectInfoAccessSyntax (SIA) extension to extract a RelatedCertificateDescriptor.
@@ -135,7 +136,7 @@ def extract_related_cert_des_from_sis_extension(
             means that all entries are checked.
 
     Raises:
-    -------
+    ------
         - ValueError: If the `accessMethod` does not match `id_ad_certDiscovery` or the `type-id` does not
             match `id_ad_relatedCertificateDescriptor`.
 

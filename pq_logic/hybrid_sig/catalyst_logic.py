@@ -202,7 +202,7 @@ def sign_cert_catalyst(
 # TODO update to check for other algorithms.
 
 
-def validate_catalyst_extensions( # noqa: D417 Missing a parameter in the Docstring
+def validate_catalyst_extensions(  # noqa: D417 Missing a parameter in the Docstring
     cert: rfc9480.CMPCertificate, sig_alg_must_be: Optional[str] = None
 ) -> Union[None, dict]:
     """Check if the certificate contains all required catalyst extensions.
@@ -285,7 +285,7 @@ def validate_catalyst_extensions( # noqa: D417 Missing a parameter in the Docstr
         raise BadAsn1Data(f"Invalid extension content or verification error: {e}")
 
 
-def verify_catalyst_signature_migrated( # noqa: D417 Missing a parameter in the Docstring
+def verify_catalyst_signature_migrated(  # noqa: D417 Missing a parameter in the Docstring
     cert: rfc9480.CMPCertificate,
     issuer_cert: Optional[rfc9480.CMPCertificate] = None,
     issuer_pub_key: Optional[PrivateKeySig] = None,

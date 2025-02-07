@@ -18,7 +18,6 @@ from datetime import datetime
 from email import message_from_bytes
 from typing import List, Optional
 
-import requests
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
@@ -39,6 +38,7 @@ from robot.api.deco import keyword, not_keyword
 from unit_tests.utils_for_test import convert_to_crypto_lib_cert
 
 from pq_logic.hybrid_structures import RelatedCertificate, RequesterCertificate
+from pq_logic.pq_utils import load_certificate_from_uri
 from pq_logic.tmp_oids import id_aa_relatedCertRequest, id_relatedCert
 
 
@@ -333,37 +333,7 @@ def process_mime_message(mime_data: bytes):
     raise ValueError("No application/pkcs7-mime part found in the message.")
 
 
-def load_certificate_from_uri(uri: str, load_chain: bool) -> List[rfc9480.CMPCertificate]:
-    """Get the related certificate using the provided URI.
-
-    :param uri: The URI of the secondary certificate.
-    :param load_chain: Whether to load a chain or a single certificate.
-    :return: The parsed certificate.
-    :raise ValueError: If the fetching fails.
-    """
-    try:
-        logging.info(f"Fetching secondary certificate from {uri}")
-        response = requests.get(uri)
-        response.raise_for_status()
-
-    except requests.RequestException as e:
-        raise ValueError(f"Failed to fetch secondary certificate: {e}")
-
-    if not load_chain:
-        cert, rest = decoder.decode(response.content, rfc9480.CMPCertificate())
-        if rest:
-            raise ValueError("The decoding of the fetching certificate had a remainder.")
-
-        return [cert]
-
-    else:
-        certs = response.content.split(b"-----END CERTIFICATE-----\n")
-        certs = [cert for cert in certs if cert.strip()]
-        cert = [certutils.parse_certificate(utils.decode_pem_string(cert)) for cert in certs]
-        return cert
-
-
-def validate_multi_auth_binding_csr( # noqa: D417 Missing argument descriptions in the docstring
+def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
     load_chain: bool = False,
     max_freshness_seconds: Strint = 500,

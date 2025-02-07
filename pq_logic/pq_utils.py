@@ -84,3 +84,34 @@ def fetch_value_from_location(location: str) -> Optional[bytes]:
         return response.content
     except Exception as e:
         raise ValueError(f"Failed to fetch value from {location}: {e}")
+
+
+def load_certificate_from_uri(uri: str, load_chain: bool, timeout: Strint = 20) -> List[rfc9480.CMPCertificate]:
+    """Get the related certificate using the provided URI.
+
+    :param uri: The URI of the secondary certificate.
+    :param load_chain: Whether to load a chain or a single certificate.
+    :param timeout: The timeout for the fetching. Default is `20` seconds.
+    :return: The parsed certificate or chain.
+    :raise ValueError: If the fetching fails.
+    """
+    try:
+        logging.info(f"Fetching secondary certificate from {uri}")
+        response = requests.get(uri, timeout=int(timeout))
+        response.raise_for_status()
+
+    except requests.RequestException as e:
+        raise ValueError(f"Failed to fetch secondary certificate: {e}")
+
+    if not load_chain:
+        cert, rest = decoder.decode(response.content, rfc9480.CMPCertificate())
+        if rest:
+            raise ValueError("The decoding of the fetching certificate had a remainder.")
+
+        return [cert]
+
+    else:
+        certs = response.content.split(b"-----END CERTIFICATE-----\n")
+        certs = [cert for cert in certs if cert.strip()]
+        cert = [certutils.parse_certificate(utils.decode_pem_string(cert)) for cert in certs]
+        return cert

@@ -374,17 +374,30 @@ def validate_multi_auth_binding_csr(
 
     Expected the CSR`s Proof-of-Possession (PoP) to be verified.
 
-    :param csr: The x509.CertificateSigningRequest to process.
-    :param max_freshness_seconds: How fresh the `BinaryTime` must be Defaults to `500`.
-    :param load_chain: Whether to load a chain or a single certificate.
-    :param trustanchors: The directory containing the trust anchors. Defaults to `./data/trustanchors`.
-    :param crl_check: Whether to check the CRL. Defaults to `False`.
-    :param allow_os_store: Whether to allow the OS trust store. Defaults to `False`.
-    :return: The related certificate.
-    :raises ValueError: If the `BinaryTime` is not fresh or the certificate chain is invalid.
-    :raises InvalidSignature: If the PoP of the related certificate is invalid.
-    :raises ValueError: If the last certificate in the chain is not a trust anchor.
-    :raises ValueError: If the certificate chain is not valid.
+    Arguments:
+    ---------
+        - `csr`: The CertificationRequest to process.
+        - `max_freshness_seconds`: How fresh the `BinaryTime` must be. Defaults to `500`.
+        - `load_chain`: Whether to load a chain or a single certificate. Defaults to `False`.
+        - `trustanchors`: The directory containing the trust anchors. Defaults to `./data/trustanchors`.
+        - `allow_os_store`: Whether to allow the OS trust store. Defaults to `False`.
+        - `crl_check`: Whether to check the CRL. Defaults to `False`.
+
+    Returns:
+    -------
+        - The related certificate.
+
+    Raises:
+    ------
+        - `ValueError`: If the `BinaryTime` is not fresh or the certificate chain is invalid.
+        - `InvalidSignature`: If the PoP of the related certificate is invalid.
+        - `ValueError`: If the last certificate in the chain is not a trust anchor.
+        - `ValueError`: If the certificate chain is not valid.
+
+    Examples:
+    --------
+    | ${related_cert}= | Validate Multi Auth Binding CSR | ${csr} |
+
     """
     attributes = extract_related_cert_request_attribute(csr)
 

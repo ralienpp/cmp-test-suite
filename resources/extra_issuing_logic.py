@@ -452,6 +452,11 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
         - `BadAsn1Data`: If the `Rand` decoding has a remainder.
         - `ValueError`: If the `rid` field is not correctly populated with NULL-DN and `cert_req_id` as `serialNumber`.
 
+    Examples:
+    ---------
+    | ${response} = | Process PKIMessage With Popdecc | ${pki_message} | ${ee_key} |
+    | ${response} = | Process PKIMessage With Popdecc | ${pki_message} | password=${password} |
+
     """
     pki_message = _parse_pkimessage_from_der(pki_message)  # type: ignore
 

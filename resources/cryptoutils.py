@@ -67,7 +67,7 @@ def sign_data(  # noqa D417 undocumented-param
     ------
         - `ValueError` if an unsupported key type is provided or if the required hash algorithm is not specified.
 
-    Example:
+    Examples:
     -------
     | ${sig} | Sign Data | ${data} | ${private_key} | sha256 |
     | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True |
@@ -363,7 +363,7 @@ def do_dh_key_exchange_password_based(  # noqa: D417
     -------
     - `bytes`: Shared secret key derived from the Diffie-Hellman key exchange.
 
-    Example:
+    Examples:
     -------
     | ${shared_secret} = | Do DH Key Exchange Password Based | password=my_password | peer_key=${public_key} |
 

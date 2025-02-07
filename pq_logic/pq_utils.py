@@ -4,13 +4,17 @@
 
 """Utility to handle extra functionality which is only used for "./pq_logic"."""
 
-from typing import Any, Optional, Union, get_args
+import logging
+from typing import Any, List, Optional, Union, get_args
 
 import requests
 from cryptography.hazmat.primitives.asymmetric import rsa
+from pyasn1.codec.der import decoder
 from pyasn1.type import univ
-from pyasn1_alt_modules import rfc5990
+from pyasn1_alt_modules import rfc5990, rfc9480
+from resources import certutils, utils
 from resources.oidutils import PQ_KEM_NAME_2_OID
+from resources.typingutils import Strint
 from robot.api.deco import not_keyword
 
 from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeKEMPublicKey
@@ -66,11 +70,11 @@ def is_kem_private_key(key: Any) -> bool:
 
 @not_keyword
 def fetch_value_from_location(location: str) -> Optional[bytes]:
-    """Fetch the actual value from a location (e.g., URL) if provided.
+    """Fetch some value from a given url.
 
-    :param location: The URI or location to fetch the value from.
-    :return: The fetched value as bytes:
-    :raise: ValueError, if the data can not be fetched.
+    :param location: The location to fetch the value from.
+    :return: The fetched value as bytes.
+    :raise: ValueError, if the data cannot be fetched.
     """
     if not location:
         return None

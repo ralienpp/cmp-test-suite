@@ -21,9 +21,9 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
-from resources import certbuildutils, cmputils, keyutils, protectionutils
+from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, protectionutils
 from resources.asn1_structures import PKIMessagesTMP
-from resources import ca_ra_utils
+from resources.ca_ra_utils import build_ca_message
 from resources.certextractutils import extract_extension_from_csr, get_extension
 from resources.convertutils import copy_asn1_certificate
 from resources.exceptions import BadAlg, BadAsn1Data, InvalidAltSignature, InvalidKeyCombination, UnknownOID
@@ -36,7 +36,6 @@ from resources.oidutils import (
 from resources.typingutils import PrivateKey, TradSigPrivKey
 from resources.utils import manipulate_composite_sig, manipulate_first_byte
 from robot.api.deco import keyword, not_keyword
-from unit_tests.prepare_ca_response import build_ca_pki_message
 
 from pq_logic.hybrid_sig import chameleon_logic, sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig.catalyst_logic import (
@@ -222,12 +221,8 @@ def build_enc_cert_response(
         text="Issued encrypted certificate please verify with `CertConf`",
     )
 
-    if request["body"].getName() == "ir":
-        body_name = "ip"
-    else:
-        body_name = "cp"
+    pki_message = build_ca_message(request=request, responses=[cert_response])
 
-    pki_message = build_ca_pki_message(body_type=body_name, responses=[cert_response])
     pki_message = cmputils.patch_pkimessage_header_with_other_message(
         target=pki_message, other_message=request, for_exchange=True
     )
@@ -901,8 +896,7 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
             f"Body type needs to be either `p10cr` or `ir` or `cr` or `kur` or `crr`.Got: {request['body'].getName()}"
         )
 
-    body_name = ca_ra_utils.get_correct_ca_body_name(request=request)
-    pki_message = build_ca_pki_message(body_type=body_name, responses=cert_responses)
+    pki_message = build_ca_message(request=request, responses=cert_responses)
     return pki_message, certs
 
 

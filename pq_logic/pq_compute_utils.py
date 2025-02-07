@@ -11,7 +11,7 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc6402, rfc9480
-from resources import certbuildutils, cryptoutils, utils
+from resources import certbuildutils, cryptoutils, keyutils, utils
 from resources.certextractutils import get_extension
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadAsn1Data, BadPOP
@@ -45,7 +45,6 @@ from pq_logic.hybrid_sig.certdiscovery import (
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
-from pq_logic.pq_key_factory import PQKeyFactory
 from pq_logic.tmp_oids import id_altSubPubKeyExt, id_ce_deltaCertificateDescriptor, id_relatedCert
 
 
@@ -74,24 +73,35 @@ def sign_data_with_alg_id(key, alg_id: rfc9480.AlgorithmIdentifier, data: bytes)
         raise ValueError(f"Unsupported private key type: {type(key).__name__} oid:{may_return_oid_to_name(oid)}")
 
 
-@not_keyword
-def verify_csr_signature(csr: rfc6402.CertificationRequest) -> None:
+@keyword(name="Verify CSR Signature")
+def verify_csr_signature(  # noqa: D417 Missing argument descriptions in the docstring
+    csr: rfc6402.CertificationRequest,
+) -> None:
     """Verify a certification request (CSR) signature using the appropriate algorithm.
 
-    :param csr: THe certification request (`CertificationRequest`) to be verified.
-    :raises ValueError: If the algorithm OID in the CSR is unsupported or invalid.
-    :raises BadPOP: If the signature verification fails.
+    Arguments:
+    ---------
+        - `csr`: The certification request (`CertificationRequest`) to be verified.
+
+    Raises:
+    ------
+        - `ValueError`: If the algorithm OID in the CSR is unsupported or invalid.
+        - `BadPOP`: If the signature verification fails.
+        - `ValueError`: If the public key type is unsupported.
+
+    Examples:
+    --------
+    | Verify CSR Signature | ${csr} |
+
     """
     alg_id = csr["signatureAlgorithm"]
     spki = csr["certificationRequestInfo"]["subjectPublicKeyInfo"]
 
-    if alg_id["algorithm"] in PQ_OID_2_NAME:
-        public_key = PQKeyFactory.load_public_key_from_spki(spki=spki)
-    elif alg_id["algorithm"] in CMS_COMPOSITE_OID_2_NAME:
+    if alg_id["algorithm"] in CMS_COMPOSITE_OID_2_NAME:
         public_key = CompositeSigCMSPublicKey.from_spki(spki)
         CompositeSigCMSPublicKey.validate_oid(alg_id["algorithm"], public_key)
     else:
-        public_key = load_public_key_from_spki(spki)
+        public_key = keyutils.load_public_key_from_spki(spki)
 
     signature = csr["signature"].asOctets()
     alg_id = csr["signatureAlgorithm"]

@@ -38,7 +38,7 @@ import pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig import chameleon_logic
 from pq_logic.hybrid_sig.cert_binding_for_multi_auth import get_related_cert_from_list
 from pq_logic.hybrid_sig.certdiscovery import (
-    extract_sia_extension_for_cert_discovery,
+    extract_related_cert_des_from_sis_extension,
     get_cert_discovery_cert,
     validate_related_certificate_descriptor_alg_ids,
 )
@@ -167,7 +167,7 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
         try:
             # it could be that the SIA extension is present, but does not
             # contain the cert discovery entry.
-            rel_cert_desc = extract_sia_extension_for_cert_discovery(extn_sia)
+            rel_cert_desc = extract_related_cert_des_from_sis_extension(extn_sia)
         except ValueError:
             pass
 

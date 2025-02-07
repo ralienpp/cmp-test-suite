@@ -230,7 +230,7 @@ def validate_cert_discovery(
     :param primary_cert: The primiary certificate.
     :return: True if validation succeeds, False otherwise.
     """
-    rel_cert_desc: RelatedCertificateDescriptor = extract_sia_extension_for_cert_discovery(
+    rel_cert_desc: RelatedCertificateDescriptor = extract_related_cert_des_from_sis_extension(
         primary_cert["tbsCertificate"]["extensions"]
     )
     url = str(rel_cert_desc["uniformResourceIdentifier"])

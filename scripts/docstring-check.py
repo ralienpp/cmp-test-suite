@@ -97,9 +97,9 @@ def scan_directory_for_issues(directory, exceptions, debug=False):
 
 def main():
     parser = argparse.ArgumentParser(description="Check for unnecessary capitalized words mid-sentence in docstrings.")
-    parser.add_argument("directory", nargs="?", default=".", help="Directory to scan (default: current directory)")
+    parser.add_argument("directory", nargs="?", default="./resources", help="Directory to scan (default: current directory)")
     parser.add_argument(
-        "--exceptions", default="exceptions.txt", help="Path to exceptions file (default: exceptions.txt)"
+        "--exceptions", default="./scripts/exception-keywords.txt", help="Path to exceptions file (default: exceptions.txt)"
     )
     parser.add_argument("--debug", action="store_true", help="Enable debug output")
 

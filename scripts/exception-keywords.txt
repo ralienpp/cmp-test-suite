@@ -40,3 +40,7 @@ Ed25519
 ML-DSA
 ML-KEM
 SLH-DSA
+Raises:
+Arguments:
+Returns:
+Examples:

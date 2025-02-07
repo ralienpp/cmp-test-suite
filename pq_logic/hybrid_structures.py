@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2024 Siemens AG
 #
 # SPDX-License-Identifier: Apache-2.0
-
+# pylint: disable=too-few-public-methods
 """ASN.1 structures for hybrid cryptographic schemes/mechanisms."""
 
 from pyasn1.type import char, constraint, namedtype, tag, univ

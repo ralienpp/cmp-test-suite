@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2024 SPDX-FileCopyrightText:
 #
 # SPDX-License-Identifier: Apache-2.0
-
+# pylint: disable=too-few-public-methods
 """Utilities for generating and parsing CMP-related data structures."""
 
 import glob

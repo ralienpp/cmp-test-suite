@@ -102,6 +102,7 @@ def _prepare_octet_string_field(value: bytes, tag_number: int) -> univ.OctetStri
     """
     return univ.OctetString(value).subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, tag_number))
 
+
 @not_keyword
 def prepare_pki_message(
     sender: str = "tests@example.com",

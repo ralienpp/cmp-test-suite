@@ -32,10 +32,9 @@ from pyasn1_alt_modules import (
 )
 from robot.api.deco import keyword, not_keyword
 
-from resources import certbuildutils, certextractutils, keyutils, utils
+from resources import certbuildutils, certextractutils, cryptoutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.copyasn1utils import copy_name
-from resources import cryptoutils
 from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_alg_name_to_oid
 from resources.oidutils import KEY_WRAP_NAME_2_OID
 from resources.prepareutils import prepare_name
@@ -47,6 +46,7 @@ from resources.protectionutils import (
     prepare_wrap_alg_id,
 )
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
+
 
 @not_keyword
 def get_aes_keywrap_length(alg_name: str) -> int:

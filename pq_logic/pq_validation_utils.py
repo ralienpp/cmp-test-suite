@@ -38,11 +38,27 @@ def validate_migration_alg_id(alg_id: rfc9480.AlgorithmIdentifier) -> None:
             )
 
 
-def validate_migration_certificate_key_usage(cert: rfc9480.CMPCertificate) -> None:
+
+@keyword(name="Validate Migration Certificate KeyUsage")
+def validate_migration_certificate_key_usage(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate,
+) -> None:
     """Validate the key usage of a certificate with a PQ public key.
 
-    :param cert: The certificate to validate.
-    :return: None
+    Arguments:
+    ---------
+        - `cert`: The certificate to validate.
+
+    Raises:
+    ------
+        - `ValueError`: If the key is a KEM or Hybrid-KEM -key and the key usage is not `keyEncipherment`.
+        - `ValueError`: If the key is a PQ signature key and the key usage is not `digitalSignature`.
+
+    Examples:
+    --------
+    | Validate Migration Certificate Key Usage | ${cert} |
+
+
     """
     public_key: PQPublicKey = load_public_key_from_cert(cert)  # type: ignore
     key_usage = certextractutils.get_field_from_certificate(cert, extension="key_usage")
@@ -55,7 +71,7 @@ def validate_migration_certificate_key_usage(cert: rfc9480.CMPCertificate) -> No
 
     sig_usages = {"digitalSignature", "nonRepudiation", "keyCertSign", "cRLSign"}
 
-    if isinstance(public_key, PQSignaturePublicKey):
+    if isinstance(public_key, (PQSignaturePublicKey, AbstractCompositeSigPublicKey)):
         ml_dsa_disallowed = {"keyEncipherment", "dataEncipherment", "keyAgreement", "encipherOnly", "decipherOnly"}
 
         if not set(key_usage).issubset(sig_usages):
@@ -63,21 +79,10 @@ def validate_migration_certificate_key_usage(cert: rfc9480.CMPCertificate) -> No
         if set(key_usage) & ml_dsa_disallowed:
             raise ValueError(f"ML-DSA keyUsage must not include: {ml_dsa_disallowed}")
 
-    # TODO fix if UpdateVis is accepted.
-    elif isinstance(public_key, PQKEMPublicKey):
+    if is_kem_public_key(public_key):
         ml_kem_allowed = {"keyEncipherment"}
         if set(key_usage) != ml_kem_allowed:
-            raise ValueError(f"ML-KEM keyUsage must only contain: {ml_kem_allowed}")
-
-    elif isinstance(public_key, AbstractCompositeKEMPublicKey):
-        pq_allowed = {"keyEncipherment"}
-        if set(key_usage) != pq_allowed:
-            raise ValueError("A CompositeKEM public key MUST have only the keyUsage 'keyEncipherment'.")
-
-    elif isinstance(public_key, XWingPublicKey):
-        pq_allowed = {"keyEncipherment"}
-        if set(key_usage) != pq_allowed:
-            raise ValueError("A XWing public key MUST have only the keyUsage 'keyEncipherment'.")
+            raise ValueError(f"ML-KEM keyUsage must only contain: {ml_kem_allowed}.But got {key_usage}")
 
     else:
         raise ValueError(f"Unsupported public key type: {type(public_key)}")

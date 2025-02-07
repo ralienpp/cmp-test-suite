@@ -63,7 +63,7 @@ CA MUST Issue A Valid ML-DSA-44 Cert
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
     ${cert}=   Get Cert From PKIMessage    ${response}
-    Validate Migration Certificate Key Usage   ${cert}
+    Validate Migration Certificate KeyUsage   ${cert}
 
 CA MUST Reject A Invalid ML-DSA-44 POP
     [Documentation]   According to fips204 is the ML-DSA-44 ObjectIdentifier and the algorithm used. We send an IR
@@ -128,7 +128,7 @@ CA MUST Accept Valid SLH-DSA IR
     PKIStatus Must Be       ${response}    status=accepted
     PKIMessage Body Type Must Be   ${response}    ip
     ${cert}=   Get Cert From PKIMessage    ${response}
-    Validate Migration Certificate Key Usage   ${cert}
+    Validate Migration Certificate KeyUsage   ${cert}
     
 CA MUST Reject SLH-DSA IR with Invalid POP
     [Documentation]   According to fips205 is the SLH-DSA ObjectIdentifier and the algorithm used. We send an IR

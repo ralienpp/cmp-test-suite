@@ -57,14 +57,14 @@ def _prepare_issuer_and_subject(
         delta_cert["tbsCertificate"]["issuer"], base_cert["tbsCertificate"]["issuer"]
     ):
         issuer_obj = rfc5280.Name().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))
-        issuer = copy_name(delta_cert["tbsCertificate"]["issuer"], name=issuer_obj)
+        issuer = copy_name(filled_name=delta_cert["tbsCertificate"]["issuer"], target=issuer_obj)
         dcd["issuer"] = issuer
 
     if not compareutils.compare_pyasn1_names(
         delta_cert["tbsCertificate"]["subject"], base_cert["tbsCertificate"]["subject"]
     ):
         subject_obj = rfc5280.Name().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3))
-        subject = copy_name(delta_cert["tbsCertificate"]["subject"], name=subject_obj)
+        subject = copy_name(filled_name=delta_cert["tbsCertificate"]["subject"], target=subject_obj)
         dcd["subject"] = subject
 
     return dcd
@@ -509,7 +509,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
             alg_id=sig_alg_id, data=data, public_key=public_key, signature=delta_sig.asOctets()
         )
     except InvalidSignature:
-        raise BadPOP("Invalid signature")
+        raise BadPOP("Invalid signature") # pylint: disable=raise-missing-from
 
     return delta_req
 

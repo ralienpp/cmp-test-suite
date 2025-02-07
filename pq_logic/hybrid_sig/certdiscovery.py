@@ -16,7 +16,6 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import certutils
-from resources.certutils import check_is_cert_signer, verify_cert_chain_openssl
 from resources.compareutils import compare_alg_id_without_tag
 from resources.oidutils import CMS_COMPOSITE_OID_2_NAME
 from robot.api.deco import keyword
@@ -214,12 +213,12 @@ def validate_cert_discovery(
     other_cert = get_cert_discovery_cert(url)
     validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc)
 
-    if check_is_cert_signer(cert=other_cert, poss_issuer=issuer_cert):
+    if certutils.check_is_cert_signer(cert=other_cert, poss_issuer=issuer_cert):
         raise ValueError("The Signature was correct, with traditional algorithm!")
 
     if cert_chain_secondary is not None:
         cert_chain = certutils.build_chain_from_list(ee_cert=other_cert, cert_dir=cert_chain_secondary)
-        verify_cert_chain_openssl(cert_chain)
+        certutils.verify_cert_chain_openssl(cert_chain)
 
     if rel_cert_desc["signatureAlgorithm"] in CMS_COMPOSITE_OID_2_NAME:
         # TODO implement

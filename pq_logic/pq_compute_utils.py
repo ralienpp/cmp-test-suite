@@ -39,7 +39,7 @@ from pq_logic.hybrid_sig import chameleon_logic
 from pq_logic.hybrid_sig.cert_binding_for_multi_auth import get_related_cert_from_list
 from pq_logic.hybrid_sig.certdiscovery import (
     extract_related_cert_des_from_sis_extension,
-    get_cert_discovery_cert,
+    fetch_cert_from_url,
     validate_related_certificate_descriptor_alg_ids,
 )
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
@@ -204,7 +204,7 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
     if rel_cert_desc is not None:
         logging.info("Validate signature with cert discovery.")
         uri = str(rel_cert_desc["uniformResourceIdentifier"])
-        other_cert = get_cert_discovery_cert(uri)
+        other_cert = fetch_cert_from_url(uri)
         validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc=rel_cert_desc)
         pq_key = load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
         return pq_key

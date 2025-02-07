@@ -171,17 +171,34 @@ def extract_related_cert_des_from_sis_extension(  # noqa D417 undocumented-param
     return obj
 
 
-@keyword(name="Get Cert Discovery Cert")
-def get_cert_discovery_cert(uri: str) -> rfc9480.CMPCertificate:
+def fetch_cert_from_url(  # noqa: D417 Missing argument descriptions in the docstring
+    uri: Union[str, char.IA5String], timeout: Optional[Union[str, int]] = 20
+) -> rfc9480.CMPCertificate:
     """Get the secondary certificate using the provided URI.
 
-    :param uri: The URI of the secondary certificate.
-    :return: The parsed certificate.
-    :raise ValueError: If the fetching fails.
+    Arguments:
+    ---------
+        - uri: The URI of the secondary certificate.
+        - timeout: The timeout for the fetching. Defaults to `20`.
+
+    Returns:
+    -------
+        - The parsed certificate.
+
+    Raises:
+    ------
+        - `IOError`: If the fetching fails.
+        - `ValueError`: If the decoding of the fetching certificate had a remainder.
+
+    Examples:
+    --------
+    | ${secondary_cert}= | Get Cert Discovery Cert | https://example.com/sec_cert.pem |
+    | ${secondary_cert}= | Get Cert Discovery Cert | https://example.com/sec_cert.pem | timeout=30 |
+
     """
     try:
         logging.info(f"Fetching secondary certificate from {uri}")
-        response = requests.get(uri)
+        response = requests.get(str(uri), timeout=int(timeout))
         response.raise_for_status()
         cert, rest = decoder.decode(response.content, rfc9480.CMPCertificate())
         if rest:
@@ -189,7 +206,7 @@ def get_cert_discovery_cert(uri: str) -> rfc9480.CMPCertificate:
         return cert
 
     except requests.RequestException as e:
-        raise ValueError(f"Failed to fetch secondary certificate: {e}")
+        raise IOError(f"Failed to fetch secondary certificate: {e}")
 
 
 @keyword(name="Validate RelatedCertificateDescriptor Alg IDs")

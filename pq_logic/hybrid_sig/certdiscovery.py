@@ -119,19 +119,35 @@ def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-para
 
     return extension
 
-
-def extract_sia_extension_for_cert_discovery(
+@keyword(name="Extract RelatedCertificateDescriptor from SIA Extension")
+def extract_related_cert_des_from_sis_extension(
     extension: rfc5280.Extension, index: Optional[int] = None
 ) -> RelatedCertificateDescriptor:
-    """Parse a SubjectInfoAccess (SIA) extension to extract a RelatedCertificateDescriptor for certificate discovery.
+    """Parse a SubjectInfoAccessSyntax (SIA) extension to extract a RelatedCertificateDescriptor.
 
-    :param extension: An `Extension` object containing the SIA extension to parse.
-    :param index: The index of the AccessDescription within the SubjectInfoAccessSyntax. Defaults to None.
-    means that all entries are checked.
-    :raises ValueError: If the `accessMethod` does not match `id_ad_certDiscovery` or the `type-id` does not
-                        match `id_ad_relatedCertificateDescriptor`.
-    :return: The extracted `RelatedCertificateDescriptor` object containing details such as
-    the `uniformResourceIdentifier`, `signatureAlgorithm`, and `publicKeyAlgorithm`.
+    Used by the cert discovery mechanism, to access the secondary certificate.
+    The RelatedCertificateDescriptor contains the URI, signature algorithm, and public key algorithm.
+
+    Arguments:
+    ---------
+        - extension: An `Extension` object containing the SIA extension to parse.
+        - index: The index of the AccessDescription within the SubjectInfoAccessSyntax. Defaults to None.
+            means that all entries are checked.
+
+    Raises:
+    -------
+        - ValueError: If the `accessMethod` does not match `id_ad_certDiscovery` or the `type-id` does not
+            match `id_ad_relatedCertificateDescriptor`.
+
+    Returns:
+    -------
+        - The extracted `RelatedCertificateDescriptor` object.
+
+    Examples:
+    --------
+    | ${rel_cert_desc}= | Extract RelatedCertificateDescriptor from SIA Extension | ${extension} |
+    | ${rel_cert_desc}= | Extract RelatedCertificateDescriptor from SIA Extension | ${extension} | ${index} |
+
     """
     sia, _ = decoder.decode(extension["extnValue"].asOctets(), rfc5280.SubjectInfoAccessSyntax())
 

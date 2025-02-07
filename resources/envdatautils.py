@@ -35,13 +35,7 @@ from robot.api.deco import keyword, not_keyword
 from resources import certbuildutils, certextractutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.copyasn1utils import copy_name
-from resources.cryptoutils import (
-    compute_aes_cbc,
-    compute_ansi_x9_63_kdf,
-    compute_pbkdf2_from_parameter,
-    perform_ecdh,
-    sign_data,
-)
+from resources import cryptoutils
 from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_alg_name_to_oid
 from resources.oidutils import KEY_WRAP_NAME_2_OID
 from resources.prepareutils import prepare_name
@@ -53,7 +47,6 @@ from resources.protectionutils import (
     prepare_wrap_alg_id,
 )
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
-
 
 @not_keyword
 def get_aes_keywrap_length(alg_name: str) -> int:
@@ -114,7 +107,7 @@ def prepare_encrypted_content_info(
     enc_content_info["contentEncryptionAlgorithm"]["algorithm"] = oid
     enc_content_info["contentEncryptionAlgorithm"]["parameters"] = encoder.encode(univ.OctetString(iv))
 
-    encrypted_content = compute_aes_cbc(decrypt=False, iv=iv, key=cek, data=data_to_protect)
+    encrypted_content = cryptoutils.compute_aes_cbc(decrypt=False, iv=iv, key=cek, data=data_to_protect)
 
     enc_content = rfc5652.EncryptedContent(encrypted_content).subtype(
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
@@ -422,7 +415,7 @@ def prepare_signer_info(
     encap_content_info = prepare_encapsulated_content_info(e_content)
     der_encap_content_info = encoder.encode(encap_content_info)
 
-    signature = sign_data(data=der_encap_content_info, key=signing_key, hash_alg=sig_hash_name)
+    signature = cryptoutils.sign_data(data=der_encap_content_info, key=signing_key, hash_alg=sig_hash_name)
     signature += b"" if not bad_sig else b"AA"
     signer_info["signature"] = univ.OctetString(signature)
 
@@ -780,8 +773,8 @@ def prepare_kari(
 
     # TODO fix for other oids.
 
-    shared_secret = perform_ecdh(recip_private_key, public_key)
-    k = compute_ansi_x9_63_kdf(shared_secret, 32, ecc_cms_info, hash_alg=hash_alg)
+    shared_secret = cryptoutils.perform_ecdh(recip_private_key, public_key)
+    k = cryptoutils.compute_ansi_x9_63_kdf(shared_secret, 32, ecc_cms_info, hash_alg=hash_alg)
     encrypted_key = aes_key_wrap(key_to_wrap=cek, wrapping_key=k)
 
     # Version MUST be 3 for KARI.
@@ -1626,6 +1619,6 @@ def wrap_key_password_based_key_management_technique(
     :return: The wrapped (encrypted) AES key.
     """
     password = str_to_bytes(password)
-    derive_key = compute_pbkdf2_from_parameter(parameters, key=password)
+    derive_key = cryptoutils.compute_pbkdf2_from_parameter(parameters, key=password)
     logging.debug("Prepare PWRI - Derived Key: %s", derive_key.hex())
     return aes_key_wrap(wrapping_key=derive_key, key_to_wrap=key_to_wrap)

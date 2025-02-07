@@ -137,8 +137,7 @@ class TestBuildChameleonCert(unittest.TestCase):
         decoded_cert, rest = decoder.decode(der_data, asn1Spec=rfc9480.CMPCertificate())
         self.assertEqual(rest, b"")
 
-        delta_cert_build["tbsCertificate"]["extensions"] = delta_cert["tbsCertificate"]["extensions"]
-        result = compare_pyasn1_objects(delta_cert_build,
+        result = compare_pyasn1_objects(decoded_cert,
                                         delta_cert
                                         )
 

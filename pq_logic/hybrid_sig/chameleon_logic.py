@@ -509,7 +509,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
             alg_id=sig_alg_id, data=data, public_key=public_key, signature=delta_sig.asOctets()
         )
     except InvalidSignature:
-        raise BadPOP("Invalid signature") # pylint: disable=raise-missing-from
+        raise BadPOP("Invalid signature")  # pylint: disable=raise-missing-from
 
     return delta_req
 

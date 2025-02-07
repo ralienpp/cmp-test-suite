@@ -59,15 +59,30 @@ def prepare_pkmac_popo(
 ) -> rfc4211.ProofOfPossession:
     """Prepare the Proof-of-Possession structure for the PKMAC value.
 
-    :param cert_request: The certificate request to prepare the PoP structure.
-    :param ca_cert: The CA certificate to use for `DH` key exchange. Defaults to `None`.
-    :param private_key: The private key to use `DH` key exchange. Defaults to `None`.
-    :param shared_secret: The shared secret to use for the `ProofOfPossession` structure. Defaults to `None`.
-    :param mac_alg: The MAC algorithm to use for the `ProofOfPossession` structure. Defaults to `password_based_mac`.
-    :param salt: The salt to use for the MAC algorithm. Defaults to `None`.
-    :param hash_alg: The hash algorithm to use for the MAC algorithm. Defaults to `sha256`.
-    :param iterations: The number of iterations to use for the MAC algorithm. Defaults to `100.000`.
-    :return: The populated `ProofOfPossession` structure.
+    Arguments:
+    ---------
+        - `cert_request`: The certificate request to prepare the PoP structure.
+        - `ca_cert`: The CA certificate to use for `DH` key exchange. Defaults to `None`.
+        - `private_key`: The private key to use `DH` key exchange. Defaults to `None`.
+        - `shared_secret`: The shared secret to use for the `ProofOfPossession` structure. Defaults to `None`.
+        - `mac_alg`: The MAC algorithm to use for the `ProofOfPossession` structure. Defaults to `password_based_mac`.
+        - `salt`: The salt to use for the MAC algorithm. Defaults to `None`.
+        - `hash_alg`: The hash algorithm to use for the MAC algorithm. Defaults to `sha256`.
+        - `iterations`: The number of iterations to use for the KDF algorithm. Defaults to `100.000`.
+
+
+    Returns:
+    -------
+        - The populated `ProofOfPossession` structure.
+
+    Raises:
+    ------
+        - `ValueError`: If the shared secret or the private key and CA certificate are not provided.
+
+    Examples:
+    ---------
+    | ${popo} = | Prepare PKMAC POPO | ${cert_request} | ${shared_secret} |
+    | ${popo} = | Prepare PKMAC POPO | ${cert_request} | ${ca_cert} |
     """
     if shared_secret is None:
         if private_key is None or ca_cert is None:

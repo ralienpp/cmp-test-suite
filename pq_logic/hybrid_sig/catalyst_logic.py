@@ -216,7 +216,7 @@ def validate_catalyst_extensions( # noqa: D417 Missing a parameter in the Docstr
     Arguments:
     ---------
        - `cert`: The certificate to check.
-       - `sig_alg_must_be`: The signature algorithm name to be expected
+       - `sig_alg_must_be`: The signature algorithm name to be expected for the alternative signature.
        (e.g., "ml-dsa-44", "ml-dsa-44-sha512" can only be a pq-algorithm).
        Defaults to `None`.
 
@@ -285,28 +285,43 @@ def validate_catalyst_extensions( # noqa: D417 Missing a parameter in the Docstr
         raise BadAsn1Data(f"Invalid extension content or verification error: {e}")
 
 
-def verify_catalyst_signature_migrated(
+def verify_catalyst_signature_migrated( # noqa: D417 Missing a parameter in the Docstring
     cert: rfc9480.CMPCertificate,
     issuer_cert: Optional[rfc9480.CMPCertificate] = None,
     issuer_pub_key: Optional[PrivateKeySig] = None,
     exclude_alt_extensions: bool = False,
     only_tbs_cert: bool = False,
+    sig_alg_must_be: Optional[str] = None,
 ) -> None:
     """Verify the alternative signature for migrated relying parties.
 
     First verify native signature to ensure certificate authenticity and then
     verify the alternative signature by excluding the altSignatureValue extension.
 
-    :param cert: The certificate to verify.
-    :param issuer_cert: The issuer's certificate for native signature verification. Defaults to `None`.
-    :param issuer_pub_key: The issuer's public key for native signature verification.
-    :param exclude_alt_extensions: Whether to exclude alternative extensions for the signature verification.
-    :param only_tbs_cert: Whether to only include the `tbsCertificate` part of the certificate and
-    exclude the `signatureAlgorithm` field.
-    :raises ValueError: If catalyst extensions are missing or verification fails.
-    :raises InvalidSignature: If the traditional signature or the alternative signature verification fails.
+    Arguments:
+    ---------
+        - `cert`: The certificate to verify.
+        - `issuer_cert`: The issuer's certificate for native signature verification. Defaults to `None`.
+        - `issuer_pub_key`: The issuer's public key for native signature verification. Defaults to `None`.
+        - `exclude_alt_extensions`: Whether to exclude alternative extensions for the signature verification.
+        - `only_tbs_cert`: Whether to only include the `tbsCertificate` part of the certificate and
+        exclude the `signatureAlgorithm` field.
+        - `sig_alg_must_be`: The signature algorithm name to be expected for the alternative signature.
+        (e.g., "ml-dsa-44", "ml-dsa-44-sha512" can only be a pq-algorithm).
+        Defaults to `None`.
+
+    Raises:
+    ------
+        - `ValueError`: If catalyst extensions are missing or verification fails.
+        - `InvalidSignature`: If the traditional signature or the alternative signature verification fails.
+
+    Examples:
+    --------
+    | Verify Catalyst Signature Migrated | ${cert} | ${issuer_cert} |
+    | Verify Catalyst Signature Migrated | ${cert} | ${issuer_pub_key} | sig_alg_must_be=ml-dsa-44 |
+
     """
-    catalyst_ext = validate_catalyst_extensions(cert)
+    catalyst_ext = validate_catalyst_extensions(cert=cert, sig_alg_must_be=sig_alg_must_be)
     if catalyst_ext is None:
         raise ValueError("Catalyst extensions are not present, cannot perform migrated verification.")
 

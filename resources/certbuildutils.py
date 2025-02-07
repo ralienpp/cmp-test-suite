@@ -146,7 +146,7 @@ def sign_csr(  # noqa D417 undocumented-param
     hash_alg: str = "sha256",
     other_key: Optional[PrivateKeySig] = None,
     use_rsa_pss: bool = False,
-    bad_sig: bool = False,
+    bad_pop: bool = False,
     use_pre_hash: bool = False,
 ):
     """Sign a `pyasn1` `CertificationRequest` (CSR).
@@ -164,7 +164,7 @@ def sign_csr(  # noqa D417 undocumented-param
         - `other_key`: Optional private key to sign the CSR.
         Will be ignored if Ed25519 and Ed448 are used.
         - `use_rsa_pss`: Whether to use RSA-PSS for the signature algorithm. Defaults to `False`.
-        - `bad_sig`: Whether to manipulate the signature for negative testing.
+        - `bad_pop`: Whether to manipulate the signature for negative testing.
         - `use_pre_hash`: Whether to use the pre-hashed version for PQ-keys and CompositeSig-keys.
 
     Returns:
@@ -185,7 +185,7 @@ def sign_csr(  # noqa D417 undocumented-param
     der_data = encoder.encode(csr["certificationRequestInfo"])
     signature = cryptoutils.sign_data(data=der_data, key=other_key or signing_key, hash_alg=hash_alg)
     logging.info(f"CSR Signature: {signature}")
-    if bad_sig:
+    if bad_pop:
         if isinstance(signing_key, AbstractCompositeSigPrivateKey):
             signature = utils.manipulate_composite_sig(signature)
         else:
@@ -217,7 +217,7 @@ def build_csr(  # noqa D417 undocumented-param
     subjectAltName: Optional[str] = None,
     exclude_signature: bool = False,
     for_kga: bool = False,
-    bad_sig: bool = False,
+    bad_pop: bool = False,
     use_pre_hash: bool = False,
     use_pre_hash_pub_key: Optional[bool] = None,
     spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
@@ -244,7 +244,6 @@ def build_csr(  # noqa D417 undocumented-param
         - `use_pre_hash_pub_key`: Whether to use the pre-hashed version for the public key.
         Defaults to `use_pre_hash`.
         - `spki`: Optional `SubjectPublicKeyInfo` object to populate the CSR with. Defaults to `None`.
-
 
     Returns:
     -------
@@ -290,7 +289,7 @@ def build_csr(  # noqa D417 undocumented-param
             signing_key=signing_key,
             hash_alg=hash_alg,
             use_rsa_pss=use_rsa_pss,
-            bad_sig=bad_sig,
+            bad_pop=bad_pop,
             use_pre_hash=use_pre_hash,
         )
 

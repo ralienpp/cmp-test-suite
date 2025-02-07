@@ -333,25 +333,40 @@ def _extract_sun_hybrid_attrs_from_csr(csr: rfc6402.CertificationRequest) -> Dic
     return extracted_values
 
 
-def sun_csr_to_cert(
+def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
-    issuer_private_key,
-    alt_private_key,
+    issuer_private_key: PrivateKeySig,
+    alt_private_key: PrivateKeySig,
     issuer_cert: Optional[rfc9480.CMPCertificate] = None,
     hash_alg: str = "sha256",
     serial_number: Optional[int] = None,
     extensions: Optional[List[rfc5280.Extension]] = None,
+    **kwargs,
 ) -> Tuple[rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Convert a CSR to a certificate, with the sun hybrid method.
 
-    :param csr: The CSR to convert.
-    :param issuer_cert:
-    :param issuer_private_key: The private key of the issuer for signing.
-    :param alt_private_key: The certificate of the issuer.Optional alternative private key for creating AltSignatureExt.
-    :param hash_alg: Hash algorithm for signing the certificate (e.g., "sha256").
-    :param serial_number: The serial number to use for the certificate. Defaults to `None`.
-    :param extensions: Optional list of additional extensions to include in the certificate.
-    :return: A tuple of the Form4 and Form1 certificates.
+    Arguments:
+    ---------
+        - `csr`: The CSR to build the certificate from.
+        - `issuer_private_key`: The private key of the issuer for signing the certificate.
+        - `alt_private_key`: The alternative private key for creating the alternative signature.
+        - `issuer_cert`: The issuer's certificate to use for constructing the certificate. Defaults to `None`.
+        - `hash_alg`: The hash algorithm to use for signing the certificate (e.g., "sha256"). Defaults to "sha256".
+        - `serial_number`: The serial number to use for the certificate. Defaults to `None`.
+        - `extensions`: A list of additional extensions to include in the certificate. Defaults to `None`.
+
+    **kwargs:
+    ---------
+        - `days`: The number of days the certificate is valid for. Defaults to `3650`.
+
+    Returns:
+    -------
+        - A tuple of the Form4 and Form1 certificates.
+
+    Examples:
+    --------
+    | ${cert_form4}= | Sun CSR To Cert | csr=${csr} | issuer_private_key=${issuer_private_key} | alt_private_key=${alt_private_key} |
+
     """
     public_key = CompositeSigCMSPublicKey.from_spki(csr["certificationRequestInfo"]["subjectPublicKeyInfo"])
     oid = csr["signatureAlgorithm"]["algorithm"]
@@ -368,7 +383,7 @@ def sun_csr_to_cert(
         data["sig_hash_id"] = get_hash_from_oid(data["sig_hash_id"]["algorithm"])
 
     not_before = datetime.now()
-    not_after = datetime.now() + timedelta(days=365 * 10)
+    not_after = datetime.now() + timedelta(days=int(kwargs.get("days", 365 * 10)))
     validity = certbuildutils.prepare_validity(not_before=not_before, not_after=not_after)
     cert_form4, ext_sig, ext_pub = prepare_sun_hybrid_pre_tbs_certificate(
         public_key,

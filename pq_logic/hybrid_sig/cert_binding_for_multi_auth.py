@@ -129,12 +129,23 @@ def prepare_requester_certificate(  # noqa: D417 Missing argument descriptions i
 
 
 @keyword(name="Add CSR relatedCertRequest Attribute")
-def add_csr_related_cert_request_attribute(csr: rfc6402.CertificationRequest, requester_cert: RequesterCertificate):
+def add_csr_related_cert_request_attribute(  # noqa: D417 Missing argument descriptions in the docstring
+    csr: rfc6402.CertificationRequest, requester_cert: RequesterCertificate
+):
     """Add the relatedCertRequest attribute to the CSR.
 
-    :param csr: The CSR to which the attribute will be added.
-    :param requester_cert: The RequesterCertificate to include.
-    :return: The updated CSR.
+    Arguments:
+    ---------
+        - `csr`: The CSR to which the attribute will be added.
+        - `requester_cert`: The RequesterCertificate to include.
+
+    Returns:
+    -------
+        - The updated CSR.
+
+    Examples:
+    --------
+    | ${csr} = | Add CSR relatedCertRequest Attribute | ${csr} | ${requester_cert} |
 
     """
     rel_cert_req_attr = rfc5652.Attribute()

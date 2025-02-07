@@ -8,6 +8,8 @@
 import glob
 import logging
 import os
+import random
+import string
 import sys
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple, Union
@@ -50,7 +52,6 @@ from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.exceptions import BadAsn1Data
 from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKey, Strint, TradSigPrivKey
-from resources.utils import modify_random_str
 
 # When dealing with post-quantum crypto algorithms, we encounter big numbers, which wouldn't be pretty-printed
 # otherwise. This is just for cosmetic convenience.
@@ -4117,3 +4118,21 @@ def build_kem_based_mac_protected_message(  # noqa: D417 Missing argument descri
         pki_message=request,
         shared_secret=shared_secret,
     )
+
+
+@not_keyword
+def modify_random_str(data: str, index: Optional[int] = None) -> str:  # type: ignore[reportReturnType]
+    """Modify a random character with a digit or ascii letter (upper and lower).
+
+    :param data: String to change a random character.
+    :param index: Optional index to change the character.
+    :return: The changed string.
+    """
+    chars = list(data)
+    options = list(string.ascii_letters) + list(string.digits)
+    random_index: int = index or random.randint(0, len(data) - 1)
+    while 1:
+        option = random.choice(options)
+        if option != chars[random_index]:
+            chars[random_index] = option
+            return "".join(chars)

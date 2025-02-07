@@ -11,6 +11,8 @@ from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+import resources.cmputils
 from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeSigPrivateKey
 from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPrivateKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, get_oid_cms_composite_signature
@@ -784,7 +786,7 @@ def modify_common_name_cert(  # noqa D417 undocumented-param
         utils.log_certificates([cert])
         raise ValueError("The certificate did not contain a value in the `issuer` field.")
 
-    issuer_name["CN"] = resources.utils.modify_random_str(issuer_name["CN"], index=-1)
+    issuer_name["CN"] = resources.cmputils.modify_random_str(issuer_name["CN"], index=-1)
     data = ""
     for x, y in issuer_name.items():
         data += x + "=" + y + ","

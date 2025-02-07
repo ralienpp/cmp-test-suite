@@ -7,9 +7,7 @@
 import base64
 import logging
 import os
-import random
 import re
-import string
 import textwrap
 from base64 import b64decode, b64encode
 from collections import Counter
@@ -691,19 +689,3 @@ def manipulate_composite_kemct(  # noqa: D417 Missing argument description in th
     return encoder.encode(out)
 
 
-@not_keyword
-def modify_random_str(data: str, index: Optional[int] = None) -> str:  # type: ignore[reportReturnType]
-    """Modify a random character with a digit or ascii letter (upper and lower).
-
-    :param data: String to change a random character.
-    :param index: Optional index to change the character.
-    :return: The changed string.
-    """
-    chars = list(data)
-    options = list(string.ascii_letters) + list(string.digits)
-    random_index: int = index or random.randint(0, len(data) - 1)
-    while 1:
-        option = random.choice(options)
-        if option != chars[random_index]:
-            chars[random_index] = option
-            return "".join(chars)

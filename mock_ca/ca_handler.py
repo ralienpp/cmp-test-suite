@@ -13,9 +13,11 @@ sys.path.append(".")
 
 from cryptography import x509
 from flask import Flask, Response, request
-from pq_logic.hybrid_issuing import build_chameleon_from_p10cr, build_sun_hybrid_cert_from_request
+from pq_logic.hybrid_issuing import build_chameleon_from_p10cr, build_sun_hybrid_cert_from_request, \
+    build_catalyst_signed_cert_from_req, build_cert_from_catalyst_request, build_cert_discovery_cert_from_p10cr
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import extract_sun_hybrid_alt_sig
+from pq_logic.hybrid_sig.cert_binding_for_multi_auth import build_related_cert_from_csr
 from pq_logic.py_verify_logic import verify_hybrid_pkimessage_protection
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
@@ -29,7 +31,7 @@ from resources.ca_ra_utils import (
 from resources.certbuildutils import build_certificate
 from resources.certutils import parse_certificate
 from resources.cmputils import build_cmp_error_message
-from resources.exceptions import CMPTestSuiteError, TransactionIdInUse
+from resources.exceptions import CMPTestSuiteError, TransactionIdInUse, BadRequest
 from resources.general_msg_utils import build_genp_kem_ct_info_from_genm
 from resources.keyutils import load_private_key_from_file
 from resources.protectionutils import (
@@ -115,6 +117,20 @@ class MockCAState:
         transaction_id = pki_message["header"]["transactionID"].asOctets()
         der_sender = encoder.encode(pki_message["header"]["sender"])
         return self.to_be_confirmed_certs[(transaction_id, der_sender)]
+
+    def get_cert_by_serial_number(self, serial_number: int) -> rfc9480.CMPCertificate:
+        """Get the Sun-Hybrid certificate for the specified serial number.
+
+        :param serial_number: The serial number of the certificate.
+        :return: The certificate.
+        :raises BadRequest: If the certificate could not be found.
+        """
+
+        for cert in self.issued_certs:
+            if serial_number == int(cert["tbsCertificate"]["serialNumber"]):
+                return cert
+
+        raise BadRequest(f"Could not find certificate with serial number {serial_number}")
 
 
 def _build_error_from_exception(e: CMPTestSuiteError) -> rfc9480.PKIMessage:
@@ -359,7 +375,7 @@ class CAHandler:
         :param pki_message: The Sun Hybrid message.
         :return: The PKI message containing the response.
         """
-        for _ in range(10):
+        for _ in range(100):
             serial_number = x509.random_serial_number()
             if serial_number not in self.state.sun_hybrid_state.sun_hybrid_certs:
                 break
@@ -367,10 +383,12 @@ class CAHandler:
         pki_message, cert4, cert1 = build_sun_hybrid_cert_from_request(
             request=pki_message,
             signing_key=self.comp_key,
+            protection_key=self.ca_key,
             serial_number=serial_number,
             issuer_cert=self.ca_cert,
             pub_key_loc=f"https://cmp-test-suite/pubkey/{serial_number}",
             sig_loc=f"https://cmp-test-suite/sig/{serial_number}",
+
         )
 
         public_key = sun_lamps_hybrid_scheme_00.get_sun_hybrid_alt_pub_key(cert1["tbsCertificate"]["extensions"])
@@ -389,8 +407,81 @@ class CAHandler:
         verify_hybrid_pkimessage_protection(
             pki_message=pki_message,
         )
-        raise NotImplementedError("Method not implemented, to return a `rp` message,")
+        return self.process_normal_request(pki_message)
 
+    def process_cert_discovery(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+        """Process the Cert Discovery request message.
+
+        :param pki_message: The Cert Discovery message.
+        :return: The PKI message containing the response.
+        """
+        if pki_message["body"].getName() != "p10cr":
+            raise NotImplementedError("Only support p10cr for cert discovery requests.")
+
+        serial_number = None
+        for _ in range(100):
+            serial_number = x509.random_serial_number()
+            if serial_number not in self.state.sun_hybrid_state.sun_hybrid_certs:
+                break
+            serial_number = None
+
+        if serial_number is None:
+            raise Exception("Could not generate a unique serial number.")
+
+        pki_message = build_cert_discovery_cert_from_p10cr(
+            request=pki_message,
+            ca_cert=self.ca_cert,
+            ca_key=self.ca_key,
+            serial_number=serial_number,
+            url=f"http://127.0.0.1:5000/cert/{serial_number}",
+            load_chain=False,
+        )
+        return self.sign_response(response=pki_message, request_msg=pki_message)
+
+
+    def process_related_cert(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+        """Process the Related Cert request message.
+
+        :param pki_message: The Related Cert message.
+        :return: The PKI message containing the response.
+        """
+
+        if pki_message["body"].getName() != "p10cr":
+            raise NotImplementedError("Only support p10cr for related cert requests.")
+
+        pki_message = build_related_cert_from_csr(
+            request=pki_message,
+            ca_cert=self.ca_cert,
+            ca_key=self.ca_key,
+        )
+        return self.sign_response(response=pki_message, request_msg=pki_message)
+
+    def process_catalyst_sig(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+        """Process the Catalyst Sig request message.
+
+        :param pki_message: The Catalyst Sig message.
+        :return: The PKI message containing the response.
+        """
+        pki_message = build_catalyst_signed_cert_from_req(
+            request=pki_message,
+            ca_cert=self.ca_cert,
+            ca_key=self.ca_key,
+        )
+        return self.sign_response(response=pki_message, request_msg=pki_message)
+
+    def process_catalyst_issuing(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+        """Process the Catalyst request message.
+
+        :param pki_message: The Catalyst message.
+        :return: The PKI message containing the response.
+        """
+
+        pki_message = build_cert_from_catalyst_request(
+            request=pki_message,
+            ca_cert=self.ca_cert,
+            ca_key=self.ca_key,
+        )
+        return self.sign_response(response=pki_message, request_msg=pki_message)
 
 app = Flask(__name__)
 state = MockCAState()
@@ -400,6 +491,14 @@ ca_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=No
 
 handler = CAHandler(ca_cert=ca_cert, ca_key=ca_key, config={})
 handler.state = state
+
+
+@app.route("/cert/<serial_number>", methods=["GET"])
+def get_cert(serial_number):
+    """Get the Sun-Hybrid certificate for the specified serial number."""
+    serial_number = int(serial_number)
+    sun_hybrid_cert = state.get_cert_by_serial_number(serial_number)
+    return encoder.encode(sun_hybrid_cert)
 
 
 @app.route("/pubkey/<serial_number>", methods=["GET"])
@@ -479,7 +578,7 @@ def handle_multi_auth():
     )
 
 
-@app.route("/cert_discovery", methods=["POST"])
+@app.route("/cert-discovery", methods=["POST"])
 def handle_cert_discovery():
     """Handle the cert discovery request.
 
@@ -491,7 +590,7 @@ def handle_cert_discovery():
     return pki_message
 
 
-@app.route("/related_cert", methods=["POST"])
+@app.route("/related-cert", methods=["POST"])
 def handle_related_cert():
     """Handle the related cert request.
 
@@ -515,7 +614,7 @@ def handle_catalyst_sig():
     return pki_message
 
 
-@app.route("/catalyst", methods=["POST"])
+@app.route("/catalyst-issuing", methods=["POST"])
 def handle_catalyst():
     """Handle the catalyst request.
 
@@ -523,7 +622,7 @@ def handle_catalyst():
     """
     data = request.get_data()
     pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
-    pki_message = handler.process_catalyst(pki_message)
+    pki_message = handler.process_catalyst_issuing(pki_message)
     return pki_message
 
 

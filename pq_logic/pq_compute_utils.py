@@ -15,7 +15,6 @@ from resources import certbuildutils, cryptoutils, keyutils, utils
 from resources.certextractutils import get_extension
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadAsn1Data, BadPOP
-from resources.keyutils import load_public_key_from_spki
 from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
 from resources.oidutils import (
     CMS_COMPOSITE_OID_2_NAME,
@@ -35,8 +34,7 @@ from resources.typingutils import PrivateKeySig, PublicKeySig
 from robot.api.deco import keyword
 
 import pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00
-from pq_logic.hybrid_sig import certdiscovery, chameleon_logic
-from pq_logic.hybrid_sig.cert_binding_for_multi_auth import get_related_cert_from_list
+from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, chameleon_logic
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
@@ -187,8 +185,8 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
 
     if extn_rel_cert is not None and other_certs is not None:
         logging.info("Validate signature with related certificate.")
-        related_cert = get_related_cert_from_list(other_certs, cert)
-        pq_key = load_public_key_from_spki(related_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        related_cert = cert_binding_for_multi_auth.get_related_cert_from_list(other_certs, cert)
+        pq_key = keyutils.load_public_key_from_spki(related_cert["tbsCertificate"]["subjectPublicKeyInfo"])
         return pq_key
 
     if extn_rel_cert is not None and other_certs is None:
@@ -199,7 +197,7 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
         spki, rest = decoder.decode(extn_alt_spki["extnValue"].asOctets(), SubjectAltPublicKeyInfoExt())
         if rest:
             raise BadAsn1Data("The alternative public key extension contains remainder data.", overwrite=True)
-        alt_issuer_key = load_public_key_from_spki(spki)
+        alt_issuer_key = keyutils.load_public_key_from_spki(spki)
         return alt_issuer_key
 
     if rel_cert_desc is not None:
@@ -209,12 +207,12 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
         )
         other_cert = other_certs[0]
         certdiscovery.validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc=rel_cert_desc)
-        pq_key = load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        pq_key = keyutils.load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
         return pq_key
 
     if extn_chameleon is not None:
         spki = chameleon_logic.get_chameleon_delta_public_key(cert)
-        return load_public_key_from_spki(spki)
+        return keyutils.load_public_key_from_spki(spki)
 
     if oid in CMS_COMPOSITE_OID_2_NAME:
         public_key = CompositeSigCMSPublicKey.from_spki(spki)

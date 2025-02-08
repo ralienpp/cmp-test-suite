@@ -1434,6 +1434,7 @@ def validate_genp_kem_ct_info(  # noqa: D417 Missing argument description in the
 
 
 # TODO add params.
+@not_keyword
 def add_general_messages(  # noqa D417 undocumented-param
     pki_message: rfc9480.PKIMessage, add_messages: str, rev_passphrase: Optional[rfc9480.EnvelopedData] = None
 ) -> rfc9480.PKIMessage:
@@ -1461,6 +1462,10 @@ def add_general_messages(  # noqa D417 undocumented-param
         - `"enc_key_agree"`: Request for encryption/key agreement types.
         - `"sign_key_types"`: Request for signing key pair types.
         - `"supp_lang_tags"`: Request for supported language tags.
+
+    Examples:
+    --------
+    | ${genm} = | Add General Messages | ${genm} | add_messages=get_ca_certs,current_crl |
 
     """
     if add_messages is None:

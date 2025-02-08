@@ -481,6 +481,7 @@ def _convert_to_crypto_lib_cert(cert: rfc9480.CMPCertificate) -> x509.Certificat
     return x509.load_der_x509_certificate(encoder.encode(cert))
 
 
+@not_keyword
 def generate_certs_only_message(cert_path: str, cert_dir: str) -> bytes:
     """Generate a CMS 'certs-only' message containing Cert A and its intermediate certificates.
 

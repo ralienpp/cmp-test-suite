@@ -249,7 +249,7 @@ def prepare_sun_hybrid_alt_signature_ext(  # noqa: D417 Missing argument descrip
 
     Arguments:
     ---------
-        - `signature`: Bytes representing the alternative signature or its hash value.
+        - `signature`: Bytes representing the alternative signature.
         - `by_val`: Boolean indicating byVal. If `True`, the signature contains the actual signature value.
                     If `False`, the signature contains the hash of the alternative signature.
         - `alt_sig_algorithm`: AlgorithmIdentifier for the alternative signature algorithm.

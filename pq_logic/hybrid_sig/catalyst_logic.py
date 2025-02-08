@@ -12,6 +12,8 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from pyasn1_alt_modules.rfc4210 import CMPCertificate
+from robot.api.deco import keyword
+
 from resources import certbuildutils, certextractutils, certutils, cryptoutils, keyutils, utils
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadAlg, BadAsn1Data
@@ -423,7 +425,7 @@ def load_catalyst_public_key(extensions: rfc9480.Extensions) -> PublicKey:
     alt_issuer_key = keyutils.load_public_key_from_spki(spki)
     return alt_issuer_key
 
-
+@keyword(name="Sign CRL Catalyst")
 def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     crl: rfc5280.CertificateList,
     ca_private_key: PrivateKeySig,
@@ -460,6 +462,11 @@ def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     Returns:
     -------
          - The signed CRL.
+
+    Examples:
+    --------
+    | ${crl}= | Sign CRL Catalyst | ${crl} | ${ca_private_key} | ${alt_private_key} |
+    | ${crl}= | Sign CRL Catalyst | ${crl} | ${ca_private_key} | ${alt_private_key} | include_alt_public_key=True |
 
     """
     crl["signatureAlgorithm"] = certbuildutils.prepare_sig_alg_id(

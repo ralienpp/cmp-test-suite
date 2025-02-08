@@ -880,7 +880,7 @@ def _parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: bo
 @keyword("Convert Sun-Hybrid Cert to Target Form")
 def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descriptions in the docstring
     cert: rfc9480.CMPCertificate, target_form: str
-):
+) -> rfc9480.CMPCertificate:
     """Convert the AltSubPubKeyExt and AltSignatureExt extensions inside a certificate to a specified form.
 
     First updates the alternative subject public key extension and then the alt signature extensions.
@@ -933,7 +933,7 @@ def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descr
 
 
 @not_keyword
-def process_public_key(data: bytes):
+def process_public_key(data: bytes) -> PublicKey:
     """Process the public key from the given bytes, in any sun hybrid form (1-4).
 
     :param data: The DER encoded public key.

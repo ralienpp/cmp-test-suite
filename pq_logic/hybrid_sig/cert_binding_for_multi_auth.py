@@ -12,10 +12,10 @@ draft-ietf-lamps-cert-binding-for-multi-auth-06
 https://datatracker.ietf.org/doc/draft-ietf-lamps-cert-binding-for-multi-auth/
 """
 
+import email
 import logging
 import time
 from datetime import datetime
-from email import message_from_bytes
 from typing import List, Optional
 
 from cryptography import x509
@@ -343,7 +343,7 @@ def process_mime_message(mime_data: bytes):
     :param mime_data: Raw MIME message as bytes.
     :return: Decoded CMS content (as bytes).
     """
-    message = message_from_bytes(mime_data)
+    message = email.message_from_bytes(mime_data)
 
     # Look for the application/pkcs7-mime part
     for part in message.walk():

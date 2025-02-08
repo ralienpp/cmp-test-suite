@@ -895,7 +895,7 @@ def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descr
 
     Examples:
     --------
-    | Convert Sun-Hybrid Cert to Target Form | ${cert} | Form1 |
+    | ${cert}= | Convert Sun-Hybrid Cert to Target Form | ${cert} | Form1 |
 
     """
     # -------------------------------------- #

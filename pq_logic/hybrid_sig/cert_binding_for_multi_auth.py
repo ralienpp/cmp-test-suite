@@ -81,8 +81,8 @@ def prepare_requester_certificate(  # noqa: D417 Missing argument descriptions i
 
     Examples:
     --------
-    | ${req_cert} = | Prepare RequesterCertificate | ${cert_a} | ${cert_a_key} | ${uri} |
-    | ${req_cert} = | Prepare RequesterCertificate | ${cert_a} | ${cert_a_key} | ${uri} | bad_pop=True |
+    | ${req_cert}= | Prepare RequesterCertificate | ${cert_a} | ${cert_a_key} | ${uri} |
+    | ${req_cert}= | Prepare RequesterCertificate | ${cert_a} | ${cert_a_key} | ${uri} | bad_pop=True |
 
     """
     # get current UNIX time
@@ -144,7 +144,7 @@ def add_csr_related_cert_request_attribute(  # noqa: D417 Missing argument descr
 
     Examples:
     --------
-    | ${csr} = | Add CSR relatedCertRequest Attribute | ${csr} | ${requester_cert} |
+    | ${csr}= | Add CSR relatedCertRequest Attribute | ${csr} | ${requester_cert} |
 
     """
     rel_cert_req_attr = rfc5652.Attribute()
@@ -589,7 +589,7 @@ def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in 
 
     Examples:
     --------
-    | ${cert} = | Build Related Certificate | ${csr} | ${ca_key} | ${ca_cert} |
+    | ${cert}= | Build Related Certificate | ${csr} | ${ca_key} | ${ca_cert} |
 
     """
     if related_cert is None:

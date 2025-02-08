@@ -359,8 +359,8 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
 
     Examples:
     --------
-    | ${csr} | Build Paired CSR | ${base_private_key} | ${delta_private_key} | ${base_common_name} |
-    | ${csr} | Build Paired CSR | ${base_private_key} | ${delta_private_key} | ${base_common_name} | use_rsa_pss=True |
+    | ${csr}= | Build Paired CSR | ${base_private_key} | ${delta_private_key} | ${base_common_name} |
+    | ${csr}= | Build Paired CSR | ${base_private_key} | ${delta_private_key} | ${base_common_name} | use_rsa_pss=True |
 
     """
     # Step 1: Build certificationRequestInfo
@@ -477,7 +477,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
 
     Examples:
     --------
-    | ${delta_req} | Verify Paired CSR Signature | ${csr} |
+    | ${delta_req}= | Verify Paired CSR Signature | ${csr} |
 
     """
     csr_der = copy.copy(encoder.encode(csr))
@@ -633,7 +633,7 @@ def build_delta_cert_from_paired_cert(  # noqa: D417 Missing argument descriptio
 
     Examples:
     --------
-    | ${delta_cert} | Build Delta Cert From Paired Cert | ${paired_cert} |
+    | ${delta_cert}= | Build Delta Cert From Paired Cert | ${paired_cert} |
 
     """
     paired_cert_tmp = copy_asn1_certificate(paired_cert)
@@ -732,7 +732,7 @@ def get_chameleon_delta_public_key(  # noqa: D417 Missing argument description i
 
     Examples:
     --------
-    | ${spki} | Get Chameleon Delta Public Key | ${paired_cert} |
+    | ${spki}= | Get Chameleon Delta Public Key | ${paired_cert} |
 
     """
     dcd = certextractutils.get_extension(paired_cert["tbsCertificate"]["extensions"], id_ce_deltaCertificateDescriptor)

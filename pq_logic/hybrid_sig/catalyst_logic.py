@@ -225,8 +225,8 @@ def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
 
     Examples:
     --------
-    | ${cert} = | Sign Cert Catalyst | ${cert} | ${pq_key} | ${trad_key} |
-    | ${cert} = | Sign Cert Catalyst | ${cert} | ${pq_key} | ${trad_key} | pq_hash_alg=sha512 |
+    | ${cert}= | Sign Cert Catalyst | ${cert} | ${pq_key} | ${trad_key} |
+    | ${cert}= | Sign Cert Catalyst | ${cert} | ${pq_key} | ${trad_key} | pq_hash_alg=sha512 |
 
     """
     alt_alg_id = certbuildutils.prepare_sig_alg_id(pq_key, hash_alg=pq_hash_alg, use_rsa_pss=use_rsa_pss)
@@ -291,8 +291,8 @@ def validate_catalyst_extensions(  # noqa: D417 Missing a parameter in the Docst
 
     Examples:
     --------
-    | ${catalyst_ext} = | Validate Catalyst Extensions | ${cert} |
-    | ${catalyst_ext} = | Validate Catalyst Extensions | ${cert} | sig_alg_must_be=ml-dsa-44 |
+    | ${catalyst_ext}= | Validate Catalyst Extensions | ${cert} |
+    | ${catalyst_ext}= | Validate Catalyst Extensions | ${cert} | sig_alg_must_be=ml-dsa-44 |
 
     """
     required_extensions = {id_ce_subjectAltPublicKeyInfo, id_ce_altSignatureAlgorithm, id_ce_altSignatureValue}
@@ -439,7 +439,7 @@ def build_catalyst_cert(  # noqa: D417 Missing a parameter in the Docstring
 
     Examples:
     --------
-    | ${cert} = | Build Catalyst Cert | ${trad_key} | ${pq_key} | ${client_key} |
+    | ${cert}= | Build Catalyst Cert | ${trad_key} | ${pq_key} | ${client_key} |
 
     """
     tbs_cert = certbuildutils.prepare_tbs_certificate(

@@ -482,7 +482,7 @@ def build_catalyst_cert(  # noqa: D417 Missing a parameter in the Docstring
 def load_catalyst_public_key(  # noqa: D417 Missing a parameter in the Docstring
     extensions: rfc9480.Extensions,
 ) -> PublicKey:
-    """Load a public key from the newly defined AltPublicKeyInfo extension.
+    """Load a public key from the `AltPublicKeyInfo` extension.
 
     Arguments:
     ---------

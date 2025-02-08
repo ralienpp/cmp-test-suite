@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Try out all possible combinations of alternative signature data and verify the signature of a catalyst certificate."""
+"""Try out all possible combinations of alternative signature data and verify the signature of a catalyst cert."""
 
 import glob
 from itertools import product
@@ -23,6 +23,7 @@ from unit_tests.utils_for_test import get_subject_and_issuer
 
 
 def get_catalyst_certs() -> list[str]:
+    """Return a list of all catalyst certificates in the specified directory."""
     pem_files = []
     for file in glob.iglob("./data/pqc-certificates/providers/**", recursive=True):
         if file.endswith(".der") and "catalyst" in file:
@@ -34,6 +35,7 @@ def get_catalyst_certs() -> list[str]:
 
 
 def get_key_name(key) -> str:
+    """Return the name of the key."""
     if isinstance(key, (PQPublicKey, PQPrivateKey)):
         return key.key_name
     else:
@@ -41,6 +43,11 @@ def get_key_name(key) -> str:
 
 
 def log_cert_infos(asn1cert: rfc9480.CMPCertificate):
+    """Log the information of the certificate and return the extracted information.
+
+    :param asn1cert: The certificate to be logged.
+    :return: The public key, the name of the public key algorithm and the signature.
+    """
     tmp = get_subject_and_issuer(asn1cert)
     tmp += "\nSignature algorithm: " + may_return_oid_to_name(asn1cert["tbsCertificate"]["signature"]["algorithm"])
     tmp += "\nPublic key algorithm: " + may_return_oid_to_name(

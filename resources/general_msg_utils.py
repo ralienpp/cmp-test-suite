@@ -1003,10 +1003,11 @@ def prepare_signing_key_types(fill_value: bool = False) -> rfc9480.InfoTypeAndVa
 def validate_signing_key_types(  # noqa D417 undocumented-param
     pki_message: rfc9480.PKIMessage, expected_size: int = 1, index: int = 0
 ) -> None:
-    """
-    Validate the response for signing key pair types message.
+    """Validate the response for signing key pair types message.
 
-    Note: For the purposes of this exchange, rsaEncryption and sha256WithRSAEncryption,
+    Note:
+    ----
+       - For the purposes of this exchange, rsaEncryption and sha256WithRSAEncryption,
     for example, are considered to be equivalent;
     the question being asked is, "Is the CA willing to certify an RSA public key?
 
@@ -1020,6 +1021,10 @@ def validate_signing_key_types(  # noqa D417 undocumented-param
     ------
         - `ValueError`: If the response did not have the expected size.
         - `ValueError`: If the response does not contain the expected `infoType`.
+
+    Examples:
+    --------
+    | Validate Signing Key Types | ${pki_message} |
 
     """
     validate_general_response(pki_message=pki_message, expected_size=expected_size)

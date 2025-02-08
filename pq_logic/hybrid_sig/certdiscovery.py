@@ -15,8 +15,7 @@ import requests
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
-from resources import certutils, utils
-from resources.compareutils import compare_alg_id_without_tag
+from resources import certutils, compareutils, utils
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_structures import OnRelatedCertificateDescriptor, RelatedCertificateDescriptor
@@ -219,7 +218,7 @@ def validate_related_certificate_descriptor_alg_ids(
     :raises ValueError: If the algorithms do not match.
     """
     if rel_cert_desc["signatureAlgorithm"].isValue:
-        if not compare_alg_id_without_tag(
+        if not compareutils.compare_alg_id_without_tag(
             rel_cert_desc["signatureAlgorithm"], other_cert["tbsCertificate"]["signature"]
         ):
             raise ValueError(
@@ -228,7 +227,7 @@ def validate_related_certificate_descriptor_alg_ids(
             )
 
     if rel_cert_desc["publicKeyAlgorithm"].isValue:
-        if not compare_alg_id_without_tag(
+        if not compareutils.compare_alg_id_without_tag(
             rel_cert_desc["publicKeyAlgorithm"], other_cert["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]
         ):
             raise ValueError(

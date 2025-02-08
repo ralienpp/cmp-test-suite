@@ -25,6 +25,8 @@ HybridKEMPublicKey = Union[AbstractHybridRawPublicKey, AbstractCompositeKEMPubli
 KEMPrivateKey = Union[PQKEMPrivateKey, HybridKEMPrivateKey]
 KEMPublicKey = Union[PQKEMPublicKey, HybridKEMPublicKey]
 
+HybridPublicKey = Union[HybridKEMPublicKey, AbstractCompositeSigPublicKey]
+
 HybridSignKey = Union[AbstractCompositeSigPrivateKey]
 HybridVerifyKey = Union[AbstractCompositeSigPublicKey]
 CertOrCerts = Union[rfc9480.CMPCertificate, Sequence[rfc9480.CMPCertificate]]

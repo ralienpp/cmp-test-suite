@@ -20,6 +20,8 @@ from cryptography.hazmat.primitives import serialization
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc2986, rfc4211, rfc5280, rfc6402, rfc9480
+
+from pq_logic.migration_typing import HybridKEMPublicKey, HybridPublicKey
 from resources import certbuildutils, certextractutils, cryptoutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate
 from resources.oid_mapping import get_hash_from_oid, sha_alg_name_to_oid
@@ -451,6 +453,8 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     )
 
     composite_key = keyutils.load_public_key_from_spki(tbs_cert["subjectPublicKeyInfo"])
+    if not isinstance(composite_key, HybridPublicKey):
+        raise ValueError("The public key must be a HybridPublicKey.")
     oid = composite_key.get_oid()
     hash_alg = CMS_COMPOSITE_OID_2_HASH[oid] or hash_alg or "sha256"
     extn_alt_pub, extn_alt_pub2 = _prepare_public_key_extensions(composite_key, hash_alg, pub_key_loc)
@@ -500,14 +504,14 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
 
 
 def _prepare_public_key_extensions(
-    composite_key: CompositeSigCMSPublicKey,
+    composite_key: HybridPublicKey,
     pub_key_hash_id: str,
     pub_key_loc: Optional[str],
 ) -> Tuple[rfc5280.Extension, rfc5280.Extension]:
     """Prepare the public key extensions for the Sun-Hybrid certificate.
 
-    :param composite_key: The composite key containing both the primary and alternative keys.
-    :param pub_key_hash_id: The hash algorithm identifier for hashing the alternative public key.
+    :param composite_key: The composite key with set primary and alternative keys.
+    :param pub_key_hash_id: The hash algorithm name (e.g., "sha256").
     :param pub_key_loc: The location of the alternative public key.
     :return: THe public key in Form4 and Form1.
     """

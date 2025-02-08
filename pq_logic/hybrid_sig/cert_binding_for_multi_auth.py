@@ -353,6 +353,65 @@ def process_mime_message(mime_data: bytes):
 
     raise ValueError("No application/pkcs7-mime part found in the message.")
 
+@keyword(name="Validate Related Cert PoP")
+def validate_related_cert_pop(
+     csr: rfc6402.CertificationRequest,
+     max_freshness_seconds: Strint = 500,
+     load_chain: bool = False,
+) -> List[rfc9480.CMPCertificate]:
+    """Validate the Proof-of-Possession (PoP) of the related certificate.
+
+    Arguments:
+    ---------
+        - `csr`: The CSR containing the `RequesterCertificate` attribute.
+        - `max_freshness_seconds`: How fresh the `BinaryTime` must be in seconds. Defaults to `500`.
+        - `load_chain`: Whether to load a chain or a single certificate. Defaults to `False`.
+
+    Returns:
+    -------
+        - The certificate chain.
+
+    Raises:
+    ------
+        - `ValueError`: If the `BinaryTime` is not fresh.
+
+    Examples:
+    --------
+    | ${cert_chain}= | Validate Related Cert PoP | ${csr} |
+    | ${cert_chain}= | Validate Related Cert PoP | ${csr} | load_chain=True | max_freshness_seconds=1000 |
+
+    """
+    attributes = extract_related_cert_request_attribute(csr)
+
+    request_time = int(attributes["requestTime"])
+    current_time = int(time.time())
+    if abs(current_time - request_time) > int(max_freshness_seconds):
+        raise ValueError("BinaryTime is not sufficiently fresh.")
+
+    location_info = attributes["locationInfo"]
+    signature = attributes["signature"].asOctets()
+
+    cert_chain = utils.load_certificate_from_uri(location_info, load_chain=load_chain)
+    cert_a = cert_chain[0]
+
+    # validate binding
+    public_key = certutils.load_public_key_from_cert(cert_a)
+    hash_alg = get_hash_from_oid(cert_a["tbsCertificate"]["signature"]["algorithm"], only_hash=True)
+
+    sig_name = may_return_oid_to_name(cert_a["tbsCertificate"]["signature"]["algorithm"])
+    logging.info(f"Signature algorithm: {sig_name}")
+
+    if hash_alg is None:
+        raise ValueError(f"The hash algorithm could not be determined. Signature algorithm was: {sig_name}")
+
+    validate_issuer_and_serial_number_field(attributes["certID"], cert_a)
+    # extra the bound value to verify the signature
+    data = encoder.encode(attributes["requestTime"]) + encoder.encode(attributes["certID"])
+
+    cryptoutils.verify_signature(data=data, hash_alg=hash_alg, public_key=public_key, signature=signature)
+    return cert_chain
+
+
 
 def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
@@ -361,6 +420,7 @@ def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions
     trustanchors: str = "./data/trustanchors",
     allow_os_store: bool = False,
     crl_check: bool = False,
+    do_openssl_check: bool = True,
 ) -> rfc9480.CMPCertificate:
     """Process a CSR containing the `relatedCertRequest` attribute.
 
@@ -374,6 +434,7 @@ def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions
         - `trustanchors`: The directory containing the trust anchors. Defaults to `./data/trustanchors`.
         - `allow_os_store`: Whether to allow the OS trust store. Defaults to `False`.
         - `crl_check`: Whether to check the CRL. Defaults to `False`.
+        - `do_openssl_check`: Whether to do the OpenSSL certificate chain validation. Defaults to `True`.
 
     Returns:
     -------
@@ -391,19 +452,6 @@ def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions
     | ${related_cert}= | Validate Multi Auth Binding CSR | ${csr} |
 
     """
-    attributes = extract_related_cert_request_attribute(csr)
-
-    request_time = int(attributes["requestTime"])
-    current_time = int(time.time())
-    if abs(current_time - request_time) > int(max_freshness_seconds):
-        raise ValueError("BinaryTime is not sufficiently fresh.")
-
-    location_info = attributes["locationInfo"]
-    signature = attributes["signature"].asOctets()
-
-    cert_chain = utils.load_certificate_from_uri(location_info, load_chain=load_chain)
-    cert_a = cert_chain[0]
-
     extensions = certextractutils.extract_extension_from_csr(csr)
     # For certificate chains, this extension MUST only be included in the end-entity certificate.
     if extensions is not None:
@@ -411,24 +459,11 @@ def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions
         if ca_extn["cA"]:
             raise ValueError("The `Cert B` MUST be an end entity certificate.")
 
-    # validate binding
-    public_key = certutils.load_public_key_from_cert(cert_a)
-    hash_alg = get_hash_from_oid(cert_a["tbsCertificate"]["signature"]["algorithm"], only_hash=True)
-
-    sig_name = may_return_oid_to_name(cert_a["tbsCertificate"]["signature"]["algorithm"])
-    logging.info(f"Signature algorithm: {sig_name}")
-
-    if hash_alg is None:
-        raise ValueError(f"The hash algorithm could not be determined. Signature algorithm was: {sig_name}")
-
-    validate_issuer_and_serial_number_field(attributes["certID"], cert_a)
-    # extra the bound value to verify the signature
-    data = encoder.encode(attributes["requestTime"]) + encoder.encode(attributes["certID"])
-
-    cryptoutils.verify_signature(data=data, hash_alg=hash_alg, public_key=public_key, signature=signature)
-
+    cert_chain = validate_related_cert_pop(csr, max_freshness_seconds=max_freshness_seconds, load_chain=load_chain)
+    cert_a = cert_chain[0]
     certutils.certificates_are_trustanchors(cert_chain[-1], trustanchors=trustanchors, allow_os_store=allow_os_store)
-    certutils.verify_cert_chain_openssl(cert_chain=cert_chain, crl_check=crl_check)
+    if do_openssl_check:
+        certutils.verify_cert_chain_openssl(cert_chain=cert_chain, crl_check=crl_check)
     return cert_a
 
 

@@ -1082,7 +1082,7 @@ def build_env_data_for_exchange(
 
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
-
+@keyword(name="Prepare KEMRecipientInfo")
 def prepare_kem_recip_info(
     version: int = 0,
     rid: Optional[rfc5652.RecipientIdentifier] = None,
@@ -1105,23 +1105,42 @@ def prepare_kem_recip_info(
 
     Either with provided values or by deriving them from encapsulation and encryption mechanisms.
 
-    :param version: The version number. Defaults to 0.
-    :param rid: Recipient Identifier. Defaults to None.
-    :param recip_cert: Server certificate containing the server's public key. Defaults to None.
-    :param public_key_recip: Public key of the recipient. Defaults to None.
-    :param kdf_name: The name of the key derivation function. Defaults to "hkdf".
-    :param ukm: User keying material, used as salt. Defaults to a random 32 bytes.
-    :param cek: Content Encryption Key to encrypt. Defaults to a random 32 bytes.
-    :param hash_alg: Hash algorithm for HKDF. Defaults to "sha256".
-    :param wrap_name: Key wrap algorithm name. Defaults to "aes256-wrap".
-    :param encrypted_key: Pre-encrypted key. Defaults to None.
-    :param kek_length: Length of the KEK in bytes. Defaults to None.
-    :param kemct: KEM ciphertext. Defaults to None.
-    :param hybrid_key_recip: The hybrid key recipient to use for encryption. Defaults to None.
-    :param shared_secret: The shared secret to use for key derivation. Defaults to None.
-    :param kem_oid: The Object Identifier for the KEM algorithm. Defaults to None.
-    :return: A populated `KEMRecipientInfo` structure.
-    :raises ValueError: If neither kemct nor (ee_private_key and server_cert) are provided.
+    Arguments:
+    ----------
+        - `version`: The version number. Defaults to 0.
+        - `rid`: Recipient Identifier. Defaults to None.
+        - `recip_cert`: Server certificate containing the server's public key. Defaults to None.
+        - `public_key_recip`: Public key of the recipient. Defaults to None.
+        - `kdf_name`: The name of the key derivation function. Defaults to "hkdf".
+        - `ukm`: User keying material, used as salt. Defaults to a random 32 bytes.
+        - `cek`: Content Encryption Key to encrypt. Defaults to a random 32 bytes.
+        - `hash_alg`: Hash algorithm for KDF. Defaults to "sha256".
+        - `wrap_name`: Key wrap algorithm name. Defaults to "aes256-wrap".
+        - `encrypted_key`: Pre-encrypted key. Defaults to None.
+        - `kek_length`: Length of the KEK in bytes. Defaults to None.
+        - `kemct`: KEM ciphertext. Defaults to None.
+        - `hybrid_key_recip`: The hybrid key recipient to use for encryption. Defaults to None.
+        - `shared_secret`: The shared secret to use for key derivation. Defaults to None.
+        - `kem_oid`: The Object Identifier for the KEM algorithm. Defaults to None.
+
+    **kwargs:
+    ---------
+        - `issuer_and_ser`: The `IssuerAndSerialNumber` structure to use for the recipient identifier.
+        - `ski`: The subject key identifier to use for the recipient identifier.
+        - `bad_ski`: The bad subject key identifier to use for the recipient identifier.
+
+    Returns:
+    --------
+        - A populated `KEMRecipientInfo` structure.
+
+    Raises:
+    -------
+        - ValueError: If neither kemct nor (ee_private_key and server_cert) are provided.
+
+    Examples:
+    --------
+    | ${kem_recip_info} = | Prepare KEMRecipientInfo | public_key_recip=${public_key_recip} | cek=${cek} |
+
     """
     key_enc_key = None
 

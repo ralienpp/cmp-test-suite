@@ -463,12 +463,29 @@ def build_catalyst_cert(  # noqa: D417 Missing a parameter in the Docstring
     )
 
 
-def load_catalyst_public_key(extensions: rfc9480.Extensions) -> PublicKey:
+def load_catalyst_public_key(  # noqa: D417 Missing a parameter in the Docstring
+    extensions: rfc9480.Extensions,
+) -> PublicKey:
     """Load a public key from the newly defined AltPublicKeyInfo extension.
 
-    :param extensions: The extensions to load the public key from.
-    :return: The loaded public key.
-    :raises ValueError: If the extension is not found.
+    Arguments:
+    ---------
+        - `extensions`: The extensions to load the public key from.
+
+    Returns:
+    -------
+        - The loaded public key.
+
+    Raises:
+    ------
+        - `ValueError`: If the extension is not found.
+        - `ValueError`: If the public key cannot be loaded.
+        - `BadAsn1Data`: If the extension contains remainder data.
+
+    Examples:
+    --------
+    | ${public_key}= | Load Catalyst Public Key | ${extensions} |
+
     """
     extn_alt_spki = certextractutils.get_extension(extensions, id_ce_subjectAltPublicKeyInfo)
     if extn_alt_spki is None:

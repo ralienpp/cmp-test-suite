@@ -361,5 +361,5 @@ class ProtectedPartTMP(univ.Sequence):
 
 # Since pyasn1 does not naturally handle recursive definitions, this hack:
 #
-NestedMessageContentTMP._componentType = PKIMessagesTMP()
-nestedMessageContent._componentType = PKIMessagesTMP()
+NestedMessageContentTMP._componentType = PKIMessagesTMP()  # pylint: disable=protected-access
+nestedMessageContent._componentType = PKIMessagesTMP()  # pylint: disable=protected-access

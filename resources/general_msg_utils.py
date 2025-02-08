@@ -1571,6 +1571,7 @@ def prepare_simple_info_types(  # noqa D417 undocumented-param
 
 
 # TODO fix implementation
+@not_keyword
 def prepare_ca_message(messages: str) -> List[rfc9480.InfoTypeAndValue]:
     """Prepare a correctly sending from the CA inside a general message or response.
 

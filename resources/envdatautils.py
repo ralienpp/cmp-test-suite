@@ -11,7 +11,6 @@ from typing import List, Optional, Union
 from cryptography import x509
 from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
-from cryptography.hazmat.primitives.keywrap import aes_key_wrap
 from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
@@ -775,7 +774,7 @@ def prepare_kari(
 
     shared_secret = cryptoutils.perform_ecdh(recip_private_key, public_key)
     k = cryptoutils.compute_ansi_x9_63_kdf(shared_secret, 32, ecc_cms_info, hash_alg=hash_alg)
-    encrypted_key = aes_key_wrap(key_to_wrap=cek, wrapping_key=k)
+    encrypted_key = keywrap.aes_key_wrap(key_to_wrap=cek, wrapping_key=k)
 
     # Version MUST be 3 for KARI.
     kari = prepare_key_agreement_recipient_info(
@@ -1621,4 +1620,4 @@ def wrap_key_password_based_key_management_technique(
     password = str_to_bytes(password)
     derive_key = cryptoutils.compute_pbkdf2_from_parameter(parameters, key=password)
     logging.debug("Prepare PWRI - Derived Key: %s", derive_key.hex())
-    return aes_key_wrap(wrapping_key=derive_key, key_to_wrap=key_to_wrap)
+    return keywrap.aes_key_wrap(wrapping_key=derive_key, key_to_wrap=key_to_wrap)

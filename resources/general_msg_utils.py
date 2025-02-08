@@ -1291,7 +1291,9 @@ def validate_genm_message_size(  # noqa: D417 Missing argument description in th
 
 
 def build_genp_kem_ct_info_from_genm(  # noqa: D417 Missing argument description in the docstring
-    genm: PKIMessageTMP, expected_size: int = 1, ca_key: Optional[ECDHPrivateKey] = None, **kwargs
+    genm: PKIMessageTMP, expected_size: int = 1,
+    ca_key: Optional[ECDHPrivateKey] = None,
+    **kwargs
 ) -> Tuple[bytes, PKIMessageTMP]:
     """Build the KEMCiphertextInfo from a General Message PKIMessage.
 
@@ -1299,7 +1301,7 @@ def build_genp_kem_ct_info_from_genm(  # noqa: D417 Missing argument description
     ---------
         - `pki_message`: The General Message PKIMessage.
         - `expected_size`: The expected number of messages in the response.
-        - `ca_key`: The CA's private key to perform the decapsulation with.
+        - `ca_key`: The CA's private key to perform the encapsulation with.
         - `**kwargs`: Additional parameters for the PKIHeader.
 
     Returns:
@@ -1312,6 +1314,10 @@ def build_genp_kem_ct_info_from_genm(  # noqa: D417 Missing argument description
         - `ValueError`: If the `KEMCiphertextInfo` value was not absent.
         - `ValueError`: If the response does not contain the `extraCerts` field.
         - `ValueError`: If the public key was not a KEM public key.
+
+    Examples:
+    --------
+    | ${ss} {genp}= | Build GenP KEM CT Info From GenM | ${genm} | ca_key=${ca_key} |
 
     """
     validate_genm_message_size(genm=genm, expected_size=expected_size)

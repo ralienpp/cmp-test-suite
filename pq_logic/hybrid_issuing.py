@@ -295,7 +295,7 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
         use_pre_hash=False,
     )
 
-    alt_spki_extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(public_key=second_key, critical=False)
+    alt_spki_extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(key=second_key, critical=False)
 
     tbs_certs["extensions"].append(alt_spki_extn)
     cert = rfc9480.CMPCertificate()

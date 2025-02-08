@@ -32,7 +32,9 @@ from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKe
 
 @keyword(name="Prepare SubjectAltPublicKeyInfo Extension")
 def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter in the Docstring
-    public_key: Union[PQSignaturePrivateKey, PQSignaturePublicKey], critical: bool
+    key: Optional[Union[PQSignaturePrivateKey, PQSignaturePublicKey]],
+    critical: bool,
+    spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
 ) -> rfc5280.Extension:
     """Prepare the `SubjectAltPublicKeyInfo` extension.
 
@@ -40,20 +42,30 @@ def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter 
     ---------
         - `public_key`: The alternative public or private key.
         - `critical`: Whether the extension is critical.
+        - `spki`: The `SubjectPublicKeyInfo` structure. Defaults to `None`.
 
     Returns:
     -------
         - The populated `Extension` structure.
+
+    Raises:
+    ------
+        - `ValueError`: If neither `key` nor `spki` is provided.
 
     Examples:
     --------
     | ${extn}= | Prepare SubjectAltPublicKeyInfo Extension | ${public_key} | critical=True |
 
     """
-    if isinstance(public_key, PQSignaturePrivateKey):
-        public_key = public_key.public_key()
 
-    spki = subjectPublicKeyInfo_from_pubkey(public_key)  # type: ignore
+    if spki is None and key is None:
+        raise ValueError("Either `key` or `spki` must be provided.")
+
+    if spki is None:
+        if isinstance(key, PQSignaturePrivateKey):
+            key = key.public_key()
+
+        spki = subjectPublicKeyInfo_from_pubkey(key)
 
     spki_ext = rfc5280.Extension()
     spki_ext["extnID"] = id_ce_subjectAltPublicKeyInfo
@@ -80,7 +92,7 @@ def prepare_alt_sig_alg_id_extn(  # noqa: D417 Missing a parameter in the Docstr
         - `hash_alg`: The hash algorithm to use. Defaults to "sha256".
         - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
         - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
-        - `key`: Key to prepare the signature algorithm for. Defaults to `None`.
+        - `key`: The key to prepare the signature algorithm for. Defaults to `None`.
 
     Returns:
     -------
@@ -238,7 +250,7 @@ def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     cert["tbsCertificate"]["extensions"].append(prepare_alt_sig_alg_id_extn(alt_alg_id, critical=critical))
 
     cert["tbsCertificate"]["extensions"].append(
-        prepare_subject_alt_public_key_info_extn(public_key=pq_key.public_key(), critical=critical)
+        prepare_subject_alt_public_key_info_extn(key=pq_key.public_key(), critical=critical)
     )
 
     alt_sig_data = prepare_alt_signature_data(cert)
@@ -559,7 +571,7 @@ def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
         crl["tbsCertList"]["crlExtensions"].append(extn)
         if include_alt_public_key:
             extn = prepare_subject_alt_public_key_info_extn(
-                public_key=alt_private_key.public_key(),
+                key=alt_private_key.public_key(),
                 critical=critical,
             )
             crl["tbsCertList"]["crlExtensions"].append(extn)

@@ -334,26 +334,27 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
     base_private_key: PrivateKeySig,
     delta_private_key: PrivateKeySig,
     base_common_name: str = "CN=Hans Mustermann",
-    delta_common_name: Optional[str] = None,
     base_extensions: Optional[rfc5280.Extensions] = None,
     delta_extensions: Optional[rfc5280.Extensions] = None,
-    bad_alt_pop: bool = False,
-    hash_alg: str = "sha256",
-    use_rsa_pss: bool = False,
+    **kwargs,
 ) -> rfc6402.CertificationRequest:
-    """Create a paired CSR for a Base and Delta Certificate Request.
+    """Create a paired CSR for a Base and Delta Certificate request.
 
     Arguments:
     ---------
         - `base_private_key`: Private key for signing the Base CSR.
         - `delta_private_key`: Private key for signing the `DeltaCertificateRequestValue`.
         - `base_common_name`: Subject of the Base Certificate. Defaults to "CN=Hans Mustermann".
-        - `delta_common_name`: Subject of the Delta Certificate. Defaults to `None`.
         - `base_extensions`: Extensions for the Base Certificate. Defaults to `None`.
         - `delta_extensions`: Extensions for the Delta Certificate. Defaults to `None`.
-        - `bad_alt_pop`: Whether to make the secondary signature invalid. Defaults to `False`.
-        - `hash_alg`: Hash algorithm used for signing. Defaults to "sha256".
+
+    **kwargs:
+    --------
+        - `delta_common_name` (str): Subject of the Delta Certificate (in openssl notation, e.g., "CN=Hans Mustermann").
+        Defaults to `None`.
+        - `hash_alg`: The hash algorithm used for signing. Defaults to "sha256".
         - `use_rsa_pss`: Whether to use PSS-padding for signing. Defaults to `False`.
+        - `bad_alt_pop`: Whether to make the secondary signature invalid. Defaults to `False`.
 
     Returns:
     -------

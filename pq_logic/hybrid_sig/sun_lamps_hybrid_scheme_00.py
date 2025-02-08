@@ -528,7 +528,7 @@ def _prepare_public_key_extensions(
 
 @not_keyword
 def prepare_sun_hybrid_pre_tbs_certificate(
-    composite_key: CompositeSigCMSPublicKey,
+    composite_key: HybridPublicKey,
     issuer_private_key,
     alt_private_key,
     issuer_cert: Optional[rfc9480.CMPCertificate],
@@ -544,21 +544,21 @@ def prepare_sun_hybrid_pre_tbs_certificate(
 ):
     """Prepare a `TBSCertificate` structure with alternative public key and signature extensions.
 
-    :param composite_key: The composite key containing both the primary and alternative keys.
+    :param composite_key: The composite key with set primary and alternative keys.
     :param issuer_private_key: The issuer's private key for signing the certificate.
     :param alt_private_key: The alternative private key used for the alternative signature.
     :param issuer_cert: The issuer's certificate to use for constructing the certificate.
     :param csr: The certificate signing request from which to construct the certificate.
-    :param pub_key_hash_id: The hash algorithm identifier for hashing the alternative public key.
-    :param sig_hash_id: The hash algorithm identifier for hashing the alternative signature.
-    :param hash_alg: The hash algorithm used for signing the TBSCertificate.
+    :param pub_key_hash_id: The hash algorithm name for hashing the alternative public key.
+    :param sig_hash_id: The hash algorithm name for hashing the alternative signature.
+    :param hash_alg: The hash algorithm used for signing the `TBSCertificate`.
     :param validity: The validity object for the certificate.
     :param pub_key_loc: An optional URI representing the location of the alternative public key.
     :param sig_loc: An optional URI representing the location of the alternative signature.
     :param extensions: Optional list of additional extensions to include in the certificate.
     :param serial_number: The serial number to use for the certificate. Defaults to `None`.
-    :return: A fully prepared TBSCertificate wrapped in a certificate structure.
-    :raises ValueError: If required parameters are missing or invalid.
+    :return: A fully prepared `TBSCertificate` wrapped in a certificate structure.
+    :raises ValueError: If required, parameters are missing or invalid.
     """
     # Compute a hash by hashing pk_1
     extn_alt_pub, extn_alt_pub2 = _prepare_public_key_extensions(composite_key, pub_key_hash_id, pub_key_loc)
@@ -569,6 +569,8 @@ def prepare_sun_hybrid_pre_tbs_certificate(
     # The constructed TBSCertificate object is the preTbsCertificate field, which MUST
     # include the created AltSubPubKeyExt extension.
 
+    extensions = extensions or []
+
     subject = utils.get_openssl_name_notation(csr["certificationRequestInfo"]["subject"])
     pre_tbs_cert = certbuildutils.prepare_tbs_certificate(
         subject=subject,
@@ -578,9 +580,8 @@ def prepare_sun_hybrid_pre_tbs_certificate(
         public_key=composite_key.trad_key,  # Construct a SubjectPublicKeyInfo object from pk_1
         validity=validity,
         hash_alg=hash_alg,
-        extensions=[extn_alt_pub] + []
-        if not extensions
-        else extensions,  # The constructed TBSCertificate object is the preTbsCertificate
+        extensions=[extn_alt_pub] + extensions,  # type: ignore
+        # The constructed TBSCertificate object is the preTbsCertificate
         # field, which MUST include the created `AltSubPubKeyExt` extension.
     )
 

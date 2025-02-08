@@ -141,6 +141,7 @@ def prepare_alt_signature_value_extn(  # noqa: D417 Missing a parameter in the D
     return alt_signature_value_extension
 
 
+@not_keyword
 def prepare_alt_signature_data(
     cert: rfc9480.CMPCertificate,
     exclude_alt_extensions: bool = False,
@@ -154,6 +155,9 @@ def prepare_alt_signature_data(
     :param exclude_alt_extensions: Whether to exclude alternative extensions for the signature verification.
     :param only_tbs_cert: Whether to only include the `tbsCertificate` part of the certificate and
     exclude the `signatureAlgorithm` field.
+    :param exclude_signature_field: Whether to exclude the `signature` field from the data. Defaults to `False`.
+    :param exclude_first_spki: Whether to exclude the first `subjectPublicKeyInfo` field from the data.
+    Defaults to `False`.
     :return: DER-encoded bytes of the data to be signed.
     """
     tbs_cert = cert["tbsCertificate"]

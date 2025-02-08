@@ -4,8 +4,7 @@
 
 """Contains functionality to compare pyasn1 objects.
 
-Additionally contains logic to check if the wished certificate was issued, based on the `CertTemplate` structure.
-
+Which can be used to verify if the server returned the correct status, `grantedWithMods`, when issuing a certificate.
 """
 
 import logging

@@ -66,19 +66,19 @@ def _prepare_issuer_and_subject(
 def prepare_dcd_extension_from_delta(delta_cert: rfc9480.CMPCertificate, base_cert: rfc9480.CMPCertificate):
     """Prepare a Delta Certificate Descriptor (DCD) extension from a parsed Delta Certificate and Base Certificate.
 
-    :param delta_cert: Parsed Delta Certificate structure.
-    :param base_cert: Parsed Base Certificate structure.
-    :return: A DeltaCertificateDescriptor instance.
-
     Fields:
     - `serialNumber`: Serial number of the Delta Certificate.
     - `signature`: Algorithm used for signing the Delta Certificate (if it differs from the Base Certificate).
     - `issuer`: Distinguished name of the issuer in the Delta Certificate (if it differs from the Base Certificate).
     - `validity`: Validity period of the Delta Certificate (if it differs from the Base Certificate).
     - `subject`: Subject name of the Delta Certificate (if it differs from the Base Certificate).
-    - `subjectPublicKeyInfo`: Public key information specific to the Delta Certificate.
+    - `subjectPublicKeyInfo`: Public key information specific to the Delta Certificate (cannot be the same key).
     - `extensions`: List of extensions that differ between the Delta and Base Certificates.
     - `signatureValue`: Signature of the Delta Certificate.
+
+    :param delta_cert: Parsed Delta Certificate structure.
+    :param base_cert: Parsed Base Certificate structure.
+    :return: A DeltaCertificateDescriptor instance.
     """
     dcd = DeltaCertificateDescriptor()
 

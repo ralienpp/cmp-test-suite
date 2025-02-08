@@ -933,7 +933,7 @@ def prepare_cert_request(  # noqa D417 undocumented-param
           May be used by the `Key Update Request`.
         - `for_kga`: Indicates if the certificate request is for a Key Generation Authority
           (KGA). Defaults to `False`.
-        - `use_pre_hash`: Indicates if the certificate request should use pre-hashing.
+        - `use_pre_hash`:Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
         - `spki`: The SubjectPublicKeyInfo structure to use for the certificate request. Defaults to `None`.
 
     Returns:

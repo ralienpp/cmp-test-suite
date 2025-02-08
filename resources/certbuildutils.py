@@ -110,8 +110,8 @@ def prepare_sig_alg_id(
 
     :param signing_key: The private key to use for signing the certificate.
     :param hash_alg: The hash algorithm to use (e.g., "sha256").
-    :param use_rsa_pss: Boolean flag indicating whether to use RSA-PSS for signing.
-    :param use_pre_hash: Boolean flag indicating whether the data is pre-hashed before signing.
+    :param use_rsa_pss: Whether to use RSA-PSS for the signature algorithm. Defaults to `False`.
+    :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
     :return: An `rfc9480.AlgorithmIdentifier` for the specified signing configuration.
     """
     alg_id = rfc9480.AlgorithmIdentifier()
@@ -165,7 +165,7 @@ def sign_csr(  # noqa D417 undocumented-param
         Will be ignored if Ed25519 and Ed448 are used.
         - `use_rsa_pss`: Whether to use RSA-PSS for the signature algorithm. Defaults to `False`.
         - `bad_pop`: Whether to manipulate the signature for negative testing. Defaults to `False`.
-        - `use_pre_hash`: Whether to use the pre-hashed version for PQ-keys and CompositeSig-keys.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
 
     Returns:
     -------
@@ -242,8 +242,8 @@ def build_csr(  # noqa D417 undocumented-param
         - `for_kga`: If the CSR is created for non-local key generation. The `signature` and the
         `subjectPublicKey` are set to a zero bit string. And the algorithm identifiers are set to key provided.
         - `bad_sig`: Whether to manipulate the signature for negative testing.
-        - `use_pre_hash`: Whether to use the pre-hashed version for PQ-keys and CompositeSig-keys.
-        - `use_pre_hash_pub_key`: Whether to use the pre-hashed version for the public key.
+        - `use_pre_hash`:Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
+        - `use_pre_hash_pub_key`: Whether to use the pre-hash version for a composite-sig public key. Defaults to `False`.
         Defaults to `use_pre_hash`.
         - `spki`: Optional `SubjectPublicKeyInfo` object to populate the CSR with. Defaults to `None`.
 
@@ -600,7 +600,7 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
         - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
         - `modify_signature`: The signature will be modified by changing the first byte.
         - `bad_sig`: The signature will be manipulated to be invalid.
-        - `use_pre_hash`: Whether to use the pre-hashed version for composite keys. Defaults to `False`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
 
     Returns:
     -------
@@ -961,8 +961,7 @@ def prepare_cert_template(  # noqa D417 undocumented-param
         - `include_cert_extensions`: Indicates if the extensions from the certificate should be added to the extensions,
         if provided. Defaults to `True`.
         - `spki`: The `SubjectPublicKeyInfo` object to include in the template. Defaults to `None`.
-        - `use_pre_hash`: Whether to prepare the public key as a pre-hash version, for a `
-        CompositeKey`. Defaults to `False`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
 
     Returns:
     -------
@@ -1082,7 +1081,7 @@ def _prepare_optional_validity(
 
 def _prepare_public_key_for_cert_template(
     key: Optional[Union[typingutils.PrivateKey, typingutils.PublicKey]] = None,
-    for_kga=False,
+    for_kga: bool = False,
     asn1cert: Optional[rfc9480.CMPCertificate] = None,
     use_rsa_pss: bool = False,
     use_pre_hash: bool = False,
@@ -1093,7 +1092,7 @@ def _prepare_public_key_for_cert_template(
     :param for_kga: Boolean flag indicating whether to prepare the key for non-local-key generation.
     :param asn1cert: Optional `rfc9480.CMPCertificate` object to extract the public key from if no `key` is provided.
     :param use_rsa_pss: Whether to prepare the public key as RSA-PSS. Defaults to `False`.
-    :param use_pre_hash: Whether to prepare the public key as a pre-hash version, for a `CompositeKey`.
+    :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
     :return: A `SubjectPublicKeyInfo` object ready to be used in a certificate template.
     """
     if key is None and asn1cert is None:
@@ -1238,8 +1237,7 @@ def prepare_subject_public_key_info(
     :param key_name: The key algorithm name to use for the `SubjectPublicKeyInfo`.
     (can be set to `rsa_kem`. RFC 5990bis-10). Defaults to `None`.
     :param use_rsa_pss: Whether to use RSA-PSS padding. Defaults to `False`.
-    :param use_pre_hash: Whether to use the pre-hash version for a `CompositeKey` and pq signature keys.
-    Defaults to `False`.
+    :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
     :param hash_alg: The pre-hash algorithm to use for the pq signature key. Defaults to `None`.
     :return: The populated `SubjectPublicKeyInfo` structure.
     """
@@ -1279,7 +1277,7 @@ def _prepare_spki_for_kga(
     :param key: A private or public key.
     :param key_name: An optional key algorithm name.
     :param use_pss: Whether to use PSS padding for RSA and a RSA-CompositeKey.
-    :param use_pre_hash: Whether to use the pre-hash version for a CompositeKey.
+    :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
     :return: The populated `SubjectPublicKeyInfo` structure.
     """
     spki = rfc5280.SubjectPublicKeyInfo()
@@ -1373,7 +1371,7 @@ def build_cert_from_cert_template(  # noqa D417 undocumented-param
     ---------
         - `use_rsa_pss`: Whether to use RSA-PSS or not. Defaults to `True`.
         - `bad_sig`: Whether to create a certificate with a invalid signature. Defaults to `False`.
-        - `use_pre_hash`: Whether to use pre-hash for composite keys or not. Defaults to `False`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
         - `alt_sign_key`: An alternative key to sign the certificate with. Defaults to `None`.
         - `alt_hash_alg`: The hash algorithm to use with the alternative key. Defaults to `None`.
         - `alt_use_rsa_pss`: Whether to use RSA-PSS with the alternative key. Defaults to `False`.
@@ -1473,7 +1471,7 @@ def prepare_tbs_certificate_from_template(
     :param hash_alg: The hash algorithm to use. Defaults to `sha256`.
     :param days: The number of days for which the certificate remains valid. Defaults to `3650` days.
     :param use_rsa_pss: Whether to use RSA-PSS or not. Defaults to `True`.
-    :param use_pre_hash: Whether to use pre-hash or not. Defaults to `False`.
+    :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
     :return: The prepared `TBSCertificate` structure.
     """
     if serial_number is None:
@@ -1570,7 +1568,7 @@ def build_cert_from_csr(  # noqa D417 undocumented-param
         - `serial_number`: The serial number for the certificate. Defaults to `None`.
         - `hash_alg`: The hash algorithm to use for signing. Defaults to `sha256`.
         - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `True`.
-        - `use_pre_hash`: Whether to use pre-hash for composite keys or not. Defaults to `False`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
         - `days`: The number of days for which the certificate remains valid. Defaults to `3650` days.
         - `critical`: Whether the catalyst extensions are critical. Defaults to `False`.
         - `hash_alg`: The hash algorithm to use for signing. Defaults to `sha256`.
@@ -1656,9 +1654,9 @@ def prepare_tbs_certificate(
     :param days: Number of days the certificate is valid if `validity` is not provided. Defaults to 365 days.
     :param use_rsa_pss: Whether to use RSA-PSS for signing. Defaults to `False`.
     :param hash_alg: Hash algorithm used for signing (e.g., "sha256"). Defaults to "sha256".
-    :param use_pre_hash: Whether to use pre-hash for signing. Defaults to `False`.
+    :param use_pre_hash: Whether to use the pre-hash version for the composite-sig key signature. Defaults to `False`.
     :param use_rsa_pss_pubkey: Whether to use RSA-PSS for the CompositeSigKey public key. Defaults to `False`.
-    :param use_pre_hash_pubkey: Whether to use pre-hash for the CompositeSigKey public key. Defaults to `False`.
+    :param use_pre_hash_pubkey: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
     :return: `rfc5280.TBSCertificate` object configured with the provided parameters.
     """
     subject = prepare_name(subject)  # type: ignore

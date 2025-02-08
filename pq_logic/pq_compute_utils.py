@@ -319,7 +319,7 @@ def _compute_protection(
     :param pki_message: The PKIMessage to protect.
     :param hash_alg: The hash algorithm to use for signing.
     :param use_rsa_pss: Whether to use RSA-PSS padding for signing.
-    :param use_pre_hash: Whether to use pre-hashing for signing.
+    :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
     :return: The protected PKIMessage.
     :raises ValueError: If the PKIMessage is missing required fields.
     """
@@ -406,7 +406,7 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
         - `do_patch`: Whether to patch the sender and senderKID fields. Defaults to `True`.
         - `hash_alg`: The hash algorithm to use for signing. Defaults to `sha256`.
         - `use_rsa_pss`: Whether to use RSA-PSS padding for signing. Defaults to `True`.
-        - `use_pre_hash`: Whether to use pre-hashing for signing. Defaults to `False`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
 
     Raises:
     ------

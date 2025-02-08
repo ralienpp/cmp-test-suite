@@ -788,6 +788,7 @@ def prepare_kari(
 
     return kari
 
+
 @not_keyword
 def parse_recip_info(
     info_obj: Union[
@@ -1092,8 +1093,9 @@ def build_env_data_for_exchange(
 
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
+
 @keyword(name="Prepare KEMRecipientInfo")
-def prepare_kem_recip_info(
+def prepare_kem_recip_info(  # noqa D417 undocumented-param
     version: int = 0,
     rid: Optional[rfc5652.RecipientIdentifier] = None,
     recip_cert: Optional[rfc9480.CMPCertificate] = None,
@@ -1116,7 +1118,7 @@ def prepare_kem_recip_info(
     Either with provided values or by deriving them from encapsulation and encryption mechanisms.
 
     Arguments:
-    ----------
+    ---------
         - `version`: The version number. Defaults to 0.
         - `rid`: Recipient Identifier. Defaults to None.
         - `recip_cert`: Server certificate containing the server's public key. Defaults to None.
@@ -1140,11 +1142,11 @@ def prepare_kem_recip_info(
         - `bad_ski`: The bad subject key identifier to use for the recipient identifier.
 
     Returns:
-    --------
+    -------
         - A populated `KEMRecipientInfo` structure.
 
     Raises:
-    -------
+    ------
         - ValueError: If neither kemct nor (ee_private_key and server_cert) are provided.
 
     Examples:
@@ -1266,6 +1268,7 @@ def prepare_mqv_user_keying_material(
 
     return mqv_ukm
 
+
 @not_keyword
 def prepare_key_agreement_algorithm_identifier(
     oid: univ.ObjectIdentifier,
@@ -1383,6 +1386,7 @@ def prepare_originator_identifier_or_key(  # noqa D417 undocumented-param
 
     return originator
 
+
 @not_keyword
 def prepare_recipient_encrypted_key(
     cmp_cert: rfc9480.CMPCertificate,
@@ -1405,6 +1409,7 @@ def prepare_recipient_encrypted_key(
     if encrypted_key is not None:
         recip_enc_key["encryptedKey"] = encrypted_key
     return recip_enc_key
+
 
 @not_keyword
 def prepare_recipient_encrypted_keys(

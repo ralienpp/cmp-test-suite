@@ -720,6 +720,11 @@ def validate_publication_information(  # noqa D417 undocumented-param
         - `ValueError`: If the publication location is not present and the publication method is not "dontCare".
         - `ValueError`: If the publication method is not one of "dontCare", "x500", "web", "ldap".
 
+    Examples:
+    --------
+    | Validate Publication Information | ${controls} |
+    | Validate Publication Information | ${controls} | must_be_present=True |
+
     """
     found = False
     publication_info_der = None

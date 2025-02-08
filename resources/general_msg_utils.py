@@ -1040,6 +1040,7 @@ def validate_signing_key_types(  # noqa D417 undocumented-param
 # GenRep: {id-it 3}, SEQUENCE SIZE (1..MAX) OF AlgorithmIdentifier
 
 
+@not_keyword
 def prepare_enc_key_agreement_types(fill_value: bool = False) -> rfc9480.InfoTypeAndValue:
     """Prepare the `InfoTypeAndValue` to request supported encryption/key agreement algorithms.
 
@@ -1099,6 +1100,7 @@ def validate_key_agreement_types(  # noqa D417 undocumented-param
 # GenRep: {id-it 4}, AlgorithmIdentifier
 
 
+@not_keyword
 def prepare_preferred_sym_alg(fill_value: bool = False) -> rfc9480.InfoTypeAndValue:
     """Prepare the `InfoTypeAndValue` to ask for a preferred Symmetric Algorithm.
 

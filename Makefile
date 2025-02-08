@@ -61,6 +61,9 @@ docs:
 	python -m robot.libdoc --pythonpath=./ resources/keyutils.py doc/keyutils.html
 	python -m robot.libdoc --pythonpath=./ resources/protectionutils.py doc/protectionutils.html
 	python -m robot.libdoc --pythonpath=./ resources/extra_issuing_logic.py doc/extra_issuing_logic.html
+	python -m robot.libdoc --pythonpath=./ resources/ca_ra_utils.py doc/ca_ra_utils.html
+	python -m robot.libdoc --pythonpath=./ resources/compareutils.py doc/compareutils.html
+	python -m robot.libdoc --pythonpath=./ resources/envdatautils.py doc/envdatautils.html
 	python -m robot.testdoc tests/ doc/test-suites.html
 
 

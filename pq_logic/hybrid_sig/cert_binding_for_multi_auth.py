@@ -178,22 +178,33 @@ def _get_related_cert_sig(cert: rfc9480.CMPCertificate) -> Optional[bytes]:
     return None
 
 
-def validate_related_cert_extension(
+def validate_related_cert_extension(  # noqa: D417 Missing argument descriptions in the docstring
     cert_a: rfc9480.CMPCertificate, related_cert: rfc9480.CMPCertificate, hash_alg: Optional[str] = None
-):
+) -> None:
     """Extract the `RelatedCertificate` extension from a given certificate.
 
     This function retrieves the RelatedCertificate extension from a certificate,
     if present, and extracts the hash of the related certificate and then validates
     the hash against the hash algorithm used by signing the certificate.
 
-    :param cert_a: The certificate from which to extract the RelatedCertificate extension.
-                 It should be a parsed ASN.1 object (e.g., `rfc5280.Certificate`).
-    :param related_cert: The related certificate which should contain the hash of the
-    related certificate.
-    :param hash_alg: Currently supports adding a hash for ML-DSA or Ed-keys as an example.
-    :return: The hash value of the related certificate (as bytes) if the extension is present,
-             otherwise `None`.
+    Arguments:
+    ---------
+        - `cert_a`: The certificate from which to extract the RelatedCertificate extension.
+        - `related_cert`: The related certificate which should contain the hash of the related certificate.
+        - `hash_alg`: Currently supports adding a hash for ML-DSA or Ed-keys as an example. Defaults to `None`.
+
+    Raises:
+    ------
+        - `ValueError`: If the certificate does not contain the RelatedCertificate extension.
+        - `ValueError`: If the certificate hash is different.
+        - `ValueError`: If the related certificate is not found.
+        - `ValueError`: If the EKU and KU bits are not set or missing.
+
+    Examples:
+    --------
+    | Validate Related Certificate Extension | ${cert_a} | ${related_cert} |
+    | Validate Related Certificate Extension | ${cert_a} | ${related_cert} | hash_alg="sha256" |
+
     """
     signature = _get_related_cert_sig(cert_a)
     if not signature:

@@ -129,6 +129,10 @@ def validate_migration_oid_in_certificate(  # noqa: D417 Missing argument descri
         - `UnknownOID`: If the OID is unknown.
         - `ValueError`: If the name is not supported.
 
+    Examples:
+    --------
+    | Validate Migration OID In Certificate | ${cert} | ml-dsa-65 |
+
     """
     pub_oid = cert["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]
 

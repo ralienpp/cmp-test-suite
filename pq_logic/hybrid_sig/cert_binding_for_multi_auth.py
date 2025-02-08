@@ -336,6 +336,7 @@ def extract_related_cert_request_attribute(csr: rfc6402.CertificationRequest) ->
     raise ValueError("The relatedCertRequest attribute was not found in the CSR.")
 
 
+@not_keyword
 def process_mime_message(mime_data: bytes):
     """Parse a MIME message and extracts application/pkcs7-mime content.
 
@@ -433,6 +434,9 @@ def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions
 
 # Technically should be changed to CertTemplate and/or CSR.
 # MUST include chain check.
+
+
+@not_keyword
 def server_side_validate_cert_binding_for_multi_auth(ee_cert, related_cert) -> None:
     """Validate the certificate binding for multiple authentications on the server side.
 

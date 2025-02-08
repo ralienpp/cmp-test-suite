@@ -389,35 +389,60 @@ def verify_catalyst_signature(
             certutils.verify_cert_signature(cert=cert, issuer_pub_key=issuer_pub_key)
 
 
-def build_catalyst_cert(
+def build_catalyst_cert(  # noqa: D417 Missing a parameter in the Docstring
     trad_key: TradSigPrivKey,
     pq_key: PQSignaturePrivateKey,
     client_key: PrivateKey,
     common_name: str = "CN=Hans Mustermann",
-    use_pss: bool = False,
     extensions: Optional[rfc5280.Extensions] = None,
+    **kwargs,
 ) -> CMPCertificate:
     """Generate a catalyst certificate combining traditional and post-quantum keys.
 
-    :param trad_key: The traditional private key (e.g., RSA) used for signing the certificate.
-    :param pq_key: The post-quantum private key.
-    :param client_key: The client key to create the certificate for.
-    :param common_name: The subject's common name (CN) for the certificate. Defaults to "CN=Hans Mustermann".
-    :param use_pss: Whether to use RSA-PSS for signing. Defaults to `False`.
-    :param extensions: Optional extensions to include in the certificate.
-    :return: The created `CMPCertificate`.
+    Arguments:
+    ---------
+        - `trad_key`: The traditional private key (e.g., RSA) used for signing the certificate.
+        - `pq_key`: The post-quantum private key.
+        - `client_key`: The client key to create the certificate for.
+        - `common_name`: The subject's common name (CN) for the certificate. Defaults to "CN=Hans Mustermann".
+
+        - `extensions`: Optional extensions to include in the certificate.
+
+    **kwargs:
+    ---------
+        - `critical`: Whether the extensions are critical. Defaults to `False`.
+        - `hash_alg`: The hash algorithm to use. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
+        - `alt_hash_alg`: The hash algorithm to use for the post-quantum signature. Defaults to `None`.
+
+    Returns:
+    -------
+        - The created `CMPCertificate`.
+
+    Examples:
+    --------
+    | ${cert} = | Build Catalyst Cert | ${trad_key} | ${pq_key} | ${client_key} |
+
     """
     tbs_cert = certbuildutils.prepare_tbs_certificate(
         subject=common_name,
         signing_key=trad_key,
         public_key=client_key.public_key(),
-        use_rsa_pss=use_pss,
+        use_rsa_pss=kwargs.get("use_rsa_pss", False),
         extensions=extensions,
     )
 
     cert = rfc9480.CMPCertificate()
     cert["tbsCertificate"] = tbs_cert
-    return sign_cert_catalyst(cert, trad_key=trad_key, pq_key=pq_key, use_rsa_pss=use_pss)
+    return sign_cert_catalyst(
+        cert,
+        trad_key=trad_key,
+        pq_key=pq_key,
+        hash_alg=kwargs.get("hash_alg", "sha256"),
+        pq_hash_alg=kwargs.get("alt_hash_alg"),
+        critical=kwargs.get("critical", False),
+        use_rsa_pss=kwargs.get("use_rsa_pss", False),
+    )
 
 
 def load_catalyst_public_key(extensions: rfc9480.Extensions) -> PublicKey:

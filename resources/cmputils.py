@@ -2649,17 +2649,27 @@ def prepare_general_name(name_type: str, name_str: str) -> rfc9480.GeneralName:
     raise NotImplementedError(f"GeneralName name_type is Unsupported: {name_type}")
 
 
-def prepare_info_value(
+def prepare_info_value(  # noqa: D417 undocumented-param
     oid: Union[univ.ObjectIdentifier, str], value: Union[None, bytes, str, Asn1Type] = None, fill_random: bool = False
 ) -> rfc9480.InfoTypeAndValue:
     """Prepare an `InfoTypeAndValue` structure with the given ObjectIdentifier and optional value.
 
-    :param oid: The OID to set for the `infoType` field. Either as a `pyasn1` `ObjectIdentifier` or a string.
-    :param value: Optional bytes to populate the `infoValue` field. If `None`, the field is left absent.
-    Can either be a str which is encoded to bytes or if startswith "0x" interpreted as hex, bytes directly or a
-    `pyasn1` object.
-    :param fill_random: Whether to fill the `infoValue` filed with random 16-bytes.
-    :return: A populated `InfoTypeAndValue` structure.
+    Arguments:
+    ---------
+        - `oid`: The OID to set for the `infoType` field. Either as a `pyasn1` `ObjectIdentifier` or a string.
+        - `value`: Optional bytes to populate the `infoValue` field. If `None`, the field is left absent.
+            Can either be a str which is encoded to bytes or if startswith "0x" interpreted as hex, bytes directly or a
+            `pyasn1` object.
+        - `fill_random`: Whether to fill the `infoValue` filed with random 16-bytes.
+
+    Returns:
+    -------
+        - A populated `InfoTypeAndValue` structure.
+
+    Examples:
+    --------
+    | ${info_val}= | Prepare Info Value | ${oid} | ${value} |
+
     """
     info_value = rfc9480.InfoTypeAndValue()
 

@@ -39,6 +39,5 @@ class TestVerifyCatalyst(unittest.TestCase):
         cert_ = catalyst_logic.build_catalyst_cert(trad_key=trad_key, pq_key=pq_key,
                                                    client_key=issued_key,
                                                    extensions=extensions)
-
         catalyst_logic.verify_catalyst_signature(cert_,
                                                  issuer_pub_key=trad_key.public_key())

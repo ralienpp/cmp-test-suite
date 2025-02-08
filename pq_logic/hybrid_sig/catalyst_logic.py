@@ -172,7 +172,6 @@ def extract_alt_signature_data(
     Defaults to `False`.
     :return: DER-encoded bytes of the data to be signed.
     """
-
     if cert["signature"].isValue:
         der_data = copy.deepcopy(encoder.encode(cert))
         tmp_cert = decoder.decode(der_data, asn1Spec=rfc9480.CMPCertificate())[0]

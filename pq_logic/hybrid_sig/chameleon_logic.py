@@ -226,7 +226,9 @@ def build_chameleon_base_certificate(
     )
     return base_cert
 
+
 # TODO add unit tests
+
 
 @keyword(name="Validate DCD Extension")
 def validate_dcd_extension(  # noqa: D417 Missing argument descriptions in the docstring
@@ -366,7 +368,6 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
     | ${csr}= | Build Paired CSR | ${base_private_key} | ${delta_private_key} | ${base_common_name} | use_rsa_pss=True |
 
     """
-
     use_rsa_pss = kwargs.get("use_rsa_pss", False)
     hash_alg = kwargs.get("hash_alg", "sha256")
 

@@ -20,8 +20,6 @@ from cryptography.hazmat.primitives import serialization
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc2986, rfc4211, rfc5280, rfc6402, rfc9480
-
-from pq_logic.migration_typing import HybridKEMPublicKey, HybridPublicKey
 from resources import certbuildutils, certextractutils, cryptoutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate
 from resources.oid_mapping import get_hash_from_oid, sha_alg_name_to_oid
@@ -36,6 +34,7 @@ from pq_logic.keys.comp_sig_cms03 import (
     CompositeSigCMSPublicKey,
     compute_hash,
 )
+from pq_logic.migration_typing import HybridPublicKey
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE_OID_2_HASH,
     id_altSignatureExt,
@@ -456,7 +455,7 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     if not isinstance(composite_key, HybridPublicKey):
         raise ValueError("The public key must be a HybridPublicKey.")
     oid = composite_key.get_oid()
-    hash_alg = CMS_COMPOSITE_OID_2_HASH[oid] or hash_alg or "sha256"
+    hash_alg = hash_alg or CMS_COMPOSITE_OID_2_HASH[oid] or "sha256"
     extn_alt_pub, extn_alt_pub2 = _prepare_public_key_extensions(composite_key, hash_alg, pub_key_loc)
 
     tbs_cert["extensions"].append(extn_alt_pub)
@@ -776,7 +775,7 @@ def _patch_extensions(extensions: rfc9480.Extensions, extension: rfc5280.Extensi
     :raises ValueError: If the specified extension does not exist in the original structure.
     """
     for i, ext in enumerate(extensions):
-        if ext["extnID"] == extension["extnID"]:
+        if ext["extnID"] == extension["extnID"]:  # type: ignore
             extensions[i] = extension
             return extensions
 

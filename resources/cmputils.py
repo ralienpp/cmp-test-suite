@@ -3993,7 +3993,8 @@ def build_polling_response(  # noqa D417 undocumented-param
     return pki_message
 
 
-def prepare_popo_challenge_for_non_signing_key(
+@keyword(name="Prepare POPO Challenge For Non Signing Key")
+def prepare_popo_challenge_for_non_signing_key(  # noqa D417 undocumented-param
     use_encr_cert: bool = True,
     use_key_enc: bool = True,
 ) -> rfc4211.ProofOfPossession:
@@ -4001,11 +4002,21 @@ def prepare_popo_challenge_for_non_signing_key(
 
     Using either the encrypted certificate or the challenge method.
 
-    :param use_encr_cert: A flag indicating whether to use an encrypted certificate (`True`) or
-                           a challenge-based message (`False`). Defaults to `True`.
-    :param use_key_enc: A flag indicating whether to use the key encipherment (`True`) or
-    the key agreement (`False`) option for the PoP structure. Defaults to `True`.
-    :return: A populated `rfc4211.ProofOfPossession` structure for key encipherment.
+    Arguments:
+    ---------
+        - `use_encr_cert`: A flag indicating whether to use an encrypted certificate (`True`) or
+            a challenge-based message (`False`). Defaults to `True`.
+        - `use_key_enc`: A flag indicating whether to use the key encipherment (`True`) or
+            the key agreement (`False`) option for the PoP structure. Defaults to `True`.
+
+    Returns:
+    -------
+        - A populated `rfc4211.ProofOfPossession` structure.
+
+    Examples:
+    --------
+    | ${popo_structure}= | Prepare PoPo Challenge For Non Signing Key | use_encr_cert=True | use_key_enc=True |
+
     """
     option = "keyEncipherment" if use_key_enc else "keyAgreement"
     challenge = "encrCert" if use_encr_cert else "challengeResp"

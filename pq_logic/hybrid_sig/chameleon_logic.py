@@ -366,6 +366,10 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
     | ${csr}= | Build Paired CSR | ${base_private_key} | ${delta_private_key} | ${base_common_name} | use_rsa_pss=True |
 
     """
+
+    use_rsa_pss = kwargs.get("use_rsa_pss", False)
+    hash_alg = kwargs.get("hash_alg", "sha256")
+
     # Step 1: Build certificationRequestInfo
     base_csr = certbuildutils.build_csr(
         signing_key=base_private_key,
@@ -380,7 +384,7 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
     delta_request = prepare_delta_cert_req(
         signing_key=delta_private_key,
         extensions=delta_extensions,
-        delta_common_name=delta_common_name,
+        delta_common_name=kwargs.get("delta_common_name"),
         use_rsa_pss=use_rsa_pss,
         hash_alg=hash_alg,
     )

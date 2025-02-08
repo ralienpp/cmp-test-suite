@@ -86,10 +86,8 @@ CA Must Reject Request When The CSR Signature Is Invalid
     ...    The CA MUST reject the request and may respond with the optional failInfo `badPOP`.
     [Tags]    crypto    csr    negative
     ${key}=    Generate Default Key
-    ${key2}=    Generate Default Key
     ${cm}=    Get Next Common Name
-    ${csr}=    Build CSR    common_name=${cm}    signing_key=${key}    exclude_signature=True
-    ${invalid_sig_csr}=    Sign CSR    csr=${csr}    signing_key=${key}    other_key=${key2}
+    ${csr}=    Build CSR    common_name=${cm}    signing_key=${key}    bad_pop=True
     ${p10cr}=    Build P10cr From Csr
     ...    ${invalid_sig_csr}
     ...    sender=${SENDER}

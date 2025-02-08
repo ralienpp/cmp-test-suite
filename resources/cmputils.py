@@ -491,6 +491,11 @@ def validate_archive_options(  # noqa D417 undocumented-param
         - `NotImplementedError`: If the keyGenParameters option is present.
         - `BadAsn1Data`: If the PKIArchiveOptions contains trailing data.
 
+    Examples:
+    --------
+    | ${archive_options}= | Validate Archive Options | ${controls} |
+    | ${archive_options}= | Validate Archive Options | ${controls} | must_be_present=True |
+
     """
     found = False
     archive_options = None

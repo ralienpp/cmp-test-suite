@@ -26,18 +26,11 @@ from pyasn1.type.base import Asn1Type
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc6955, rfc9480, rfc9629
 from robot.api.deco import keyword, not_keyword
 
-from resources import asn1utils, cmputils, compareutils, keyutils, utils
+from resources import asn1utils, ca_kga_logic, cmputils, compareutils, envdatautils, keyutils, utils
 from resources.asn1_structures import ChallengeASN1, PKIMessageTMP
-from resources.ca_kga_logic import validate_enveloped_data
 from resources.certutils import load_public_key_from_cert
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_aes_cbc, compute_hmac, perform_ecdh
-from resources.envdatautils import (
-    build_env_data_for_exchange,
-    prepare_issuer_and_serial_number,
-    prepare_one_asymmetric_key,
-    prepare_recipient_identifier,
-)
 from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
 from resources.oid_mapping import compute_hash
 from resources.prepareutils import prepare_name
@@ -126,7 +119,7 @@ def prepare_enc_key_with_id(  # noqa D417 undocumented-param
     | ${enc_key}= | Prepare EncKeyWithID | ${private_key} | ${sender} | use_string=${True} |
 
     """
-    one_asym_key = prepare_one_asymmetric_key(private_key)
+    one_asym_key = envdatautils.prepare_one_asymmetric_key(private_key)
 
     data = rfc4211.EncKeyWithID()
 
@@ -199,7 +192,7 @@ def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
         data = prepare_enc_key_with_id(private_key=client_key, sender=enc_key_sender)
         data = encoder.encode(data)
 
-    issuer_and_ser = prepare_issuer_and_serial_number(serial_number=int(cert_req_id), issuer=rid_sender)
+    issuer_and_ser = envdatautils.prepare_issuer_and_serial_number(serial_number=int(cert_req_id), issuer=rid_sender)
 
     env_data = rfc5652.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))
 
@@ -208,7 +201,7 @@ def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
     if not is_kem_public_key(ca_public_key):
         raise InvalidKeyCombination(f"The KEM env data got an invalid key: {type(ca_public_key).__name__}")
 
-    env_data = build_env_data_for_exchange(
+    env_data = envdatautils.build_env_data_for_exchange(
         public_key_recip=ca_public_key,
         cert_sender=ca_cert,
         cek=cek,
@@ -337,7 +330,7 @@ def validate_kemri_rid_for_encrypted_cert(  # noqa D417 undocumented-param
 
     rid_name = rid.getName()
 
-    expected_rid = prepare_recipient_identifier(key=key, issuer=issuer, serial_number=serial_number)
+    expected_rid = envdatautils.prepare_recipient_identifier(key=key, issuer=issuer, serial_number=serial_number)
 
     if encoder.encode(rid) != encoder.encode(expected_rid):
         raise ValueError(
@@ -551,7 +544,7 @@ def _process_encrypted_rand(
         recip_index=recip_index,
         cert_req_id=cert_req_id,
     )
-    raw_bytes = validate_enveloped_data(
+    raw_bytes = ca_kga_logic.validate_enveloped_data(
         env_data=env_data,
         pki_message=pki_message,
         password=password,
@@ -786,7 +779,7 @@ def compute_dh_static_pop(
     # names differs, but same structure.
     dh_pop_static = rfc6955.DhSigStatic()
     dh_pop_static["hashValue"] = rfc6955.MessageDigest(mac)
-    dh_pop_static["issuerAndSerial"] = prepare_issuer_and_serial_number(ca_cert)
+    dh_pop_static["issuerAndSerial"] = envdatautils.prepare_issuer_and_serial_number(ca_cert)
     alg_id["algorithm"]["parameters"] = rfc6955.DhSigStatic()
 
     popo_priv_key = rfc4211.POPOPrivKey().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3))
@@ -852,7 +845,7 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
 
     env_data = cert_key_pair["certOrEncCert"]["encryptedCert"]["envelopedData"]
 
-    data = validate_enveloped_data(
+    data = ca_kga_logic.validate_enveloped_data(
         env_data=env_data,
         pki_message=pki_message,
         password=password,

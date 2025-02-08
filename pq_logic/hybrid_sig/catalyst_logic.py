@@ -285,7 +285,7 @@ def validate_catalyst_extensions(  # noqa: D417 Missing a parameter in the Docst
         raise BadAsn1Data(f"Invalid extension content or verification error: {e}")
 
 
-def verify_catalyst_signature_migrated(  # noqa: D417 Missing a parameter in the Docstring
+def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstring
     cert: rfc9480.CMPCertificate,
     issuer_cert: Optional[rfc9480.CMPCertificate] = None,
     issuer_pub_key: Optional[PrivateKeySig] = None,
@@ -317,8 +317,8 @@ def verify_catalyst_signature_migrated(  # noqa: D417 Missing a parameter in the
 
     Examples:
     --------
-    | Verify Catalyst Signature Migrated | ${cert} | ${issuer_cert} |
-    | Verify Catalyst Signature Migrated | ${cert} | ${issuer_pub_key} | sig_alg_must_be=ml-dsa-44 |
+    | Verify Catalyst Signature | ${cert} | ${issuer_cert} |
+    | Verify Catalyst Signature | ${cert} | ${issuer_pub_key} | sig_alg_must_be=ml-dsa-44 |
 
     """
     catalyst_ext = validate_catalyst_extensions(cert=cert, sig_alg_must_be=sig_alg_must_be)
@@ -348,45 +348,6 @@ def verify_catalyst_signature_migrated(  # noqa: D417 Missing a parameter in the
     )
 
     logging.info("Alternative signature verification succeeded.")
-
-
-def verify_catalyst_signature(
-    cert: rfc9480.CMPCertificate,
-    issuer_pub_key: Optional[PrivateKeySig] = None,
-    include_extensions: bool = True,
-    migrated: bool = False,
-):
-    """Verify the certificate's signature, handling both native and alternative signatures.
-
-    The verification is based on whether the relying party has migrated.
-
-    :param cert: The certificate to verify.
-    :param issuer_pub_key: The issuer's public key for native signature verification.
-    :param include_extensions: Whether to include catalyst extensions in native verification.
-    :param migrated: Whether the relying party has migrated to support alternative signatures.
-    :raises ValueError: If verification fails due to missing extensions or signature mismatches.
-    :raises NotImplementedError: If certain verification paths are not implemented.
-    """
-    catalyst_ext = validate_catalyst_extensions(cert)
-    public_key2 = keyutils.load_public_key_from_spki(catalyst_ext["spki"])
-
-    if not migrated:
-        if catalyst_ext:
-            logging.info("Catalyst extensions detected. Verifying native signature.")
-            if include_extensions:
-                certutils.verify_cert_signature(cert=cert, issuer_pub_key=issuer_pub_key)
-            else:
-                raise NotImplementedError("Excluding extensions is not supported for non-migrated parties.")
-        else:
-            raise ValueError("No catalyst extensions present.")
-
-    else:
-        if catalyst_ext:
-            logging.info("Migrated relying party: Verifying alternative signature.")
-            verify_catalyst_signature_migrated(cert, public_key2)
-        else:
-            logging.info("No catalyst extensions present. Verifying native signature.")
-            certutils.verify_cert_signature(cert=cert, issuer_pub_key=issuer_pub_key)
 
 
 def build_catalyst_cert(  # noqa: D417 Missing a parameter in the Docstring

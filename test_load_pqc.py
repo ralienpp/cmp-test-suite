@@ -15,7 +15,7 @@ from datetime import datetime
 import cryptography
 import pyasn1
 from cryptography.exceptions import InvalidSignature
-from pq_logic.hybrid_sig.catalyst_logic import verify_catalyst_signature_migrated
+from pq_logic.hybrid_sig.catalyst_logic import verify_catalyst_signature
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPublicKey
 from pyasn1.codec.der import encoder
 from pyasn1_alt_modules import rfc9480
@@ -106,7 +106,7 @@ def verify_signature_with_alg_id(
     oid = alg_id["algorithm"]
 
     if verify_catalyst:
-        verify_catalyst_signature_migrated(cert)
+        verify_catalyst_signature(cert)
 
     elif oid in CMS_COMPOSITE_OID_2_NAME:
         name: str = CMS_COMPOSITE_OID_2_NAME[oid]

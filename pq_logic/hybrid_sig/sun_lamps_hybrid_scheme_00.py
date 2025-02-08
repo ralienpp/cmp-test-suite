@@ -130,9 +130,11 @@ def prepare_sun_hybrid_csr_attributes(  # noqa: D417 Missing argument descriptio
     Arguments:
     ---------
         - `pub_key_hash_alg`: The hash algorithm name to be used to hash the alternative public key.
-        - `pub_key_location`: The location of the alternative public key.
+        Defaults to `None`.
+        - `pub_key_location`: The location of the alternative public key. Defaults to `None`.
         - `sig_hash_alg`: The hash algorithm name to be used to hash the alternative signature.
-        - `sig_value_location`: The location of the alternative signature.
+        Defaults to `None`.
+        - `sig_value_location`: The location of the alternative signature. Defaults to `None`.
 
     Returns:
     -------

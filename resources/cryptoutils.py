@@ -63,9 +63,9 @@ def sign_data(  # noqa D417 undocumented-param
 
     Examples:
     --------
-    | ${sig} | Sign Data | ${data} | ${private_key} | sha256 |
-    | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True |
-    | ${sig} | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True | ctx=0x1234 |
+    | ${sig}= | Sign Data | ${data} | ${private_key} | sha256 |
+    | ${sig}= | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True |
+    | ${sig}= | Sign Data | ${data} | ${private_key} | sha256 | use_rsa_pss=True | ctx=0x1234 |
 
     """
     ctx = convertutils.str_to_bytes(ctx)

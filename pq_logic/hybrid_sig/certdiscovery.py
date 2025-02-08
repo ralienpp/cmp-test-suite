@@ -91,7 +91,7 @@ def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-para
 
     Examples:
     --------
-    | ${ext}= | Prepare SubjectInfoAccessSyntax Extension | https://example.com/sec_cert.pem | ${other_cert} |
+    | ${extn}= | Prepare SubjectInfoAccessSyntax Extension | https://example.com/sec_cert.pem | ${other_cert} |
 
     """
     extension = rfc5280.Extension()

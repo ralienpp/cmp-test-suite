@@ -21,6 +21,8 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
+
+from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax_extension
 from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, protectionutils, utils
 from resources.asn1_structures import PKIMessagesTMP
 from resources.ca_ra_utils import build_ca_message
@@ -37,7 +39,7 @@ from resources.typingutils import PrivateKey, TradSigPrivKey
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic import pq_compute_utils
-from pq_logic.hybrid_sig import catalyst_logic, chameleon_logic, sun_lamps_hybrid_scheme_00
+from pq_logic.hybrid_sig import catalyst_logic, chameleon_logic, sun_lamps_hybrid_scheme_00, cert_binding_for_multi_auth
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey, AbstractCompositeSigPublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
@@ -971,3 +973,68 @@ def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in t
 
     pki_message["extraCerts"].append(delta_cert)
     return pki_message, cert, delta_cert
+
+
+def build_cert_discovery_cert_from_p10cr(
+    request: PKIMessagesTMP,
+    ca_cert: rfc9480.CMPCertificate,
+    ca_key: PrivateKey,
+    url: str,
+    serial_number: Union[int, str],
+    max_freshness_seconds: Union[int, str] = 500,
+    load_chain: bool = False,
+    set_other_cert_vals: bool = True,
+    **kwargs,
+):
+    """Build a certificate discovery certificate from a CSR.
+
+    Arguments:
+    ---------
+        - `request`: The PKIMessage request.
+        - `ca_cert`: The CA certificate matching the CA key.
+        - `ca_key`: The CA key to sign the certificate with.
+        - `url`: The URL to use for the certificate discovery.
+        - `serial_number`: The serial number to use for the certificate.
+        - `max_freshness_seconds`: The maximum freshness in seconds. Defaults to 500.
+        - `load_chain`: Whether to load the chain or just the second certificate. Defaults to `False`.
+        - `set_other_cert_vals`: Whether to set other certificate values. Defaults to `True`.
+        (signature and public key algorithm inside the SIA entry)
+
+    **kwargs:
+    --------
+        - `cert_req_id`: The certificate request ID. Defaults to `None`.
+        - `hash_alg`: The hash algorithm to use for signing. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `True`.
+
+    Returns:
+    -------
+        - The PKIMessage with the certificate response.
+        - The issued certificate.
+
+    Examples:
+    --------
+    | ${response} ${cert}= | Build Cert Discovery Cert From CSR | ${request} | ${ca_cert} | ${ca_key} | ${url} | ${serial_number} |
+    """
+    certs = cert_binding_for_multi_auth.validate_related_cert_pop(
+        csr=request["body"]["p10cr"],
+        max_freshness_seconds=max_freshness_seconds,
+        load_chain=load_chain,
+    )
+
+    extn = prepare_subject_info_access_syntax_extension(
+        url=url,
+        critical=False,
+        other_cert=certs[0] if set_other_cert_vals else None,
+    )
+
+    cert = certbuildutils.build_cert_from_csr(
+        csr=request["body"]["p10cr"],
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        hash_alg=kwargs.get("hash_alg", "sha256"),
+        use_rsa_pss=kwargs.get("use_rsa_pss", True),
+        extensions=[extn],
+        serial_number=serial_number,
+    )
+
+    return ca_ra_utils.build_cp_from_p10cr(cert=cert, request=request, **kwargs)

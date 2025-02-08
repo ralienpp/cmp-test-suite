@@ -1224,7 +1224,7 @@ def prepare_supported_language_tags(langs: Union[str, List[str]]) -> rfc9480.Inf
 
 
 def validate_supported_language_tags(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, expected_size: int = 1, index: int = 0
+    pki_message: rfc9480.PKIMessage, expected_size: Strint = 1, index: Strint = 0
 ) -> None:
     """
     Validate the response for supported language tags.
@@ -1241,10 +1241,14 @@ def validate_supported_language_tags(  # noqa D417 undocumented-param
         - `ValueError`: If the response contains an unexpected `infoType`.
         - `ValueError`: If the response contains more than one language tags.
 
+    Examples:
+    --------
+    | Validate Supported Language Tags | ${pki_message} |
+
     """
     validate_general_response(pki_message=pki_message, expected_size=expected_size)
 
-    data = pki_message["body"]["genp"][index]
+    data = pki_message["body"]["genp"][int(index)]
     if data["infoType"] != rfc9480.id_it_suppLangTags:
         raise ValueError("Unexpected infoType in response.")
 
@@ -1273,6 +1277,10 @@ def validate_genm_message_size(  # noqa: D417 Missing argument description in th
     ------
         - `ValueError`: If the PKIMessage does not contain a General Message body.
         - `ValueError`: If the response does not have the expected size.
+
+    Examples:
+    --------
+    | ${genm}= | Validate Genm Message Size | ${genm} | expected_size=1 |
 
     """
     if genm["body"].getName() != "genm":

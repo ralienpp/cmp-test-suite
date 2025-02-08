@@ -11,7 +11,7 @@ from itertools import product
 import oqs
 from pq_logic.fips.fips204 import ML_DSA
 from pq_logic.hybrid_sig.catalyst_logic import (
-    prepare_alt_signature_data,
+    extract_alt_signature_data,
     validate_catalyst_extensions,
 )
 from pq_logic.keys.abstract_pq import PQPrivateKey, PQPublicKey
@@ -81,8 +81,8 @@ def _try2(asn1cert: rfc9480.CMPCertificate, pub_key: bytes, name: str, signature
         [True, False], repeat=4
     ):
         # Prepare alternative signature data with the current combination
-        alt_sig_data = prepare_alt_signature_data(
-            cert=asn1cert,
+        alt_sig_data = extract_alt_signature_data(
+            tmp_cert=asn1cert,
             exclude_alt_extensions=exclude_alt_extensions,
             only_tbs_cert=only_tbs_cert,
             exclude_signature_field=exclude_signature_field,  # means the signature field inside tbsCertificate,

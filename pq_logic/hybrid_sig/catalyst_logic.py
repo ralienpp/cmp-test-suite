@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Handles Catalyst Certificates and related functionality."""
-
+import copy
 import logging
 from typing import Optional, Union
 
@@ -154,7 +154,7 @@ def prepare_alt_signature_value_extn(  # noqa: D417 Missing a parameter in the D
 
 
 @not_keyword
-def prepare_alt_signature_data(
+def extract_alt_signature_data(
     cert: rfc9480.CMPCertificate,
     exclude_alt_extensions: bool = False,
     only_tbs_cert: bool = False,
@@ -172,7 +172,11 @@ def prepare_alt_signature_data(
     Defaults to `False`.
     :return: DER-encoded bytes of the data to be signed.
     """
-    tbs_cert = cert["tbsCertificate"]
+
+    der_data = copy.deepcopy(encoder.encode(cert))
+    tmp_cert = decoder.decode(der_data, asn1Spec=rfc9480.CMPCertificate())[0]
+
+    tbs_cert = tmp_cert["tbsCertificate"]
 
     data = b""
 
@@ -195,15 +199,15 @@ def prepare_alt_signature_data(
         else [id_ce_altSignatureValue, id_ce_altSignatureAlgorithm, id_ce_subjectAltPublicKeyInfo]
     )
 
-    for x in cert["tbsCertificate"]["extensions"]:
+    for x in tmp_cert["tbsCertificate"]["extensions"]:
         if x["extnID"] not in exclude_extn:
             new_extn.append(x)
 
-    cert["tbsCertificate"]["extensions"] = new_extn
+    tmp_cert["tbsCertificate"]["extensions"] = new_extn
     data = encoder.encode(tbs_cert)
 
-    if cert["signatureAlgorithm"].isValue and not only_tbs_cert:
-        data += encoder.encode(cert["signatureAlgorithm"])
+    if tmp_cert["signatureAlgorithm"].isValue and not only_tbs_cert:
+        data += encoder.encode(tmp_cert["signatureAlgorithm"])
 
     return data
 
@@ -253,7 +257,7 @@ def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
         prepare_subject_alt_public_key_info_extn(key=pq_key.public_key(), critical=critical)
     )
 
-    alt_sig_data = prepare_alt_signature_data(cert)
+    alt_sig_data = extract_alt_signature_data(cert)
 
     alt_signature = cryptoutils.sign_data(data=alt_sig_data, key=pq_key, hash_alg=pq_hash_alg)
     if bad_alt_sig:
@@ -408,7 +412,7 @@ def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstrin
     pq_pub_key = keyutils.load_public_key_from_spki(catalyst_ext["spki"])
     hash_alg = get_hash_from_oid(catalyst_ext["alg_id"]["algorithm"], only_hash=True)
 
-    alt_sig_data = prepare_alt_signature_data(
+    alt_sig_data = extract_alt_signature_data(
         cert, exclude_alt_extensions=exclude_alt_extensions, only_tbs_cert=only_tbs_cert
     )
 

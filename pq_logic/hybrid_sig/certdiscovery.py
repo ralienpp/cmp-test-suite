@@ -8,6 +8,7 @@ https://datatracker.ietf.org/doc/draft-lamps-okubo-certdiscovery-05.html.
 https://datatracker.ietf.org/doc/draft-lamps-okubo-certdiscovery/
 """
 
+import logging
 from typing import List, Optional, Union
 
 from pyasn1.codec.der import decoder, encoder
@@ -205,19 +206,22 @@ def validate_cert_discovery_cert(  # noqa: D417 Missing argument descriptions in
     verbose: bool = True,
     timeout: Optional[Union[str, int]] = 60,
     fetch_timeout: Optional[Union[str, int]] = 20,
+    certs_dir: Optional[str] = None,
 ) -> rfc9480.CMPCertificate:
     """Validate a certificate using the certDiscovery access method.
 
     Arguments:
     ---------
         - `primary_cert`: The primary certificate to validate.
-        - `issuer_cert`: The issuer certificate.
-        - `cert_chain_secondary`: The chain of secondary certificates.
+        - `issuer_cert`: The issuer certificate. Defaults to `None`.
+        - `cert_chain_secondary`: The chain of secondary certificates. Defaults to `None`.
+        (If not provided, will OpenSSL verify and build the chain.)
         - `verify_openssl`: Whether to verify the certificate chain using OpenSSL. Defaults to `True`.
         - `crl_check`: Whether to check the CRL. Defaults to `False`.
         - `verbose`: Whether to print verbose output. Defaults to `True`.
         - `timeout`: The timeout for the OpenSSL verification. Defaults to `60` seconds.
         - `fetch_timeout`: The timeout for fetching the secondary certificate. Defaults to `20` seconds.
+        - `certs_dir`: The directory to load certificates from, to build the chain. Defaults to `None`.
 
     Returns:
     -------
@@ -248,9 +252,16 @@ def validate_cert_discovery_cert(  # noqa: D417 Missing argument descriptions in
         raise ValueError("The Signature was correct, with traditional algorithm!")
 
     if cert_chain_secondary is not None:
-        cert_chain = certutils.build_chain_from_list(ee_cert=other_cert, cert_dir=cert_chain_secondary)
+        cert_chain = certutils.build_chain_from_list(ee_cert=other_cert, certs=cert_chain_secondary)
+
+        len_parsed = len(cert_chain_secondary)
+        if len(cert_chain) not in [len_parsed + 1, len_parsed]:
+            logging.info("The parsed cert chain does not match the built one.")
     else:
-        cert_chain = [other_cert]
+        certs = certutils.load_certificates_from_dir(
+            path=certs_dir,
+        )
+        cert_chain = certutils.build_chain_from_list(ee_cert=other_cert, certs=certs)
 
     if verify_openssl:
         certutils.verify_cert_chain_openssl(

@@ -120,7 +120,8 @@ def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-para
 
 @keyword(name="Extract RelatedCertificateDescriptor from SIA Extension")
 def extract_related_cert_des_from_sis_extension(  # noqa D417 undocumented-param
-    extension: rfc5280.Extension, index: Optional[int] = None
+    extension: rfc5280.Extension,
+    index: Optional[int] = None
 ) -> RelatedCertificateDescriptor:
     """Parse a SubjectInfoAccessSyntax (SIA) extension to extract a RelatedCertificateDescriptor.
 
@@ -130,8 +131,8 @@ def extract_related_cert_des_from_sis_extension(  # noqa D417 undocumented-param
     Arguments:
     ---------
         - extension: An `Extension` object containing the SIA extension to parse.
-        - index: The index of the AccessDescription within the SubjectInfoAccessSyntax. Defaults to None.
-            means that all entries are checked.
+        - index: The index of the AccessDescription within the SubjectInfoAccessSyntax.
+        Defaults to `None` (means that all entries are checked).
 
     Raises:
     ------
@@ -167,44 +168,6 @@ def extract_related_cert_des_from_sis_extension(  # noqa D417 undocumented-param
     obj, _ = decoder.decode(other_name["value"], RelatedCertificateDescriptor())
 
     return obj
-
-
-def fetch_cert_from_url(  # noqa: D417 Missing argument descriptions in the docstring
-    uri: Union[str, char.IA5String], timeout: Optional[Union[str, int]] = 20
-) -> rfc9480.CMPCertificate:
-    """Get the secondary certificate using the provided URI.
-
-    Arguments:
-    ---------
-        - uri: The URI of the secondary certificate.
-        - timeout: The timeout for the fetching. Defaults to `20`.
-
-    Returns:
-    -------
-        - The parsed certificate.
-
-    Raises:
-    ------
-        - `IOError`: If the fetching fails.
-        - `ValueError`: If the decoding of the fetching certificate had a remainder.
-
-    Examples:
-    --------
-    | ${secondary_cert}= | Get Cert Discovery Cert | https://example.com/sec_cert.pem |
-    | ${secondary_cert}= | Get Cert Discovery Cert | https://example.com/sec_cert.pem | timeout=30 |
-
-    """
-    try:
-        logging.info(f"Fetching secondary certificate from {uri}")
-        response = requests.get(str(uri), timeout=int(timeout))
-        response.raise_for_status()
-        cert, rest = decoder.decode(response.content, rfc9480.CMPCertificate())
-        if rest:
-            raise ValueError("The decoding of the fetching certificate had a remainder.")
-        return cert
-
-    except requests.RequestException as e:
-        raise IOError(f"Failed to fetch secondary certificate: {e}")
 
 
 @not_keyword

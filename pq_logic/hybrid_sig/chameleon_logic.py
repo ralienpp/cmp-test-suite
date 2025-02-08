@@ -11,10 +11,9 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc5652, rfc6402, rfc9480
-from resources import certbuildutils, certextractutils, compareutils, utils
+from resources import certbuildutils, certextractutils, compareutils, cryptoutils, utils
 from resources.convertutils import copy_asn1_certificate, subjectPublicKeyInfo_from_pubkey
 from resources.copyasn1utils import copy_name, copy_validity
-from resources.cryptoutils import sign_data
 from resources.exceptions import BadAsn1Data, BadPOP
 from resources.oid_mapping import get_hash_from_oid
 from resources.prepareutils import prepare_name
@@ -397,7 +396,9 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
     # Step 4: Sign the CertificationRequestInfo using the private key of the Delta Certificate
     # request subject
     tmp_der_data = encoder.encode(base_csr["certificationRequestInfo"])
-    delta_signature = sign_data(data=tmp_der_data, key=delta_private_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
+    delta_signature = cryptoutils.sign_data(
+        data=tmp_der_data, key=delta_private_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss
+    )
 
     if kwargs.get("bad_alt_pop"):
         delta_signature = utils.manipulate_first_byte(delta_signature)
@@ -412,7 +413,9 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
 
     # Step 7: Sign.
     base_csr_info = encoder.encode(base_csr["certificationRequestInfo"])
-    base_signature = sign_data(data=base_csr_info, key=base_private_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
+    base_signature = cryptoutils.sign_data(
+        data=base_csr_info, key=base_private_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg
+    )
 
     base_csr["signatureAlgorithm"] = certbuildutils.prepare_sig_alg_id(
         signing_key=base_private_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss

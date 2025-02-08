@@ -68,7 +68,7 @@ def _prepare_related_certificate_descriptor(
 
 @keyword(name="Prepare SubjectInfoAccessSyntax Extension")
 def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-param
-    url: str = "https://example.com/secondary_certificate.pem",
+    url: str = "https://example.com/sec_cert.pem",
     critical: bool = False,
     signature_algorithm: Optional[rfc5280.AlgorithmIdentifier] = None,
     public_key_algorithm: Optional[rfc5280.AlgorithmIdentifier] = None,
@@ -78,7 +78,7 @@ def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-para
 
     Arguments:
     ---------
-        - url: The location of the other associated certificate. Defaults to `https://example.com/secondary_certificate.pem`.
+        - url: The location of the other associated certificate. Defaults to `"https://example.com/sec_cert.pem"`.
         - critical: Whether the extension is critical. Defaults to `False`.
         - signature_algorithm: The signature algorithm to be included. Defaults to `None`.
         - public_key_algorithm: The public key algorithm to be included. Defaults to `None`.

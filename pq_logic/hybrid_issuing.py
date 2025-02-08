@@ -80,6 +80,10 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
     -------
        - The PKIMessage with the certificate response.
 
+    Examples:
+    ---------
+    | ${response} ${cert4} ${cert1}= | Build Sun Hybrid Cert From Request | ${request} | ${signing_key} | ${ca_cert} |
+
     """
     if issuer_cert is None:
         issuer_cert = cert_chain[0]

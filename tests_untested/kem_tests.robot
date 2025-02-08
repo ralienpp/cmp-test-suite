@@ -199,7 +199,7 @@ CA MUST support KEMBasedMAC
     ${info_val}=    Prepare KEMCiphertextInfo   ${KEM_KEY}
     ${genm}=   Build General Message   ${info_val}   sender=${SENDER}   recipient=${RECIPIENT}
     ${genp}=   Exchange PKIMessage    ${genm}
-    ${ss}=   Validate Genp Kem Ct Info    ${genp}    ${KEM_KEY}
+    ${ss}=   Validate Genp KEMCiphertextInfo    ${genp}    ${KEM_KEY}
     ${key}=  Generate Default Key
     ${ir}=    Build ir from key  ${key}   ${cm}    sender=${SENDER}   recipient=${RECIPIENT}
     ${protected_ir}=  Protect PKIMessage KemBasedMac    ${ir}    shared_secret=${ss}
@@ -218,7 +218,7 @@ CA Reject invalid KEMBasedMAC Protected Message
     ${info_val}=    Prepare KEMCiphertextInfo   ${KEM_KEY}
     ${genm}=   Build General Message   ${info_val}   sender=${SENDER}   recipient=${RECIPIENT}
     ${genp}=   Exchange PKIMessage    ${genm}
-    ${ss}=   Validate Genp Kem Ct Info    ${genp}    ${KEM_KEY}
+    ${ss}=   Validate Genp KEMCiphertextInfo    ${genp}    ${KEM_KEY}
     ${key}=  Generate Default Key
     ${ir}=    Build ir from key  ${key}   ${cm}    sender=${SENDER}   recipient=${RECIPIENT}
     ${protected_ir}=  Protect PKIMessage KemBasedMac    ${ir}    shared_secret=${ss}    bad_message_check=True

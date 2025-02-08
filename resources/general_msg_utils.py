@@ -1354,7 +1354,7 @@ def build_genp_kem_ct_info_from_genm(  # noqa: D417 Missing argument description
     genm2["body"]["genp"].append(info_val)
     return ss, genm2
 
-
+@keyword(name="Validate Genp KEMCiphertextInfo")
 def validate_genp_kem_ct_info(  # noqa: D417 Missing argument description in the docstring
     genp: PKIMessageTMP,
     client_private_key: Optional[KEMPrivateKey],
@@ -1381,6 +1381,10 @@ def validate_genp_kem_ct_info(  # noqa: D417 Missing argument description in the
         - `ValueError`: If the `KEMCiphertextInfo` value was absent.
         - `ValueError`: If the private key was not a KEM private key.
         - `BadAsn1Data`: If the decoding of the `KEMCiphertextInfo` had a remainder.
+
+    Examples:
+    --------
+    | ${ss} = | Validate Genp KEMCiphertextInfo | ${genp} | client_private_key=${client_private_key} |
 
     """
     validate_general_response(pki_message=genp, expected_size=expected_size)
@@ -1555,6 +1559,11 @@ def prepare_simple_info_types(  # noqa D417 undocumented-param
     Raises:
     ------
         - `ValueError`: If the name does not match a valid OID.
+
+    Examples:
+    --------
+    | ${info_val}= | Prepare Simple Info Types | name=ca_prot_enc_cert |
+    | ${info_val}= | Prepare Simple Info Types | name=sign_key_pair_types,ca_prot_enc_cert |
 
     """
     oid = GeneralInfoOID.get_oid(name)

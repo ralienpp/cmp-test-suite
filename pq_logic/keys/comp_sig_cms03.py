@@ -17,6 +17,8 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280
+from robot.api.deco import not_keyword
+
 from resources import oid_mapping
 from resources.exceptions import BadAsn1Data, InvalidKeyCombination
 from resources.oid_mapping import get_curve_instance, sha_alg_name_to_oid
@@ -70,6 +72,7 @@ def get_valid_comb(
 
 
 # to avoid import conflicts will be removed in the future.
+@not_keyword
 def compute_hash(alg_name: str, data: bytes) -> bytes:
     """Calculate the hash of data using an algorithm given by its name.
 

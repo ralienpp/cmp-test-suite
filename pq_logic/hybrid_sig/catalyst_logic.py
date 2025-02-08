@@ -228,10 +228,10 @@ def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     ---------
         - `cert`: The certificate to sign.
         - `pq_key`: The post-quantum private key for alternative signing.
-        - `trad_key`: The traditional private key for native signing.
+        - `trad_key`: The traditional private key for traditional signing.
         - `pq_hash_alg`: Hash algorithm for the post-quantum signature. Defaults to `None`.
-        - `hash_alg`: Hash algorithm for the native signature. Defaults to "sha256".
-        - `use_rsa_pss`: Whether to use RSA-PSS for native signing. Defaults to `False`.
+        - `hash_alg`: Hash algorithm for the traditional signature. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for traditional signing. Defaults to `False`.
         - `critical`: Whether the catalyst extensions are critical. Defaults to `False`.
         - `bad_alt_sig`: Whether to manipulate the alternative signature to be invalid. Defaults to `False`.
 
@@ -368,14 +368,14 @@ def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstrin
 ) -> None:
     """Verify the alternative signature for migrated relying parties.
 
-    First verify native signature to ensure certificate authenticity and then
+    First verify traditional signature to ensure certificate authenticity and then
     verify the alternative signature by excluding the altSignatureValue extension.
 
     Arguments:
     ---------
         - `cert`: The certificate to verify.
-        - `issuer_cert`: The issuer's certificate for native signature verification. Defaults to `None`.
-        - `issuer_pub_key`: The issuer's public key for native signature verification. Defaults to `None`.
+        - `issuer_cert`: The issuer's certificate for traditional signature verification. Defaults to `None`.
+        - `issuer_pub_key`: The issuer's public key for traditional signature verification. Defaults to `None`.
         - `exclude_alt_extensions`: Whether to exclude alternative extensions for the signature verification.
         - `only_tbs_cert`: Whether to only include the `tbsCertificate` part of the certificate and
         exclude the `signatureAlgorithm` field.
@@ -405,7 +405,7 @@ def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstrin
             cert["tbsCertificate"]["subjectPublicKeyInfo"]
         )
 
-    # Step 1: Verify the native signature
+    # Step 1: Verify the traditional signature
     certutils.verify_cert_signature(cert=cert, issuer_pub_key=issuer_pub_key)
 
     # Step 2: Verify the alternative signature

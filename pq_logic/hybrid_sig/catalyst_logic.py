@@ -172,8 +172,16 @@ def extract_alt_signature_data(
     Defaults to `False`.
     :return: DER-encoded bytes of the data to be signed.
     """
-    der_data = copy.deepcopy(encoder.encode(cert))
-    tmp_cert = decoder.decode(der_data, asn1Spec=rfc9480.CMPCertificate())[0]
+
+    if cert["signature"].isValue:
+        der_data = copy.deepcopy(encoder.encode(cert))
+        tmp_cert = decoder.decode(der_data, asn1Spec=rfc9480.CMPCertificate())[0]
+    else:
+        tmp_cert = rfc9480.CMPCertificate()
+        der_tbs = encoder.encode(cert["tbsCertificate"])
+        tmp_cert["tbsCertificate"] = decoder.decode(der_tbs, asn1Spec=rfc5280.TBSCertificate())[0]
+        der_sig_alg = encoder.encode(cert["signatureAlgorithm"])
+        tmp_cert["signatureAlgorithm"] = decoder.decode(der_sig_alg, asn1Spec=rfc5280.AlgorithmIdentifier())[0]
 
     tbs_cert = tmp_cert["tbsCertificate"]
 
@@ -464,7 +472,6 @@ def build_catalyst_cert(  # noqa: D417 Missing a parameter in the Docstring
         use_rsa_pss=kwargs.get("use_rsa_pss", False),
         extensions=extensions,
     )
-
     cert = rfc9480.CMPCertificate()
     cert["tbsCertificate"] = tbs_cert
     return sign_cert_catalyst(

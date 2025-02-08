@@ -8,10 +8,8 @@ https://datatracker.ietf.org/doc/draft-lamps-okubo-certdiscovery-05.html.
 https://datatracker.ietf.org/doc/draft-lamps-okubo-certdiscovery/
 """
 
-import logging
 from typing import List, Optional, Union
 
-import requests
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
@@ -120,8 +118,7 @@ def prepare_subject_info_access_syntax_extension(  # noqa D417 undocumented-para
 
 @keyword(name="Extract RelatedCertificateDescriptor from SIA Extension")
 def extract_related_cert_des_from_sis_extension(  # noqa D417 undocumented-param
-    extension: rfc5280.Extension,
-    index: Optional[int] = None
+    extension: rfc5280.Extension, index: Optional[int] = None
 ) -> RelatedCertificateDescriptor:
     """Parse a SubjectInfoAccessSyntax (SIA) extension to extract a RelatedCertificateDescriptor.
 
@@ -174,7 +171,7 @@ def extract_related_cert_des_from_sis_extension(  # noqa D417 undocumented-param
 def validate_related_certificate_descriptor_alg_ids(
     other_cert: rfc9480.CMPCertificate, rel_cert_desc: RelatedCertificateDescriptor
 ) -> None:
-    """Validate that the algorithms in the RelatedCertificateDescriptor match those in the Secondary Certificate.
+    """Validate that the algorithms in the `RelatedCertificateDescriptor` match those in the Secondary Certificate.
 
     :param other_cert: The Secondary Certificate as a CMPCertificate.
     :param rel_cert_desc: The RelatedCertificateDescriptor extracted from the Primary Certificate.

@@ -240,10 +240,10 @@ def build_csr(  # noqa D417 undocumented-param
         `"example.com,www.example.com,pki.example.com"`. Defaults to `None`.
         - `exclude_signature`: A flag to indicate if the CSR should be signed or not. Defaults to `False`.
         - `for_kga`: If the CSR is created for non-local key generation. The `signature` and the
-        `subjectPublicKey` are set to a zero bit string. And the algorithm identifiers are set to key provided.
+        `subjectPublicKey` are set to a zero bit string. And the algorithm identifiers are set to the provided key.
         - `bad_sig`: Whether to manipulate the signature for negative testing.
         - `use_pre_hash`:Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
-        - `use_pre_hash_pub_key`: Whether to use the pre-hash version for a composite-sig public key. Defaults to `False`.
+        - `use_pre_hash_pub_key`: Whether to use the pre-hash version for a composite-sig public key.
         Defaults to `use_pre_hash`.
         - `spki`: Optional `SubjectPublicKeyInfo` object to populate the CSR with. Defaults to `None`.
 

@@ -20,10 +20,7 @@ from typing import Optional, Sequence, Tuple, Union
 from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
-from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480, rfc6402
-
-from pq_logic.hybrid_sig.cert_binding_for_multi_auth import validate_multi_auth_binding_csr, \
-    prepare_related_cert_extension
+from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
 from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, protectionutils, utils
 from resources.asn1_structures import PKIMessagesTMP
 from resources.ca_ra_utils import build_ca_message
@@ -42,6 +39,10 @@ from robot.api.deco import keyword, not_keyword
 
 from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig import catalyst_logic, cert_binding_for_multi_auth, chameleon_logic, sun_lamps_hybrid_scheme_00
+from pq_logic.hybrid_sig.cert_binding_for_multi_auth import (
+    prepare_related_cert_extension,
+    validate_multi_auth_binding_csr,
+)
 from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax_extension
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey, AbstractCompositeSigPublicKey

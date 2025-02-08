@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Handles Catalyst Certificates and related functionality."""
+
 import copy
 import logging
 from typing import Optional, Union
@@ -57,7 +58,6 @@ def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter 
     | ${extn}= | Prepare SubjectAltPublicKeyInfo Extension | ${public_key} | critical=True |
 
     """
-
     if spki is None and key is None:
         raise ValueError("Either `key` or `spki` must be provided.")
 
@@ -172,7 +172,6 @@ def extract_alt_signature_data(
     Defaults to `False`.
     :return: DER-encoded bytes of the data to be signed.
     """
-
     der_data = copy.deepcopy(encoder.encode(cert))
     tmp_cert = decoder.decode(der_data, asn1Spec=rfc9480.CMPCertificate())[0]
 

@@ -2744,15 +2744,30 @@ def _prepare_generalinfo(
 # 5.3.19.12. Original PKIMessage: 5.1.1.3. OrigPKIMessage
 # GenMsg: {id-it 15}, SEQUENCE SIZE (1..MAX) OF PKIMessage or generalInfo
 # Validate omitted.
-def prepare_orig_pki_message(pki_messages: Union[PKIMessageTMP, List[PKIMessageTMP]]) -> rfc9480.InfoTypeAndValue:
+
+
+@keyword(name="Prepare Orig PKIMessage")
+def prepare_orig_pki_message(  # noqa D417 undocumented-param
+    pki_messages: Union[PKIMessageTMP, List[PKIMessageTMP]],
+) -> rfc9480.InfoTypeAndValue:
     """Prepare the `InfoTypeAndValue` to include the original PKIMessages in the generalInfo field.
 
     This is used by an RA to include the original PKIMessage received from the EE
     and forward it to the CA for further processing, along with any modifications
     made by the RA.
 
-    :param pki_messages: The original PKIMessage or PKIMessages from the EE.
-    :return: The populated `InfoTypeAndValue` structure.
+    Arguments:
+    ---------
+        - `pki_messages`: The original PKIMessage or PKIMessages from the EE.
+
+    Returns:
+    -------
+        - The populated `InfoTypeAndValue` structure.
+
+    Examples:
+    --------
+    | ${info_val}= | Prepare Orig PKIMessage | ${pki_message} |
+
     """
     info_val = rfc9480.InfoTypeAndValue()
     info_val["infoType"] = rfc9480.id_it_origPKIMessage

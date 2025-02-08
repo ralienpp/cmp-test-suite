@@ -27,6 +27,7 @@ from resources.oidutils import CMS_COMPOSITE_OID_2_NAME, PQ_KEM_OID_2_NAME, PQ_O
 
 
 def main():
+    """Run the script."""
     repo_url = "https://github.com/IETF-Hackathon/pqc-certificates"
     data_dir = "./data"
     providers_dir = os.path.join(data_dir, "pqc-certificates", "providers")

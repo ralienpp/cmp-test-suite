@@ -88,7 +88,7 @@ dryrun:
 	robot --dryrun --pythonpath=./ --variable environment:$(env) tests
 	robot --dryrun --pythonpath=./ --variable environment:$(env) tests_untested
 
-invalid-sigs:
+check-sig:
 	python test_load_pqc.py
 	python vis_pqc_verify.py
 

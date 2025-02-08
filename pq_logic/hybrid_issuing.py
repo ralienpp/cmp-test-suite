@@ -1062,7 +1062,7 @@ def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in 
        - `ca_key`: The private key of the CA.
        - `ca_cert`: The CA certificate matching the private key.
        - `related_cert`: The related certificate. Defaults to `None`.
-       - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
+       - `critical`: Whether the extension should be critical. Defaults to `False`.
 
     **kwargs:
     ---------

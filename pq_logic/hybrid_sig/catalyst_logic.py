@@ -33,7 +33,7 @@ from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKe
 @keyword(name="Prepare SubjectAltPublicKeyInfo Extension")
 def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter in the Docstring
     key: Optional[Union[PQSignaturePrivateKey, PQSignaturePublicKey]],
-    critical: bool,
+    critical: bool = False,
     spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
 ) -> rfc5280.Extension:
     """Prepare the `SubjectAltPublicKeyInfo` extension.
@@ -41,7 +41,7 @@ def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter 
     Arguments:
     ---------
         - `public_key`: The alternative public or private key.
-        - `critical`: Whether the extension is critical.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
         - `spki`: The `SubjectPublicKeyInfo` structure. Defaults to `None`.
 
     Returns:
@@ -88,7 +88,7 @@ def prepare_alt_sig_alg_id_extn(  # noqa: D417 Missing a parameter in the Docstr
     Arguments:
     ---------
         - `alg_id`: The alternative AlgorithmIdentifier.
-        - `critical`: Whether the extension is critical. Defaults to `False`.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
         - `hash_alg`: The hash algorithm to use. Defaults to "sha256".
         - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
         - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
@@ -126,14 +126,14 @@ def prepare_alt_sig_alg_id_extn(  # noqa: D417 Missing a parameter in the Docstr
 
 @keyword(name="Prepare AltSignatureValue Extension")
 def prepare_alt_signature_value_extn(  # noqa: D417 Missing a parameter in the Docstring
-    signature: bytes, critical: bool
+    signature: bytes, critical: bool = False
 ) -> rfc5280.Extension:
     """Prepare the AltSignatureValue extension.
 
     Arguments:
     ---------
         - `signature`: The alternative signature bytes.
-        - `critical`: Whether the extension is critical.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
 
     Returns:
     -------
@@ -232,7 +232,7 @@ def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
         - `pq_hash_alg`: Hash algorithm for the post-quantum signature. Defaults to `None`.
         - `hash_alg`: Hash algorithm for the traditional signature. Defaults to "sha256".
         - `use_rsa_pss`: Whether to use RSA-PSS for traditional signing. Defaults to `False`.
-        - `critical`: Whether the catalyst extensions are critical. Defaults to `False`.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
         - `bad_alt_sig`: Whether to manipulate the alternative signature to be invalid. Defaults to `False`.
 
     Returns:
@@ -444,7 +444,7 @@ def build_catalyst_cert(  # noqa: D417 Missing a parameter in the Docstring
 
     **kwargs:
     ---------
-        - `critical`: Whether the extensions are critical. Defaults to `False`.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
         - `hash_alg`: The hash algorithm to use. Defaults to "sha256".
         - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
         - `alt_hash_alg`: The hash algorithm to use for the post-quantum signature. Defaults to `None`.
@@ -544,7 +544,7 @@ def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
        (if not provided, will use the same as `hash_alg`)
         - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
         - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
-        - `critical`: Whether the extensions are critical. Defaults to `False`.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
         - `bad_sig`: Whether to manipulate the signature to be invalid. Defaults to `False`.
         - `bad_alt_sig`: Whether to manipulate the alternative signature to be invalid. Defaults to `False`.
 

@@ -542,7 +542,7 @@ def prepare_related_cert_extension(  # noqa: D417 Missing argument descriptions 
 
     Arguments:
     ---------
-        - `cert_a`: The certificate for which to prepare the extension.
+        - `cert_a`: The certificate for which to prepare the extension for.
         - `hash_alg`: The hash algorithm to use for the certificate. Defaults to `None`.
         (must be provided for ed25519 and ML-DSA.)
         - `critical`: Whether the extension should be marked as critical. Defaults to `False`.

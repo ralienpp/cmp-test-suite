@@ -183,7 +183,7 @@ def prepare_sun_hybrid_alt_sub_pub_key_ext(  # noqa: D417 Missing argument descr
                     If `False`, the public_key contains the hash of the alternative public key.
         - `hash_alg`: The hash algorithm name (e.g., "sha256"). Required if by_val is `False`.
         - `location`: Optional URI string representing the location of the alternative public key.
-        - `critical`: Whether the extension is critical. Defaults to `False`.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
 
     Returns:
     -------
@@ -253,7 +253,7 @@ def prepare_sun_hybrid_alt_signature_ext(  # noqa: D417 Missing argument descrip
         - `alt_sig_algorithm`: AlgorithmIdentifier for the alternative signature algorithm.
         - `hash_alg`: The hash algorithm name (e.g., "sha256"). Required if by_val is `False`. Defaults to `None`.
         - `location`: Optional URI string representing the location of the alternative signature. Defaults to `None`.
-        - `critical`: Whether the extension is critical. Defaults to `False`.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
 
     Returns:
     -------

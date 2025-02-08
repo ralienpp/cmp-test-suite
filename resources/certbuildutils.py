@@ -1618,8 +1618,9 @@ def build_cert_from_csr(  # noqa D417 undocumented-param
         extn = extract_extension_from_csr(csr=csr)
         if extensions is not None and extn is not None:
             tbs_cert["extensions"] = extn
-        elif extensions is not None:
-            tbs_cert["extensions"].extend(extensions)
+
+    if extensions is not None:
+        tbs_cert["extensions"].extend(extensions)
 
     cert = rfc9480.CMPCertificate()
     cert["tbsCertificate"] = tbs_cert

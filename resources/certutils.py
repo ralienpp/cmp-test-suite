@@ -787,6 +787,11 @@ def certificates_are_trustanchors(  # noqa D417 undocumented-param
     ------
         - `ValueError`: If the certificates are not allowed/known trustanchors.
 
+    Examples:
+    --------
+    | Certificates Are Trustanchors | certs=${certs} |
+    | Certificates Are Trustanchors | certs=${certs} | trustanchors=./path/to/anchors | allow_os_store=False |
+
     """
     anchors = load_truststore(path=trustanchors, allow_os_store=allow_os_store)
 

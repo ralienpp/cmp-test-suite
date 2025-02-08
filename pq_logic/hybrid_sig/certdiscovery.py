@@ -17,7 +17,7 @@ from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import certutils, utils
 from resources.compareutils import compare_alg_id_without_tag
-from robot.api.deco import keyword
+from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_structures import OnRelatedCertificateDescriptor, RelatedCertificateDescriptor
 from pq_logic.tmp_oids import id_ad_certDiscovery, id_ad_relatedCertificateDescriptor
@@ -208,7 +208,7 @@ def fetch_cert_from_url(  # noqa: D417 Missing argument descriptions in the docs
         raise IOError(f"Failed to fetch secondary certificate: {e}")
 
 
-@keyword(name="Validate RelatedCertificateDescriptor Alg IDs")
+@not_keyword
 def validate_related_certificate_descriptor_alg_ids(
     other_cert: rfc9480.CMPCertificate, rel_cert_desc: RelatedCertificateDescriptor
 ) -> None:

@@ -267,17 +267,23 @@ def _negative_testing():
 # other server side functions are currently not included.
 
 
-def validate_ku_and_eku_related_cert(cert_a: rfc9480.CMPCertificate, related_cert: rfc9480.CMPCertificate) -> None:
+@keyword(name="Validate KU and EKU Related Certificate")
+def validate_ku_and_eku_related_cert(  # noqa: D417 Missing argument descriptions in the docstring
+    cert_a: rfc9480.CMPCertificate, related_cert: rfc9480.CMPCertificate
+) -> None:
     """Validate the key usage (KU) and extended key usage (EKU) of a related certificate.
 
     Ensure that the cert_a has at least the same KU and EKU bits set.
 
-    :param cert_a: The certificate being issued (Cert B), which defines the required KU and EKU.
-                   It should be a parsed x509 certificate object.
-    :param related_cert: The related certificate (Cert A) being validated.
-                         It should also be a parsed x509 certificate object.
+    Arguments:
+    ---------
+        - ´cert_a´: The certificate being issued (Cert B), which defines the required KU and EKU.
+        - ´related_cert´: The related certificate being validated.
 
-    :raises ValueError: If EKU and KU bits are not set or missing.
+    Raises:
+    ------
+        - ValueError: If EKU and KU bits are not set or missing.
+
     """
     # MUST ensure that the related certificate at least contains the KU bits and EKU
     # OIDs being asserted in the certificate being issued

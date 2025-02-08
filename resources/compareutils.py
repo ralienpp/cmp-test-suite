@@ -464,7 +464,7 @@ def compare_general_name_and_name(  # noqa D417 # undocumented-param
 
     Examples:
     --------
-    | ${result} | Compare GeneralName and Name | ${general_name} | ${name} |
+    | ${result}= | Compare GeneralName and Name | ${general_name} | ${name} |
 
     """
     if general_name.getName() == "directoryName":

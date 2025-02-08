@@ -81,8 +81,8 @@ def prepare_pkmac_popo(  # noqa D417 undocumented-param
 
     Examples:
     --------
-    | ${popo} = | Prepare PKMAC POPO | ${cert_request} | ${shared_secret} |
-    | ${popo} = | Prepare PKMAC POPO | ${cert_request} | ${ca_cert} |
+    | ${popo}= | Prepare PKMAC POPO | ${cert_request} | ${shared_secret} |
+    | ${popo}= | Prepare PKMAC POPO | ${cert_request} | ${ca_cert} |
 
     """
     if shared_secret is None:
@@ -123,7 +123,7 @@ def prepare_enc_key_with_id(  # noqa D417 undocumented-param
 
     Examples:
     --------
-    | ${enc_key} = | Prepare EncKeyWithID | ${private_key} | ${sender} | use_string=${True} |
+    | ${enc_key}= | Prepare EncKeyWithID | ${private_key} | ${sender} | use_string=${True} |
 
     """
     one_asym_key = prepare_one_asymmetric_key(private_key)
@@ -182,8 +182,8 @@ def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
 
     Examples:
     --------
-    | ${popo} = | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} |
-    | ${popo} = | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} | rid_sender=${rid} |
+    | ${popo}= | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} |
+    | ${popo}= | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} | rid_sender=${rid} |
 
     """
     if data is not None:
@@ -465,8 +465,8 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
 
     Examples:
     --------
-    | ${response} = | Process PKIMessage With Popdecc | ${pki_message} | ${ee_key} |
-    | ${response} = | Process PKIMessage With Popdecc | ${pki_message} | password=${password} |
+    | ${response}= | Process PKIMessage With Popdecc | ${pki_message} | ${ee_key} |
+    | ${response}= | Process PKIMessage With Popdecc | ${pki_message} | password=${password} |
 
     """
     pki_message = _parse_pkimessage_from_der(pki_message)  # type: ignore
@@ -707,8 +707,8 @@ def prepare_key_agreement_popo(  # noqa D417 undocumented-param
 
     Examples:
     --------
-    | ${popo_structure} = | Prepare keyAgreement POPO | use_encr_cert=${True} |
-    | ${popo_structure} = | Prepare keyAgreement POPO | use_encr_cert=${False} | client_key=${client_key} \
+    | ${popo_structure}= | Prepare keyAgreement POPO | use_encr_cert=${True} |
+    | ${popo_structure}= | Prepare keyAgreement POPO | use_encr_cert=${False} | client_key=${client_key} \
     | ca_cert=${ca_cert} |
 
     """

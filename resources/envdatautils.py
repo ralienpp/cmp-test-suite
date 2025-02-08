@@ -1582,6 +1582,10 @@ def prepare_password_recipient_info(  # noqa D417 undocumented-param
     ------
         - NotImplementedError: If an unsupported KDF is provided. (only supports "pbkdf2").
 
+    Examples:
+    --------
+    | ${pwri} = | Prepare PasswordRecipientInfo | password=${password} | cek=${cek} |
+
     """
     cek = cek or os.urandom(32)
     cek = str_to_bytes(cek)

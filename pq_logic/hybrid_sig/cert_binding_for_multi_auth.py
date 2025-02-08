@@ -549,7 +549,7 @@ def prepare_related_cert_extension(  # noqa: D417 Missing argument descriptions 
     return extension
 
 
-@keyword(name="Build Related Certificate")
+@keyword(name="Build Related Cert From CSR")
 def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
     ca_key: PrivateKey,

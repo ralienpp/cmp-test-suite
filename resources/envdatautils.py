@@ -961,6 +961,16 @@ def prepare_enc_key_for_popo(  # noqa D417 undocumented-param
     -------
         - The populated `ProofOfPossession` structure.
 
+    Raises:
+    ------
+        - ValueError: If the private key is not provided for EC key exchange.
+        - ValueError: If the recipient information is not provided.
+
+    Examples:
+    --------
+    | ${popo_structure} = | Prepare EncryptedKey For POPO | ${enc_key_with_id} | ${ca_cert} | ${recip_info} |
+
+
     """
     if version is None:
         version = 0 if recip_info.getName() in ["ori", "pwri"] else 2

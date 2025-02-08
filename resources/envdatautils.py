@@ -1256,7 +1256,7 @@ def prepare_mqv_user_keying_material(
 
     return mqv_ukm
 
-
+@not_keyword
 def prepare_key_agreement_algorithm_identifier(
     oid: univ.ObjectIdentifier,
     key_wrap_oid: univ.ObjectIdentifier = rfc9481.id_aes256_wrap,
@@ -1373,7 +1373,7 @@ def prepare_originator_identifier_or_key(  # noqa D417 undocumented-param
 
     return originator
 
-
+@not_keyword
 def prepare_recipient_encrypted_key(
     cmp_cert: rfc9480.CMPCertificate,
     encrypted_key: Optional[bytes],
@@ -1396,7 +1396,7 @@ def prepare_recipient_encrypted_key(
         recip_enc_key["encryptedKey"] = encrypted_key
     return recip_enc_key
 
-
+@not_keyword
 def prepare_recipient_encrypted_keys(
     cmp_prot_cert: rfc9480.CMPCertificate,
     enc_key: bytes,

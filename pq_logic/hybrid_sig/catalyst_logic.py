@@ -62,7 +62,8 @@ def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter 
     return spki_ext
 
 
-def prepare_alt_sig_alg_id_extn(
+@keyword(name="Prepare AltSignatureAlgorithm Extension")
+def prepare_alt_sig_alg_id_extn(  # noqa: D417 Missing a parameter in the Docstring
     alg_id: Optional[rfc5280.AlgorithmIdentifier] = None,
     critical: bool = False,
     hash_alg: str = "sha256",
@@ -72,14 +73,28 @@ def prepare_alt_sig_alg_id_extn(
 ) -> rfc5280.Extension:
     """Prepare the altSignatureAlgorithm extension.
 
-    :param alg_id: The alternative AlgorithmIdentifier.
-    :param critical: Whether the extension is critical. Defaults to `False`.
-    :param hash_alg: The hash algorithm to use. Defaults to "sha256".
-    :param use_rsa_pss: Whether to use RSA-PSS for signing. Defaults to `False`.
-    :param use_pre_hash: Whether to use the pre-hash key. Defaults to `False`.
-    :param key: Key to prepare the signature algorithm for. Defaults to `None`.
-    :return: The prepared Extension object.
-    :raises ValueError: If neither `alg_id` nor `key` is provided.
+    Arguments:
+    ---------
+        - `alg_id`: The alternative AlgorithmIdentifier.
+        - `critical`: Whether the extension is critical. Defaults to `False`.
+        - `hash_alg`: The hash algorithm to use. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `False`.
+        - `use_pre_hash`: Whether to use the pre-hash key. Defaults to `False`.
+        - `key`: Key to prepare the signature algorithm for. Defaults to `None`.
+
+    Returns:
+    -------
+        - The populated `Extension` structure.
+
+    Raises:
+    ------
+        - `ValueError`: If neither `alg_id` nor `key` is provided.
+
+    Examples:
+    --------
+    | ${extn}= | Prepare AltSignatureAlgorithm Extension | ${alg_id} | critical=True |
+    | ${extn}= | Prepare AltSignatureAlgorithm Extension | key=${key} | use_rsa_pss=True |
+
     """
     if alg_id is None and key is None:
         raise ValueError("Either `alg_id` or `key` must be provided.")

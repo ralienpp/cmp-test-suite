@@ -1198,6 +1198,7 @@ def validate_revocation_passphrase_response(  # noqa D417 undocumented-param
 # 5.3.19.13. Supported Language Tags
 # GenMsg: {id-it 16}, SEQUENCE SIZE (1..MAX) OF UTF8String
 # GenRep: {id-it 16}, SEQUENCE SIZE (1) OF UTF8String
+@not_keyword
 def prepare_supported_language_tags(langs: Union[str, List[str]]) -> rfc9480.InfoTypeAndValue:
     """Prepare the `InfoTypeAndValue` to request supported language tags.
 

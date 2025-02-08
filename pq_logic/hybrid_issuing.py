@@ -974,7 +974,7 @@ def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in t
     return pki_message, cert, delta_cert
 
 
-def build_cert_discovery_cert_from_p10cr(
+def build_cert_discovery_cert_from_p10cr(  # noqa: D417 Missing argument descriptions in the docstring
     request: PKIMessagesTMP,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,
@@ -1012,7 +1012,8 @@ def build_cert_discovery_cert_from_p10cr(
 
     Examples:
     --------
-    | ${response} ${cert}= | Build Cert Discovery Cert From CSR | ${request} | ${ca_cert} | ${ca_key} | ${url} | ${serial_number} |
+    | ${response} ${cert}= | Build Cert Discovery Cert From CSR | ${request} | ${ca_cert} | ${ca_key} | ${url} \
+    | ${serial_number} |
 
     """
     certs = cert_binding_for_multi_auth.validate_related_cert_pop(

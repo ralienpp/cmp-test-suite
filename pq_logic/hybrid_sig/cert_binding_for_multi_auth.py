@@ -355,7 +355,7 @@ def process_mime_message(mime_data: bytes):
 
 
 @keyword(name="Validate Related Cert PoP")
-def validate_related_cert_pop(
+def validate_related_cert_pop(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
     max_freshness_seconds: Strint = 500,
     load_chain: bool = False,

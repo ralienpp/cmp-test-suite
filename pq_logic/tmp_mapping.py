@@ -8,6 +8,8 @@ from typing import Optional, Union
 
 from cryptography.hazmat.primitives.asymmetric import ec, rsa, x448, x25519
 from pyasn1.type import univ
+from robot.api.deco import not_keyword
+
 from resources.exceptions import InvalidKeyCombination
 
 from pq_logic.keys.abstract_pq import PQKEMPublicKey
@@ -24,7 +26,7 @@ from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 # TODO refactor to get the name.
 
-
+@not_keyword
 def get_oid_for_composite_kem(
     pq_name: str,
     trad_key: Union[x25519.X25519PrivateKey, x448.X448PrivateKey, ec.EllipticCurvePrivateKey, rsa.RSAPrivateKey],
@@ -61,7 +63,7 @@ def get_oid_for_composite_kem(
 
     return COMPOSITE_KEM_NAME_2_OID[f"{prefix}{pq_name}-{trad_name}"]
 
-
+@not_keyword
 def get_oid_for_chemnpat(
     pq_key: PQKEMPublicKey, trad_key: Union[ECDHPrivateKey, ECDHPublicKey], curve_name: Optional[str] = None
 ) -> univ.ObjectIdentifier:

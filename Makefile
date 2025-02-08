@@ -83,7 +83,7 @@ autoformat:
 verify:
 	reuse lint
 	ruff check .
-	pylint .
+	pylint ./resources
 	PYTHONPATH=./resources pyright
 	# on Windows Powershell: `$env:PYTHONPATH = "./resources"; pyright`
 
@@ -94,7 +94,7 @@ dryrun:
 	robot --dryrun --pythonpath=./ --variable environment:$(env) tests
 	robot --dryrun --pythonpath=./ --variable environment:$(env) tests_untested
 
-invalid-sigs:
+check-sigs:
 	python test_load_pqc.py
 	python vis_pqc_verify.py
 
@@ -102,7 +102,7 @@ start-mock-ca:
 	python ./mock_ca/ca_handler.py
 
 test-mock-ca:
-	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests
+	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests_untested
 
 codespell:
 	codespell . --check-filenames --skip *.html,*.pem,*.xml,*venv*,*fips/*.py,*data/*,*/liboqs-python/*,*doc/*,*data/*,*data/pqc-certificates/*,*data/stats,

@@ -1026,7 +1026,7 @@ def prepare_cert_template(  # noqa D417 undocumented-param
         )
         spki_temp = convertutils.copy_subject_public_key_info(target=public_key_obj, filled_sub_pubkey_info=spki)
         cert_template["publicKey"] = spki_temp
-    if "publicKey" not in exclude_list:
+    elif "publicKey" not in exclude_list:
         cert_template["publicKey"] = _prepare_public_key_for_cert_template(
             key=key, for_kga=for_kga, asn1cert=cert, use_pre_hash=use_pre_hash
         )

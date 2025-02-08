@@ -23,21 +23,32 @@ from resources.oidutils import (
     id_ce_subjectAltPublicKeyInfo,
 )
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey, TradSigPrivKey
-from robot.api.deco import keyword
+from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_structures import AltSignatureValueExt, SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 
 
-def prepare_subject_alt_public_key_info_extn(
+@keyword(name="Prepare SubjectAltPublicKeyInfo Extension")
+def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter in the Docstring
     public_key: Union[PQSignaturePrivateKey, PQSignaturePublicKey], critical: bool
 ) -> rfc5280.Extension:
-    """Prepare the subjectAltPublicKeyInfo extension.
+    """Prepare the `SubjectAltPublicKeyInfo` extension.
 
-    :param public_key: The alternative public key.
-    :param critical: Whether the extension is critical.
-    :return: The prepared Extension object.
+    Arguments:
+    ---------
+        - `public_key`: The alternative public or private key.
+        - `critical`: Whether the extension is critical.
+
+    Returns:
+    -------
+        - The populated `Extension` structure.
+
+    Examples:
+    --------
+    | ${extn}= | Prepare SubjectAltPublicKeyInfo Extension | ${public_key} | critical=True |
+
     """
     if isinstance(public_key, PQSignaturePrivateKey):
         public_key = public_key.public_key()

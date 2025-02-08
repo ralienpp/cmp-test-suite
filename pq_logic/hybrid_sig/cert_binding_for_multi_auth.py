@@ -130,7 +130,7 @@ def prepare_requester_certificate(  # noqa: D417 Missing argument descriptions i
 @keyword(name="Add CSR relatedCertRequest Attribute")
 def add_csr_related_cert_request_attribute(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest, requester_cert: RequesterCertificate
-):
+) -> rfc6402.CertificationRequest:
     """Add the relatedCertRequest attribute to the CSR.
 
     Arguments:

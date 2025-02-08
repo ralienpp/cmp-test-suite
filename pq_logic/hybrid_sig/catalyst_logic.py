@@ -227,7 +227,7 @@ def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     use_rsa_pss: bool = False,
     critical: bool = False,
     bad_alt_sig: bool = False,
-):
+) -> rfc9480.CMPCertificate:
     """Sign the certificate with both traditional and alternative algorithms and adding the catalyst extensions.
 
     Arguments:

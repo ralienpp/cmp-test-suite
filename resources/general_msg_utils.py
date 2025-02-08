@@ -1183,6 +1183,10 @@ def validate_revocation_passphrase_response(  # noqa D417 undocumented-param
         - `ValueError`: If the response contains an unexpected `infoType`.
         - `ValueError`: If the response contains an `infoValue`.
 
+    Examples:
+    --------
+    | Validate Revocation Passphrase Response | ${pki_message} |
+
     """
     validate_general_response(pki_message=pki_message, expected_size=expected_size)
 

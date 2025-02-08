@@ -236,7 +236,7 @@ def validate_related_certificate_descriptor_alg_ids(
             )
 
 
-def validate_cert_discovery(  # noqa: D417 Missing argument descriptions in the docstring
+def validate_cert_discovery_cert(  # noqa: D417 Missing argument descriptions in the docstring
     primary_cert: rfc9480.CMPCertificate,
     cert_chain_secondary: Optional[List[rfc9480.CMPCertificate]] = None,
     issuer_cert: Optional[rfc9480.CMPCertificate] = None,

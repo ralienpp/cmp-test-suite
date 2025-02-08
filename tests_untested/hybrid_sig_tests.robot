@@ -51,7 +51,7 @@ CA MUST Issue A Valid Composite RSA-PSS Certificate From CSR
     [Tags]             composite-sig   positive   rsa-pss
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=rsa   length=2048   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
-    ${csr}=            Build CSR    signing_key=${key}    common_name=${cm}   use_rsa_pss=True
+    ${csr}=            Build CSR    ${key}    common_name=${cm}   use_rsa_pss=True
     ${p10cr}=          Build P10cr From CSR   ${csr}  recipient=${RECIPIENT}   omit_fields=senderKID,sender   implicit_confirm=${True}
     ${protected_p10cr}=  Protect PKIMessage
     ...                pki_message=${p10cr}
@@ -162,7 +162,7 @@ CA MUST Issue A Valid Composite RSA-Prehashed Certificate
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=rsa   length=2048   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True  use_rsa_pss=False
-    ${ir}=          Build Ir From Key    ${key  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender   implicit_confirm=${True}
+    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender   implicit_confirm=${True}
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
@@ -180,7 +180,7 @@ CA MUST Issue A Valid Composite RSA-PSS-Prehashed Certificate
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=rsa   length=2048   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True   use_rsa_pss=True
-    ${ir}=          Build Ir From Key    ${key  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender   implicit_confirm=${True}
+    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender   implicit_confirm=${True}
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
@@ -199,7 +199,7 @@ CA MUST Issue A Valid Composite EC-Prehashed Certificate
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ecdsa   curve=secp256r1   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True
-    ${ir}=          Build Ir From Key    ${key  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
@@ -218,7 +218,7 @@ CA MUST Issue A Valid Composite EC-brainpool-Prehashed Certificate
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ecdsa   curve=brainpoolP256r1   pq_name=ml-dsa-65
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True
-    ${ir}=          Build Ir From Key    ${key  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
@@ -236,7 +236,7 @@ CA MUST Issue A Valid Composite ED25519-Prehashed Certificate
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ed25519   pq_name=ml-dsa-65
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True
-    ${ir}=          Build Ir From Key    ${key  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=          Build Ir From Key     ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
@@ -254,7 +254,7 @@ CA MUST Issue A Valid Composite ED448-Prehashed Certificate
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ed448   pq_name=ml-dsa-87
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True
-    ${ir}=          Build Ir From Key    ${key  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
@@ -304,7 +304,7 @@ CA MUST Reject An Invalid POP For Composite RSA-PSS
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
 CA MUST Reject An Invalid POP For Composite EC
-    [Documentation]    Verifies compliance with Composite Sig Draft CMS03 by sending a valid IR with a invalid POP for 
+    [Documentation]    Verifies compliance with Composite Sig Draft CMS03 by sending a valid IR with a invalid POP for
     ...                a composite signature algorithm. The traditional algorithm used is EC key on the secp256r1 curve
     ...                and ML-DSA-44 as pq algorithm. The CA must detect the invalid POP and reject the request. The CA
     ...                MAY respond with the optional failInfo `badPOP`.

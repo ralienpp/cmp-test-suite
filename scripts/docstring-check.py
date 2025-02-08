@@ -8,21 +8,29 @@ import argparse
 import ast
 import os
 import re
+from typing import Set
 
 
-def load_exceptions(file_path):
+def load_exceptions(file_path: str) -> set:
+    """Load od words which are allowed to be capitalized mid-sentence."""
     with open(file_path, "r", encoding="utf-8") as file:
         return {line.strip() for line in file if line.strip()}
 
 
-def is_camel_case(word):
+def is_camel_case(word: str) -> bool:
+    """Check if a word is in camel case."""
     # Regular expression to match camelCase words
     # This pattern looks for a lowercase letter followed by one or more uppercase letters and more lowercase letters
     camel_case_re = re.compile(r"^[a-z]+(?:[A-Z][a-z]+)+$")
     return bool(camel_case_re.match(word))
 
 
-def check_capitalization(line, exceptions):
+def check_capitalization(line: str, exceptions: Set[str]) -> list:
+    """Check if a line contains improperly capitalized words.
+
+    :param line: The line to check for improperly capitalized words.
+    :param exceptions: A set of words which are allowed to be capitalized mid-sentence.
+    """
     words = line.split()
     issues = []
 
@@ -36,7 +44,16 @@ def check_capitalization(line, exceptions):
     return issues
 
 
-def process_docstring(docstring, exceptions, debug=False):
+def process_docstring(docstring: str, exceptions: Set[str], debug: bool=False):
+    """Process a docstring and check for improperly capitalized words.
+
+    Lines with the pipe symbol are skipped.
+
+    :param docstring: The docstring to process.
+    :param exceptions: The set of words which are allowed to be capitalized mid-sentence.
+    :param debug: Whether to enable debug output. Defaults to `False`.
+    :return: The list of lines containing improperly capitalized words.
+    """
     results = []
     for line in docstring.splitlines():
         stripped_line = line.lstrip()
@@ -66,7 +83,15 @@ def process_docstring(docstring, exceptions, debug=False):
     return results
 
 
-def find_incorrect_capitalization(file_path, exceptions, debug=False):
+def find_incorrect_capitalization(file_path: str, exceptions: Set[str], debug: bool=False):
+    """Find improperly capitalized words in a Python file.
+
+     Lines with the pipe symbol are skipped.
+
+    :param file_path: The path to the file to check.
+    :param exceptions: The set of words which are allowed to be capitalized mid-sentence.
+    :param debug: Whether to enable debug output. Defaults to `False`.
+    """
     with open(file_path, "r", encoding="utf-8") as file:
         content = file.read()
 
@@ -88,7 +113,15 @@ def find_incorrect_capitalization(file_path, exceptions, debug=False):
                     print(f"In {file_path}: '{line.strip()}' contains capitalized mid-sentence words: {issues}")
 
 
-def scan_directory_for_issues(directory, exceptions, debug=False):
+def scan_directory_for_issues(directory: str, exceptions: Set[str], debug: bool=False):
+    """Scan a directory for improperly capitalized words in docstrings.
+
+    Lines with the pipe symbol are skipped.
+
+    :param directory: The directory to scan.
+    :param exceptions: The set of words which are allowed to be capitalized mid-sentence.
+    :param debug: Whether to enable debug output. Defaults to `False`.
+    """
     for root, _, files in os.walk(directory):
         for file in files:
             if file.endswith(".py"):
@@ -96,6 +129,7 @@ def scan_directory_for_issues(directory, exceptions, debug=False):
 
 
 def main():
+    """Main entry point for the script."""
     parser = argparse.ArgumentParser(description="Check for unnecessary capitalized words mid-sentence in docstrings.")
     parser.add_argument(
         "directory", nargs="?", default="./resources", help="Directory to scan (default: current directory)"

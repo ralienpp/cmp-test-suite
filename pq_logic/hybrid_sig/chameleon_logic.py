@@ -131,7 +131,7 @@ def prepare_dcd_extension_from_delta(delta_cert: rfc9480.CMPCertificate, base_ce
 def _prepare_dcd_extensions(
     delta_certificate, base_certificate, exclude_extensions: bool = False
 ) -> List[rfc5280.Extension]:
-    """Prepare the `Extensions` field of the DCD extension by comparing the base and delta certificate.
+    """Prepare the `Extensions` field of the DCD extension by comparing the Base and Delta Certificate.
 
     :param delta_certificate: Parsed Delta Certificate structure.
     :param base_certificate: Parsed Base Certificate structure.
@@ -181,12 +181,12 @@ def build_chameleon_base_certificate(
 ) -> rfc9480.CMPCertificate:
     """Issue a Base Certificate with the DeltaCertificateDescriptor (DCD) extension.
 
-    :param delta_cert: Parsed Delta certificate.
+    :param delta_cert: Parsed Delta Certificate.
     :param base_tbs_cert: `TBSCertificate` structure for the certificate to be issued.
     :param ca_key: Private key of the CA for signing the Base Certificate.
     :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to `False`.
     :param critical: Whether the DCD extension is critical. Defaults to `False`.
-    :param hash_alg: The hash algorithm used for signing the paired certificate (e.g., 'sha256').
+    :param hash_alg: The hash algorithm used for signing the Paired Certificate (e.g., 'sha256').
     (if not provided, it will be extracted from the Delta Certificate).
     :param bad_sig: Whether to make the signature invalid. Defaults to `False`.
     :return: A fully signed Base Certificate structure.
@@ -393,12 +393,12 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
     delta_cert_attr = certbuildutils.prepare_single_value_attr(id_at_deltaCertificateRequest, delta_request)
     base_csr["certificationRequestInfo"]["attributes"].append(delta_cert_attr)
 
-    # Step 4: Sign the CertificationRequestInfo using the private key of the delta certificate
+    # Step 4: Sign the CertificationRequestInfo using the private key of the Delta Certificate
     # request subject
     tmp_der_data = encoder.encode(base_csr["certificationRequestInfo"])
     delta_signature = sign_data(data=tmp_der_data, key=delta_private_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
 
-    if bad_alt_pop:
+    if kwargs.get("bad_alt_pop"):
         delta_signature = utils.manipulate_first_byte(delta_signature)
 
     # Step 5: Prepare
@@ -471,7 +471,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
 
     Arguments:
     ---------
-       - `csr`: The CertificationRequest to verify.
+       - `csr`: The `CertificationRequest` to verify.
 
     Returns:
     -------
@@ -498,7 +498,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
     if delta_sig is None:
         raise ValueError("Delta Certificate Request Signature attribute is missing.")
 
-    # Step 3: Remove the delta certificate request signature attribute
+    # Step 3: Remove the Delta Certificate request signature attribute
     # from the CertificationRequest template
     attr = univ.SetOf(componentType=rfc5652.Attribute()).subtype(
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
@@ -539,13 +539,16 @@ def build_delta_cert(
 ) -> rfc9480.CMPCertificate:
     """Prepare a Delta Certificate from a paired CSR.
 
+    Extract necessary information from the CSR and build a Delta Certificate with its own values
+    or the values from the CSR.
+
     :param csr: The paired CSR.
-    :param delta_value: The Delta Certificate Request attribute.
+    :param delta_value: The `DeltaCertificateRequestValue` object extracted from the CSR.
     :param ca_key: The CA key for signing the certificate.
     :param ca_cert: The CA certificate matching the CA key.
-    :param alt_sign_key: An alternative signing key for the certificate.
+    :param alt_sign_key: An alternative signing key for the certificate. Defaults to `None`.
     :param hash_alg: The hash algorithm used for signing. Defaults to "sha256".
-    :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to False.
+    :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to `False`.
     :return: The populated `TBSCertificate` structure.
     """
     csr_tmp = rfc6402.CertificationRequest()
@@ -582,16 +585,15 @@ def build_chameleon_cert_from_paired_csr(
     use_rsa_pss: bool = False,
     hash_alg: str = "sha256",
 ) -> Tuple[rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
-    """Build a paired certificate from a paired CSR.
+    """Build a Paired Certificate from a paired CSR.
 
     :param csr: The paired CSR.
     :param ca_key: The CA key for signing the certificate.
     :param ca_cert: The CA certificate matching the CA key.
-    :param alt_key: An alternative signing key for the certificate.
+    :param alt_key: An alternative signing key for the certificate. Defaults to `None`.
     :param hash_alg: The hash algorithm used for signing. Defaults to "sha256".
-    :param use_rsa_pss: Whether to use PSS-padding for signing.
-    :return: The paired certificate.
-    Starts with the Base and then Delta Certificate.
+    :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to `False`.
+    :return: The Paired Certificate. Starts with the Base and then Delta Certificate.
     """
     delta_req = verify_paired_csr_signature(csr=csr)
     cert = certbuildutils.build_cert_from_csr(
@@ -622,15 +624,15 @@ def build_chameleon_cert_from_paired_csr(
 def build_delta_cert_from_paired_cert(  # noqa: D417 Missing argument description in the docstring
     paired_cert: rfc9480.CMPCertificate,
 ) -> rfc9480.CMPCertificate:
-    """Prepare a paired certificate from a Base Certificate with a Delta Certificate Descriptor (DCD) extension.
+    """Prepare a Paired Certificate from a Base Certificate with a DeltaCertificateDescriptor (DCD) extension.
 
     Arguments:
     ---------
-        - `paired_cert`: The paired certificate with the DCD extension.
+        - `paired_cert`: The Paired Certificate with the DCD extension.
 
     Returns:
     -------
-        - The re-build delta certificate.
+        - The re-build Delta Certificate.
 
     Raises:
     ------
@@ -722,11 +724,11 @@ def build_delta_cert_from_paired_cert(  # noqa: D417 Missing argument descriptio
 def get_chameleon_delta_public_key(  # noqa: D417 Missing argument description in the docstring
     paired_cert: rfc9480.CMPCertificate,
 ) -> rfc5280.SubjectPublicKeyInfo:
-    """Extract the delta public key from a paired certificate.
+    """Extract the delta public key from a Paired Certificate.
 
     Arguments:
     ---------
-        - `paired_cert`: The paired certificate.
+        - `paired_cert`: The Paired Certificate.
 
     Returns:
     -------

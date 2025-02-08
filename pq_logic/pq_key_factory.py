@@ -38,7 +38,7 @@ class PQKeyFactory:
     """Factory class for creating post-quantum keys from various input formats."""
 
     @staticmethod
-    def get_all_kem_alg():
+    def get_all_kem_algs() -> List[str]:
         """Return a list of all supported post-quantum KEM algorithms."""
         return (
             ["ml-kem-512", "ml-kem-768", "ml-kem-1024", "sntrup761"]

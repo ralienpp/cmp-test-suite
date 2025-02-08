@@ -498,9 +498,9 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
 
 
 @keyword(name="Prepare Catalyst CertReqMsg Approach")
-def prepare_catalyst_cert_req_msg_approach(
-    first_key,
-    alt_key,
+def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descriptions in the docstring
+    first_key: Union[PQKEMPrivateKey, TradSigPrivKey, PQSignaturePrivateKey],
+    alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey, PQKEMPrivateKey],
     cert_req_id: Union[int, str] = 0,
     hash_alg: str = "sha256",
     subject: str = "CN=CMP Catalyst Test",
@@ -511,16 +511,27 @@ def prepare_catalyst_cert_req_msg_approach(
 ) -> rfc4211.CertReqMsg:
     """Prepare a `Catalyst` approach for a certificate request message.
 
-    :param first_key: The first key to use for the request.
-    :param alt_key: The alternative key to use for the request.
-    :param cert_req_id: The certificate request ID. Defaults to `0`.
-    :param hash_alg: The hash algorithm to use for signing. Defaults to "sha256".
-    :param subject: The subject to use for the certificate. Defaults to "CN=CMP Catalyst Test".
-    :param use_rsa_pss: Whether to use RSA-PSS for signing. Defaults to `True`.
-    :param use_composite_sig: Whether to use composite signature keys. Defaults to `False`.
-    :param bad_pop: Whether to manipulate the POP. Defaults to `False`.
-    :param bad_alt_pop: Whether to manipulate the alternative POP. Defaults to `False`.
-    :return: The populated `CertReqMsg` structure.
+    Arguments:
+    ---------
+        - `first_key`: The first key to use for the request.
+        - `alt_key`: The alternative key to use for the request.
+        - `cert_req_id`: The certificate request ID. Defaults to `0`.
+        - `hash_alg`: The hash algorithm to use for signing. Defaults to "sha256".
+        - `subject`: The subject to use for the certificate. Defaults to "CN=CMP Catalyst Test".
+        - `use_rsa_pss`: Whether to use RSA-PSS for signing. Defaults to `True`.
+        - `use_composite_sig`: Whether to use composite signature keys. Defaults to `False`.
+        - `bad_pop`: Whether to manipulate the POP. Defaults to `False`.
+        - `bad_alt_pop`: Whether to manipulate the alternative POP. Defaults to `False`.
+
+    Returns:
+    -------
+        - The populated `CertReqMsg` structure.
+
+    Examples:
+    --------
+    | ${cert_req_msg}= | Prepare Catalyst CertReqMsg Approach | ${first_key} | ${alt_key} |
+    | ${cert_req_msg}= | Prepare Catalyst CertReqMsg Approach | ${first_key} | ${alt_key} | ${cert_req_id}=1 |
+
     """
     cert_req_msg = rfc4211.CertReqMsg()
     cert_req = rfc4211.CertRequest()
@@ -844,6 +855,12 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
     -------
         - The PKIMessage with the certificate response.
         - The issued certificates.
+
+    Examples:
+    --------
+    | ${response} ${cert}= | Build Catalyst Signed Cert From Req | ${request} | ${ca_cert} | ${ca_key} |
+    | ${response} ${cert}= | Build Catalyst Signed Cert From Req | ${request} | ${ca_cert} \
+    | ${ca_key} | ${cert_index}=0 |
 
     """
     if request["body"].getName() == "p10cr":

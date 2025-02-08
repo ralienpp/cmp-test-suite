@@ -81,7 +81,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
        - The PKIMessage with the certificate response.
 
     Examples:
-    ---------
+    --------
     | ${response} ${cert4} ${cert1}= | Build Sun Hybrid Cert From Request | ${request} | ${signing_key} | ${ca_cert} |
 
     """
@@ -260,6 +260,11 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
             - The PKIMessage with the certificate response.
             - The issued certificate.
 
+    Examples:
+    --------
+    | ${response} ${cert}= | Build Cert From Catalyst Request | ${request} | ${ca_cert} | ${ca_key} |
+    | ${response} ${cert}= | Build Cert From Catalyst Request | ${request} | ${ca_cert} | ${ca_key} | ${cert_index}=1 |
+
     """
     if request["body"].getName() == "p10cr":
         raise ValueError("Only IR or CR is supported to build a encrypted certificate response.")
@@ -433,6 +438,10 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
         - `InvalidSignature`: If the signature is invalid.
         - `ValueError`: If the alternative signature or algorithm is missing.
         - `InvalidAltSignature`: If the alternative signature is invalid.
+
+    Examples:
+    --------
+    | Verify Catalyst CertReqMsg | ${cert_req_msg} |
 
     """
     cert_template = cert_req_msg["certReq"]["certTemplate"]
@@ -946,7 +955,9 @@ def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in t
 
     Examples:
     --------
-    | ${ca_cert} = | Build Chameleon From P10cr | ${request} | ${ca_cert} | ${ca_key} |
+    | ${ca_cert}= | Build Chameleon From P10cr | ${request} | ${ca_cert} | ${ca_key} |
+    | ${ca_cert}= | Build Chameleon From P10cr | ${request} | ${ca_cert} | ${ca_key} \
+    | cmp_protection_cert=${cmp_protection_cert} |
 
     """
     cert, delta_cert = chameleon_logic.build_chameleon_cert_from_paired_csr(

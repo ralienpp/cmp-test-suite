@@ -267,7 +267,7 @@ def _negative_testing():
 # other server side functions are currently not included.
 
 
-@keyword(name="Validate KU and EKU Related Certificate")
+@keyword(name="Validate KU and EKU Related Cert")
 def validate_ku_and_eku_related_cert(  # noqa: D417 Missing argument descriptions in the docstring
     cert_a: rfc9480.CMPCertificate, related_cert: rfc9480.CMPCertificate
 ) -> None:
@@ -283,6 +283,10 @@ def validate_ku_and_eku_related_cert(  # noqa: D417 Missing argument description
     Raises:
     ------
         - ValueError: If EKU and KU bits are not set or missing.
+
+    Examples:
+    --------
+    | Validate KU and EKU Related Cert | ${cert_a} | ${related_cert} |
 
     """
     # MUST ensure that the related certificate at least contains the KU bits and EKU

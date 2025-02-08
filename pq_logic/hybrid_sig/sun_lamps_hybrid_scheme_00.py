@@ -189,7 +189,7 @@ def prepare_sun_hybrid_alt_sub_pub_key_ext(  # noqa: D417 Missing argument descr
 
     Returns:
     -------
-        - - The populated Extension.
+        - The populated Extension.
 
     Raises:
     ------

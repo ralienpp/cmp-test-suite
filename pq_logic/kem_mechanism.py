@@ -206,13 +206,12 @@ def _i2osp(num: int, size: int) -> bytes:
 class DHKEMRFC9180:
     """Class implementing a Diffie-Hellman Key Encapsulation Mechanism (DHKEM) as per RFC 9180."""
 
-    def __init__(self, context: str = "HPKE-v1", private_key: Optional[ECDHPrivateKey] = None):
+    def __init__(self, private_key: Optional[ECDHPrivateKey] = None):
         """Initialize a DHKEM instance.
 
-        :param context: A string representing the application-specific context.
-        :param private_key: An optional ECDH private key for the instance.
+        :param private_key: An optional ECDH private key.
         """
-        self.context = bytes(context, "utf-8")
+        self.context = b"HPKE-v1"
         self.private_key = private_key
         self.hash_algorithm = hashes.SHA256()
 

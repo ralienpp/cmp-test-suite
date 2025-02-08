@@ -60,15 +60,16 @@ def prepare_requester_certificate(  # noqa: D417 Missing argument descriptions i
 
     Arguments:
     ---------
-        - `cert_a`: Certificate A as CMPCertificate.
+        - `cert_a`: The Certificate A (secondary certificate).
         - `cert_a_key`: The private key corresponding to the related certificate.
         - `uri`: URL location of Cert A or the complete chain of Cert A, all certificate contained must be DER-encoded.
         - `bad_pop`: Whether to manipulate the signature. Defaults to `False`.
-        - `hash_alg`: The hash algorithm to use for the certificate, if the private key is ed25519. Defaults to `None`.
+        - `hash_alg`: The hash algorithm to use for the certificate, if the private key is ed25519 or a key without
+            a hash algorithm. Defaults to `None`.
         - `invalid_serial_number`: Whether to manipulate the serial number. Defaults to `False`.
         - `invalid_issuer`: Whether to manipulate the issuer. Defaults to `False`.
         - `freshness`: A value to modify The freshness of the BinaryTime. Defaults to `0`.
-        - `request_time`: The time of the request. Defaults to `None`.
+        - `request_time`: The time of the request in since the UNIX epoch. Defaults to `None`.
 
     Returns:
     -------
@@ -225,7 +226,7 @@ def get_related_cert_from_list(  # noqa: D417 Missing argument descriptions in t
     Arguments:
     ---------
         - `certs`: The list of certificates to search.
-        - `cert_a`: The certificate for which to find the related certificate.
+        - `cert_a`: The certificate whose related certificate must be found.
 
     Returns:
     -------

@@ -131,7 +131,7 @@ def prepare_dcd_extension_from_delta(delta_cert: rfc9480.CMPCertificate, base_ce
 def _prepare_dcd_extensions(
     delta_certificate, base_certificate, exclude_extensions: bool = False
 ) -> List[rfc5280.Extension]:
-    """Prepare the extensions field of the DCD extension by comparing the base and delta certificate.
+    """Prepare the `Extensions` field of the DCD extension by comparing the base and delta certificate.
 
     :param delta_certificate: Parsed Delta Certificate structure.
     :param base_certificate: Parsed Base Certificate structure.
@@ -181,12 +181,12 @@ def build_chameleon_base_certificate(
 ) -> rfc9480.CMPCertificate:
     """Issue a Base Certificate with the DeltaCertificateDescriptor (DCD) extension.
 
-    :param delta_cert: Parsed delta certificate structure.
-    :param base_tbs_cert: TBSCertificate structure for the certificate to be issued.
+    :param delta_cert: Parsed Delta certificate.
+    :param base_tbs_cert: `TBSCertificate` structure for the certificate to be issued.
     :param ca_key: Private key of the CA for signing the Base Certificate.
     :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to `False`.
     :param critical: Whether the DCD extension is critical. Defaults to `False`.
-    :param hash_alg: Hash algorithm used for signing the paired certificate (e.g., 'sha256').
+    :param hash_alg: The hash algorithm used for signing the paired certificate (e.g., 'sha256').
     (if not provided, it will be extracted from the Delta Certificate).
     :param bad_sig: Whether to make the signature invalid. Defaults to `False`.
     :return: A fully signed Base Certificate structure.
@@ -226,6 +226,7 @@ def build_chameleon_base_certificate(
     )
     return base_cert
 
+# TODO add unit tests
 
 @keyword(name="Validate DCD Extension")
 def validate_dcd_extension(  # noqa: D417 Missing argument descriptions in the docstring
@@ -286,14 +287,15 @@ def prepare_delta_cert_req(
     use_rsa_pss: bool = False,
     omit_sig_alg_id: bool = False,
 ) -> DeltaCertificateRequestValue:
-    """Prepare a Delta Certificate Request.
+    """Prepare a `DeltaCertificateRequestValue` structure.
 
-    :param signing_key: The private key of the subject of the Delta Certificate.
-    :param delta_common_name: The subject name of the Delta Certificate.
-    :param extensions: The extensions for the Delta Certificate.
+    :param signing_key: The private key of the Delta Certificate.
+    :param delta_common_name: The subject name of the Delta Certificate (in openssl notation, e.g.,
+    "CN=Hans Mustermann"). Defaults to `None`.
+    :param extensions: The extensions for the Delta Certificate. Defaults to `None`.
     :param hash_alg: The hash algorithm used for signing. Defaults to "sha256".
-    :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to False.
-    :param omit_sig_alg_id: Whether to omit the signature algorithm ID. Defaults to False.
+    :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to `False`.
+    :param omit_sig_alg_id: Whether to omit the signature algorithm ID. Defaults to `False`.
     :return: The populated `DeltaCertificateRequestValue` structure.
     """
     if not signing_key:

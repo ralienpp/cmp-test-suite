@@ -66,10 +66,10 @@ def _hash_public_key(public_key, hash_alg: str) -> bytes:
 
 
 def _prepare_alt_sub_pub_key_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
-    """Prepare the Alternative Subject Public Key Hash Algorithm Attribute.
+    """Prepare the alternative subject public key hash algorithm attribute.
 
     :param hash_alg: The hash algorithm name (e.g., "sha256").
-    :return: `Attribute` representing the altSubPubKeyHashAlgAttr.
+    :return: `Attribute` representing the `altSubPubKeyHashAlgAttr`.
     """
     if not hash_alg:
         raise ValueError("hash_alg must not be None.")
@@ -84,7 +84,7 @@ def _prepare_alt_sub_pub_key_loc_attr(location: str) -> rfc2986.Attribute:
     """Prepare the Alternative Subject Public Key Location Attribute.
 
     :param location: URI string representing the location of the alternative public key.
-    :return: `Attribute` representing the altSubPubKeyLocAttr.
+    :return: `Attribute` representing the `altSubPubKeyLocAttr`.
     """
     attr = rfc2986.Attribute()
     attr["type"] = id_altSubPubKeyLocAttr
@@ -93,10 +93,10 @@ def _prepare_alt_sub_pub_key_loc_attr(location: str) -> rfc2986.Attribute:
 
 
 def _prepare_alt_sig_value_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
-    """Prepare the Alternative Signature Value Hash Algorithm Attribute.
+    """Prepare the alternative signature value hash algorithm attribute.
 
     :param hash_alg: The hash algorithm name (e.g., "sha256").
-    :return: `Attribute` representing the altSigValueHashAlgAttr.
+    :return: `Attribute` representing the `altSigValueHashAlgAttr`.
     """
     if not hash_alg:
         raise ValueError("hash_alg must not be None.")
@@ -108,10 +108,10 @@ def _prepare_alt_sig_value_hash_alg_attr(hash_alg: str) -> rfc2986.Attribute:
 
 
 def _prepare_alt_sig_value_loc_attr(location: str) -> rfc2986.Attribute:
-    """Prepare the Alternative Signature Value Location Attribute.
+    """Prepare the alternative signature value location attribute.
 
     :param location: URI string representing the location of the alternative signature.
-    :return: `Attribute` representing the altSigValueLocAttr.
+    :return: `Attribute` representing the `altSigValueLocAttr`.
     """
     attr = rfc2986.Attribute()
     attr["type"] = id_altSigValueLocAttr

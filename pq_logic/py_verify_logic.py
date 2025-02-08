@@ -46,10 +46,7 @@ from pq_logic.pq_key_factory import PQKeyFactory
 # But in the next update will be Completely support CRL-Verification.
 
 
-# TODO fix parse catalyst directly.
-
-
-def verify_cert_hybrid_signature(
+def verify_cert_hybrid_signature(  # noqa D417 undocumented-param
     ee_cert: rfc9480.CMPCertificate,
     issuer_cert: rfc9480.CMPCertificate,
     other_cert: rfc9480.CMPCertificate,
@@ -57,20 +54,28 @@ def verify_cert_hybrid_signature(
 ) -> None:
     """Verify the hybrid signature of an end-entity (EE) certificate using the appropriate composite method.
 
-    :param ee_cert: The end-entity certificate (`CMPCertificate`) to be verified. This certificate
-                    contains the hybrid signature and its algorithm identifier.
-    :param issuer_cert: The issuer certificate providing the traditional public key or composite signature key.
-    :param other_cert: The secondary certificate containing the
-                       post-quantum public key (e.g., ML-DSA or another PQ signature algorithm)
-                       used in the composite signature. (as an example, use-case for cert discovery)
-    :param catalyst_key: Optional. A post-quantum private key (`PQSignaturePrivateKey`) used for creating
-                         a composite key dynamically when `other_cert` is not provided.
+    Arguments:
+    ---------
+        - `ee_cert`: The end-entity certificate (`CMPCertificate`) to be verified. This certificate
+        contains the hybrid signature and its algorithm identifier.
+        - `issuer_cert`: The issuer certificate providing the traditional public key or composite signature key.
+        - `other_cert`: The secondary certificate containing the post-quantum public key (e.g., ML-DSA or another
+        PQ signature algorithm) used in the composite signature. (as an example, use-case for cert discovery)
+        - `catalyst_key`: Optional. A post-quantum private key (`PQSignaturePrivateKey`) used for creating
+        a composite key dynamically when `other_cert` is not provided.
 
-    :raises ValueError:
-        - If the OID in the `ee_cert` is unsupported or invalid.
-        - If neither `other_cert` nor `catalyst_key` is provided when required.
-    :raises NotImplementedError: If the signature algorithm OID is not supported for verification.
-    :raises InvalidSignature: If the signature verification fails.
+    Raises:
+    ------
+        - `UnknownOID`: If the OID in the `ee_cert` is unsupported or invalid.
+        - `ValueError`: If neither `other_cert` nor `catalyst_key` is provided when required.
+        - `ValueError`: If the loaded key is not a composite signature key.
+        - `InvalidSignature`: If the signature verification fails.
+
+    Examples:
+    --------
+    | Verify Cert Hybrid Signature | ${ee_cert} | ${issuer_cert} | ${other_cert} |
+    | Verify Cert Hybrid Signature | ${ee_cert} | ${issuer_cert} | ${catalyst_key} |
+
     """
     oid = ee_cert["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]
     alg_id = ee_cert["tbsCertificate"]["signature"]
@@ -79,7 +84,7 @@ def verify_cert_hybrid_signature(
         if other_cert is None and catalyst_key is None:
             composite_key = PQKeyFactory.load_public_key_from_spki(spki)
             if not isinstance(composite_key, CompositeSigCMSPublicKey):
-                raise ValueError()
+                raise ValueError("The loaded key is not a composite signature key.")
         elif other_cert is not None:
             trad_key = keyutils.load_public_key_from_spki(issuer_cert["tbsCertificate"]["subjectPublicKeyInfo"])
             pq_key = PQKeyFactory.load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
@@ -95,7 +100,7 @@ def verify_cert_hybrid_signature(
         pq_compute_utils.verify_signature_with_alg_id(composite_key, alg_id=alg_id, signature=signature, data=data)
 
     else:
-        raise NotImplementedError(f"Unsupported algorithm OID: {oid}. Verification not implemented.")
+        raise UnknownOID(oid=oid)
 
 
 def _verify_signature_with_other_cert(

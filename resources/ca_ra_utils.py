@@ -1547,7 +1547,7 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
         kem_oid=kem_oid,
     )
     data = encoder.encode(new_ee_cert)
-    kem_recip_info = envdatautils._prepare_recip_info(kem_recip_info)
+    kem_recip_info = envdatautils.parse_recip_info(kem_recip_info)
     return envdatautils.prepare_enveloped_data(
         recipient_infos=[kem_recip_info],
         cek=cek,

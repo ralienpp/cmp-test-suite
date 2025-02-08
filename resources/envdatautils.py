@@ -150,7 +150,7 @@ def prepare_enveloped_data(
         recipient_infos = [recipient_infos]
 
     for recipient_info in recipient_infos:
-        infos.append(_prepare_recip_info(recipient_info))
+        infos.append(parse_recip_info(recipient_info))
 
     target["encryptedContentInfo"] = prepare_encrypted_content_info(
         cek=cek, data_to_protect=data_to_protect, enc_oid=enc_oid
@@ -686,7 +686,7 @@ def prepare_ktri(
         rid=rid,
     )
 
-    return _prepare_recip_info(ktri)
+    return parse_recip_info(ktri)
 
 
 @not_keyword
@@ -788,8 +788,8 @@ def prepare_kari(
 
     return kari
 
-
-def _prepare_recip_info(
+@not_keyword
+def parse_recip_info(
     info_obj: Union[
         rfc5652.KeyAgreeRecipientInfo,
         rfc9629.KEMRecipientInfo,
@@ -899,7 +899,7 @@ def prepare_recip_info(  # noqa D417 undocumented-param
             cek=cek,
             recip_cert=cert_recip,
         )
-        return _prepare_recip_info(kari)
+        return parse_recip_info(kari)
 
     if is_kem_public_key(
         public_key_recip,
@@ -912,7 +912,7 @@ def prepare_recip_info(  # noqa D417 undocumented-param
             issuer_and_ser=issuer_and_ser,
             kdf_name=kdf_name,
         )
-        return _prepare_recip_info(kem_recip_info)
+        return parse_recip_info(kem_recip_info)
 
     if password is None and public_key_recip is None:
         raise ValueError(
@@ -922,7 +922,7 @@ def prepare_recip_info(  # noqa D417 undocumented-param
 
     if password is not None:
         pwri = prepare_password_recipient_info(password=password, cek=cek, salt=salt, kdf_name=kdf_name)
-        return _prepare_recip_info(pwri)
+        return parse_recip_info(pwri)
 
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
@@ -1072,7 +1072,7 @@ def build_env_data_for_exchange(
             cek=cek,
             recip_cert=cert_sender,
         )
-        kari = _prepare_recip_info(kari)
+        kari = parse_recip_info(kari)
         return prepare_enveloped_data(
             recipient_infos=[kari], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )
@@ -1085,7 +1085,7 @@ def build_env_data_for_exchange(
             issuer_and_ser=issuer_and_ser,
             hybrid_key_recip=hybrid_key_recip,
         )
-        kem_recip_info = _prepare_recip_info(kem_recip_info)
+        kem_recip_info = parse_recip_info(kem_recip_info)
         return prepare_enveloped_data(
             recipient_infos=[kem_recip_info], cek=cek, target=target, data_to_protect=data, enc_oid=enc_oid
         )

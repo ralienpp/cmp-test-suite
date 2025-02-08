@@ -21,8 +21,6 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
-
-from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax_extension
 from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, protectionutils, utils
 from resources.asn1_structures import PKIMessagesTMP
 from resources.ca_ra_utils import build_ca_message
@@ -39,7 +37,8 @@ from resources.typingutils import PrivateKey, TradSigPrivKey
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic import pq_compute_utils
-from pq_logic.hybrid_sig import catalyst_logic, chameleon_logic, sun_lamps_hybrid_scheme_00, cert_binding_for_multi_auth
+from pq_logic.hybrid_sig import catalyst_logic, cert_binding_for_multi_auth, chameleon_logic, sun_lamps_hybrid_scheme_00
+from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax_extension
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey, AbstractCompositeSigPublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
@@ -1014,6 +1013,7 @@ def build_cert_discovery_cert_from_p10cr(
     Examples:
     --------
     | ${response} ${cert}= | Build Cert Discovery Cert From CSR | ${request} | ${ca_cert} | ${ca_key} | ${url} | ${serial_number} |
+
     """
     certs = cert_binding_for_multi_auth.validate_related_cert_pop(
         csr=request["body"]["p10cr"],

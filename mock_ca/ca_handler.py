@@ -13,11 +13,16 @@ sys.path.append(".")
 
 from cryptography import x509
 from flask import Flask, Response, request
-from pq_logic.hybrid_issuing import build_chameleon_from_p10cr, build_sun_hybrid_cert_from_request, \
-    build_catalyst_signed_cert_from_req, build_cert_from_catalyst_request, build_cert_discovery_cert_from_p10cr
+from pq_logic.hybrid_issuing import (
+    build_catalyst_signed_cert_from_req,
+    build_cert_discovery_cert_from_p10cr,
+    build_cert_from_catalyst_request,
+    build_chameleon_from_p10cr,
+    build_sun_hybrid_cert_from_request,
+)
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
-from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import extract_sun_hybrid_alt_sig
 from pq_logic.hybrid_sig.cert_binding_for_multi_auth import build_related_cert_from_csr
+from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import extract_sun_hybrid_alt_sig
 from pq_logic.py_verify_logic import verify_hybrid_pkimessage_protection
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
@@ -31,7 +36,7 @@ from resources.ca_ra_utils import (
 from resources.certbuildutils import build_certificate
 from resources.certutils import parse_certificate
 from resources.cmputils import build_cmp_error_message
-from resources.exceptions import CMPTestSuiteError, TransactionIdInUse, BadRequest
+from resources.exceptions import BadRequest, CMPTestSuiteError, TransactionIdInUse
 from resources.general_msg_utils import build_genp_kem_ct_info_from_genm
 from resources.keyutils import load_private_key_from_file
 from resources.protectionutils import (
@@ -125,7 +130,6 @@ class MockCAState:
         :return: The certificate.
         :raises BadRequest: If the certificate could not be found.
         """
-
         for cert in self.issued_certs:
             if serial_number == int(cert["tbsCertificate"]["serialNumber"]):
                 return cert
@@ -388,7 +392,6 @@ class CAHandler:
             issuer_cert=self.ca_cert,
             pub_key_loc=f"https://cmp-test-suite/pubkey/{serial_number}",
             sig_loc=f"https://cmp-test-suite/sig/{serial_number}",
-
         )
 
         public_key = sun_lamps_hybrid_scheme_00.get_sun_hybrid_alt_pub_key(cert1["tbsCertificate"]["extensions"])
@@ -438,14 +441,12 @@ class CAHandler:
         )
         return self.sign_response(response=pki_message, request_msg=pki_message)
 
-
     def process_related_cert(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
         """Process the Related Cert request message.
 
         :param pki_message: The Related Cert message.
         :return: The PKI message containing the response.
         """
-
         if pki_message["body"].getName() != "p10cr":
             raise NotImplementedError("Only support p10cr for related cert requests.")
 
@@ -475,13 +476,13 @@ class CAHandler:
         :param pki_message: The Catalyst message.
         :return: The PKI message containing the response.
         """
-
         pki_message = build_cert_from_catalyst_request(
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
         )
         return self.sign_response(response=pki_message, request_msg=pki_message)
+
 
 app = Flask(__name__)
 state = MockCAState()

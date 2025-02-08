@@ -353,11 +353,12 @@ def process_mime_message(mime_data: bytes):
 
     raise ValueError("No application/pkcs7-mime part found in the message.")
 
+
 @keyword(name="Validate Related Cert PoP")
 def validate_related_cert_pop(
-     csr: rfc6402.CertificationRequest,
-     max_freshness_seconds: Strint = 500,
-     load_chain: bool = False,
+    csr: rfc6402.CertificationRequest,
+    max_freshness_seconds: Strint = 500,
+    load_chain: bool = False,
 ) -> List[rfc9480.CMPCertificate]:
     """Validate the Proof-of-Possession (PoP) of the related certificate.
 
@@ -410,7 +411,6 @@ def validate_related_cert_pop(
 
     cryptoutils.verify_signature(data=data, hash_alg=hash_alg, public_key=public_key, signature=signature)
     return cert_chain
-
 
 
 def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions in the docstring

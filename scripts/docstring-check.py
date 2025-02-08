@@ -44,7 +44,7 @@ def check_capitalization(line: str, exceptions: Set[str]) -> list:
     return issues
 
 
-def process_docstring(docstring: str, exceptions: Set[str], debug: bool=False):
+def process_docstring(docstring: str, exceptions: Set[str], debug: bool = False):
     """Process a docstring and check for improperly capitalized words.
 
     Lines with the pipe symbol are skipped.
@@ -83,7 +83,7 @@ def process_docstring(docstring: str, exceptions: Set[str], debug: bool=False):
     return results
 
 
-def find_incorrect_capitalization(file_path: str, exceptions: Set[str], debug: bool=False):
+def find_incorrect_capitalization(file_path: str, exceptions: Set[str], debug: bool = False):
     """Find improperly capitalized words in a Python file.
 
      Lines with the pipe symbol are skipped.
@@ -113,7 +113,7 @@ def find_incorrect_capitalization(file_path: str, exceptions: Set[str], debug: b
                     print(f"In {file_path}: '{line.strip()}' contains capitalized mid-sentence words: {issues}")
 
 
-def scan_directory_for_issues(directory: str, exceptions: Set[str], debug: bool=False):
+def scan_directory_for_issues(directory: str, exceptions: Set[str], debug: bool = False):
     """Scan a directory for improperly capitalized words in docstrings.
 
     Lines with the pipe symbol are skipped.
@@ -129,7 +129,7 @@ def scan_directory_for_issues(directory: str, exceptions: Set[str], debug: bool=
 
 
 def main():
-    """Main entry point for the script."""
+    """Run the script."""
     parser = argparse.ArgumentParser(description="Check for unnecessary capitalized words mid-sentence in docstrings.")
     parser.add_argument(
         "directory", nargs="?", default="./resources", help="Directory to scan (default: current directory)"

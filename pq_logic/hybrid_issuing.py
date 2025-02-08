@@ -37,14 +37,7 @@ from resources.typingutils import PrivateKey, TradSigPrivKey
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic import pq_compute_utils
-from pq_logic.hybrid_sig import chameleon_logic, sun_lamps_hybrid_scheme_00
-from pq_logic.hybrid_sig.catalyst_logic import (
-    load_catalyst_public_key,
-    prepare_alt_sig_alg_id_extn,
-    prepare_alt_signature_value_extn,
-    prepare_subject_alt_public_key_info_extn,
-    sign_cert_catalyst,
-)
+from pq_logic.hybrid_sig import catalyst_logic, chameleon_logic, sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey, AbstractCompositeSigPublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
@@ -278,7 +271,7 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
         raise ValueError("Composite keys are not supported for Catalyst certificates.")
 
     cert_template = cert_req_msg["certReq"]["certTemplate"]
-    second_key = load_catalyst_public_key(cert_template["extensions"])
+    second_key = catalyst_logic.load_catalyst_public_key(cert_template["extensions"])
 
     verify_sig_popo_catalyst_cert_req_msg(
         cert_req_msg=cert_req_msg,
@@ -292,7 +285,7 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
         use_pre_hash=False,
     )
 
-    alt_spki_extn = prepare_subject_alt_public_key_info_extn(public_key=second_key, critical=False)
+    alt_spki_extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(public_key=second_key, critical=False)
 
     tbs_certs["extensions"].append(alt_spki_extn)
     cert = rfc9480.CMPCertificate()
@@ -364,8 +357,8 @@ def _compute_second_pop_catalyst(
     :return: The updated `CertRequest`.
     """
     sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=alt_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
-    alt_sig_id_extn = prepare_alt_sig_alg_id_extn(alg_id=sig_alg, critical=False)
-    alt_spki = prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
+    alt_sig_id_extn = catalyst_logic.prepare_alt_sig_alg_id_extn(alg_id=sig_alg, critical=False)
+    alt_spki = catalyst_logic.prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
     cert_request["certTemplate"]["extensions"].append(alt_sig_id_extn)
     cert_request["certTemplate"]["extensions"].append(alt_spki)
 
@@ -373,7 +366,7 @@ def _compute_second_pop_catalyst(
     sig = pq_compute_utils.sign_data_with_alg_id(key=alt_key, alg_id=sig_alg, data=data)
     if bad_alt_pop:
         sig = utils.manipulate_first_byte(sig)
-    extn = prepare_alt_signature_value_extn(signature=sig, critical=False)
+    extn = catalyst_logic.prepare_alt_signature_value_extn(signature=sig, critical=False)
     cert_request["certTemplate"]["extensions"].append(extn)
     return cert_request
 
@@ -439,7 +432,7 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
 
     """
     cert_template = cert_req_msg["certReq"]["certTemplate"]
-    alt_pub_key = load_catalyst_public_key(cert_template["extensions"])
+    alt_pub_key = catalyst_logic.load_catalyst_public_key(cert_template["extensions"])
     alt_sig_alg_id = get_extension(cert_template["extensions"], id_ce_altSignatureAlgorithm)
     alt_sig = get_extension(cert_template["extensions"], id_ce_altSignatureValue)
 
@@ -537,7 +530,7 @@ def prepare_catalyst_cert_req_msg_approach(
             first_key, alt_key = alt_key, first_key
 
         comp_key = CompositeSigCMSPrivateKey(first_key, alt_key)
-        extn = prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
+        extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
         cert_req["certTemplate"]["extensions"].append(extn)
         data = encoder.encode(cert_req)
         sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=comp_key, use_rsa_pss=True, hash_alg=hash_alg)  # type: ignore
@@ -572,7 +565,7 @@ def prepare_catalyst_cert_req_msg_approach(
         popo = cmputils.prepare_popo(signature=sig, signing_key=first_key, alg_oid=sig_alg["algorithm"])
 
     elif isinstance(alt_key, PQKEMPrivateKey) and isinstance(first_key, TradSigPrivKey):
-        extn = prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)  # type: ignore
+        extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)  # type: ignore
         cert_template["extensions"].append(extn)
         cert_req["certTemplate"] = cert_template
 
@@ -682,7 +675,7 @@ def build_catalyst_signed_cert_from_p10cr(
         include_extensions=False,
     )
 
-    cert = sign_cert_catalyst(
+    cert = catalyst_logic.sign_cert_catalyst(
         cert=cert, trad_key=ca_key, pq_key=alt_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg, pq_hash_alg=pq_hash_alg
     )
 
@@ -734,7 +727,7 @@ def _process_single_catalyst_request(
         use_rsa_pss=use_rsa_pss,
         use_pre_hash=False,
     )
-    new_ee_cert = sign_cert_catalyst(
+    new_ee_cert = catalyst_logic.sign_cert_catalyst(
         cert=new_ee_cert,
         trad_key=ca_key,
         pq_key=alt_key,

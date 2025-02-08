@@ -112,12 +112,25 @@ def prepare_alt_sig_alg_id_extn(  # noqa: D417 Missing a parameter in the Docstr
     return alt_signature_algorithm_extension
 
 
-def prepare_alt_signature_value_extn(signature: bytes, critical: bool) -> rfc5280.Extension:
-    """Prepare the altSignatureValue extension.
+@keyword(name="Prepare AltSignatureValue Extension")
+def prepare_alt_signature_value_extn(  # noqa: D417 Missing a parameter in the Docstring
+    signature: bytes, critical: bool
+) -> rfc5280.Extension:
+    """Prepare the AltSignatureValue extension.
 
-    :param signature: The alternative signature bytes.
-    :param critical: Whether the extension is critical.
-    :return: The prepared Extension object.
+    Arguments:
+    ---------
+        - `signature`: The alternative signature bytes.
+        - `critical`: Whether the extension is critical.
+
+    Returns:
+    -------
+        - The populated `Extension` structure.
+
+    Examples:
+    --------
+    | ${extn}= | Prepare AltSignatureValue Extension | ${signature} | critical=True |
+
     """
     alt_signature_value_extension = rfc5280.Extension()
     alt_signature_value_extension["extnID"] = id_ce_altSignatureValue

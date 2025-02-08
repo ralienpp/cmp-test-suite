@@ -288,7 +288,7 @@ def validate_catalyst_extensions(  # noqa: D417 Missing a parameter in the Docst
 
     Arguments:
     ---------
-       - `cert`: The certificate to check.
+       - `cert`: The certificate to check for the extensions.
        - `sig_alg_must_be`: The signature algorithm name to be expected for the alternative signature.
        (e.g., "ml-dsa-44", "ml-dsa-44-sha512" can only be a pq-algorithm).
        Defaults to `None`.

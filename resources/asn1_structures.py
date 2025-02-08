@@ -11,6 +11,15 @@ from pyasn1.type import constraint, namedtype, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 
 
+class KeyPairParamRepValue(univ.SequenceOf):
+    """Defines the ASN.1 structure for the `KeyPairParamRep`.
+
+    KeyPairParamRepValue ::= SEQUENCE OF AlgorithmIdentifier
+    """
+
+    componentType = rfc9480.AlgorithmIdentifier()
+
+
 class KemBMParameterAsn1(univ.Sequence):
     """Defines the ASN.1 structure for the `KemBMParameter`.
 

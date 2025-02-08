@@ -28,7 +28,7 @@ from pyasn1_alt_modules import rfc4210, rfc4211, rfc5280, rfc5480, rfc9480, rfc9
 from robot.api.deco import keyword, not_keyword
 
 from resources import certutils, cmputils, keyutils, utils
-from resources.asn1_structures import InfoTypeAndValueAsn1, KemCiphertextInfoAsn1, PKIMessageTMP
+from resources.asn1_structures import InfoTypeAndValueAsn1, KemCiphertextInfoAsn1, KeyPairParamRepValue, PKIMessageTMP
 from resources.convertutils import copy_asn1_certificate, pyasn1_time_obj_to_py_datetime
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import may_return_oid_to_name
@@ -1054,9 +1054,8 @@ def prepare_enc_key_agreement_types(fill_value: bool = False) -> rfc9480.InfoTyp
 
 def validate_key_agreement_types(  # noqa D417 undocumented-param
     pki_message: rfc9480.PKIMessage, expected_size: int = 1, index: int = 0
-):
-    """
-    Validate the response for encryption/key agreement key pair types.
+) -> List[str]:
+    """Validate the response for encryption/key agreement key pair types.
 
     Arguments:
     ---------
@@ -1073,6 +1072,10 @@ def validate_key_agreement_types(  # noqa D417 undocumented-param
         - `ValueError`: If the response did not have the expected size.
         - `ValueError`: If the response does not contain the expected `infoType`.
 
+    Examples:
+    --------
+    | ${key_agree_algs} = | Validate Key Agreement Types | ${pki_message} |
+
     """
     validate_general_response(pki_message=pki_message, expected_size=expected_size)
 
@@ -1080,7 +1083,7 @@ def validate_key_agreement_types(  # noqa D417 undocumented-param
     if data["infoType"] != rfc9480.id_it_keyPairParamReq:
         raise ValueError("Unexpected infoType in response.")
 
-    alg_list = decoder.decode(data["infoValue"], asn1Spec=rfc9480.AlgorithmIdentifier())
+    alg_list = decoder.decode(data["infoValue"], asn1Spec=KeyPairParamRepValue())
 
     supported_algorithms = []
     for alg_id in alg_list:
@@ -1367,6 +1370,7 @@ def build_genp_kem_ct_info_from_genm(  # noqa: D417 Missing argument description
 
     genm2["body"]["genp"].append(info_val)
     return ss, genm2
+
 
 @keyword(name="Validate Genp KEMCiphertextInfo")
 def validate_genp_kem_ct_info(  # noqa: D417 Missing argument description in the docstring

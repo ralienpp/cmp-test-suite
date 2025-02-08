@@ -419,7 +419,7 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     hash_alg: Optional[str] = None,
     serial_number: Optional[int] = None,
 ) -> Tuple[rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
-    r"""Convert a certificate template to a certificate, with the sun hybrid method.
+    """Convert a certificate template to a certificate, with the sun hybrid method.
 
     Arguments:
     ---------
@@ -438,8 +438,8 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
 
     Examples:
     --------
-    | ${cert_form4} ${cert_form1}= | Sun Cert Template To Cert | cert_template=${cert_template} \|
-    issuer_cert=${issuer_cert} | issuer_private_key=${key} | alt_private_key=${alt_key} |
+    | ${cert_form4} ${cert_form1}= | Sun Cert Template To Cert | cert_template=${cert_template} \
+    |issuer_cert=${issuer_cert} | issuer_private_key=${key} | alt_private_key=${alt_key} |
 
     """
     tbs_cert = certbuildutils.prepare_tbs_certificate_from_template(

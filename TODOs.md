@@ -6,6 +6,15 @@ SPDX-License-Identifier: Apache-2.0
 
 # TODOs 
 
+# About the Suite Itself:
+
+1. Add more test cases for PQ and Hybrid.
+2. Update Mock CA.
+3. Decide about RF linter settings. (Alex)
+4. Then Fix RF test cases.
+5. Update list about unsupported test cases.
+6. Fix Software Architecture.
+7. Pylint and Pyright.
 
 
 ## About CMP:
@@ -26,3 +35,4 @@ SPDX-License-Identifier: Apache-2.0
 ## About Hybrid:
 
 - Maybe check for currently unknown hybrid schemes.
+- Maybe Add Test cases for "True" Hybrid.

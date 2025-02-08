@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Handles Calalyst Certificates and related functionality."""
+"""Handles Catalyst Certificates and related functionality."""
 
 import logging
 from typing import Optional, Union

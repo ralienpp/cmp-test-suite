@@ -105,7 +105,7 @@ class ECDHKEM(KemMechanism):
 
     @staticmethod
     def generate_matching_private_key(peer_pubkey: ECDHPublicKey) -> ECDHPrivateKey:
-        """Generate a private key matching the type of a given peer public key.
+        """Generate a private key matching the type of the given peer public key.
 
         :param peer_pubkey: The public key of the peer.
         :return: A generated private key matching the type of the peer public key.

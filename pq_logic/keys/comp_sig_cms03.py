@@ -17,8 +17,6 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280
-from robot.api.deco import not_keyword
-
 from resources import oid_mapping
 from resources.exceptions import BadAsn1Data, InvalidKeyCombination
 from resources.oid_mapping import get_curve_instance, sha_alg_name_to_oid
@@ -27,6 +25,7 @@ from resources.oidutils import (
     CMS_COMPOSITE_NAME_2_OID,
     CURVE_NAMES_TO_INSTANCES,
 )
+from robot.api.deco import not_keyword
 
 from pq_logic.hybrid_structures import CompositeSignaturePublicKeyAsn1, CompositeSignatureValue
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey, AbstractCompositeSigPublicKey

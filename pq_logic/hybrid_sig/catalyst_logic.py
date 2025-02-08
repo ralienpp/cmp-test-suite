@@ -12,8 +12,6 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from pyasn1_alt_modules.rfc4210 import CMPCertificate
-from robot.api.deco import keyword
-
 from resources import certbuildutils, certextractutils, certutils, cryptoutils, keyutils, utils
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadAlg, BadAsn1Data
@@ -25,6 +23,7 @@ from resources.oidutils import (
     id_ce_subjectAltPublicKeyInfo,
 )
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey, TradSigPrivKey
+from robot.api.deco import keyword
 
 from pq_logic.hybrid_structures import AltSignatureValueExt, SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey
@@ -154,31 +153,39 @@ def prepare_alt_signature_data(
     return data
 
 
-def sign_cert_catalyst(
+def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     cert: rfc9480.CMPCertificate,
     pq_key: PQSignaturePrivateKey,
     trad_key: TradSigPrivKey,
-    exclude_catalyst_extensions: bool = False,
     pq_hash_alg: Optional[str] = None,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = False,
     critical: bool = False,
+    bad_alt_sig: bool = False,
 ):
     """Sign the certificate with both traditional and alternative algorithms and adding the catalyst extensions.
 
-    :param cert: The certificate to sign.
-    :param pq_key: The post-quantum private key for alternative signing.
-    :param trad_key: The traditional private key for native signing.
-    :param exclude_catalyst_extensions: If True, exclude catalyst extensions (Not implemented).
-    :param pq_hash_alg: Hash algorithm for the post-quantum signature.
-    :param hash_alg: Hash algorithm for the native signature.
-    :param use_rsa_pss: Whether to use RSA-PSS for native signing.
-    :param critical: Whether the catalyst extensions are critical.
-    :return: The signed certificate.
-    """
-    if exclude_catalyst_extensions:
-        raise NotImplementedError("Excluding catalyst extensions is not implemented.")
+    Arguments:
+    ---------
+        - `cert`: The certificate to sign.
+        - `pq_key`: The post-quantum private key for alternative signing.
+        - `trad_key`: The traditional private key for native signing.
+        - `pq_hash_alg`: Hash algorithm for the post-quantum signature. Defaults to `None`.
+        - `hash_alg`: Hash algorithm for the native signature. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for native signing. Defaults to `False`.
+        - `critical`: Whether the catalyst extensions are critical. Defaults to `False`.
+        - `bad_alt_sig`: Whether to manipulate the alternative signature to be invalid. Defaults to `False`.
 
+    Returns:
+    -------
+        - The signed certificate.
+
+    Examples:
+    --------
+    | ${cert} = | Sign Cert Catalyst | ${cert} | ${pq_key} | ${trad_key} |
+    | ${cert} = | Sign Cert Catalyst | ${cert} | ${pq_key} | ${trad_key} | pq_hash_alg=sha512 |
+
+    """
     alt_alg_id = certbuildutils.prepare_sig_alg_id(pq_key, hash_alg=pq_hash_alg, use_rsa_pss=use_rsa_pss)
     trad_alg_id = certbuildutils.prepare_sig_alg_id(trad_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
 
@@ -194,6 +201,11 @@ def sign_cert_catalyst(
     alt_sig_data = prepare_alt_signature_data(cert)
 
     alt_signature = cryptoutils.sign_data(data=alt_sig_data, key=pq_key, hash_alg=pq_hash_alg)
+    if bad_alt_sig:
+        if isinstance(pq_key, AbstractCompositeSigPrivateKey):
+            alt_signature = utils.manipulate_composite_sig(alt_signature)
+        else:
+            alt_signature = utils.manipulate_first_byte(alt_signature)
 
     alt_extn = prepare_alt_signature_value_extn(signature=alt_signature, critical=critical)
     cert["tbsCertificate"]["extensions"].append(alt_extn)
@@ -424,6 +436,7 @@ def load_catalyst_public_key(extensions: rfc9480.Extensions) -> PublicKey:
         raise BadAsn1Data("The alternative public key extension contains remainder data.", overwrite=True)
     alt_issuer_key = keyutils.load_public_key_from_spki(spki)
     return alt_issuer_key
+
 
 @keyword(name="Sign CRL Catalyst")
 def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring

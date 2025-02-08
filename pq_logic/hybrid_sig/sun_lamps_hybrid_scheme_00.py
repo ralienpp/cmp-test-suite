@@ -783,14 +783,14 @@ def _patch_extensions(extensions: rfc9480.Extensions, extension: rfc5280.Extensi
 
 
 def _parse_alt_sig_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> rfc9480.CMPCertificate:
-    """Parse and convert the AltSignatureExt extension in the given certificate.
+    """Parse and convert the `AltSignatureExt` extension in the given certificate.
 
     Converts the extension to either ByValue or ByReference format as specified.
 
-    :param cert: The certificate containing the AltSignatureExt.
+    :param cert: The certificate containing the `AltSignatureExt`.
     :param to_by_val: Boolean indicating whether to convert to ByValue (True) or ByReference (False).
-    :return: The modified certificate with the updated AltSignatureExt.
-    :raises ValueError: If the AltSignatureExt is missing or invalid.
+    :return: The modified certificate with the updated `AltSignatureExt`.
+    :raises ValueError: If the `AltSignatureExt` is missing or invalid.
     """
     extensions = cert["tbsCertificate"]["extensions"]
     extension = certextractutils.get_extension(extensions, id_altSignatureExt, must_be_non_crit=True)
@@ -830,14 +830,14 @@ def _parse_alt_sig_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> r
 
 
 def _parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: bool) -> rfc9480.CMPCertificate:
-    """Parse and convert the AltSubPubKeyExt extension in the given certificate.
+    """Parse and convert the `AltSubPubKeyExt` extension in the given certificate.
 
     Converts the extension to either ByValue or ByReference format as specified.
 
-    :param cert: The certificate containing the AltSubPubKeyExt.
+    :param cert: The certificate containing the `AltSubPubKeyExt`.
     :param to_by_val: Boolean indicating whether to convert to ByValue (True) or ByReference (False).
-    :return: The modified certificate with the updated AltSubPubKeyExt.
-    :raises ValueError: If the AltSubPubKeyExt is missing or invalid.
+    :return: The modified certificate with the updated `AltSubPubKeyExt`.
+    :raises ValueError: If the `AltSubPubKeyExt` is missing or invalid.
     """
     extensions = cert["tbsCertificate"]["extensions"]
     extension = certextractutils.get_extension(extensions, id_altSubPubKeyExt, must_be_non_crit=True)

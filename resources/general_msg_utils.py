@@ -1302,9 +1302,7 @@ def validate_genm_message_size(  # noqa: D417 Missing argument description in th
 
 
 def build_genp_kem_ct_info_from_genm(  # noqa: D417 Missing argument description in the docstring
-    genm: PKIMessageTMP, expected_size: int = 1,
-    ca_key: Optional[ECDHPrivateKey] = None,
-    **kwargs
+    genm: PKIMessageTMP, expected_size: int = 1, ca_key: Optional[ECDHPrivateKey] = None, **kwargs
 ) -> Tuple[bytes, PKIMessageTMP]:
     """Build the KEMCiphertextInfo from a General Message PKIMessage.
 

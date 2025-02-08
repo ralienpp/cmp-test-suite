@@ -598,7 +598,9 @@ def prepare_reg_token_controls(  # noqa D417 undocumented-param
     -------
         - The populated `AttributeTypeAndValue` structure.
 
-    :return: A populated `AttributeTypeAndValue` structure.
+    Examples:
+    --------
+    | ${attr_value}= | Prepare regToken Controls | token="0x123456" |
 
     """
     # A regToken control contains one-time information (either based on a

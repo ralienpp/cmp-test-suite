@@ -1112,8 +1112,7 @@ def prepare_preferred_sym_alg(fill_value: bool = False) -> rfc9480.InfoTypeAndVa
 def validate_preferred_sym_alg(  # noqa D417 undocumented-param
     pki_message: rfc9480.PKIMessage, expected_size: Strint = 1, index: int = 0
 ) -> str:
-    """
-    Validate the response for the preferred symmetric algorithm request.
+    """Validate the response for the preferred symmetric algorithm request.
 
     Arguments:
     ---------
@@ -1128,7 +1127,11 @@ def validate_preferred_sym_alg(  # noqa D417 undocumented-param
     Raises:
     ------
         - `ValueError`: If the response does not have the expected size.
-        - `ValueError`: If the response does not contain the expected `infoType
+        - `ValueError`: If the response does not contain the expected `infoType.
+
+    Examples:
+    --------
+    | ${sym_alg} = | Validate Preferred Symmetric Algorithm | ${pki_message} |
 
     """
     validate_general_response(pki_message=pki_message, expected_size=expected_size)

@@ -631,8 +631,19 @@ state = MockCAState()
 ca_cert = parse_certificate(load_and_decode_pem_file("data/unittest/bare_certificate.pem"))
 ca_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
 
-handler = CAHandler(ca_cert=ca_cert, ca_key=ca_key, config={})
-handler.state = state
+handler = CAHandler(ca_cert=ca_cert, ca_key=ca_key, config={}, state=state)
+
+
+def _build_response(pki_message: rfc9480.PKIMessage) -> Response:
+    """Build a response from a PKIMessage.
+
+    :param pki_message: The PKIMessage to encode.
+    :return: The response.
+    """
+    response_data = encoder.encode(pki_message)
+    return Response(response_data, content_type="application/octet-stream")
+
+
 
 
 @app.route("/cert/<serial_number>", methods=["GET"])

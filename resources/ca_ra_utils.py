@@ -793,7 +793,11 @@ def _prepare_ca_body(
 
 def _set_header_fields(request: rfc9480.PKIMessage, kwargs: dict) -> dict:
     """Set header fields for a new PKIMessage, by extracting them from the request."""
-    kwargs["recip_kid"] = kwargs.get("recip_kid") or request["header"]["senderKID"].asOctets()
+    if request["header"]["senderKID"].isValue:
+        kwargs["recip_kid"] = kwargs.get("recip_kid") or request["header"]["senderKID"].asOctets()
+    else:
+        logging.debug("No `senderKID` value set in the request header.")
+
     kwargs["recip_nonce"] = kwargs.get("recip_nonce") or request["header"]["senderNonce"].asOctets()
     alt_nonce = (
         os.urandom(16) if not request["header"]["recipNonce"].isValue else request["header"]["recipNonce"].asOctets()

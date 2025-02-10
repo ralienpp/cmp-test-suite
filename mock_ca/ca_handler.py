@@ -326,10 +326,14 @@ class CAHandler:
         :param pki_message: The RR message.
         :return: The PKI message containing the response.
         """
-        return build_rp_from_rr(
+        pki_message, data = build_rp_from_rr(
             request=pki_message,
             shared_secret=self.state.get_kem_mac_shared_secret(pki_message=pki_message),
+            certs=self.state.issued_certs,
         )
+        self.state.cert_state_db.add_rev_entry(data)
+
+        return pki_message
 
     def process_kur(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
         """Process the KUR message.

@@ -2472,6 +2472,8 @@ def get_cert_from_pkimessage(  # noqa D417 undocumented-param
     """
     response = get_cert_response_from_pkimessage(pki_message, response_index=cert_number)
     cert = response["certifiedKeyPair"]["certOrEncCert"]["certificate"]
+    if not cert.isValue:
+        raise ValueError("The provided PKIMessage does not contain a valid certificate.")
     cert = convertutils.copy_asn1_certificate(cert)
     return cert
 

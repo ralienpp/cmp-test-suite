@@ -671,6 +671,9 @@ def generate_certificate(
     """
     cert = rfc9480.CMPCertificate()
 
+    if isinstance(private_key, str):
+        private_key = keyutils.generate_key(algorithm=private_key)
+
     if serial_number is None:
         serial_number = x509.random_serial_number()
 

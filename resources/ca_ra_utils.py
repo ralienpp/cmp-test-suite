@@ -850,7 +850,11 @@ def build_cp_from_p10cr(  # noqa: D417 Missing argument descriptions in the docs
             raise ValueError("Either `cert` or `ca_key` and `ca_cert` must be provided to build a CA CMP message.")
 
     cert = cert or certbuildutils.build_cert_from_csr(
-        csr=request["body"]["p10cr"], ca_key=ca_key, ca_cert=ca_cert, hash_alg=kwargs.get("hash_alg", "sha256")
+        csr=request["body"]["p10cr"],
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        hash_alg=kwargs.get("hash_alg", "sha256"),
+        extensions=kwargs.get("extensions"),
     )
 
     responses = prepare_cert_response(cert=cert, cert_req_id=cert_req_id)
@@ -893,6 +897,7 @@ def _process_one_cert_request(
         ca_cert=ca_cert,
         hybrid_kem_key=kwargs.get("hybrid_kem_key"),
         hash_alg=kwargs.get("hash_alg", "sha256"),
+        extensions=kwargs.get("extensions"),
     )
     return cert, enc_cert
 
@@ -1099,6 +1104,8 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
         - `ca_cert`: The CA certificate matching the CA key.
         - `cert_req_id`: The certificate request ID. Defaults to `0`, if cert is provided.
         (else parsed from the request)
+        - `extensions`: The extensions to include in the certificate. Defaults to `None`.
+        (as an eample for OCSP, CRL, etc.)
 
     Returns:
     -------
@@ -1139,6 +1146,7 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
                 ca_key=kwargs.get("ca_key"),
                 ca_cert=kwargs.get("ca_cert"),
                 hash_alg=kwargs.get("hash_alg", "sha256"),
+                extensions=kwargs.get("extensions"),
             )
             cert_req_id = kwargs.get("cert_req_id") or -1
             certs = [cert]

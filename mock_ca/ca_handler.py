@@ -662,24 +662,40 @@ def handle_crl_request():
 def get_cert(serial_number):
     """Get the Sun-Hybrid certificate for the specified serial number."""
     serial_number = int(serial_number)
-    sun_hybrid_cert = state.get_cert_by_serial_number(serial_number)
-    return encoder.encode(sun_hybrid_cert)
+    cert = state.get_cert_by_serial_number(serial_number)
+    return _build_response(cert)
 
 
 @app.route("/pubkey/<serial_number>", methods=["GET"])
 def get_pubkey(serial_number):
     """Get the Sun-Hybrid public key for the specified serial number."""
     serial_number = int(serial_number)
-    sun_hybrid_cert = state.sun_hybrid_state.sun_hybrid_pub_keys[serial_number]
-    return encoder.encode(sun_hybrid_cert)
+    print(state.sun_hybrid_state.sun_hybrid_pub_keys.keys())
+    pub_key = state.sun_hybrid_state.sun_hybrid_pub_keys.get(serial_number)
+
+    if pub_key is None:
+        raise BadRequest(
+            f"Could not find public key with serial number {serial_number}"
+            f" in {state.sun_hybrid_state.sun_hybrid_pub_keys.keys()}"
+        )
+
+    der_data = pub_key.public_bytes(encoding=Encoding.DER, format=PublicFormat.SubjectPublicKeyInfo)
+    return Response(der_data, content_type="application/octet-stream")
 
 
 @app.route("/sig/<serial_number>", methods=["GET"])
 def get_signature(serial_number):
     """Get the Sun-Hybrid signature for the specified serial number."""
     serial_number = int(serial_number)
-    alt_sig = state.sun_hybrid_state.sun_hybrid_signatures[serial_number]
-    return alt_sig
+    alt_sig = state.sun_hybrid_state.sun_hybrid_signatures.get(serial_number)
+
+    if alt_sig is None:
+        raise BadRequest(
+            f"Could not find signature with serial number {serial_number}"
+            f" in {state.sun_hybrid_state.sun_hybrid_signatures.keys()}"
+        )
+
+    return Response(alt_sig, content_type="application/octet-stream")
 
 
 @app.route("/issuing", methods=["POST"])

@@ -1378,6 +1378,8 @@ def build_cert_from_cert_template(  # noqa D417 undocumented-param
         - `alt_sign_key`: An alternative key to sign the certificate with. Defaults to `None`.
         - `alt_hash_alg`: The hash algorithm to use with the alternative key. Defaults to `None`.
         - `alt_use_rsa_pss`: Whether to use RSA-PSS with the alternative key. Defaults to `False`.
+        - `extensions`: Extensions to include in the certificate. Defaults to `None`.
+        (as an example for OCSP, CRL or etc.)
 
     Returns:
     -------
@@ -1400,6 +1402,8 @@ def build_cert_from_cert_template(  # noqa D417 undocumented-param
         use_rsa_pss=kwargs.get("use_rsa_pss", True),
         use_pre_hash=kwargs.get("use_pre_hash", False),
     )
+    if kwargs.get("extensions"):
+        tbs_certs["extensions"].extend(kwargs["extensions"])
     cert = rfc9480.CMPCertificate()
     cert["tbsCertificate"] = tbs_certs
     return _sign_cert(cert=cert, ca_key=ca_key, **kwargs)
@@ -1442,9 +1446,10 @@ def _prepare_shared_tbs_cert(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
     )
 
-    tbs_cert["subjectPublicKeyInfo"] = copyasn1utils.copy_subject_public_key_info(
-        target=rfc5280.SubjectPublicKeyInfo(), filled_sub_pubkey_info=public_key
-    )
+    if public_key is not None:
+        tbs_cert["subjectPublicKeyInfo"] = copyasn1utils.copy_subject_public_key_info(
+            target=rfc5280.SubjectPublicKeyInfo(), filled_sub_pubkey_info=public_key
+        )
 
     if isinstance(validity, rfc5280.Validity):
         tbs_cert["validity"] = validity
@@ -1462,8 +1467,10 @@ def prepare_tbs_certificate_from_template(
     serial_number: Optional[int] = None,
     hash_alg: str = "sha256",
     days: int = 3650,
-    use_rsa_pss: bool = True,
+    use_rsa_pss: bool = False,
     use_pre_hash: bool = False,
+    include_extensions: bool = False,
+    spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
 ) -> rfc5280.TBSCertificate:
     """Prepare a `TBSCertificate` structure from a `CertTemplate`.
 
@@ -1473,8 +1480,10 @@ def prepare_tbs_certificate_from_template(
     :param serial_number: The serial number for the certificate. Defaults to `None`.
     :param hash_alg: The hash algorithm to use. Defaults to `sha256`.
     :param days: The number of days for which the certificate remains valid. Defaults to `3650` days.
-    :param use_rsa_pss: Whether to use RSA-PSS or not. Defaults to `True`.
+    :param use_rsa_pss: Whether to use RSA-PSS or not. Defaults to `False`.
     :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
+    :param include_extensions: Whether to include the extensions from the `CertTemplate`. Defaults to `False`.
+    :param spki: The `SubjectPublicKeyInfo` object to include in the `TBSCertificate`. Defaults to `None`.
     :return: The prepared `TBSCertificate` structure.
     """
     if serial_number is None:
@@ -1487,13 +1496,21 @@ def prepare_tbs_certificate_from_template(
         serial_number=serial_number,
         validity=cert_template["validity"],
         days=days,
-        public_key=cert_template["publicKey"],
+        public_key=spki or cert_template["publicKey"],
     )
 
     tbs_cert["signature"] = prepare_sig_alg_id(
         signing_key=ca_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss, use_pre_hash=use_pre_hash
     )
-    public_key = keyutils.load_public_key_from_spki(tbs_cert["subjectPublicKeyInfo"])
+
+    if spki is not None:
+        public_key = keyutils.load_public_key_from_spki(spki)
+    else:
+        public_key = keyutils.load_public_key_from_spki(tbs_cert["subjectPublicKeyInfo"])
+
+    if include_extensions:
+        tbs_cert["extensions"].extend(cert_template["extensions"])
+
     tbs_cert["extensions"].extend(
         prepare_extensions(
             key=public_key,
@@ -1547,11 +1564,11 @@ def _sign_cert(
 def build_cert_from_csr(  # noqa D417 undocumented-param
     csr: rfc6402.CertificationRequest,
     ca_key: PrivateKey,
-    extensions: Optional[rfc5280.Extensions] = None,
+    extensions: Optional[Sequence[rfc5280.Extension]] = None,
     validity: Optional[rfc5280.Validity] = None,
     issuer: Optional[rfc9480.Name] = None,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
-    include_extensions: bool = True,
+    include_csr_extensions: bool = True,
     **kwargs,
 ) -> rfc9480.CMPCertificate:
     """Build a certificate from a CSR.
@@ -1617,7 +1634,7 @@ def build_cert_from_csr(  # noqa D417 undocumented-param
         use_rsa_pss=kwargs.get("use_rsa_pss", True),
         use_pre_hash=kwargs.get("use_pre_hash", False),
     )
-    if include_extensions:
+    if include_csr_extensions:
         extn = extract_extension_from_csr(csr=csr)
         if extensions is not None and extn is not None:
             tbs_cert["extensions"] = extn

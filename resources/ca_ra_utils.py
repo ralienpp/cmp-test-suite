@@ -7,7 +7,7 @@
 import logging
 import os
 import random
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import pyasn1.error
 from cryptography.exceptions import InvalidSignature
@@ -656,6 +656,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
     ca_cert: rfc9480.CMPCertificate,
     hybrid_kem_key: Optional[ECDHPrivateKey] = None,
     hash_alg: str = "sha256",
+    extensions: Optional[Sequence[rfc5280.Extension]] = None,
 ) -> [rfc9480.CMPCertificate, Optional[rfc9480.EnvelopedData]]:
     """Respond to a certificate request.
 
@@ -670,6 +671,8 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
        - `ca_cert`: The CA certificate matching the CA key.
        - `hybrid_kem_key`: The hybrid KEM key of the CA to use. Defaults to `None`.
        - `hash_alg`: The hash algorithm to use, for signing the certificate. Defaults to "sha256".
+       - `extensions`: The extensions to add to the certificate. Defaults to `None`.
+       (as an example for OCSP, CRL, etc.)
 
     Returns:
     -------
@@ -690,9 +693,10 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
 
     if name in ["raVerified", "signature"]:
         cert = certbuildutils.build_cert_from_cert_template(
-            cert_req_msg["certReq"]["certTemplate"],
+            cert_template=cert_req_msg["certReq"]["certTemplate"],
             ca_key=ca_key,
             ca_cert=ca_cert,
+            extensions=extensions,
         )
         return cert, None
 
@@ -701,6 +705,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
             cert_template=cert_req_msg["certReq"]["certTemplate"],
             ca_key=ca_key,
             ca_cert=ca_cert,
+            extensions=extensions,
         )
         enc_cert = prepare_encr_cert_for_request(
             cert_req_msg=cert_req_msg,

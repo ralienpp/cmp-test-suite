@@ -13,10 +13,11 @@ import os
 from typing import Optional, Tuple, Union
 
 from cryptography import x509
+from cryptography.hazmat._oid import AuthorityInformationAccessOID
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, padding, rsa
 from cryptography.hazmat.primitives.keywrap import aes_key_unwrap, aes_key_wrap
-from cryptography.x509 import extensions
+from cryptography.x509 import AuthorityInformationAccess, UniformResourceIdentifier, extensions
 from cryptography.x509.oid import ExtensionOID
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9481
@@ -111,6 +112,8 @@ def _add_extension(
     basic_constraint: Optional[bool] = None,
     key_usage: Optional[str] = None,
     ski: Optional[PublicKey] = None,
+    ocsp_url: Optional[str] = None,
+    critical: bool = True,
 ) -> x509.CertificateBuilder:
     """Add Certificate extension to a certificate builder object.
 
@@ -118,20 +121,35 @@ def _add_extension(
     :param basic_constraint: optional tuple (bool, (None, int))
     :param key_usage: optional tuple (str) always critical.
     :param ski: if present the public key.
+    :param ocsp_url: the ocsp url to add to the certificate.
+    :param critical: if the extension is critical or not. Defaults to `True`.
     :return: the builder object with applied extensions.
     """
     if basic_constraint is not None:
         cert_builder = cert_builder.add_extension(
-            x509.BasicConstraints(ca=basic_constraint, path_length=None), critical=True
+            x509.BasicConstraints(ca=basic_constraint, path_length=None), critical=critical
         )
 
     if key_usage is not None:
-        cert_builder = cert_builder.add_extension(KeyUsageEnum.get_obj(key_usage), critical=True)
+        cert_builder = cert_builder.add_extension(KeyUsageEnum.get_obj(key_usage), critical=critical)
 
     if ski is not None:
         cert_builder = cert_builder.add_extension(
             x509.SubjectKeyIdentifier.from_public_key(ski),  # type: ignore
-            critical=False,
+            critical=critical,
+        )
+
+    if ocsp_url is not None:
+        cert_builder = cert_builder.add_extension(
+            AuthorityInformationAccess(
+                [
+                    x509.AccessDescription(
+                        AuthorityInformationAccessOID.OCSP,  # type: ignore
+                        x509.UniformResourceIdentifier(ocsp_url),
+                    )
+                ]
+            ),
+            critical=critical,
         )
 
     return cert_builder
@@ -574,3 +592,12 @@ def process_encrypted_value(kek: bytes, enc_val: rfc4211.EncryptedValue) -> byte
     enc_value = enc_val["encValue"].asOctets()
     decrypted_data = compute_aes_cbc(key=cek, iv=iv, data=enc_value, decrypt=True)
     return decrypted_data
+
+
+def prepare_ocsp_aia_value(ocsp_url: str) -> AuthorityInformationAccess:
+    """Prepare an OCSP Authority Information Access (AIA) extension value for a certificate."""
+    aia = AuthorityInformationAccess(
+        [x509.AccessDescription(AuthorityInformationAccessOID.OCSP, UniformResourceIdentifier(ocsp_url))]
+    )
+
+    return aia

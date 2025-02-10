@@ -1711,3 +1711,25 @@ def prepare_tbs_certificate(
         use_pre_hash=use_pre_hash,
     )
     return tbs_cert
+
+
+def prepare_ocsp_extension(
+    ocsp_url: str,
+    critical: bool = False,
+) -> rfc5280.Extension:
+    """Prepare an OCSP extension for a certificate.
+
+    :param ocsp_url: The URL of the OCSP responder.
+    :param critical: Whether the extension is marked as critical or not. Defaults to `False`.
+    :return: The prepared `AuthorityInformationAccess` extension.
+    """
+    data = x509.AuthorityInformationAccess(
+        [x509.AccessDescription(x509.AuthorityInformationAccessOID.OCSP, x509.UniformResourceIdentifier(ocsp_url))]
+    )
+    extension = rfc5280.Extension()
+    extension["extnID"] = rfc5280.id_pe_authorityInfoAccess
+    extension["critical"] = critical
+    extension["extnValue"] = univ.OctetString(data.public_bytes())
+    return extension
+
+

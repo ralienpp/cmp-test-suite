@@ -11,7 +11,7 @@ Either has functionality to verify signatures of PKIMessages or certificates.
 """
 
 import logging
-from typing import List, Optional, Sequence, Tuple
+from typing import Iterable, List, Optional, Sequence, Tuple
 
 from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
@@ -210,6 +210,33 @@ def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
 
     else:
         raise UnknownOID(sig_alg["algorithm"], extra_info="Composite signature can not be verified.")
+
+
+def _check_names(cert, poss_issuer):
+    """Check the names of the issuer and the certificate."""
+    cert_issuer = encoder.encode(cert["tbsCertificate"]["issuer"])
+    issuer_subject = encoder.encode(poss_issuer["tbsCertificate"]["subject"])
+    return cert_issuer == issuer_subject
+
+
+@keyword(name="Find Sun Hybrid Issuer Cert")
+def find_sun_hybrid_issuer_cert(  # noqa D417 undocumented-param
+    ee_cert: rfc9480.CMPCertificate,
+    certs: Iterable[rfc9480.CMPCertificate],
+) -> rfc9480.CMPCertificate:
+    """Find the SUN hybrid issuer certificate."""
+    cert4 = sun_lamps_hybrid_scheme_00.convert_sun_hybrid_cert_to_target_form(ee_cert, "Form4")
+
+    for x in certs:
+        if not _check_names(cert4, x):
+            continue
+        try:
+            _verify_sun_hybrid_trad_sig(cert4, x)
+            return x
+        except InvalidSignature:
+            continue
+
+    raise ValueError("No issuer certificate found.")
 
 
 def build_sun_hybrid_cert_chain(  # noqa D417 undocumented-param

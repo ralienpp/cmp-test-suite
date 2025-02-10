@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, padding, rsa, x448, x25519
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
 from pq_logic.migration_typing import KEMPrivateKey
-from pq_logic.tmp_oids import id_rsa_kem_spki
+from pq_logic.tmp_oids import id_rsa_kem_spki, COMPOSITE_SIG_SIGNED_DATA_OID_HASH
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import (
@@ -876,7 +876,14 @@ def validate_signature_and_digest_alg(
 
     sig_hash_oid = sig_alg_id["algorithm"]
 
-    hash_name_sig = get_hash_from_oid(sig_hash_oid).split("-")[1]
+    # TODO add unit test for Composite-Sig
+    if sig_hash_oid in COMPOSITE_SIG_SIGNED_DATA_OID_HASH:
+        # The composite-sig-cms03 daft says should be eq to hash in section 8.
+        # But LwCMP is strict, so this follows the style to only allow the expected hash.
+        hash_name_sig = COMPOSITE_SIG_SIGNED_DATA_OID_HASH[sig_hash_oid]
+    else:
+        hash_name_sig = get_hash_from_oid(sig_hash_oid, only_hash=True)
+
     hash_name_dig = get_hash_from_oid(digest_alg_id["algorithm"])
 
     if hash_name_sig != hash_name_dig:

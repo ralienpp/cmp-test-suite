@@ -357,10 +357,14 @@ class CAHandler:
         :param pki_message: The CertConf message.
         :return: The PKIMessage containing the response.
         """
-        return build_pki_conf_from_cert_conf(
+        issued_certs = self.state.get_issued_certs(pki_message=pki_message)
+        pki_message = build_pki_conf_from_cert_conf(
             pki_message=pki_message,
-            issued_certs=self.state.get_issued_certs(pki_message=pki_message),
+            issued_certs=issued_certs,
         )
+        self.state.add_certs(certs=issued_certs)
+        return pki_message
+
     def _check_for_compromised_key(self, pki_message: rfc9480.PKIMessage) -> None:
         """Check the request for a compromised key.
 

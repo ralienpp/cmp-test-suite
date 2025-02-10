@@ -1452,3 +1452,31 @@ def build_ocsp_response(
     return builder.sign(responder_key, hash_instance)
 
 
+# TODO remove to pyasn1 function.
+
+
+def _extract_crl_urls_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]) -> List[str]:
+    """Extract CRL distribution point URLs from a certificate.
+
+    :param cert: A certificate object.
+    :return: List of CRL URLs found in the certificate's CRL Distribution Points extension.
+    """
+    cert = _convert_to_crypto_lib_cert(cert)
+
+    crl_urls = []
+    try:
+        crl_dist_points = cert.extensions.get_extension_for_oid(ExtensionOID.CRL_DISTRIBUTION_POINTS).value
+    except x509.ExtensionNotFound:
+        return crl_urls
+
+    crl_dist_points: x509.CRLDistributionPoints
+    dist_point: x509.DistributionPoint
+    for dist_point in crl_dist_points:
+        if dist_point.full_name:
+            for name in dist_point.full_name:
+                if isinstance(name, x509.UniformResourceIdentifier):
+                    crl_urls.append(name.value)
+
+    return crl_urls
+
+

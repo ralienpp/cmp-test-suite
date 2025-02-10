@@ -9,6 +9,7 @@ import os
 import os.path
 import textwrap
 from datetime import datetime, timedelta
+from datetime import timezone
 from typing import List, Optional, Tuple, Union
 
 from cryptography import x509
@@ -309,7 +310,7 @@ def load_or_generate_cert_chain() -> Tuple[List[Union[rfc9480.CMPCertificate, x5
     cert_chain = load_certificate_chain("data/unittest/test_cert_chain_len6.pem")
 
     cert: x509.Certificate = convert_to_crypto_lib_cert(cert_chain[0])
-    if cert.not_valid_after_utc <= datetime.now(datetime.timezone.utc):
+    if cert.not_valid_after_utc <= datetime.now(timezone.utc):
         _gen_new_certs()
 
     cert_chain = load_certificate_chain("data/unittest/test_cert_chain_len6.pem")

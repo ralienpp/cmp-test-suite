@@ -221,3 +221,38 @@ def start_unsafe_tcp_server(  # noqa: D417 Missing argument descriptions in the 
     return bytes(received_data)
 
 
+if __name__ == "__main__":
+    # start_ssl_server("./data/unittest/bare_certificate.pem",
+    #                 "./data/keys/private-key-rsa.pem", "./data/unittest/bare_certificate.pem")
+    data = start_unsafe_tcp_server()
+    print(f"Received: {data}")
+
+
+@not_keyword
+def ssl_client(
+    server_host: str,
+    server_port: Union[str, int],
+    client_cert: str,
+    client_key: str,
+    server_ca_cert: str,
+    message: bytes,
+) -> None:
+    """Connect to a TLS server and sends a message.
+
+    :param server_host: The server's hostname or IP address.
+    :param server_port: The server's port number.
+    :param client_cert: Path to the client's certificate file (PEM format).
+    :param client_key: Path to the client's private key file (PEM format).
+    :param server_ca_cert: Path to the server's CA certificate file (PEM format).
+    :param message: The message to send to the server.
+    """
+    server_port = int(server_port)
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=server_ca_cert)
+    context.load_cert_chain(certfile=client_cert, keyfile=client_key)
+
+    with socket.create_connection((server_host, server_port)) as sock:
+        with context.wrap_socket(sock, server_hostname=server_host) as secure_sock:
+            print(f"Connected to {server_host}:{server_port}")
+            secure_sock.sendall(message.encode("utf-8"))
+            print(f"Sent: {message}")
+

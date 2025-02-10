@@ -38,10 +38,11 @@ from resources import (
     typingutils,
     utils,
 )
-from resources.exceptions import BadAsn1Data
+from resources.exceptions import BadAsn1Data, CertRevoked
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import CMP_EKU_OID_2_NAME
 from resources.suiteenums import KeyUsageStrictness
+from resources.typingutils import PrivateKeySig, Strint
 
 # for these to integrate smoothly into RF, they have to raise exceptions in case of failure, rather than
 # return False
@@ -1132,5 +1133,39 @@ def get_ocsp_url_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]
     ]
 
     return ocsp_urls
+
+@not_keyword
+def create_ocsp_request(
+    cert: rfc9480.CMPCertificate,
+    ca_cert: rfc9480.CMPCertificate,
+    hash_alg: str = "sha256",
+    must_be_present: bool = True
+) -> Tuple[ocsp.OCSPRequest, List[str]]:
+    """Create an OCSP request for a certificate.
+
+    :param cert: The certificate to check.
+    :param ca_cert: The issuer's certificate.
+    :param hash_alg: The hash algorithm to use for the OCSP request. Defaults to "sha256".
+    :param must_be_present: Whether the OCSP URLs must be present in the certificate's AIA
+    extension. Defaults to `True`.
+    :return: The OCSP request and the OCSP URL.
+    :raises ExtensionNotFound: If no OCSP URLs are found in the certificate's AIA extension.
+    :raises ValueError: If the OCSP request fails.
+    """
+    ca_cert = _convert_to_crypto_lib_cert(ca_cert)
+    cert = _convert_to_crypto_lib_cert(cert)
+
+    ocsp_url = get_ocsp_url_from_cert(cert)
+    if not ocsp_url and must_be_present:
+        raise ExtensionNotFound(
+            msg="No OCSP URLs found in the certificate's AIA extension.", oid=AuthorityInformationAccessOID.OCSP
+        )
+
+    builder = ocsp.OCSPRequestBuilder()
+    hash_instance = oid_mapping.hash_name_to_instance(hash_alg)
+    builder = builder.add_certificate(cert, ca_cert, hash_instance)
+    req = builder.build()
+    return req, ocsp_url
+
 
 

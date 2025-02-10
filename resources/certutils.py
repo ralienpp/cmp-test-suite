@@ -8,12 +8,17 @@ import logging
 import os
 import shutil
 import subprocess
+from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import certifi
+import requests
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.x509 import ExtensionNotFound, ReasonFlags, ocsp
+from cryptography.x509.oid import AuthorityInformationAccessOID, ExtensionOID
 from pkilint import loader, report
 from pkilint.pkix import certificate, extension, name
 from pkilint.validation import ValidationFindingSeverity
@@ -1090,3 +1095,42 @@ def build_crl_chain_from_list(  # noqa D417 undocumented-param
 
     chain = build_chain_from_list(signer, certs)
     return [crl] + chain
+
+
+def _convert_to_crypto_lib_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]) -> x509.Certificate:
+    """Convert a pyasn1 certificate to a cryptography library certificate.
+
+    :param cert: The pyasn1 certificate to convert.
+    :return: The cryptography library certificate.
+    """
+    if not isinstance(cert, rfc9480.CMPCertificate):
+        return cert
+
+    der_data = encoder.encode(cert)
+    return x509.load_der_x509_certificate(der_data)
+
+
+# TODO refactor to use Pyasn1.
+
+
+def get_ocsp_url_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]) -> List[str]:
+    """Extract the OCSP URL from a certificate's Authority Information Access extension.
+
+    :param cert: The certificate to extract the OCSP URL from.
+    :return: The OCSP URLs, if present.
+    """
+    cert = _convert_to_crypto_lib_cert(cert)
+    try:
+        aia = cert.extensions.get_extension_for_oid(ExtensionOID.AUTHORITY_INFORMATION_ACCESS).value
+    except ExtensionNotFound:
+        return []
+
+    ocsp_urls = [
+        access_description.access_location.value
+        for access_description in aia
+        if access_description.access_method == AuthorityInformationAccessOID.OCSP
+    ]
+
+    return ocsp_urls
+
+

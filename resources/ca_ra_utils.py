@@ -1040,9 +1040,14 @@ def enforce_lwcmp_for_ca(  # noqa: D417 Missing argument descriptions in the doc
       - `request`: The PKIMessage to enforce the LwCMP for.
 
     Raises:
+    ------
         - BadRequest: If the `certReqId` is invalid.
         - BadRequest: If the request length is invalid.
         - BadRequest: If the request type is invalid.
+
+    Examples:
+    --------
+    | Enforce LwCMP For CA | ${request} |
 
     """
     if request["body"].getName() == "p10cr":

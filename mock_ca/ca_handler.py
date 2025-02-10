@@ -423,19 +423,22 @@ class CAHandler:
         logging.debug("Processing IR message")
         logging.debug("CA Key: %s", self.ca_key)
 
-        pki_message, certs = build_ip_cmp_message(
+        if not pki_message["header"]["protectionAlg"].isValue:
+            raise BadMessageCheck("Protection algorithm was not set.")
+
+        response, certs = build_ip_cmp_message(
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
             implicit_confirm=True,
+            extensions=[self.ocsp_extn, self.crl_extn],
         )
         logging.debug("RESPONSE: %s", pki_message.prettyPrint())
         self.state.store_transaction_certificate(
-            transaction_id=pki_message["header"]["transactionID"].asOctets(),
-            sender=pki_message["header"]["sender"],
+            pki_message=pki_message,
             certs=certs,
         )
-        return pki_message
+        return response
 
     def process_chameleon(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
         """Process the Chameleon message.
@@ -444,49 +447,73 @@ class CAHandler:
         :return: The PKI message containing the response.
         """
         if pki_message["body"].getName() == "p10cr":
-            pki_message, paired_cert, delta_cert = build_chameleon_from_p10cr(
+            response, paired_cert, delta_cert = build_chameleon_from_p10cr(
                 request=pki_message,
                 ca_cert=self.ca_cert,
                 ca_key=self.ca_key,
+                extensions=[self.ocsp_extn, self.crl_extn],
             )
             self.state.store_transaction_certificate(
-                transaction_id=pki_message["header"]["transactionID"].asOctets(),
-                sender=pki_message["header"]["sender"],
+                pki_message=pki_message,
                 certs=[paired_cert, delta_cert],
             )
-            return pki_message
+            return response
 
         raise NotImplementedError(
             f"Not implemented to handle a chameleon request with body: {pki_message['body'].getName()}"
         )
 
-    def process_sun_hybrid(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+    def process_sun_hybrid(
+        self,
+        pki_message: rfc9480.PKIMessage,
+        bad_alt_sig: bool = False,
+    ) -> rfc9480.PKIMessage:
         """Process the Sun Hybrid message.
 
         :param pki_message: The Sun Hybrid message.
+        :param bad_alt_sig: If `True`, the alternative signature will be invalid.
         :return: The PKI message containing the response.
         """
+        if pki_message["body"].getName() == "certConf":
+            return self.process_cert_conf(pki_message)
+
         for _ in range(100):
             serial_number = x509.random_serial_number()
             if serial_number not in self.state.sun_hybrid_state.sun_hybrid_certs:
                 break
 
-        pki_message, cert4, cert1 = build_sun_hybrid_cert_from_request(
+        response, cert4, cert1 = build_sun_hybrid_cert_from_request(
             request=pki_message,
-            signing_key=self.comp_key,
-            protection_key=self.ca_key,
+            ca_key=self.sun_hybrid_key,
             serial_number=serial_number,
-            issuer_cert=self.ca_cert,
-            pub_key_loc=f"https://cmp-test-suite/pubkey/{serial_number}",
-            sig_loc=f"https://cmp-test-suite/sig/{serial_number}",
+            ca_cert=self.ca_cert,
+            pub_key_loc=f"http://localhost:5000/pubkey/{serial_number}",
+            sig_loc=f"http://localhost:5000/sig/{serial_number}",
+            extensions=[self.ocsp_extn, self.crl_extn],
+            bad_alt_sig=bad_alt_sig,
         )
 
-        public_key = sun_lamps_hybrid_scheme_00.get_sun_hybrid_alt_pub_key(cert1["tbsCertificate"]["extensions"])
-        alt_sig = extract_sun_hybrid_alt_sig(cert1)
-        self.state.sun_hybrid_state.sun_hybrid_certs[serial_number] = cert4
-        self.state.sun_hybrid_state.sun_hybrid_pub_keys[serial_number] = public_key
-        self.state.sun_hybrid_state.sun_hybrid_signatures[serial_number] = alt_sig
-        return pki_message
+        result = True  # _is_encrypted_cert(response)
+        if not result:
+            self.state.store_transaction_certificate(
+                pki_message=pki_message,
+                certs=[cert4],
+            )
+            return self.sign_response(response=response, request_msg=pki_message)
+        else:
+            public_key = sun_lamps_hybrid_scheme_00.get_sun_hybrid_alt_pub_key(cert1["tbsCertificate"]["extensions"])
+            alt_sig = extract_sun_hybrid_alt_sig(cert1)
+            self.state.sun_hybrid_state.sun_hybrid_certs[serial_number] = cert4
+            self.state.sun_hybrid_state.sun_hybrid_pub_keys[serial_number] = public_key
+            self.state.sun_hybrid_state.sun_hybrid_signatures[serial_number] = alt_sig
+
+            self.state.add_certs(certs=[cert4])
+
+        return self.sign_response(
+            response=response,
+            request_msg=pki_message,
+            secondary_cert=cert1,
+        )
 
     def process_multi_auth(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
         """Process the Multi-Auth message.

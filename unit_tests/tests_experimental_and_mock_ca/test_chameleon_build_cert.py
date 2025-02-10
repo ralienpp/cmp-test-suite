@@ -21,6 +21,7 @@ class TestBuildChameleonCert(unittest.TestCase):
 
     def setUp(self):
         self.ec_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
+        # TODO verify if this is a bad key!
         self.mldsa_key = load_private_key_from_file("data/keys/private-key-ml-dsa-44.pem")
         self.common_name = "CN=Hans the Tester"
         self.ca_cert = parse_certificate(load_and_decode_pem_file("data/unittest/pq_root_ca_ml_dsa_44.pem"))
@@ -110,6 +111,8 @@ class TestBuildChameleonCert(unittest.TestCase):
         WHEN building a delta certificate.
         THEN the certificate is correctly built.
         """
+
+        # TODO verify why this test case fails only sometimes!!!
         base_extensions = prepare_extensions(
             key=self.ec_key,
         )

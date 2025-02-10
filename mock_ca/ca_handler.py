@@ -381,7 +381,9 @@ class CAHandler:
         :param pki_message: The client request.
         :return: The CA response.
         """
-        pki_message, cert = build_cp_from_p10cr(
+        self.state.cert_state_db.check_request_for_compromised_key(pki_message)
+
+        response, cert = build_cp_from_p10cr(
             request=pki_message,
             set_header_fields=True,
             ca_key=self.ca_key,
@@ -389,11 +391,10 @@ class CAHandler:
             implicit_confirm=True,
         )
         self.state.store_transaction_certificate(
-            transaction_id=pki_message["header"]["transactionID"].asOctets(),
-            sender=pki_message["header"]["sender"],
+            pki_message=pki_message,
             certs=[cert],
         )
-        return pki_message
+        return response
 
     def process_cr(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
         """Process the CR message.
@@ -401,15 +402,15 @@ class CAHandler:
         :param pki_message: The client request.
         :return: The CA response.
         """
-        pki_message, certs = build_cp_cmp_message(
+        response, certs = build_cp_cmp_message(
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
             implicit_confirm=True,
+            extensions=[self.ocsp_extn, self.crl_extn],
         )
         self.state.store_transaction_certificate(
-            transaction_id=pki_message["header"]["transactionID"].asOctets(),
-            sender=pki_message["header"]["sender"],
+            pki_message=pki_message,
             certs=certs,
         )
         return pki_message

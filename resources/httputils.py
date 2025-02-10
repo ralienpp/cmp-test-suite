@@ -256,3 +256,15 @@ def ssl_client(
             secure_sock.sendall(message.encode("utf-8"))
             print(f"Sent: {message}")
 
+
+def _unsafe_client():
+    """Connect to an unsafe TCP server and sends a message."""
+    try:
+        # DISABLES SSL verification, should not be used unless local testing!!!.
+        response = requests.post("http://localhost:8443", data=b"Hello, World!", verify=False, timeout=20)
+        return response.content
+    except requests.exceptions.ReadTimeout:
+        print("Timeout occurred.")
+
+
+"""

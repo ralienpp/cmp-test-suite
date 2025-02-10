@@ -1168,4 +1168,51 @@ def create_ocsp_request(
     return req, ocsp_url
 
 
+def _log_cert_issue_and_subject_and_serial_number(cert: Union[x509.Certificate, rfc9480.CMPCertificate]) -> None:
+    """Log the certificate issuer, subject, and serial number.
+
+    :param cert: The certificate to log.
+    """
+    cert = _convert_to_crypto_lib_cert(cert)
+    issuer = cert.issuer.rfc4514_string()
+    subject = cert.subject.rfc4514_string()
+    serial_number = cert.serial_number
+    data = f"Subject: {subject}, Issuer: {issuer}, Serial Number: {serial_number}"
+    logging.debug(data)
+
+
+@not_keyword
+def check_ocsp_response(
+    ocsp_response: ocsp.OCSPResponse,
+    cert: rfc9480.CMPCertificate,
+    expected_status: str = "revoked",
+    allow_unknown_status: bool = False,
+) -> None:
+    """Check the OCSP response for the certificate.
+
+    :param ocsp_response: The OCSP response to check.
+    :param cert: The certificate to check.
+    :param expected_status: The expected status of the certificate. Defaults to "revoked".
+    :param allow_unknown_status: Whether to treat an unknown status as a success. Defaults to `False`.
+    :raises ValueError: If the OCSP response is invalid or the request fails.
+    """
+    if ocsp_response.response_status != ocsp.OCSPResponseStatus.SUCCESSFUL:
+        raise ValueError(f"OCSP response was not successful. Status: {ocsp_response.response_status}")
+
+    status = ocsp_response.certificate_status
+
+    if status == ocsp.OCSPCertStatus.GOOD:
+        state = "good"
+    elif status == ocsp.OCSPCertStatus.REVOKED:
+        state = "revoked"
+    else:
+        state = "unknown"
+
+    if state == "unknown" and allow_unknown_status:
+        return
+
+    if state != expected_status:
+        _log_cert_issue_and_subject_and_serial_number(cert)
+        raise ValueError(f"OCSP response status was `{state}`, but expected `{expected_status}`")
+
 

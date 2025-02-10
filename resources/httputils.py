@@ -4,8 +4,20 @@
 
 """Utility for handling HTTP responses."""
 
+import sys
+
+# only needed if the script is called to check how a request is handled.
+# python ./resources/httputils.py
+sys.path.append(".")
+import logging
+import os
+import socket
+import ssl
+from typing import Optional, Union
+
 import requests
 from pyasn1.error import PyAsn1Error
+from robot.api.deco import keyword, not_keyword
 
 from resources import cmputils
 
@@ -36,3 +48,29 @@ def http_response_contains_pki_message(data: requests.Response) -> bool:  # noqa
         return True
     except PyAsn1Error:
         return False
+
+
+# Currently, has the Robot Framework, not this flexibility.
+
+
+@keyword(name="Add URL Suffix")
+def add_url_suffix(  # noqa: D417 Missing argument descriptions in the docstring
+    url: str, suffix: Optional[str]
+) -> str:
+    """Add a suffix to a URL if it is not empty.
+
+    Arguments:
+        - url: The URL to append the suffix to.
+        - suffix: The suffix to append to the URL.
+
+    Returns:
+    -------
+        - The URL with the suffix appended.
+
+    """
+    if not suffix:
+        return url
+
+    return os.path.join(url, suffix)
+
+

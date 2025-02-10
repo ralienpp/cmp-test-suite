@@ -8,9 +8,8 @@ from typing import Optional, Union
 
 from cryptography.hazmat.primitives.asymmetric import ec, rsa, x448, x25519
 from pyasn1.type import univ
-from robot.api.deco import not_keyword
-
 from resources.exceptions import InvalidKeyCombination
+from robot.api.deco import not_keyword
 
 from pq_logic.keys.abstract_pq import PQKEMPublicKey
 from pq_logic.keys.kem_keys import (
@@ -25,6 +24,7 @@ from pq_logic.tmp_oids import CHEMPAT_NAME_2_OID, COMPOSITE_KEM_NAME_2_OID
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 # TODO refactor to get the name.
+
 
 @not_keyword
 def get_oid_for_composite_kem(
@@ -62,6 +62,7 @@ def get_oid_for_composite_kem(
     prefix = "" if not use_dhkemrfc9180 else "dhkemrfc9180-"
 
     return COMPOSITE_KEM_NAME_2_OID[f"{prefix}{pq_name}-{trad_name}"]
+
 
 @not_keyword
 def get_oid_for_chemnpat(

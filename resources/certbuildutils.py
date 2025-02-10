@@ -834,6 +834,10 @@ def generate_different_public_key(  # noqa D417 undocumented-param
         - `cert`: The certificate from which to extract the existing public key.
         - `algorithm`: The algorithm to use for generating the new key pair (e.g., `"rsa"`, `"ec"`).
 
+    Raises:
+    ------
+        - `ValueError`: If the function fails to generate a different public key after 100 attempts.
+
     Returns:
     -------
         - The generated public key, guaranteed to be different from the public key in `cert`.
@@ -845,11 +849,16 @@ def generate_different_public_key(  # noqa D417 undocumented-param
 
     """
     public_key = certutils.load_public_key_from_cert(cert)
-    # just to reduce the extremely slim chance, they are acutely the same.
-    while 1:
+    # just to reduce the extremely slim chance, they are actually the same.
+    pub_key = None
+    for _ in range(100):
         pub_key = keyutils.generate_key(algorithm=algorithm).public_key()
         if pub_key != public_key:
             break
+        pub_key = None
+
+    if pub_key is None:
+        raise ValueError("Failed to generate a different public key.")
 
     return pub_key
 

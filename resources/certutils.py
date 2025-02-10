@@ -1531,3 +1531,58 @@ def process_single_crl_check(
     return _parse_crl_and_check_revocation(crl_data, serial_number)
 
 
+@keyword(name="Check If Cert Is Revoked CRL")
+def check_if_cert_is_revoked_crl(  # noqa D417 undocumented-param
+    cert: rfc9480.CMPCertificate,
+    crl_url: Optional[str] = None,
+    crl_file_path: Optional[str] = None,
+    timeout: Strint = 60,
+    allow_no_crl_urls: bool = False,
+) -> None:
+    """Check if a certificate is revoked, by checking against a CRL.
+
+    Arguments:
+    ---------
+        - `cert`: The certificate to check.
+        - `crl_url`: The URL of the CRL to check against.
+        - `crl_file_path`: The file path of the CRL to check against.
+        - `timeout`: The timeout in seconds for the request. Defaults to `60`.
+        - `allow_no_crl_urls`: Whether to allow no CRL URLs to be found in the certificate. Defaults to `False`.
+
+    Raises:
+    ------
+        - `ValueError`: If the certificate is revoked.
+        - `ValueError`: If no CRL URLs are found in the certificate.
+        - `IOError`: If the CRL data cannot be loaded.
+
+    Examples:
+    --------
+    | Check If Cert Is Revoked CRL | cert=${cert} |
+    | Check If Cert Is Revoked CRL | cert=${cert} | timeout=30 |
+    | Check If Cert Is Revoked CRL | cert=${cert} | crl_url=${crl_url} |
+    | Check If Cert Is Revoked CRL | cert=${cert} | crl_file_path=${crl_file_path} |
+
+    """
+    serial_number = int(cert["tbsCertificate"]["serialNumber"])
+
+    if crl_url or crl_file_path:
+        result = process_single_crl_check(
+            serial_number=serial_number, crl_url=crl_url, crl_file_path=crl_file_path, timeout=timeout
+        )
+
+    else:
+        result = None
+        cert = _convert_to_crypto_lib_cert(cert)
+        crl_urls = _extract_crl_urls_from_cert(cert)
+        for url in crl_urls:
+            result = process_single_crl_check(serial_number=serial_number, crl_url=url, timeout=int(timeout))
+            if result:
+                break
+
+    if result:
+        raise CertRevoked("Certificate is revoked.")
+
+    if result is None and not allow_no_crl_urls:
+        raise ValueError("No CRL URLs found in the certificate.")
+
+

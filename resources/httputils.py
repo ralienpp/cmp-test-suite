@@ -152,9 +152,12 @@ def start_ssl_server(  # noqa: D417 Missing argument descriptions in the docstri
                     conn.close()
                     logging.info("Connection closed.")
 
-                return bytes(received_data)
     except KeyboardInterrupt:
         logging.info("Server stopped by user.")
         return None
 
+    data = bytes(received_data)
+    if data.startswith(b"POST") or data.startswith(b"GET"):
+        return data.split(b"\r\n\r\n")[1]
+    return bytes(received_data)
 

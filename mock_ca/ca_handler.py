@@ -347,6 +347,7 @@ class CAHandler:
             private_key=self.xwing_key,
             password=self.shared_secrets,
         )
+        # self.state.cert_state_db.add_update_entry(entries)
 
         raise NotImplementedError("Method not implemented, to return a `rp` message,but the protection was correct.")
 

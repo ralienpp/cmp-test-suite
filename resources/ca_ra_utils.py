@@ -1710,12 +1710,75 @@ def build_ca_message(
     return pki_message
 
 
+def _contains_cert(cert_template, certs: Sequence[rfc9480.CMPCertificate]) -> Optional[rfc9480.CMPCertificate]:
+    """Check if the certificate template is in the list of certificates.
+
+    :param cert_template: The certificate template to check.
+    :param certs: The list of certificates to check.
+    :return: The certificate if it is in the list, `None` otherwise.
+    """
+    for cert in certs:
+        if compareutils.compare_cert_template_and_cert(cert_template, cert, strict_subject_validation=True):
+            return cert
+    return None
+
+
+def _get_revocation_reason(crl_entry_details: rfc9480.Extensions) -> str:
+    """Get the revocation reason from the CRL entry details.
+
+    :param crl_entry_details: The `Extensions` object containing the CRL entry details.
+    :return: The revocation reason or `unspecified`, if the reason is not set.
+    :raises BadRequest: If the CRL entry details are missing or invalid.
+    """
+    if crl_entry_details.isValue:
+        if len(crl_entry_details) != 1:
+            raise BadRequest("Invalid number of entries in CRL entry details.")
+
+        if crl_entry_details[0]["extnID"] != rfc5280.id_ce_cRLReasons:
+            raise BadRequest("Invalid extension ID in CRL entry details.")
+
+        crl_reasons = crl_entry_details[0]["extnValue"].asOctets()
+
+        try:
+            decoded, rest = decoder.decode(crl_reasons, rfc5280.CRLReason())
+        except pyasn1.error.PyAsn1Error:
+            raise BadAsn1Data("Failed to decode `CRLReason`", overwrite=True)
+
+        if rest:
+            raise BadAsn1Data("CRLReason")
+
+        if int(decoded) not in rfc5280.CRLReason.namedValues.values():
+            raise BadRequest("Invalid CRL reason value.")
+
+        return decoded.prettyPrint()
+
+    raise BadRequest("CRL entry details are missing.")
+
+
+def _prepare_cert_id(cert: rfc9480.CMPCertificate) -> rfc4211.CertId:
+    """Prepare a CertId structure from a certificate.
+
+    :param cert: The certificate to prepare the CertId for.
+    :return: The CertId structure.
+    """
+    cert_id = rfc4211.CertId()
+    cert_id["issuer"] = cert["tbsCertificate"]["issuer"]
+    cert_id["serialNumber"] = int(cert["tbsCertificate"]["serialNumber"])
+    return cert_id
+
+
+# TODO fix for bad order od CertID
+
+
 def build_rp_from_rr(
     request: rfc9480.PKIMessage,
     shared_secret: Optional[bytes] = None,
     set_header_fields: bool = True,
+    certs: Optional[Sequence[rfc9480.CMPCertificate]] = None,
+    add_another_details: bool = False,
+    crls: Optional[Union[rfc5280.CertificateList, Sequence[rfc5280.CertificateList]]] = None,
     **kwargs,
-) -> rfc9480.PKIMessage:
+) -> Tuple[rfc9480.PKIMessage, List[Dict[str, Union[str, rfc9480.CMPCertificate]]]]:
     """Build a PKIMessage for a revocation request.
 
     :param request: The Revocation Request message.
@@ -1726,30 +1789,74 @@ def build_rp_from_rr(
     if kwargs.get("enforce_lwcmp", True):
         enforce_lwcmp_for_ca(request)
 
-    status = "accepted"
-    fail_info = None
-    try:
-        protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
-    except Exception:
-        logging.debug("Failed to verify the PKIMessage protection.")
-        status = "rejection"
-        fail_info = "badPOP"
-
-    if request and set_header_fields:
+    body = rfc9480.PKIBody()
+    if set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
 
+    fail_info = None
+    if not request["extraCerts"].isValue:
+        fail_info = "addInfoNotAvailable"
+    else:
+        try:
+            protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
+        except Exception:
+            logging.debug("Failed to verify the PKIMessage protection.")
+            fail_info = "badMessageCheck"
+
+    if fail_info is not None:
+        status_info = cmputils.prepare_pkistatusinfo(
+            status="rejection",
+            failinfo=fail_info,
+            texts="The `extraCerts` field was empty in the revocation request message.",
+        )
+        body["rp"]["status"].append(status_info)
+        pki_message = cmputils.prepare_pki_message(**kwargs)
+        pki_message["body"] = body
+        return pki_message, []
+
+    status = "accepted"
+
+    data = []
+
+    for entry in request["body"]["rr"]:
+        tmp = None
+        tmp_status = None
+
+        cert = _contains_cert(
+            cert_template=entry["certDetails"],
+            certs=certs or [],
+        )
+        if cert is not None:
+            reason = _get_revocation_reason(entry["crlEntryDetails"])
+            data.append({"reason": reason, "cert": cert})
+        else:
+            tmp = "badCertTemplate"
+            tmp_status = "rejection"
+
+        _add = tmp or fail_info
+        tmp_status = tmp_status or status
+
+        status_info = cmputils.prepare_pkistatusinfo(
+            status=tmp_status,
+            failinfo=_add,
+        )
+        body["rp"]["status"].append(status_info)
+
+        if not kwargs.get("enforce_lwcmp", True) and cert is not None:
+            body["rp"]["revCerts"].append(_prepare_cert_id(cert))
+
+        if add_another_details:
+            body["rp"]["status"].append(status_info)
+
+        if crls:
+            if isinstance(crls, rfc5280.CertificateList):
+                crls = [crls]
+            body["rp"]["crls"].extend(crls)
+
     pki_message = cmputils.prepare_pki_message(**kwargs)
-
-    body = rfc9480.PKIBody()
-    rfc9480.RevRepContent()
-
-    for _ in range(len(request["body"]["rr"])):
-        status_info = cmputils.prepare_pkistatusinfo(status=status, failinfo=fail_info)
-        body["rr"]["status"].append(status_info)
-
     pki_message["body"] = body
 
-    return pki_message
+    return pki_message, data
 
 
 @keyword(name="Build POPDecryptionChallenge From Request")

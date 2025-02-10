@@ -900,6 +900,22 @@ def _parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: bo
     return cert
 
 
+def _check_form_1_or_3(cert: rfc9480.CMPCertificate) -> Optional[rfc9480.CMPCertificate]:
+    """Check if the certificate is in sun-hybrid form 1 or 3.
+
+    :param cert: The certificate to check.
+    :return: The certificate if it is in form 1 or 3, otherwise None.
+    """
+    extensions = cert["tbsCertificate"]["extensions"]
+    for ext in extensions:
+        if ext["extnID"] == id_altSignatureExt:
+            derived_ext, _ = decoder.decode(ext["extnValue"].asOctets(), AltSignatureExt())
+            if derived_ext["byVal"]:
+                return cert
+
+    return None
+
+
 @keyword("Convert Sun-Hybrid Cert to Target Form")
 def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descriptions in the docstring
     cert: rfc9480.CMPCertificate, target_form: str

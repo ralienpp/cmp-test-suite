@@ -1586,3 +1586,86 @@ def check_if_cert_is_revoked_crl(  # noqa D417 undocumented-param
         raise ValueError("No CRL URLs found in the certificate.")
 
 
+@keyword(name="Validate If Certificate Is Revoked")
+def validate_if_certificate_is_revoked(  # noqa D417 undocumented-param
+    cert: rfc9480.CMPCertificate,
+    ca_cert: Optional[rfc9480.CMPCertificate] = None,
+    ocsp_url: Optional[str] = None,
+    crl_url: Optional[str] = None,
+    crl_file_path: Optional[str] = None,
+    ocsp_timeout: Union[str, int] = 20,
+    crl_timeout: Union[str, int] = 20,
+    allow_request_failure: bool = False,
+    allow_ocsp_unknown: bool = False,
+    allow_no_crl_urls: bool = False,
+) -> None:
+    """Validate if a certificate is revoked via OCSP and CRL checks.
+
+    Steps:
+    ------
+      1. First checks if the certificate is revoked via OCSP.
+      2. Perform a CRL check (either with given 'crl_url', 'crl_file_path',
+         or from the cert's CRL Distribution Points). If revoked => raise.
+      3. If we finish both checks without raising, we conclude the certificate
+         is not revoked.
+
+    Arguments:
+    ---------
+       - `cert`: The certificate to check.
+       - `ca_cert`: The issuer certificate. Required for the OCSP check.
+       - `ocsp_url`: Explicit OCSP URL (overrides the AIA extension). Defaults to `None`.
+       - `crl_url`: Explicit CRL URL (overrides CRL distribution points). Defaults to `None`.
+       - `crl_file_path`: CRL file path. Defaults to `None`.
+       - `ocsp_timeout`: Timeout for the OCSP request. Defaults to `20` seconds.
+       - `crl_timeout`: Timeout for fetching CRL over HTTP(s). Defaults to `20` seconds.
+       - `allow_request_failure`: Passed to the OCSP request function to allow or
+              disallow request failures.
+       - `allow_ocsp_unknown`: Whether to allow OCSP 'unknown' status as non-revoked.
+       - `allow_no_crl_urls`: Whether to allow no CRL URLs to be found in the certificate.
+
+    Raises:
+    ------
+        - `CertRevoked`: If the certificate is revoked.
+        - `IOError`: If there's an issue loading or parsing the CRL or OCSP data.
+        - `ValueError`: If the OCSP request fails.
+        - `ValueError`: If the certificate does not contain any CRL URLs and non was provided.
+
+    Examples:
+    --------
+    | Validate If Certificate Is Revoked | cert=${cert} | issuer=${issuer} |
+    | Validate If Certificate Is Revoked | cert=${cert} | issuer=${issuer} | ocsp_url=${ocsp_url} |
+    | Validate If Certificate Is Revoked | cert=${cert} | crl_url=${crl_url} |
+
+    """
+    if ca_cert:
+        try:
+            check_ocsp_response_for_cert(
+                cert=cert,
+                issuer=ca_cert,
+                ocsp_url=ocsp_url,
+                timeout=ocsp_timeout,
+                expected_status="good",
+                allow_request_failure=allow_request_failure,
+                allow_unknown_status=allow_ocsp_unknown,
+            )
+        except ValueError as err:
+            if "`revoked`" in str(err) or "`unknown`" in str(err):
+                raise CertRevoked("Certificate is revoked (by OCSP check).")
+            else:
+                raise
+
+    else:
+        logging.debug("No issuer provided; skipping OCSP check and going directly to CRL check.")
+
+    # 2. Check CRL
+    check_if_cert_is_revoked_crl(
+        cert=cert,
+        crl_url=crl_url,
+        crl_file_path=crl_file_path,
+        timeout=crl_timeout,
+        allow_no_crl_urls=allow_no_crl_urls,
+    )
+
+    # 3. If we reach this point, neither the OCSP check nor the CRL check
+    #    confirmed revocation => conclude "not revoked."
+    logging.debug("Certificate does not appear to be revoked by OCSP or CRL.")

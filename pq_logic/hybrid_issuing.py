@@ -54,16 +54,14 @@ from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONS
 
 def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descriptions in the docstring
     request: PKIMessagesTMP,
-    signing_key: AbstractCompositeSigPrivateKey,
-    protection_key: PrivateKey,
+    ca_key: AbstractCompositeSigPrivateKey,
     pub_key_loc: str,
     sig_loc: str,
     serial_number: Optional[int] = None,
-    protection: str = "password_based_mac",
-    password: Optional[str] = None,
-    issuer_cert: Optional[rfc9480.CMPCertificate] = None,
+    ca_cert: Optional[rfc9480.CMPCertificate] = None,
     cert_chain: Optional[Sequence[rfc9480.CMPCertificate]] = None,
     cert_index: Optional[int] = None,
+    **kwargs,
 ) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Build a Sun-Hybrid certificate from a request.
 
@@ -72,7 +70,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
     Arguments:
     ---------
        - `request`: The PKIMessage request.
-       - `signing_key`: The key to sign the certificate with.
+       - `ca_key`: The key to sign the certificate with.
        - `protection_key`: The key to protect the certificate with.
        - `pub_key_loc`: The location of the public key.
        - `sig_loc`: The location of the signature.
@@ -82,30 +80,45 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
        - `cert_chain`: The certificate chain. Defaults to `None`.
        - `cert_index`: The certificate index. Defaults to `None`.
 
+    **kwargs:
+    --------
+         - `extensions`: The extensions to use for the certificate.
+         (as an example for OCSP, CRL or etc.)
+         - `bad_alt_sig`: Whether to manipulate the alternative signature. Defaults to `False`.
+
     Returns:
     -------
        - The PKIMessage with the certificate response.
+
+    Raises:
+    ------
+         - `ValueError`: If the CA certificate or the certificate chain is missing.
 
     Examples:
     --------
     | ${response} ${cert4} ${cert1}= | Build Sun Hybrid Cert From Request | ${request} | ${signing_key} | ${ca_cert} |
 
     """
-    if issuer_cert is None:
-        issuer_cert = cert_chain[0]
+    if ca_cert is None and cert_chain is None:
+        raise ValueError("Either ca_cert or cert_chain must be provided.")
+
+    if ca_cert is None:
+        ca_cert = cert_chain[0]
 
     if request["body"].getName() == "p10cr":
         pq_compute_utils.verify_csr_signature(csr=request["body"]["p10cr"])
         cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_csr_to_cert(
             csr=request["body"]["p10cr"],
-            issuer_private_key=signing_key.trad_key,
-            alt_private_key=signing_key.pq_key,
+            issuer_private_key=ca_key.trad_key,
+            alt_private_key=ca_key.pq_key,
             serial_number=serial_number,
-            issuer_cert=issuer_cert,
+            ca_cert=ca_cert,
+            extensions=kwargs.get("extensions"),
+            bad_alt_sig=kwargs.get("bad_alt_sig", False),
         )
         pki_message = ca_ra_utils.build_cp_from_p10cr(request=request, cert=cert4, cert_req_id=-1)
 
-    elif request["body"].getName() in ["ir", "cr"]:
+    elif request["body"].getName() in ["ir", "cr", "kur", "crr"]:
         cert_index = cert_index if cert_index is not None else 0
         cert_req_msg: rfc4211.CertReqMsg = request["body"]["ir"][cert_index]
         public_key = ca_ra_utils.get_public_key_from_cert_req_msg(cert_req_msg)
@@ -113,56 +126,45 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
             ca_ra_utils.verify_sig_pop_for_pki_request(request, cert_index)
             cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_cert_template_to_cert(
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
-                issuer_cert=issuer_cert,
-                issuer_private_key=signing_key.trad_key,
-                alt_private_key=signing_key.pq_key,
+                ca_cert=ca_cert,
+                ca_key=ca_key.trad_key,
+                serial_number=serial_number,
+                alt_private_key=ca_key.pq_key,
                 pub_key_loc=pub_key_loc,
                 sig_loc=sig_loc,
+                extensions=kwargs.get("extensions"),
+                bad_alt_sig=kwargs.get("bad_alt_sig", False),
             )
 
             pki_message, _ = ca_ra_utils.build_ip_cmp_message(
                 cert=cert4,
                 request=request,
-                cert_req_id=cert_req_msg or cert_req_msg["certReq"]["certReqId"],
+                cert_req_id=int(cert_req_msg["certReq"]["certReqId"]),
             )
 
         elif isinstance(public_key, HybridKEMPublicKey):
             cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_cert_template_to_cert(
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
-                issuer_cert=issuer_cert,
+                ca_cert=ca_cert,
                 serial_number=serial_number,
-                issuer_private_key=signing_key.trad_key,
-                alt_private_key=signing_key.pq_key,
+                ca_key=ca_key.trad_key,
+                alt_private_key=ca_key.pq_key,
                 pub_key_loc=pub_key_loc,
                 sig_loc=sig_loc,
+                extensions=kwargs.get("extensions"),
             )
 
             pki_message = build_enc_cert_response(
                 new_ee_cert=cert4,
-                ca_cert=issuer_cert,
+                ca_cert=ca_cert,
                 request=request,
+                client_pub_key=public_key,
             )
         else:
             raise ValueError(f"Invalid key type: {type(public_key).__name__}")
 
     else:
         raise ValueError(f"Invalid request type: {request['body'].getName()}")
-
-    if password is not None:
-        pki_message = protectionutils.protect_pkimessage(pki_message, password, protection=protection)
-        pki_message["extraCerts"].append(cert4)
-    else:
-        pki_message = protectionutils.protect_pkimessage(
-            pki_message=pki_message,
-            private_key=protection_key,
-            protection=protection,
-            cert=cert_chain[0],
-            exclude_cert=True,
-        )
-        pki_message["extraCerts"].append(cert_chain[0])
-        pki_message["extraCerts"].append(cert4)
-        if cert_chain is not None:
-            pki_message["extraCerts"].extend(cert_chain[:1])
 
     return pki_message, cert4, cert1
 

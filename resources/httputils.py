@@ -161,3 +161,63 @@ def start_ssl_server(  # noqa: D417 Missing argument descriptions in the docstri
         return data.split(b"\r\n\r\n")[1]
     return bytes(received_data)
 
+
+@keyword("Start Unsafe TCP Server")
+def start_unsafe_tcp_server(  # noqa: D417 Missing argument descriptions in the docstring
+    host: str = "0.0.0.0", port: Union[str, int] = 8443, timeout: Union[str, int] = 20
+):
+    """Start a TCP `UNSAFE` server that listens for incoming connections and processes data.
+
+    Arguments:
+    ---------
+       - `host`: Host address to bind the server to. Defaults to "0.0.0.0". (localhost)
+       - `port`: Port number to bind the server to. Defaults to 8443.
+       - `timeout`: Timeout duration in seconds. Defaults to `20` seconds.
+
+    Returns:
+    -------
+        - The received data as a byte string.
+
+    Raises:
+    ------
+        - `timeout`: If the connection times out.
+
+    Examples:
+    --------
+    | ${data}= | Start Unsafe TCP Server |
+    | ${data}= | Start Unsafe TCP Server | host=0.0.0.0 | port=8443 | timeout=30 |
+
+    """
+    received_data = bytearray()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, port))
+        sock.listen(1)
+        print(f"Server listening on {host}:{port}")
+
+        # Accept a client connection
+        conn, addr = sock.accept()
+        logging.debug("Accepted connection from %s", str(addr))
+        conn.settimeout(timeout)
+
+        try:
+            # Continuously receive data until the client closes the connection or timeout occurs
+            while True:
+                data = conn.recv(1024)
+                if not data:
+                    logging.info("Client closed the connection.")
+                    break
+                received_data.extend(data)
+        except socket.timeout:
+            logging.debug("Connection timed out.")
+        finally:
+            conn.close()
+            logging.info("Connection closed.")
+
+    data = bytes(received_data)
+
+    if data.startswith(b"POST") or data.startswith(b"GET"):
+        return data.split(b"\r\n\r\n")[1]
+
+    return bytes(received_data)
+
+

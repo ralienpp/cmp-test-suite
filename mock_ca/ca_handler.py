@@ -235,11 +235,17 @@ class CAHandler:
             self.xwing_cert = parse_certificate(load_and_decode_pem_file("data/unittest/hybrid_cert_xwing.pem"))
             self.xwing_key = load_private_key_from_file("data/keys/private-key-xwing.pem")
 
-    def sign_response(self, response: rfc9480.PKIMessage, request_msg: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+    def sign_response(
+        self,
+        response: rfc9480.PKIMessage,
+        request_msg: rfc9480.PKIMessage,
+        secondary_cert: Optional[rfc9480.CMPCertificate] = None,
+    ) -> rfc9480.PKIMessage:
         """Sign the response.
 
         :param response: The PKI message to sign.
         :param request_msg: The request message.
+        :param secondary_cert: An optional secondary certificate to include in the response. Defaults to `None`.
         :return: The signed PKI message.
         """
         if get_protection_type_from_pkimessage(request_msg) == "mac":
@@ -248,14 +254,25 @@ class CAHandler:
                 password=self.shared_secrets,
                 protection="password_based_mac",
             )
+            if secondary_cert:
+                pki_message["extraCerts"].append(secondary_cert)
             pki_message["extraCerts"].extend(self.cert_chain)
             return pki_message
-        return protect_pkimessage(
+
+        protected = protect_pkimessage(
             pki_message=response,
             private_key=self.ca_key,
             protection="signature",
             cert=self.ca_cert,
+            exclude_cert=True,
         )
+        protected["extraCerts"].append(self.ca_cert)
+        if secondary_cert:
+            protected["extraCerts"].append(secondary_cert)
+
+        if len(self.cert_chain) > 1:
+            protected["extraCerts"].extend(self.cert_chain[1:])
+        return protected
 
     def process_normal_request(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
         """Process the normal request.

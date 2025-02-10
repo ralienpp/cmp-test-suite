@@ -8,10 +8,12 @@ import datetime
 import os
 import os.path
 import textwrap
+from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Union, Any
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives._serialization import Encoding
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509.extensions import ExtensionOID
@@ -999,3 +1001,20 @@ def prepare_pwri_structure(
         pwri["encryptedKey"] = rfc5652.EncryptedKey(encrypted_key or os.urandom(32))
 
     return pwri
+
+
+def build_crl_crypto_lib(ca_key: Union[rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey],
+                         ca_cert: x509.Certificate, revoked_cert: x509.Certificate):
+    """Build a CRL with the given CA key, CA certificate, and revoked certificate."""
+    builder = x509.CertificateRevocationListBuilder()
+    builder = builder.issuer_name(ca_cert.subject)
+    builder = builder.last_update(datetime.now())
+    builder = builder.next_update(datetime.now() + timedelta(days=30))
+
+    revoked_cert_entry = x509.RevokedCertificateBuilder().serial_number(
+        revoked_cert.serial_number).revocation_date(
+        datetime.now()).build()
+    builder = builder.add_revoked_certificate(revoked_cert_entry)
+
+    crl = builder.sign(private_key=ca_key, algorithm=hashes.SHA256())
+    return crl.public_bytes(encoding=Encoding.DER)

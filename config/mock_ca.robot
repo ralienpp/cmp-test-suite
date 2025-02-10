@@ -33,7 +33,7 @@ ${ALLOW_BATCH_MESSAGES}   ${True}
 ${ALLOW_ONLY_ONE_SENDER}   ${True}
 # for test cases are only the same keys can be used to save resources.
 # TODO implement have a list maybe called burned_keys and send each time a new one.
-${ALLOW_IR_SAME_KEY}       ${True}
+${ALLOW_IR_SAME_KEY}       ${False}
 # Could be used to always load the same PKIMessage structure and patch it during testing.
 # TODO implement a one dataclass for the PKIMessage to always patch the same message if allowed,
 # to have some lax test settings and save as much resources as possible.
@@ -180,3 +180,34 @@ ${DEFAULT_SLH_DSA_PRE_HASH_ALG}    sha256
 
 ${KEM_CERT_FILE_PATH}    ${None}
 
+
+${ca_base_url}=   http://127.0.0.1:5000/
+${uri_multiple_auth}=   ${None}
+${issuing_suffix}=   issuing
+${catalyst_issuing}=  hybrid/catalyst-issuing
+${catalyst_signature}=   hybrid/catalyst-sig
+${sun_hybrid_issuing_suffix}=   hybrid/Sun-hybrid
+${chameleon_suffix}=   hybrid/chameleon
+${related_cert_suffix}=   hybrid/related-Cert
+${multi_auth_suffix}=   hybrid/multi-auth
+${cert_discovery_suffix}=   hybrid/cert-discovery
+
+${ISSUED_KEY}=   ${None}
+${ISSUED_CERT}=   ${None}
+${COMPOSITE_KEM_KEY}=   ${None}
+${COMPOSITE_KEM_CERT}=   ${None}
+${REVOKED_COMP_KEM_KEY}=   ${None}
+${REVOKED_COMP_KEM_CERT}=   ${None}
+${COMPOSITE_KEY}=   ${None}
+${COMPOSITE_CERT}=   ${None}
+${REVOKED_COMP_KEY}=   ${None}
+${REVOKED_COMP_CERT}=   ${None}
+${UPDATED_COMP_KEY}=   ${None}
+${UPDATED_COMP_CERT}=   ${None}
+${CHAM_KEY1}=   ${None}
+${CHAM_KEY2}=   ${None}
+${CHAMELEON_CERT}=   ${None}
+${RELATED_CERT}=   ${None}
+${RELATED_KEY}=   ${None}
+${RELATED_CERT_SEC}=   ${None}
+${RELATED_KEY_SEC}=   ${None}

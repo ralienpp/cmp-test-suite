@@ -198,6 +198,13 @@ class WrongIntegrity(CMPTestSuiteError):
     bit_num = 12
 
 
+class AddInfoNotAvailable(CMPTestSuiteError):
+    """Raised when the additional information is needed to perform the action."""
+
+    failinfo = "addInfoNotAvailable"
+    bit_num = 17
+
+
 class BadCertTemplate(CMPTestSuiteError):
     """Raised when the certificate template is invalid."""
 

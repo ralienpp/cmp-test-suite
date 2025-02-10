@@ -356,6 +356,15 @@ class CAHandler:
             pki_message=pki_message,
             issued_certs=self.state.get_issued_certs(pki_message=pki_message),
         )
+    def _check_for_compromised_key(self, pki_message: rfc9480.PKIMessage) -> None:
+        """Check the request for a compromised key.
+
+        :param pki_message: The PKIMessage request.
+        :raises BadCertTemplate: If the certificate template is invalid.
+        """
+        result = self.state.cert_state_db.check_request_for_compromised_key(pki_message)
+        if result:
+            raise BadCertTemplate("The certificate template contained a compromised key.")
 
     def process_p10cr(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
         """Process the P10CR message.

@@ -169,6 +169,16 @@ def _build_error_from_exception(e: CMPTestSuiteError) -> rfc9480.PKIMessage:
     return msg
 
 
+def _is_encrypted_cert(pki_message) -> bool:
+    """Check if the certificate is encrypted.
+
+    :param pki_message: The PKIMessage.
+    :return: `True` if the certificate is encrypted, otherwise `False`.
+    """
+    rep = get_cert_response_from_pkimessage(pki_message, response_index=0)
+    return rep["certifiedKeyPair"]["certOrEncCert"]["encryptedCert"].isValue
+
+
 class CAHandler:
     """A simple class to handle the CA operations."""
 
@@ -709,9 +719,7 @@ def handle_issuing() -> Response:
         data = request.get_data()
         pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
         pki_message = handler.process_normal_request(pki_message)
-        logging.warning("Response: %s", pki_message.prettyPrint())
-        response_data = encoder.encode(pki_message)
-        return Response(response_data, content_type="application/octet-stream")
+        return _build_response(pki_message)
     except Exception as e:
         # Handle any errors gracefully
         return Response(f"Error: {str(e)}", status=500, content_type="text/plain")
@@ -725,13 +733,13 @@ def handle_chameleon():
     """
     data = request.get_data()
     pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
-    pki_message = handler.process_normal_request(pki_message)
-    return handler.process_chameleon(
+    pki_message = handler.process_chameleon(
         pki_message=pki_message,
     )
+    return _build_response(pki_message)
 
 
-@app.route("/sun_hybrid", methods=["POST"])
+@app.route("/hybrid/Sun-hybrid", methods=["POST"])
 def handle_sun_hybrid():
     """Handle the Sun Hybrid request.
 
@@ -739,10 +747,10 @@ def handle_sun_hybrid():
     """
     data = request.get_data()
     pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
-    pki_message = handler.process_normal_request(pki_message)
-    return handler.process_sun_hybrid(
+    response = handler.process_sun_hybrid(
         pki_message=pki_message,
     )
+    return _build_response(response)
 
 
 @app.route("/multi-auth", methods=["POST"])
@@ -753,10 +761,10 @@ def handle_multi_auth():
     """
     data = request.get_data()
     pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
-    pki_message = handler.process_normal_request(pki_message)
-    return handler.process_multi_auth(
+    pki_message = handler.process_multi_auth(
         pki_message=pki_message,
     )
+    return _build_response(pki_message)
 
 
 @app.route("/cert-discovery", methods=["POST"])
@@ -768,7 +776,7 @@ def handle_cert_discovery():
     data = request.get_data()
     pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
     pki_message = handler.process_cert_discovery(pki_message)
-    return pki_message
+    return _build_response(pki_message)
 
 
 @app.route("/related-cert", methods=["POST"])
@@ -780,7 +788,7 @@ def handle_related_cert():
     data = request.get_data()
     pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
     pki_message = handler.process_related_cert(pki_message)
-    return pki_message
+    return _build_response(pki_message)
 
 
 @app.route("/catalyst-sig", methods=["POST"])
@@ -792,7 +800,7 @@ def handle_catalyst_sig():
     data = request.get_data()
     pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
     pki_message = handler.process_catalyst_sig(pki_message)
-    return pki_message
+    return _build_response(pki_message)
 
 
 @app.route("/catalyst-issuing", methods=["POST"])
@@ -804,7 +812,7 @@ def handle_catalyst():
     data = request.get_data()
     pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
     pki_message = handler.process_catalyst_issuing(pki_message)
-    return pki_message
+    return _build_response(pki_message)
 
 
 if __name__ == "__main__":

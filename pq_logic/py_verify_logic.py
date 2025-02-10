@@ -212,6 +212,59 @@ def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
         raise UnknownOID(sig_alg["algorithm"], extra_info="Composite signature can not be verified.")
 
 
+def build_sun_hybrid_cert_chain(  # noqa D417 undocumented-param
+    cert: rfc9480.CMPCertificate, certs: Sequence[rfc9480.CMPCertificate]
+) -> List[rfc9480.CMPCertificate]:
+    """Build the SUN hybrid certificate chain.
+
+    Arguments:
+    ---------
+        - `cert`: The SUN hybrid certificate.
+        - `certs`: A list of certificates to search for the related certificate.
+
+    Returns:
+    -------
+        - A list of certificates in the chain. starting with the EE certificate.
+
+    Raises:
+    ------
+        - `ValueError`: If no issuer certificate is found.
+
+    Examples:
+    --------
+    | ${chain} = | Build Sun Hybrid Cert Chain | ${cert} | ${certs} |
+
+    """
+    cert4 = sun_lamps_hybrid_scheme_00.convert_sun_hybrid_cert_to_target_form(cert, "Form4")
+
+    chain = [cert4]
+    for entry in certs:
+        try:
+            issuer = find_sun_hybrid_issuer_cert(cert, entry)
+        except ValueError:
+            continue
+        chain.append(issuer)
+        cert = issuer
+
+    if len(chain) == 1:
+        raise ValueError("No issuer certificate found.")
+    return chain
+
+
+def _verify_sun_hybrid_trad_sig(
+    cert: rfc9480.CMPCertificate,
+    issuer_cert: rfc9480.CMPCertificate,
+) -> None:
+    """Verify the traditional signature of a SUN hybrid certificate."""
+    cert4 = sun_lamps_hybrid_scheme_00.convert_sun_hybrid_cert_to_target_form(cert, "Form4")
+
+    public_key = certutils.load_public_key_from_cert(issuer_cert)
+    data = encoder.encode(cert4["tbsCertificate"])
+    alg_id = cert4["tbsCertificate"]["signature"]
+    signature = cert4["signature"].asOctets()
+    pq_compute_utils.verify_signature_with_alg_id(public_key=public_key, data=data, signature=signature, alg_id=alg_id)
+
+
 def verify_sun_hybrid_cert(  # noqa D417 undocumented-param
     cert: rfc9480.CMPCertificate,
     issuer_cert: rfc9480.CMPCertificate,
@@ -245,20 +298,17 @@ def verify_sun_hybrid_cert(  # noqa D417 undocumented-param
     | Verify Sun Hybrid Cert | ${cert} | ${issuer_cert} |
 
     """
+    cert4 = sun_lamps_hybrid_scheme_00.convert_sun_hybrid_cert_to_target_form(cert, "Form4")
+
+    _verify_sun_hybrid_trad_sig(cert, issuer_cert)
     if alt_issuer_key is None:
         alt_issuer_key = pq_compute_utils.may_extract_alt_key_from_cert(issuer_cert, other_certs=other_certs)
         if alt_issuer_key is None:
             raise ValueError("No alternative issuer key found.")
 
-    alt_pub_key = sun_lamps_hybrid_scheme_00.validate_alt_pub_key_extn(cert)
+    _ = sun_lamps_hybrid_scheme_00.validate_alt_pub_key_extn(cert4)
     if check_alt_sig:
-        sun_lamps_hybrid_scheme_00.validate_alt_sig_extn(cert, alt_pub_key, alt_issuer_key)
-
-    public_key = certutils.load_public_key_from_cert(issuer_cert)
-    data = encoder.encode(cert["tbsCertificate"])
-    alg_id = cert["tbsCertificate"]["signature"]
-    signature = cert["signature"].asOctets()
-    pq_compute_utils.verify_signature_with_alg_id(public_key=public_key, data=data, signature=signature, alg_id=alg_id)
+        sun_lamps_hybrid_scheme_00.validate_alt_sig_extn(cert4, alt_issuer_key)
 
 
 def _get_catalyst_info_vals(

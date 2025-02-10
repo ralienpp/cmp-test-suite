@@ -601,6 +601,26 @@ class CAHandler:
         )
         return self.sign_response(response=pki_message, request_msg=pki_message)
 
+    def process_ocsp_request(self, data: bytes) -> bytes:
+        """Process the OCSP request and return the response."""
+        ocsp_request = ocsp.load_der_ocsp_request(data)
+        response = self.state.cert_state_db.get_ocsp_response(
+            request=ocsp_request,
+            ca_cert=self.ca_cert,
+            sign_key=self.ca_key,
+        )
+
+        return response.public_bytes(encoding=Encoding.DER)
+
+    def process_crl(self) -> bytes:
+        """Process the CRL request and return the response."""
+        response = self.state.cert_state_db.get_crl_response(
+            ca_cert=self.ca_cert,
+            sign_key=self.ca_key,
+            hash_alg="sha256",
+        )
+        return response.public_bytes(encoding=Encoding.DER)
+
 
 app = Flask(__name__)
 state = MockCAState()

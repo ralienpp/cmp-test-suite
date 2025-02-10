@@ -1352,3 +1352,103 @@ def check_ocsp_response_for_cert(  # noqa D417 undocumented-param
         )
 
 
+def _get_cert_status(status: Optional[str]) -> ocsp.OCSPCertStatus:
+    """Get the OCSP certificate status."""
+    if status == "good":
+        return ocsp.OCSPCertStatus.GOOD
+    if status == "revoked":
+        return ocsp.OCSPCertStatus.REVOKED
+    if status == "unknown":
+        return ocsp.OCSPCertStatus.UNKNOWN
+    if status is None:
+        return ocsp.OCSPCertStatus.UNKNOWN
+    raise ValueError(f"Invalid status: {status}")
+
+
+def _get_reason_flags(reason: Optional[str]) -> Optional[ReasonFlags]:
+    """Get the OCSP revocation reason flags."""
+    if reason is None:
+        return None
+    return ReasonFlags(reason)
+
+
+# TODO add unsuccessful handling.
+
+
+@not_keyword
+def build_ocsp_response(
+    cert: rfc9480.CMPCertificate,
+    ca_cert: rfc9480.CMPCertificate,
+    responder_key: PrivateKeySig,
+    status: str,
+    hash_alg: str = "sha256",
+    revocation_reason: Optional[str] = None,
+    responder_cert: rfc9480.CMPCertificate = None,
+    responder_hash_alg: str = "sha256",
+    revocation_time: datetime = None,
+    build_by_key: bool = True,
+    nonce: Optional[bytes] = None,
+) -> ocsp.OCSPResponse:
+    """Build an OCSP response for a list of certificates.
+
+    :param cert: The certificate to check.
+    :param ca_cert: The issuer's certificate.
+    :param responder_key: The responder private key.
+    :param status: The status of the certificate. **Must** be one of "good", "revoked", or "unknown".
+    :param hash_alg: The hash algorithm to use for the OCSP response. Defaults to "sha256".
+    :param revocation_reason: The revocation reason for the certificate. Defaults to `None`.
+    :param responder_cert: The responder certificate. Defaults to `ca_cert`.
+    :param responder_hash_alg: The hash algorithm to use for the responder. Defaults to "sha256".
+    :param revocation_time: The revocation time for the certificate. Defaults to `None`.
+    (must be present if the certificate is revoked, but will be set to the current time if not provided).
+    :param build_by_key: Whether to build the OCSP response by hash of the key or name. Defaults to `True`.
+    :param nonce: The nonce to include in the OCSP response. Defaults to 16 random bytes.
+    :return: The OCSP response.
+    :raises ValueError: If the status is invalid.
+    """
+    ca_cert = _convert_to_crypto_lib_cert(ca_cert)
+    builder = ocsp.OCSPResponseBuilder()
+    hash_instance = oid_mapping.hash_name_to_instance(hash_alg)
+
+    cert = _convert_to_crypto_lib_cert(cert)
+    cert_status = _get_cert_status(status)
+    reason = _get_reason_flags(revocation_reason)
+
+    if cert_status == ocsp.OCSPCertStatus.REVOKED and revocation_time is None:
+        # must be present if the certificate is revoked.
+        revocation_time = datetime.now()
+
+    builder = builder.add_response(
+        cert=cert,
+        issuer=ca_cert,
+        algorithm=hash_instance,
+        cert_status=cert_status,
+        revocation_reason=reason,
+        this_update=datetime.now(),
+        next_update=None,
+        revocation_time=revocation_time,
+    )
+
+    if responder_cert:
+        responder_cert = _convert_to_crypto_lib_cert(responder_cert)
+
+    responder_cert = responder_cert or ca_cert
+
+    # Set the responder ID; it can be either byName (DER encoded `NAME`) or byKey (hash).
+    if build_by_key:
+        _encoding = ocsp.OCSPResponderEncoding.HASH
+    else:
+        _encoding = ocsp.OCSPResponderEncoding.NAME
+
+    builder = builder.responder_id(encoding=_encoding, responder_cert=responder_cert)
+
+    if nonce is None:
+        # allow range is 1-32 from the RFC 8954.
+        nonce = os.urandom(16)
+
+    builder = builder.add_extension(x509.OCSPNonce(nonce), critical=False)
+
+    hash_instance = oid_mapping.hash_name_to_instance(responder_hash_alg)
+    return builder.sign(responder_key, hash_instance)
+
+

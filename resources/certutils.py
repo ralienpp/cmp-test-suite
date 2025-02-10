@@ -1216,3 +1216,40 @@ def check_ocsp_response(
         raise ValueError(f"OCSP response status was `{state}`, but expected `{expected_status}`")
 
 
+def _post_ocsp_request(
+    url: str,
+    ocsp_request_data: bytes,
+    timeout: int,
+    allow_request_failure: bool,
+) -> Optional[requests.Response]:
+    """Send an OCSP request to a specified OCSP responder.
+
+    :param url: The URL of the OCSP responder.
+    :param ocsp_request_data: The OCSP request data.
+    :param timeout: The timeout for the request.
+    :param allow_request_failure: Whether to allow the request to fail. Defaults to `False`.
+    :return: The OCSP response.
+    :raises ValueError: If the OCSP response is invalid or the request fails.
+    """
+    headers = {"Content-Type": "application/ocsp-request"}
+    try:
+        response = requests.post(url=url, data=ocsp_request_data, headers=headers, timeout=timeout)
+
+    except requests.exceptions.RequestException as err:
+        if allow_request_failure:
+            logging.warning(f"Failed to send OCSP request. Error: {err}")
+            return None
+        raise ValueError(f"Failed to send OCSP request. Error: {err}")
+
+    if response.status_code != 200 and not allow_request_failure:
+        logging.warning(f"Failed to send OCSP request. Status code: {response.status_code}")
+        logging.debug(f"Response: {response.text}")
+        raise ValueError(f"Failed to send OCSP request. Status code: {response.status_code}")
+    if response.status_code != 200 and allow_request_failure:
+        logging.warning(f"Failed to send OCSP request. Status code: {response.status_code}")
+        logging.debug(f"Response: {response.text}")
+        return None
+
+    return response
+
+

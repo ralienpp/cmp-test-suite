@@ -9,6 +9,9 @@ import sys
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from cryptography.x509 import ocsp
+
 sys.path.append(".")
 
 from cryptography import x509
@@ -22,7 +25,7 @@ from pq_logic.hybrid_issuing import (
     build_sun_hybrid_cert_from_request,
 )
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
-from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import extract_sun_hybrid_alt_sig
+from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import extract_sun_hybrid_alt_sig, sun_cert_template_to_cert
 from pq_logic.py_verify_logic import verify_hybrid_pkimessage_protection
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
@@ -33,12 +36,17 @@ from resources.ca_ra_utils import (
     build_pki_conf_from_cert_conf,
     build_rp_from_rr,
 )
-from resources.certbuildutils import build_certificate
+from resources.certbuildutils import (
+    build_certificate,
+    prepare_cert_template,
+    prepare_crl_distribution_point_extension,
+    prepare_ocsp_extension,
+)
 from resources.certutils import parse_certificate
-from resources.cmputils import build_cmp_error_message
-from resources.exceptions import BadRequest, CMPTestSuiteError, TransactionIdInUse
+from resources.cmputils import build_cmp_error_message, get_cert_response_from_pkimessage
+from resources.exceptions import BadCertTemplate, BadMessageCheck, BadRequest, CMPTestSuiteError, TransactionIdInUse
 from resources.general_msg_utils import build_genp_kem_ct_info_from_genm
-from resources.keyutils import load_private_key_from_file
+from resources.keyutils import generate_key, load_private_key_from_file
 from resources.protectionutils import (
     get_protection_type_from_pkimessage,
     protect_pkimessage,
@@ -46,6 +54,8 @@ from resources.protectionutils import (
 )
 from resources.typingutils import PrivateKey, PublicKey
 from resources.utils import load_and_decode_pem_file
+
+from mock_ca.mock_fun import CertRevStateDB
 
 
 @dataclass
@@ -69,6 +79,7 @@ class MockCAState:
 
     """
 
+    cert_state_db: CertRevStateDB = field(default_factory=CertRevStateDB)
     currently_used_ids: Set[bytes] = field(default_factory=set)
     issued_certs: List[rfc9480.CMPCertificate] = field(default_factory=list)
     # stores the transaction id mapped to the shared secret.
@@ -78,16 +89,16 @@ class MockCAState:
     challenge_rand_int: Dict[bytes, int] = field(default_factory=dict)
     sun_hybrid_state: SunHybridState = field(default_factory=SunHybridState)
 
-    def store_transaction_certificate(
-        self, transaction_id: bytes, sender: rfc9480.GeneralName, certs: List[rfc9480.CMPCertificate]
-    ) -> None:
+    def store_transaction_certificate(self, pki_message, certs: List[rfc9480.CMPCertificate]) -> None:
         """Store a transaction certificate.
 
-        :param transaction_id: The transaction ID.
-        :param sender: The sender of the transaction.
+        :param pki_message: The PKIMessage request.
         :param certs: A list of certificates to store.
         :raises TransactionIdInUse: If the transaction ID is already in use.
         """
+        transaction_id = pki_message["header"]["transactionID"].asOctets()
+        sender = pki_message["header"]["sender"]
+
         if transaction_id in self.currently_used_ids:
             raise TransactionIdInUse(f"Transaction ID {transaction_id.hex()} already exists for sender {sender}")
 
@@ -135,6 +146,17 @@ class MockCAState:
                 return cert
 
         raise BadRequest(f"Could not find certificate with serial number {serial_number}")
+
+    def add_certs(self, certs: List[rfc9480.CMPCertificate]) -> None:
+        """Add the issued certificates to the state.
+
+        :param certs: The certificates to add.
+        """
+        self.issued_certs.extend(certs)
+
+    def check_request_for_compromised_key(self, request: rfc9480.PKIMessage) -> bool:
+        """Check the request for a compromised key."""
+        return self.cert_state_db.check_request_for_compromised_key(request)
 
 
 def _build_error_from_exception(e: CMPTestSuiteError) -> rfc9480.PKIMessage:

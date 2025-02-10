@@ -242,6 +242,7 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
     bad_sig: bool = False,
+    **kwargs,
 ) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate]:
     """Build a certificate from a Catalyst request.
 
@@ -301,7 +302,10 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
         hash_alg=hash_alg,
         use_rsa_pss=use_rsa_pss,
         use_pre_hash=False,
+        include_extensions=False,
     )
+    if kwargs.get("extensions"):
+        tbs_certs["extensions"].extend(kwargs.get("extensions"))
 
     alt_spki_extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(key=second_key, critical=False)
 
@@ -705,7 +709,7 @@ def build_catalyst_signed_cert_from_p10cr(
         ca_cert=ca_cert,
         hash_alg=hash_alg,
         use_rsa_pss=use_rsa_pss,
-        include_extensions=False,
+        include_csr_extensions=False,
     )
 
     cert = catalyst_logic.sign_cert_catalyst(
@@ -728,6 +732,7 @@ def _process_single_catalyst_request(
     use_rsa_pss: bool = True,
     cert_req_id: Optional[Union[int, str]] = None,
     hybrid_kem_key: Optional[Union[HybridKEMPrivateKey, ECDHPrivateKey]] = None,
+    extensions: Optional[rfc9480.Extensions] = None,
 ) -> CA_CERT_RESPONSE:
     """Process a single Catalyst request.
 
@@ -741,6 +746,7 @@ def _process_single_catalyst_request(
     :param use_rsa_pss: Whether to use RSA-PSS for signing. Defaults to `True`.
     :param cert_req_id: The certificate request ID. Defaults to `None`.
     :param hybrid_kem_key: The optional hybrid key to use for the HybridKEM key encapsulation.
+    :param extensions: The optional extensions to use for the certificate. Defaults to `None`.
     :return: The certificate response and the issued certificate.
     """
     cert_template = cert_req_msg["certReq"]["certTemplate"]
@@ -759,6 +765,7 @@ def _process_single_catalyst_request(
         hash_alg=hash_alg,
         use_rsa_pss=use_rsa_pss,
         use_pre_hash=False,
+        extensions=extensions,
     )
     new_ee_cert = catalyst_logic.sign_cert_catalyst(
         cert=new_ee_cert,
@@ -802,6 +809,7 @@ def _process_catalyst_requests(
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
     hybrid_kem_key: Optional[Union[HybridKEMPrivateKey, ECDHPrivateKey]] = None,
+    extensions: Optional[rfc9480.Extensions] = None,
 ) -> CA_CERT_RESPONSES:
     """Process multiple Catalyst requests.
 
@@ -815,6 +823,7 @@ def _process_catalyst_requests(
     :param use_rsa_pss: Whether to use RSA-PSS for signing. Defaults to `True`.
     :param hybrid_kem_key: The optional hybrid key to use for the HybridKEM key encapsulation.
     (when build an encrypted certificate response.)
+    :param extensions: The optional extensions to use for the certificate. Defaults to `None`.
     :return: A list of certificate responses and a list of issued certificates.
     """
     responses = []
@@ -836,6 +845,7 @@ def _process_catalyst_requests(
             use_rsa_pss=use_rsa_pss,
             cert_req_id=None,
             hybrid_kem_key=hybrid_kem_key,
+            extensions=extensions,
         )
         responses.append(cert_response)
         certs.append(cert)
@@ -853,6 +863,7 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
     use_rsa_pss: bool = True,
     allow_chosen_sig_alg: bool = True,
     hybrid_kem_key: Optional[Union[HybridKEMPrivateKey, ECDHPrivateKey]] = None,
+    **kwargs,
 ) -> CA_RESPONSE:
     """Build a certificate from a Catalyst request.
 
@@ -1036,13 +1047,17 @@ def build_cert_discovery_cert_from_p10cr(  # noqa: D417 Missing argument descrip
         other_cert=certs[0] if set_other_cert_vals else None,
     )
 
+    extn = [extn]
+    if kwargs.get("extensions"):
+        extn.extend(kwargs.get("extensions"))
+
     cert = certbuildutils.build_cert_from_csr(
         csr=request["body"]["p10cr"],
         ca_key=ca_key,
         ca_cert=ca_cert,
         hash_alg=kwargs.get("hash_alg", "sha256"),
         use_rsa_pss=kwargs.get("use_rsa_pss", True),
-        extensions=[extn],
+        extensions=extn,
         serial_number=serial_number,
     )
 
@@ -1104,12 +1119,16 @@ def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in 
 
     extn = prepare_related_cert_extension(related_cert, critical=critical)
 
+    extn = [extn]
+    if kwargs.get("extensions"):
+        extn.extend(kwargs.get("extensions"))
+
     # build the certificate
     cert = build_cert_from_csr(
         csr=csr,
         ca_key=ca_key,
         ca_cert=ca_cert,
-        extensions=[extn],
+        extensions=extn,
     )
 
     return cert

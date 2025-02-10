@@ -1193,7 +1193,7 @@ def check_ocsp_response(
     :param ocsp_response: The OCSP response to check.
     :param cert: The certificate to check.
     :param expected_status: The expected status of the certificate. Defaults to "revoked".
-    :param allow_unknown_status: Whether to treat an unknown status as a success. Defaults to `False`.
+    :param allow_unknown_status: Whether to treat an unknown status as success. Defaults to `False`.
     :raises ValueError: If the OCSP response is invalid or the request fails.
     """
     if ocsp_response.response_status != ocsp.OCSPResponseStatus.SUCCESSFUL:

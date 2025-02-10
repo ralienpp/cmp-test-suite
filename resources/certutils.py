@@ -1253,3 +1253,34 @@ def _post_ocsp_request(
     return response
 
 
+def _handel_single_ocsp_request(
+    url: str,
+    ocsp_request_data: bytes,
+    timeout: int,
+    expected_status: str,
+    cert: rfc9480.CMPCertificate,
+    allow_request_failure: bool = False,
+    allow_unknown_status: bool = False,
+) -> None:
+    """Handle a single OCSP request.
+
+    :param url: The URL of the OCSP responder.
+    :param ocsp_request_data: The OCSP request data.
+    :param timeout: The timeout for the request.
+    :param expected_status: The expected status of the certificate.
+    :param cert: The certificate to check.
+    :param allow_request_failure: Whether to allow the request to fail. Defaults to `False`.
+    :param allow_unknown_status: Whether to treat an unknown status as success. Defaults to `False`.
+    :raises ValueError: If the OCSP response is invalid or the request fails.
+    """
+    response = _post_ocsp_request(
+        url=url, ocsp_request_data=ocsp_request_data, allow_request_failure=allow_request_failure, timeout=timeout
+    )
+
+    if response is None:
+        return
+
+    ocsp_response = ocsp.load_der_ocsp_response(response.content)
+    check_ocsp_response(ocsp_response, cert, expected_status=expected_status, allow_unknown_status=allow_unknown_status)
+
+

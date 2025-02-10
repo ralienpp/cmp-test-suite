@@ -13,6 +13,7 @@ Library             OperatingSystem
 Library             String
 Library             ../resources/asn1utils.py
 Library             ../resources/cryptoutils.py
+Library             ../resources/httputils.py
 Library             ../resources/cmputils.py
 Library             ../resources/utils.py
 Library             ../resources/certutils.py
@@ -82,13 +83,13 @@ Load And Parse Example CSR
 
 Exchange Data With CA
     [Documentation]    Send a HTTP POST request to a server, and return the response.
-    [Arguments]    ${payload}
+    [Arguments]    ${payload}    ${url}=${CA_CMP_URL}
 #    Run Keyword And Ignore Error    Try to Log PKIMessage as ASN1    ${payload}
     Try To Log PKIMessage    ${payload}
     # TODO check if type of payload is a pyasn1 structure, and if it is, der-encode it automatically? Maybe?
     VAR    &{headers}    Content-Type=application/pkixcmp    Accept-Type=application/pkixcmp
     ${response}=    POST
-    ...    url=${CA_CMP_URL}
+    ...    url=${url}
     ...    data=${payload}
     ...    headers=&{headers}
     ...    verify=${False}
@@ -189,10 +190,10 @@ Exchange PKIMessage
     [Documentation]    Send a PKIMessage to the CA or RA Server and then then parse the returned PKIMessage.
     ...    Expects to get a parse-able PKIMessage.
     [Tags]    exchange    http
-    [Arguments]    ${request_pki_message}
+    [Arguments]    ${request_pki_message}   ${url}=${CA_CMP_URL}
     ${encoded_request}=    Encode To Der    ${request_pki_message}
     Log Base64    ${encoded_request}
-    ${response}=    Exchange Data With CA    ${encoded_request}
+    ${response}=    Exchange Data With CA    ${encoded_request}   ${url}
     Log Base64    ${response.content}
     ${response_pki_message}=    Parse PKIMessage    ${response.content}
     Collect Nonce From PKIMessage    ${response_pki_message}
@@ -414,3 +415,12 @@ PKIStatus Must Be
     [Arguments]    ${pki_message}  ${status}   ${index}=0
     ${pki_status}=    Get Status From PKIMessage      ${pki_message}    ${index}
     Should Be Equal    ${pki_status}    ${status}
+
+
+
+Exchange Migration PKIMessage
+    [Documentation]    Exchange a PKIMessage with the Mock CA
+    [Arguments]    ${ir}    ${ca_base_url}    ${suffix}=${None}
+    ${url} =    Add URL Suffix    ${ca_base_url}    ${suffix}
+    ${response} =    Exchange PKIMessage    ${ir}    ${url}
+    RETURN    ${response}

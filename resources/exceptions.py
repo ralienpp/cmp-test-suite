@@ -181,6 +181,13 @@ class BadPOP(CMPTestSuiteError):
         super().__init__(message)
 
 
+class CertRevoked(CMPTestSuiteError):
+    """Raised when the certificate is revoked."""
+
+    failinfo = "certRevoked"
+    bit_num = 10
+
+
 class WrongIntegrity(CMPTestSuiteError):
     """Raised when the integrity of the message is wrong.
 

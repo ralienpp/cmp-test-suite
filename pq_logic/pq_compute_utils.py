@@ -217,7 +217,7 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
     if oid in CMS_COMPOSITE_OID_2_NAME:
         public_key = CompositeSigCMSPublicKey.from_spki(spki)
         CompositeSigCMSPublicKey.validate_oid(oid, public_key)
-        return CompositeSigCMSPublicKey.pq_key
+        return public_key.pq_key
 
     return None
 

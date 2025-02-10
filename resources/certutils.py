@@ -1480,3 +1480,29 @@ def _extract_crl_urls_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertifi
     return crl_urls
 
 
+def _parse_crl_and_check_revocation(
+    crl_data: bytes,
+    serial_number: int,
+) -> bool:
+    """Parse the CRL data (PEM or DER) and check if the given serial number is in the CRL.
+
+    :param crl_data: The raw CRL bytes.
+    :param serial_number: The certificate's serial number to check against the CRL.
+    :return: True if the certificate's serial is found in the CRL, False otherwise.
+    :raises IOError: If the CRL data cannot be parsed.
+    """
+    try:
+        crl = x509.load_der_x509_crl(crl_data)
+    except Exception:
+        try:
+            crl = x509.load_pem_x509_crl(crl_data)
+        except Exception as err2:
+            raise IOError(f"Failed to load CRL data: {err2}") from err2
+
+    for revoked_cert in crl:
+        if revoked_cert.serial_number == serial_number:
+            logging.debug(f"Certificate with serial {serial_number} is in the CRL.")
+            return True
+    return False
+
+

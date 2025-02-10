@@ -9,11 +9,10 @@ import os
 import os.path
 import textwrap
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple, Union, Any
+from typing import List, Optional, Tuple, Union
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives._serialization import Encoding
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509.extensions import ExtensionOID
@@ -310,7 +309,7 @@ def load_or_generate_cert_chain() -> Tuple[List[Union[rfc9480.CMPCertificate, x5
     cert_chain = load_certificate_chain("data/unittest/test_cert_chain_len6.pem")
 
     cert: x509.Certificate = convert_to_crypto_lib_cert(cert_chain[0])
-    if cert.not_valid_after_utc <= datetime.datetime.now(datetime.timezone.utc):
+    if cert.not_valid_after_utc <= datetime.now(datetime.timezone.utc):
         _gen_new_certs()
 
     cert_chain = load_certificate_chain("data/unittest/test_cert_chain_len6.pem")
@@ -515,8 +514,10 @@ def _build_kga_cert_signed_by_root():
     write_cmp_certificate_to_pem(kga_cert, "data/unittest/kga_cert_kari_ecdsa.pem")
 
 
-def _build_time_indepeneded_certs():
+def _build_time_independent_certs():
     """Generate time-independent certificates and save them for testing.
+
+
 
     This function prepares various certificates used for testing scenarios:
     - Calls `_build_certs_root_ca_key_update_content` to generate Root CA key update certificates.
@@ -608,7 +609,7 @@ def compare_cert_chain(chain1: List[rfc9480.CMPCertificate], chain2: List[rfc948
 def setup_test_data():
     """Prepare test data by generating or loading certificate chains and dependent resources."""
     load_or_generate_cert_chain()
-    _build_time_indepeneded_certs()
+    _build_time_independent_certs()
 
 
 

@@ -553,6 +553,7 @@ class CAHandler:
             serial_number=serial_number,
             url=f"http://127.0.0.1:5000/cert/{serial_number}",
             load_chain=False,
+            extensions=[self.ocsp_extn, self.crl_extn],
         )
         return self.sign_response(response=pki_message, request_msg=pki_message)
 
@@ -582,6 +583,7 @@ class CAHandler:
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
+            extensions=[self.ocsp_extn, self.crl_extn],
         )
         return self.sign_response(response=pki_message, request_msg=pki_message)
 
@@ -595,6 +597,7 @@ class CAHandler:
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
+            extensions=[self.ocsp_extn, self.crl_extn],
         )
         return self.sign_response(response=pki_message, request_msg=pki_message)
 

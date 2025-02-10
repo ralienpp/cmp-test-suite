@@ -14,14 +14,15 @@ https://www.ietf.org/archive/id/draft-sun-lamps-hybrid-scheme-00.html
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from cryptography.hazmat.primitives import serialization
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc2986, rfc4211, rfc5280, rfc6402, rfc9480
-from resources import certbuildutils, certextractutils, cryptoutils, keyutils, utils
+from resources import certbuildutils, certextractutils, convertutils, cryptoutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate
+from resources.copyasn1utils import copy_subject_public_key_info
 from resources.oid_mapping import get_hash_from_oid, sha_alg_name_to_oid
 from resources.protectionutils import prepare_sha_alg_id
 from resources.typingutils import PrivateKeySig, PublicKey
@@ -342,7 +343,7 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
     csr: rfc6402.CertificationRequest,
     issuer_private_key: PrivateKeySig,
     alt_private_key: PrivateKeySig,
-    issuer_cert: Optional[rfc9480.CMPCertificate] = None,
+    ca_cert: Optional[rfc9480.CMPCertificate] = None,
     hash_alg: str = "sha256",
     serial_number: Optional[int] = None,
     extensions: Optional[List[rfc5280.Extension]] = None,
@@ -398,7 +399,7 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
         csr=csr,
         validity=validity,
         hash_alg=hash_alg,
-        issuer_cert=issuer_cert,
+        issuer_cert=ca_cert,
         extensions=extensions,
         **data,
     )
@@ -414,13 +415,15 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
 
 def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in the docstring
     cert_template: rfc4211.CertTemplate,
-    issuer_cert: rfc9480.CMPCertificate,
-    issuer_private_key: PrivateKeySig,
+    ca_cert: rfc9480.CMPCertificate,
+    ca_key: PrivateKeySig,
     alt_private_key: PrivateKeySig,
     pub_key_loc: Optional[str],
     sig_loc: Optional[str],
     hash_alg: Optional[str] = None,
     serial_number: Optional[int] = None,
+    extensions: Optional[Sequence[rfc5280.Extension]] = None,
+    **kwargs,
 ) -> Tuple[rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Convert a certificate template to a certificate, with the sun hybrid method.
 
@@ -428,12 +431,20 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     ---------
         - `cert_template`: The certificate template, to built the certificate from.
         - `issuer_cert`: The issuer's certificate to use for constructing the certificate.
-        - `issuer_private_key`: The private key of the issuer for signing.
+        - `ca_key`: The private key of the issuer for signing.
         - `alt_private_key`: The alternative private key for creating the alternative signature.
         - `pub_key_loc`: The location of the alternative public key.
         - `sig_loc`: The location of the alternative signature.
         - `hash_alg`: The hash algorithm to use for signing the certificate (e.g., "sha256").
         - `serial_number`: The serial number to use for the certificate. Defaults to `None`.
+        - `issuer`: The issuer's name. Defaults to `None`.
+        - `extensions`: A list of additional extensions to include in the certificate. Defaults to `None`.
+           (as an example for OCSP, CRL, etc.)
+
+    **kwargs:
+    ---------
+        - `bad_alt_sig`: Boolean indicating whether the alternative signature should be invalid. Defaults to `False`.
+
 
     Returns:
     -------
@@ -442,28 +453,40 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     Examples:
     --------
     | ${cert_form4} ${cert_form1}= | Sun Cert Template To Cert | cert_template=${cert_template} \
-    |issuer_cert=${issuer_cert} | issuer_private_key=${key} | alt_private_key=${alt_key} |
+    |issuer_cert=${issuer_cert} | ca_key=${key} | alt_private_key=${alt_key} |
 
     """
+    spki = copy_subject_public_key_info(
+        target=rfc5280.SubjectPublicKeyInfo(), filled_sub_pubkey_info=cert_template["publicKey"]
+    )
+    composite_key = keyutils.load_public_key_from_spki(spki)
+    spki = convertutils.subjectPublicKeyInfo_from_pubkey(composite_key.trad_key)
     tbs_cert = certbuildutils.prepare_tbs_certificate_from_template(
         cert_template=cert_template,
-        issuer_cert=issuer_cert["tbsCertificate"]["subject"],
+        issuer=ca_cert["tbsCertificate"]["subject"],
         serial_number=serial_number,
+        ca_key=ca_key,
+        spki=spki,
+        use_rsa_pss=False,
     )
+    if extensions is not None:
+        tbs_cert["extensions"].extend(extensions)
 
-    composite_key = keyutils.load_public_key_from_spki(tbs_cert["subjectPublicKeyInfo"])
     if not isinstance(composite_key, HybridPublicKey):
         raise ValueError("The public key must be a HybridPublicKey.")
     oid = composite_key.get_oid()
-    hash_alg = hash_alg or CMS_COMPOSITE_OID_2_HASH[oid] or "sha256"
+    hash_alg = hash_alg or CMS_COMPOSITE_OID_2_HASH.get(oid) or "sha256"
     extn_alt_pub, extn_alt_pub2 = _prepare_public_key_extensions(composite_key, hash_alg, pub_key_loc)
 
     tbs_cert["extensions"].append(extn_alt_pub)
 
     pre_tbs_cert = tbs_cert
     data = encoder.encode(pre_tbs_cert)
-    signature = cryptoutils.sign_data(key=alt_private_key, data=data, hash_alg=hash_alg)
+    signature = cryptoutils.sign_data(key=alt_private_key, data=data, hash_alg=hash_alg, use_rsa_pss=False)
     sig_alg_id = certbuildutils.prepare_sig_alg_id(signing_key=alt_private_key, hash_alg=hash_alg, use_rsa_pss=False)
+
+    if kwargs.get("bad_alt_sig", False):
+        signature = utils.manipulate_first_byte(signature)
 
     extn_alt_sig = prepare_sun_hybrid_alt_signature_ext(
         signature=signature, by_val=False, hash_alg=hash_alg, alt_sig_algorithm=sig_alg_id, location=sig_loc
@@ -480,8 +503,8 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
 
     # Sign with the first public key.
     final_tbs_cert_data = encoder.encode(pre_tbs_cert)
-    signature = cryptoutils.sign_data(key=issuer_private_key, data=final_tbs_cert_data, hash_alg=hash_alg)
-    sig_alg_id = certbuildutils.prepare_sig_alg_id(signing_key=issuer_private_key, hash_alg=hash_alg, use_rsa_pss=False)
+    signature = cryptoutils.sign_data(key=ca_key, data=final_tbs_cert_data, hash_alg=hash_alg)
+    sig_alg_id = certbuildutils.prepare_sig_alg_id(signing_key=ca_key, hash_alg=hash_alg, use_rsa_pss=False)
 
     cert_form4 = rfc9480.CMPCertificate()
     cert_form4["tbsCertificate"] = pre_tbs_cert

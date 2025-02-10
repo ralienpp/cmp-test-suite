@@ -21,7 +21,7 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
-from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, protectionutils, utils
+from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, utils
 from resources.asn1_structures import PKIMessagesTMP
 from resources.ca_ra_utils import build_ca_message
 from resources.certbuildutils import build_cert_from_csr
@@ -219,17 +219,18 @@ def build_enc_cert_response(
     )
 
     cert_response = ca_ra_utils.prepare_cert_response(
-        request=request,
         enc_cert=enc_cert,
         cert_req_id=cert_req_id,
         text="Issued encrypted certificate please verify with `CertConf`",
     )
 
-    pki_message = build_ca_message(request=request, responses=[cert_response])
-
-    pki_message = cmputils.patch_pkimessage_header_with_other_message(
-        target=pki_message, other_message=request, for_exchange=True
+    pki_message = build_ca_message(
+        request=request,
+        responses=[cert_response],
+        transaction_id=request["header"]["transactionID"].asOctets(),
+        recip_nonce=request["header"]["senderNonce"].asOctets(),
     )
+
     return pki_message
 
 

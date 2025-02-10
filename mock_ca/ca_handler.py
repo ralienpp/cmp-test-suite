@@ -644,6 +644,18 @@ def _build_response(pki_message: rfc9480.PKIMessage) -> Response:
     return Response(response_data, content_type="application/octet-stream")
 
 
+@app.route("/ocsp", methods=["POST"])
+def handle_ocsp_request():
+    """Handle the OCSP request."""
+    data = handler.process_ocsp_request(request.get_data())
+    return Response(data, content_type="application/ocsp-response")
+
+
+@app.route("/crl", methods=["GET"])
+def handle_crl_request():
+    """Handle the CRL request."""
+    data = handler.process_crl()
+    return Response(data, content_type="application/pkix-crl")
 
 
 @app.route("/cert/<serial_number>", methods=["GET"])

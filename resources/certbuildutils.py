@@ -1733,3 +1733,29 @@ def prepare_ocsp_extension(
     return extension
 
 
+def prepare_crl_distribution_point_extension(
+    crl_url: str,
+    critical: bool = False,
+) -> rfc5280.Extension:
+    """Prepare a CRL distribution point extension.
+
+    :param crl_url: The URL of the CRL distribution point.
+    :param critical: Whether the extension is marked as critical or not. Defaults to `False`.
+    :return: The prepared `CRLDistributionPoints` extension.
+    """
+    crl_dp = x509.CRLDistributionPoints(
+        [
+            x509.DistributionPoint(
+                full_name=[x509.UniformResourceIdentifier(crl_url)],
+                relative_name=None,
+                reasons=None,
+                crl_issuer=None,
+            )
+        ]
+    )
+
+    extension = rfc5280.Extension()
+    extension["extnID"] = rfc5280.id_ce_cRLDistributionPoints
+    extension["critical"] = critical
+    extension["extnValue"] = univ.OctetString(crl_dp.public_bytes())
+    return extension

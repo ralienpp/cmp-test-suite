@@ -281,6 +281,9 @@ class CAHandler:
         """
         logging.debug("Processing request with body: %s", pki_message["body"].getName())
         try:
+            if pki_message["body"].getName() in ["ir", "cr", "p10cr", "crr", "kur"]:
+                self._check_for_compromised_key(pki_message)
+
             if pki_message["body"].getName() == "rr":
                 response = self.process_rr(pki_message)
             elif pki_message["body"].getName() == "certConf":

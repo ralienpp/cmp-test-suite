@@ -1506,3 +1506,28 @@ def _parse_crl_and_check_revocation(
     return False
 
 
+@not_keyword
+def process_single_crl_check(
+    serial_number: int,
+    crl_url: Optional[str] = None,
+    crl_file_path: Optional[str] = None,
+    timeout: int = 10,
+) -> bool:
+    """Check if a certificate is revoked, by checking against a CRL.
+
+    :param serial_number: Serial number of the certificate to check.
+    :param crl_url: The URL of the CRL to check against.
+    :param crl_file_path: The file path of the CRL to check against.
+    :param timeout: The timeout in seconds for the request. Defaults to `10`.
+    :return: Whether the certificate is revoked.
+    """
+    if crl_url:
+        response = requests.get(crl_url, timeout=timeout)
+        crl_data = response.content
+    elif crl_file_path:
+        with open(crl_file_path, "rb") as crl_file:
+            crl_data = crl_file.read()
+
+    return _parse_crl_and_check_revocation(crl_data, serial_number)
+
+

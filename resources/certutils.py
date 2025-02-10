@@ -1284,3 +1284,71 @@ def _handel_single_ocsp_request(
     check_ocsp_response(ocsp_response, cert, expected_status=expected_status, allow_unknown_status=allow_unknown_status)
 
 
+@keyword(name="Check OCSP Response For Cert")
+def check_ocsp_response_for_cert(  # noqa D417 undocumented-param
+    cert: rfc9480.CMPCertificate,
+    issuer: rfc9480.CMPCertificate,
+    ocsp_url: Optional[str] = None,
+    timeout: Strint = 60,
+    hash_alg: str = "sha256",
+    expected_status: str = "revoked",
+    allow_request_failure: bool = False,
+    must_be_present: Optional[bool] = None,
+    allow_unknown_status: bool = False,
+):
+    """Send an OCSP request to a specified OCSP responder.
+
+    Arguments:
+    ---------
+        - `cert`: The certificate to check.
+        - `issuer`: The issuer certificate.
+        - `ocsp_url`: The URL of the OCSP responder. Defaults to the URL in the certificate's AIA extension.
+        - `timeout`: The timeout in seconds for the request. Defaults to `60` seconds.
+        - `hash_alg`: The hash algorithm to use for the OCSP request. Defaults to "sha256".
+        - `expected_status`: The expected status of the certificate. Defaults to "revoked".
+        - `allow_request_failure`: Whether to allow the request to fail. Defaults to `False`.
+        - `must_be_present`: Whether the OCSP URLs must be present in the certificate's AIA extension.
+        Defaults to `None` (will be set to `True` if no `ocsp_url` is provided, otherwise `False`).
+        - `allow_unknown_status`: Whether to treat an unknown status as success. Defaults to `False`.
+        (e.g., If set to True, an "unknown" status is returned and expected was either
+        "revoked" or "good", the keyword will not raise an error).
+
+    Raises:
+    ------
+        - `ValueError`: If the OCSP response is invalid or the request fails.
+        - `ValueError`: If the expected status is invalid (must be one of "good", "revoked", or "unknown").
+        - `ExtensionNotFound`: If no OCSP URL(s) are found in the certificate's AIA extension.
+    Examples:
+    --------
+    | Check OCSP Response For Cert | cert=${cert} | issuer=${issuer} | ocsp_url=${ocsp_url} |
+    | Check OCSP Response For Cert | cert=${cert} | issuer=${issuer} | expected_status=good |
+    | Check OCSP Response For Cert | cert=${cert} | issuer=${issuer} | expected_status=unknown | timeout=30 |
+
+    """
+    if expected_status not in ["good", "revoked", "unknown"]:
+        raise ValueError("Invalid expected status. Must be one of 'good', 'revoked', or 'unknown'")
+
+    if must_be_present is None:
+        must_be_present = True if not ocsp_url else False
+
+    req, ocsp_url_found = create_ocsp_request(
+        cert=cert, ca_cert=issuer, hash_alg=hash_alg, must_be_present=must_be_present
+    )
+    ocsp_request_data = req.public_bytes(serialization.Encoding.DER)
+    ocsp_url = ocsp_url or ocsp_url_found
+
+    if isinstance(ocsp_url, str):
+        ocsp_url = [ocsp_url]
+
+    for url in ocsp_url:
+        _handel_single_ocsp_request(
+            url=url,
+            ocsp_request_data=ocsp_request_data,
+            timeout=int(timeout),
+            expected_status=expected_status,
+            cert=cert,
+            allow_request_failure=allow_request_failure,
+            allow_unknown_status=allow_unknown_status,
+        )
+
+

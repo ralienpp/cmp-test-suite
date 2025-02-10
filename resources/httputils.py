@@ -268,3 +268,14 @@ def _unsafe_client():
 
 
 """
+# will fail because of the mismatch between the server's certificate 
+and the Hostname "localhost" !!!
+ssl_client(
+        server_host="localhost",
+        server_port=8443,
+        client_cert="./data/unittest/bare_certificate.pem",
+        client_key="./data/keys/private-key-rsa.pem",
+        server_ca_cert="./data/unittest/bare_certificate.pem",
+        message=b"Hello, World!",
+    )
+"""  # noqa: W291 Trailing whitespace

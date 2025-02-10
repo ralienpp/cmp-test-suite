@@ -1134,12 +1134,13 @@ def get_ocsp_url_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]
 
     return ocsp_urls
 
+
 @not_keyword
 def create_ocsp_request(
     cert: rfc9480.CMPCertificate,
     ca_cert: rfc9480.CMPCertificate,
     hash_alg: str = "sha256",
-    must_be_present: bool = True
+    must_be_present: bool = True,
 ) -> Tuple[ocsp.OCSPRequest, List[str]]:
     """Create an OCSP request for a certificate.
 
@@ -1318,6 +1319,7 @@ def check_ocsp_response_for_cert(  # noqa D417 undocumented-param
         - `ValueError`: If the OCSP response is invalid or the request fails.
         - `ValueError`: If the expected status is invalid (must be one of "good", "revoked", or "unknown").
         - `ExtensionNotFound`: If no OCSP URL(s) are found in the certificate's AIA extension.
+
     Examples:
     --------
     | Check OCSP Response For Cert | cert=${cert} | issuer=${issuer} | ocsp_url=${ocsp_url} |

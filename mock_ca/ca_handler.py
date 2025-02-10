@@ -173,20 +173,50 @@ class CAHandler:
     """A simple class to handle the CA operations."""
 
     def __init__(
-        self, ca_cert: rfc9480.CMPCertificate, ca_key: PrivateKey, config: dict, ca_alt_key: Optional[PrivateKey] = None
+        self,
+        ca_cert: rfc9480.CMPCertificate,
+        ca_key: PrivateKey,
+        config: dict,
+        ca_alt_key: Optional[PrivateKey] = None,
+        state: Optional[MockCAState] = None,
+        port: int = 5000,
     ):
         """Initialize the CA Handler.
 
         :param config: The configuration for the CA Handler.
         """
-        self.comp_key = load_private_key_from_file("data/keys/private-key-composite-sig-rsa2048-ml-dsa-44.pem")
+        self.ocsp_extn = prepare_ocsp_extension(ocsp_url=f"http://localhost:{port}/ocsp")
+        self.crl_extn = prepare_crl_distribution_point_extension(crl_url=f"http://localhost:{port}/crl")
+        self.comp_key = generate_key("composite-sig")
+        self.comp_cert = build_certificate(private_key=self.comp_key, is_ca=True, common_name="CN=Test CA")[0]
         self.config = config
+        self.sun_hybrid_key = generate_key("composite-sig")
+        cert_template = prepare_cert_template(
+            self.sun_hybrid_key,
+            subject="CN=Hans the Tester",
+        )
+        self.sun_hybrid_cert, cert1 = sun_cert_template_to_cert(
+            cert_template=cert_template,
+            ca_cert=ca_cert,
+            ca_key=self.sun_hybrid_key.trad_key,
+            alt_private_key=self.sun_hybrid_key.pq_key,
+            pub_key_loc=f"http://localhost:{port}/pubkey/1",
+            sig_loc=f"http://localhost:{port}/sig/1",
+            serial_number=1,
+            extensions=[self.ocsp_extn, self.crl_extn],
+        )
+
         self.ca_cert = ca_cert
         self.ca_key = ca_key
         self.ca_alt_key = ca_alt_key
-        self.state = MockCAState()
+        self.state = state or MockCAState()
         self.shared_secrets = b"SiemensIT"
-        self.cert_chain = [self.ca_cert]
+        self.cert_chain = [self.ca_cert, self.comp_cert, self.sun_hybrid_cert, cert1]
+
+        alt_sig = extract_sun_hybrid_alt_sig(cert1)
+        self.state.sun_hybrid_state.sun_hybrid_certs[1] = self.sun_hybrid_cert
+        self.state.sun_hybrid_state.sun_hybrid_pub_keys[1] = self.sun_hybrid_key.pq_key.public_key()
+        self.state.sun_hybrid_state.sun_hybrid_signatures[1] = alt_sig
 
         if config.get("hybrid_kem_path"):
             self.hybrid_kem = load_private_key_from_file(config["hybrid_kem_path"])

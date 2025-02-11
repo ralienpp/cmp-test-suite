@@ -55,7 +55,6 @@ from resources.asn1_structures import (
     ProtectedPartTMP,
 )
 from resources.convertutils import str_to_bytes
-from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, compute_pbkdf2_from_parameter
 from resources.oid_mapping import (
     get_alg_oid_from_key_hash,
     get_hash_from_oid,
@@ -2039,7 +2038,7 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
     """
     if kdf_alg_id["algorithm"] in HKDF_OID_2_NAME:
         hash_alg = HKDF_OID_2_NAME[kdf_alg_id["algorithm"]].split("-")[1]
-        return compute_hkdf(hash_alg=hash_alg, length=length, key_material=ss, ukm=ukm)
+        return cryptoutils.compute_hkdf(hash_alg=hash_alg, length=length, key_material=ss, ukm=ukm)
 
     if kdf_alg_id["algorithm"] in [rfc5990.id_kdf_kdf2, rfc5990.id_kdf_kdf3]:
         if not isinstance(kdf_alg_id["parameters"], rfc9480.AlgorithmIdentifier):
@@ -2049,7 +2048,7 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
 
         hash_alg = get_hash_from_oid(sha_alg_id["algorithm"])
 
-        return compute_ansi_x9_63_kdf(
+        return cryptoutils.compute_ansi_x9_63_kdf(
             shared_secret=ss,
             hash_alg=hash_alg,
             key_length=length,
@@ -2063,7 +2062,7 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
         else:
             pbkdf2_params = kdf_alg_id["parameters"]
 
-        return compute_pbkdf2_from_parameter(key=ss, parameters=pbkdf2_params)
+        return cryptoutils.compute_pbkdf2_from_parameter(key=ss, parameters=pbkdf2_params)
 
     raise ValueError(f"Unsupported KDF algorithm: {kdf_alg_id['algorithm']}")
 

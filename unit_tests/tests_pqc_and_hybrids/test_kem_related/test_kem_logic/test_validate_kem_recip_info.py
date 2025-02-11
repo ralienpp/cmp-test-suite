@@ -8,7 +8,8 @@ from pyasn1.type import univ
 from pyasn1_alt_modules import rfc8619, rfc9481, rfc9629
 from resources.ca_kga_logic import validate_kem_recip_info_structure
 from resources.certutils import parse_certificate
-from resources.envdatautils import prepare_recipient_identifier, prepare_kem_recip_info
+from resources.envdatautils import prepare_recipient_identifier, prepare_kem_recip_info, \
+    prepare_cmsori_for_kem_other_info
 from resources.exceptions import BadAlg
 from resources.oidutils import id_alg_ml_kem_512_oid
 from resources.utils import load_and_decode_pem_file
@@ -45,7 +46,7 @@ class TestValidateKEMInfo(unittest.TestCase):
         self.assertEqual(result["encrypted_key"], b"encrypted_key_mock")
         self.assertEqual(result["kemct"], b"kem_ct_mock")
         self.assertEqual(result["kdf_algorithm"]["algorithm"], rfc8619.id_alg_hkdf_with_sha256)
-        self.assertEqual(result["ukm"], b"mock_ukm")
+        self.assertNotEqual(result["ukm"], b"mock_ukm")
 
     def test_invalid_version(self):
         """

@@ -83,9 +83,9 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         self,
         signature: bytes,
         data: bytes,
-        ctx: bytes = b"",
         hash_alg: Optional[str] = None,
         is_prehashed: bool = False,
+        ctx: bytes = b"",
     ) -> None:
         """Verify the signature of the data.
 
@@ -246,8 +246,8 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
     def sign(
         self,
         data: bytes,
-        ctx: bytes = b"",
         hash_alg: Union[None, str, hashes.HashAlgorithm] = None,
+        ctx: bytes = b"",
         is_prehashed: bool = False,
     ) -> bytes:
         """Sign the data with ML-DSA private key.
@@ -338,9 +338,9 @@ class SLHDSAPublicKey(PQSignaturePublicKey):
         self,
         signature: bytes,
         data: bytes,
-        ctx: bytes = b"",
         hash_alg: Optional[str] = None,
         is_prehashed: bool = False,
+        ctx: bytes = b"",
     ) -> None:
         """Verify the signature of the data.
 

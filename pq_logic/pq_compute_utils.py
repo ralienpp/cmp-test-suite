@@ -75,7 +75,6 @@ def sign_data_with_alg_id(  # noqa: D417 Missing argument descriptions in the do
         pre_hash = name.startswith("hash-")
         key: CompositeSigCMSPrivateKey
         return key.sign(data=data, use_pss=use_pss, pre_hash=pre_hash)
-
     elif oid in PQ_OID_2_NAME or oid in MSG_SIG_ALG or oid in RSASSA_PSS_OID_2_NAME or str(oid) in PQ_OID_2_NAME:
         hash_alg = get_hash_from_oid(oid, only_hash=True)
         use_pss = oid in RSASSA_PSS_OID_2_NAME

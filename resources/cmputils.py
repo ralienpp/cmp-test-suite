@@ -4141,12 +4141,15 @@ def modify_random_str(data: str, index: Optional[int] = None) -> str:  # type: i
     :param data: String to change a random character.
     :param index: Optional index to change the character.
     :return: The changed string.
+    :raises ValueError: If the character could not be changed, after 100 attempts.
     """
     chars = list(data)
     options = list(string.ascii_letters) + list(string.digits)
     random_index: int = index or random.randint(0, len(data) - 1)
-    while 1:
+    for _ in range(100):
         option = random.choice(options)
         if option != chars[random_index]:
             chars[random_index] = option
             return "".join(chars)
+
+    raise ValueError("Could not change the character.")

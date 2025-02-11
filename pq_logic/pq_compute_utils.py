@@ -379,6 +379,7 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
     """Protect a PKIMessage with a hybrid protection scheme.
 
     Supports the following protection types:
+    ----------------------------------------
     - `signature`: Protect the message with a pq or traditional signature.
     - `composite`: Protect the message with a composite signature (must not be a single key).
     - `catalyst`: Protect the message with an alternative signature (can be done with a secondary key).

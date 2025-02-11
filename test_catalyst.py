@@ -18,8 +18,9 @@ from pq_logic.keys.abstract_pq import PQPrivateKey, PQPublicKey
 from pq_logic.keys.sig_keys import MLDSAPublicKey
 from pyasn1_alt_modules import rfc9480
 from resources.certutils import parse_certificate
+from resources.convertutils import copy_asn1_certificate
 from resources.oid_mapping import KEY_CLASS_MAPPING, may_return_oid_to_name
-from unit_tests.utils_for_test import get_subject_and_issuer
+from unit_tests.utils_for_test import get_subject_and_issuer, print_chain_subject_and_issuer
 
 
 def get_catalyst_certs() -> list[str]:
@@ -81,8 +82,9 @@ def _try2(asn1cert: rfc9480.CMPCertificate, pub_key: bytes, name: str, signature
         [True, False], repeat=4
     ):
         # Prepare alternative signature data with the current combination
+        tmp = copy_asn1_certificate(asn1cert)
         alt_sig_data = extract_alt_signature_data(
-            tmp_cert=asn1cert,
+            cert=tmp,
             exclude_alt_extensions=exclude_alt_extensions,
             only_tbs_cert=only_tbs_cert,
             exclude_signature_field=exclude_signature_field,  # means the signature field inside tbsCertificate,
@@ -130,5 +132,6 @@ pem_files = get_catalyst_certs()
 for pem_file in pem_files:
     with open(pem_file, "rb") as file:
         cert = parse_certificate(file.read())
+        print_chain_subject_and_issuer([cert])
         pub_key, name, signature = log_cert_infos(cert)
         _try2(cert, pub_key, name, signature)

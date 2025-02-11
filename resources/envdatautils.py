@@ -25,6 +25,7 @@ from pyasn1_alt_modules import (
     rfc5753,
     rfc5958,
     rfc8018,
+    rfc8418,
     rfc9480,
     rfc9481,
     rfc9629,
@@ -1167,6 +1168,14 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
     kem_recip_info = rfc9629.KEMRecipientInfo()
     kem_recip_info["version"] = univ.Integer(version)
     kem_recip_info["rid"] = rid
+    kem_recip_info["wrap"] = prepare_wrap_alg_id(wrap_name)
+
+    kek_length = kek_length or get_aes_keywrap_length(wrap_name)
+    der_ukm = prepare_cmsori_for_kem_other_info(
+        wrap_algorithm=kem_recip_info["wrap"],
+        kek_length=kek_length or get_aes_keywrap_length(wrap_name),
+        ukm=ukm,
+    )
 
     if kem_oid is not None:
         kem_recip_info["kem"]["algorithm"] = kem_oid
@@ -1219,19 +1228,18 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
         key_enc_key = compute_kdf_from_alg_id(
             kdf_alg_id=kem_recip_info["kdf"],
             ss=shared_secret,
-            ukm=ukm,
-            length=kek_length or get_aes_keywrap_length(wrap_name),
+            ukm=der_ukm,
+            length=kek_length,
         )
 
     if encrypted_key is None:
         encrypted_key = keywrap.aes_key_wrap(wrapping_key=key_enc_key, key_to_wrap=cek)
 
     if ukm is not None:
-        kem_recip_info["ukm"] = rfc9629.UserKeyingMaterial(ukm).subtype(
+        kem_recip_info["ukm"] = rfc9629.UserKeyingMaterial(der_ukm).subtype(
             explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
         )
 
-    kem_recip_info["wrap"] = prepare_wrap_alg_id(wrap_name)
     kem_recip_info["encryptedKey"] = encrypted_key
     kem_recip_info["kekLength"] = kek_length or get_aes_keywrap_length(wrap_name)
 
@@ -1659,3 +1667,27 @@ def wrap_key_password_based_key_management_technique(
     derive_key = cryptoutils.compute_pbkdf2_from_parameter(parameters, key=password)
     logging.debug("Prepare PWRI - Derived Key: %s", derive_key.hex())
     return keywrap.aes_key_wrap(wrapping_key=derive_key, key_to_wrap=key_to_wrap)
+
+
+@not_keyword
+def prepare_cmsori_for_kem_other_info(
+    wrap_algorithm: rfc8418.KeyWrapAlgorithmIdentifier,
+    kek_length: int,
+    ukm: Optional[bytes],
+) -> bytes:
+    """Prepare the `CMSORIforKEMOtherInfo` structure for use in the KEM key derivation.
+
+    :param wrap_algorithm: The key wrap algorithm identifier.
+    :param kek_length: The length of the key encryption key (KEK) in bytes.
+    :param ukm: The User Keying Material (UKM) as bytes, or None if absent.
+    :return: The DER-encoded `CMSORIforKEMOtherInfo` structure as bytes.
+    """
+    obj = rfc9629.CMSORIforKEMOtherInfo()
+    obj["wrap"] = wrap_algorithm
+    obj["kekLength"] = kek_length
+    if ukm is not None:
+        obj["ukm"] = rfc9629.UserKeyingMaterial(ukm).subtype(
+            explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
+        )
+
+    return encoder.encode(obj)

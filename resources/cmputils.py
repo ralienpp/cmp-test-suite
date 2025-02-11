@@ -1933,10 +1933,14 @@ def _gen_unique_byte_seq(in_use: List[bytes], size_num: int = 16) -> bytes:
     :param in_use: The list with already used byte sequences.
     :param size_num: The size of the byte sequence to generate.
     """
-    while 1:
+    for _ in range(10000):
         val = os.urandom(size_num)
         if val not in in_use:
             return val
+        val = None
+
+    if val is None:
+        raise ValueError("Could not generate a unique byte sequence")
 
 
 def _patch_nested_pkimessage(target: PKIMessageTMP, exclude_fields: List[str]) -> PKIMessageTMP:

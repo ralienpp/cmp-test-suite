@@ -1588,6 +1588,30 @@ def validate_kem_recip_info_structure(
 
 
 @not_keyword
+def perform_rsa_kemri(
+    private_key,
+    ct: bytes,
+    key_length: int,
+) -> bytes:
+    """Perform RSA-KEM decapsulation.
+
+    :param private_key: The RSA private key.
+    :param ct: The ciphertext.
+    :param key_length: The length of the derived key.
+    :return: The shared secret.
+    """
+    from pq_logic.kem_mechanism import RSAKem
+
+    rsa_kem = RSAKem()
+    ss = rsa_kem.decaps(private_key, ct)
+    ss = compute_ansi_x9_63_kdf(
+        shared_secret=ss, key_length=key_length, other_info=b"", hash_alg="sha256", use_version_2=False
+    )
+
+    return ss
+
+
+@not_keyword
 def process_kem_recip_info(
     kem_recip_info: rfc9629.KEMRecipientInfo,
     server_cert: Optional[rfc9480.CMPCertificate],

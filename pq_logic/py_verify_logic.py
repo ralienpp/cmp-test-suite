@@ -239,6 +239,76 @@ def find_sun_hybrid_issuer_cert(  # noqa D417 undocumented-param
     raise ValueError("No issuer certificate found.")
 
 
+def build_migration_cert_chain(  # noqa D417 undocumented-param
+    cert: rfc9480.CMPCertificate,
+    certs: Iterable[rfc9480.CMPCertificate],
+    allow_self_signed: bool = False,
+) -> List[rfc9480.CMPCertificate]:
+    """Build the composite certificate chain.
+
+    Can be used to build a certificate chain for a composite, pq, or traditional certificate.
+    Which does not have to on the same algorithm as the issuer or an intermediate certificate.
+
+    Note:
+    ----
+       - Verifies only the traditional signature of the certificate to find the client.
+       (which means it is not a valid solution for a sun-hybrid certificate chain.)
+       (Could be enough for the Test-Suite, but not for the real-world use-case.)
+
+    Arguments:
+    ---------
+       - `cert`: The composite, pq, or traditional certificate.
+       - `certs`: A list of certificates to search for the certificate chain.
+
+    Returns:
+    -------
+       - A list of certificates in the chain starting with the EE certificate.
+
+    Raises:
+    ------
+         - `ValueError`: If no issuer certificate is found.
+         - `ValueError`: If no possible issuer certificates are provided.
+         - `ValueError`: If the certificate is self-signed and `allow_self_signed` is False.
+
+    Examples:
+    --------
+    | ${chain}= | Build Migration Cert Chain | ${cert} | ${certs} |
+    | ${chain}= | Build Migration Cert Chain | ${cert} | ${response["extraCerts"]} | True |
+
+    """
+    if len(certs) == 0:  # type: ignore
+        raise ValueError("No possible issuer certificates provided.")
+
+    cert_chain = [cert]
+    for poss_issuer in certs:
+        if not _check_names(cert, poss_issuer):
+            continue
+
+        try:
+            verify_signature_with_alg_id(
+                public_key=certutils.load_public_key_from_cert(poss_issuer),
+                data=encoder.encode(cert["tbsCertificate"]),
+                signature=cert["signature"].asOctets(),
+                alg_id=cert["tbsCertificate"]["signature"],
+            )
+
+            if compare_pyasn1_names(cert["tbsCertificate"]["subject"], cert["tbsCertificate"]["issuer"]):
+                break
+
+            cert_chain.append(poss_issuer)
+            cert = poss_issuer
+
+        except (InvalidSignature, ValueError):
+            continue
+
+    if len(cert_chain) == 1 and not allow_self_signed:
+        raise ValueError("No issuer certificate found.")
+    if len(cert_chain) == 1:
+        logging.info("The certificate was self-signed.")
+
+    return cert_chain
+
+
 def build_sun_hybrid_cert_chain(  # noqa D417 undocumented-param
     cert: rfc9480.CMPCertificate, certs: Sequence[rfc9480.CMPCertificate]
 ) -> List[rfc9480.CMPCertificate]:

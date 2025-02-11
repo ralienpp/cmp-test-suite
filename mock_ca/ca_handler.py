@@ -28,6 +28,7 @@ from pq_logic.hybrid_issuing import (
 )
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import extract_sun_hybrid_alt_sig, sun_cert_template_to_cert
+from pq_logic.pq_compute_utils import protect_hybrid_pkimessage
 from pq_logic.py_verify_logic import verify_hybrid_pkimessage_protection
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
@@ -45,7 +46,11 @@ from resources.certbuildutils import (
     prepare_ocsp_extension,
 )
 from resources.certutils import parse_certificate
-from resources.cmputils import build_cmp_error_message, get_cert_response_from_pkimessage
+from resources.cmputils import (
+    build_cmp_error_message,
+    find_oid_in_general_info,
+    get_cert_response_from_pkimessage,
+)
 from resources.exceptions import BadCertTemplate, BadMessageCheck, BadRequest, CMPTestSuiteError, TransactionIdInUse
 from resources.general_msg_utils import build_genp_kem_ct_info_from_genm
 from resources.keyutils import generate_key, load_private_key_from_file
@@ -271,7 +276,7 @@ class CAHandler:
             pki_message["extraCerts"].extend(self.cert_chain)
             return pki_message
 
-        protected = protect_pkimessage(
+        protected = protect_hybrid_pkimessage(
             pki_message=response,
             private_key=self.ca_key,
             protection="signature",

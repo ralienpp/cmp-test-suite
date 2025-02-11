@@ -442,13 +442,15 @@ class CAHandler:
         if not pki_message["header"]["protectionAlg"].isValue:
             raise BadMessageCheck("Protection algorithm was not set.")
 
+        confirm_ = find_oid_in_general_info(pki_message, rfc9480.id_it_implicitConfirm)
         response, certs = build_ip_cmp_message(
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
-            implicit_confirm=True,
+            implicit_confirm=confirm_,
             extensions=[self.ocsp_extn, self.crl_extn],
         )
+
         logging.debug("RESPONSE: %s", pki_message.prettyPrint())
         self.state.store_transaction_certificate(
             pki_message=pki_message,

@@ -14,8 +14,9 @@ https://www.ietf.org/archive/id/draft-sun-lamps-hybrid-scheme-00.html
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+import pyasn1
 from cryptography.hazmat.primitives import serialization
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
@@ -23,6 +24,7 @@ from pyasn1_alt_modules import rfc2986, rfc4211, rfc5280, rfc6402, rfc9480
 from resources import certbuildutils, certextractutils, convertutils, cryptoutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate
 from resources.copyasn1utils import copy_subject_public_key_info
+from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid, sha_alg_name_to_oid
 from resources.protectionutils import prepare_sha_alg_id
 from resources.typingutils import PrivateKeySig, PublicKey
@@ -898,6 +900,54 @@ def _parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: bo
     cert["tbsCertificate"]["extensions"] = _patch_extensions(extensions, new_extension)
 
     return cert
+
+
+def get_sun_hybrid_form(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate,
+) -> str:
+    """Get the sun-hybrid form name of the certificate.
+
+    Arguments:
+    ---------
+        - `cert`: The certificate to check.
+
+    Returns:
+    -------
+        - The form name as a string (Form1, Form2, Form3, Form4).
+
+    Raises:
+    ------
+        - ValueError: If the certificate is missing required extensions.
+
+    Examples:
+    --------
+    | ${form}= | Get Sun Hybrid Form | ${cert} |
+
+    """
+    extensions = cert["tbsCertificate"]["extensions"]
+    alt_sub_pub_key_ext = None
+    alt_signature_ext = None
+
+    for ext in extensions:
+        if ext["extnID"] == id_altSubPubKeyExt:
+            alt_sub_pub_key_ext, _ = decoder.decode(ext["extnValue"].asOctets(), AltSubPubKeyExt())
+        elif ext["extnID"] == id_altSignatureExt:
+            alt_signature_ext, _ = decoder.decode(ext["extnValue"].asOctets(), AltSignatureExt())
+
+    if not alt_sub_pub_key_ext or not alt_signature_ext:
+        raise ValueError("The certificate is missing required extensions.")
+
+    sub_pub_key_by_val = alt_sub_pub_key_ext["byVal"]
+    sig_by_val = alt_signature_ext["byVal"]
+
+    if sub_pub_key_by_val and sig_by_val:
+        return "Form1"
+    if sub_pub_key_by_val and not sig_by_val:
+        return "Form2"
+    if not sub_pub_key_by_val and sig_by_val:
+        return "Form3"
+
+    return "Form4"
 
 
 def _check_form_1_or_3(cert: rfc9480.CMPCertificate) -> Optional[rfc9480.CMPCertificate]:

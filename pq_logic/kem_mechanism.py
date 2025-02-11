@@ -47,6 +47,27 @@ def _perform_ecdh(private_key: ECDHPrivateKey, public_key: ECDHPublicKey) -> byt
     )
 
 
+def _compute_kdf3(shared_secret: bytes, key_length: int) -> bytes:
+    """Compute the KDF3 with sha256 for RSA-KEM.
+
+    :param shared_secret: The shared secret as bytes.
+    :param key_length: The desired length of the key.
+    :return: The derived key as bytes.
+    """
+    hash_algorithm = hash_name_to_instance("sha256")
+    hasher = hashes.Hash(hash_algorithm)
+    counter = 1
+    keying_material = b""
+    while len(keying_material) < key_length:
+        counter_bytes = counter.to_bytes(4, byteorder="big")
+        hasher.update(counter_bytes + shared_secret)
+        keying_material += hasher.finalize()
+        hasher = hashes.Hash(hash_algorithm)
+        counter += 1
+
+    return keying_material[:key_length]
+
+
 #####################################
 # KemMechanism Interface
 #####################################
@@ -199,8 +220,12 @@ def _i2osp(num: int, size: int) -> bytes:
     :param num: The integer to convert.
     :param size: The size of the resulting byte array.
     :return: The byte array representation of the integer.
+    :raises ValueError: If the integer is too large to encode at the specified length.
     """
-    return num.to_bytes(size, byteorder="big", signed=False)
+    data = num.to_bytes(size, byteorder="big", signed=False)
+    if len(data) > size:
+        raise ValueError("Integer too large to encode at the specified length.")
+    return data
 
 
 class DHKEMRFC9180:
@@ -328,6 +353,17 @@ class DHKEMRFC9180:
 class RSAKem(KemMechanism):
     """RSA-based KEM mechanism."""
 
+    def __init__(self, ss_length: Optional[int] = None):
+        """Initialize the RSA-KEM instance.
+
+        If length is not provided, the shared secret will be returned as bytes.
+        Otherwise, the shared secret will after applying KDF3 with SHA-256.
+        Which aligns with the new RFC9690.
+
+        :param ss_length: The length of the shared secret to generate.
+        """
+        self.length = ss_length
+
     def encaps(self, public_key: rsa.RSAPublicKey, rand: Optional[int] = None) -> (bytes, bytes):
         """Encapsulate a shared secret using the RSA public key.
 
@@ -337,9 +373,15 @@ class RSAKem(KemMechanism):
         """
         pub_num = public_key.public_numbers()
         e, n = pub_num.e, pub_num.n
+        n_len = (n.bit_length() + 7) // 8
         shared_secret = rand or random.randint(2, n - 1)  # MUST always be random.
         ct = pow(shared_secret, e, n)
-        return shared_secret, ct
+        ct = _i2osp(ct, n_len)
+        Z = _i2osp(shared_secret, n_len)
+        if self.length is None:
+            return Z, ct
+        ss = _compute_kdf3(Z, self.length)
+        return ss, ct
 
     def decaps(self, private_key: rsa.RSAPrivateKey, ct_or_public_data: bytes) -> bytes:
         """Decapsulate a shared secret using the RSA private key and the ciphertext.
@@ -348,11 +390,28 @@ class RSAKem(KemMechanism):
         :param ct_or_public_data: The ciphertext or public data.
         :return: The shared secret.
         """
-        ct = int.from_bytes(ct_or_public_data, "big")
-        n, d = private_key.private_numbers().public_numbers.n, private_key.private_numbers().d
-        z = pow(ct, d, n)
-        # convert large int to bytes
-        return z.to_bytes((z.bit_length() + 7) // 8, "big")
+        numbers = private_key.private_numbers()
+        d, n = numbers.d, numbers.public_numbers.n
+
+        n_len = (n.bit_length() + 7) // 8
+
+        ct = ct_or_public_data
+        if len(ct) != n_len:
+            raise ValueError("Ciphertext length mismatch (expected %d, got %d)." % (n_len, len(ct)))
+
+        c = int.from_bytes(ct, byteorder="big")
+
+        if c >= n:
+            raise ValueError("Ciphertext integer >= RSA modulus (invalid ciphertext).")
+
+        z = pow(c, d, n)
+
+        Z = _i2osp(z, n_len)
+
+        if self.length is None:
+            return Z
+
+        return _compute_kdf3(Z, self.length)
 
 
 class RSAOaepKem(KemMechanism):

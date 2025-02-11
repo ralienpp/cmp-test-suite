@@ -3612,6 +3612,10 @@ def get_pkistatusinfo(  # noqa D417 undocumented-param
 
     elif body_name in {"ip", "cp", "kup"}:
         pki_status_info: rfc9480.PKIStatusInfo = pki_message["body"][body_name]["response"][index]["status"]
+
+    elif body_name == "certConf":
+        pki_status_info: rfc9480.PKIStatusInfo = pki_message["body"]["certConf"][index]["statusInfo"]
+
     else:
         raise ValueError(f"Body type {body_name} was not expected!")
 

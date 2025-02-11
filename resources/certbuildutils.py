@@ -26,18 +26,20 @@ import resources.utils
 from resources import (
     certextractutils,
     certutils,
+    cmputils,
     convertutils,
     copyasn1utils,
     cryptoutils,
     keyutils,
     oid_mapping,
+    protectionutils,
     typingutils,
     utils,
 )
 from resources.certextractutils import extract_extension_from_csr
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadCertTemplate
-from resources.oidutils import CMP_EKU_OID_2_NAME, RSA_SHA_OID_2_NAME
+from resources.oidutils import CMP_EKU_OID_2_NAME, RSA_SHA_OID_2_NAME, RSASSA_PSS_OID_2_NAME
 from resources.prepareutils import prepare_name
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
 
@@ -135,6 +137,9 @@ def prepare_sig_alg_id(
         alg_id["algorithm"] = oid
         if oid in RSA_SHA_OID_2_NAME:
             alg_id["parameters"] = univ.Null("")
+
+        if oid in RSASSA_PSS_OID_2_NAME:
+            return protectionutils.prepare_rsa_pss_alg_id(hash_alg=hash_alg)
 
     return alg_id
 

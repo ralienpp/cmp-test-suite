@@ -26,7 +26,61 @@ from resources.oidutils import EXTENSION_NAME_2_OID
 # TODO refactor.
 
 
-def extension_must_be_not_critical(  # noqa D417 undocumented-param
+def cert_contains_extension(  # noqa D417 undocumented-param
+    cert_or_extn: Union[rfc9480.CMPCertificate, rfc9480.Extensions],
+    name_or_oid: str,
+    must_be_non_crit: Optional[bool] = None,
+    must_be_crit: Optional[bool] = None,
+) -> None:
+    """Check if a certificate or extensions object contains the given extension.
+
+    Arguments:
+    ---------
+        - `cert_or_extn`: The certificate or extensions object to search.
+        - `name_or_oid`: The OID or name of the extension.
+        - `must_be_non_crit`: If `True`, ensure the extension is non-critical. Defaults to `disabled`.
+        - `must_be_crit`: If `True`, ensure the extension is critical. Defaults to `disabled`.
+
+    Raises:
+    ------
+        - `ValueError`: If the extension is not found.
+        - `ValueError`: If the extension is critical and `must_be_non_crit` is `True`.
+        - `ValueError`: If the extension is non-critical and `must_be_crit` is `True`.
+        - `KeyError`: If the extension name is not found in the mapping.
+
+    Examples:
+    --------
+    | Cert Contains Extension | ${certificate} | key_usage | must_be_non_crit=${True} |
+    | Cert Contains Extension | ${extension} | eku | must_be_crit=${True} |
+    | Cert Contains Extension | ${cert_template["extensions"]} | 1.2.840.113549.1.9.14 |
+
+    """
+    if "." in name_or_oid:
+        oid = univ.ObjectIdentifier(name_or_oid)
+    elif name_or_oid in EXTENSION_NAME_2_OID:
+        oid = EXTENSION_NAME_2_OID[name_or_oid]
+    else:
+        raise KeyError(
+            f"Extension name not found: {name_or_oid}, a"
+            "please have a look at the OID mapping `EXTENSION_NAME_2_OID`."
+            f"Currently supported extension names are: {list(EXTENSION_NAME_2_OID.keys())}"
+        )
+
+    if isinstance(cert_or_extn, rfc9480.CMPCertificate):
+        cert_or_extn = cert_or_extn["tbsCertificate"]["extensions"]
+
+    out = get_extension(
+        cert_or_extn,
+        oid,
+        must_be_non_crit=must_be_non_crit,
+        must_be_crit=must_be_crit,
+    )
+
+    if out is None:
+        name = may_return_oid_to_name(oid)
+        raise ValueError(f"Extension {name}:{oid} is not present.")
+
+
     cert_or_extn: Union[rfc9480.CMPCertificate, rfc9480.Extensions], name_or_oid: str
 ) -> None:
     """Ensure that the extension with the given OID or name is non-critical.

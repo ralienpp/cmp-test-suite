@@ -107,6 +107,9 @@ def cert_contains_extension(  # noqa D417 undocumented-param
         raise ValueError(f"Extension {name}:{oid} is not present.")
 
 
+# TODO add unit test
+
+
 @not_keyword
 def get_extension(
     extensions: rfc9480.Extensions,

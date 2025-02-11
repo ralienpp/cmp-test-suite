@@ -521,6 +521,8 @@ def verify_signature(  # noqa D417 undocumented-param
     signature: bytes,
     data: bytes,
     hash_alg: Optional[Union[str, hashes.HashAlgorithm]] = None,
+    use_rsa_pss: bool = False,
+    salt_length: Optional[int] = None,
 ) -> None:
     """Verify a digital signature using the provided public key, data and hash algorithm.
 
@@ -533,6 +535,8 @@ def verify_signature(  # noqa D417 undocumented-param
         - `data`: The original data that was signed.
         - `hash_alg`: Name of the hash algorithm used for verification (e.g., "sha256"). If not specified, the default
                       algorithm for the given key type is used.
+        - `use_rsa_pss`: Whether to use RSA-PSS padding for RSA keys. Defaults to `False`.
+        - `salt_length`: Length of the salt for RSA-PSS padding. Defaults to the hash algorithm's digest size.
 
     Key Types and Verification:
         - `RSAPublicKey`: Verifies using PKCS1v15 padding and the provided hash algorithm.
@@ -561,7 +565,15 @@ def verify_signature(  # noqa D417 undocumented-param
     # isinstance(ed448.Ed448PrivateKey.generate(), EllipticCurvePrivateKey) → False
     # so can check in this Order.
     if isinstance(public_key, rsa.RSAPublicKey):
-        public_key.verify(signature, data, padding=padding.PKCS1v15(), algorithm=hash_alg)  # type: ignore
+        if use_rsa_pss:
+            public_key.verify(
+                signature,
+                data,
+                padding.PSS(mgf=padding.MGF1(hash_alg), salt_length=salt_length or hash_alg.digest_size),
+                hash_alg,
+            )
+        else:
+            public_key.verify(signature, data, padding=padding.PKCS1v15(), algorithm=hash_alg)  # type: ignore
     elif isinstance(public_key, ec.EllipticCurvePublicKey):
         public_key.verify(signature, data, ec.ECDSA(hash_alg))  # type: ignore
     elif isinstance(public_key, ed25519.Ed25519PublicKey):

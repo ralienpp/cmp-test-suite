@@ -12,8 +12,10 @@ from typing import Dict, List, Optional, Set, Tuple
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.x509 import ocsp
 
+# needs to be here to import the correct modules
+# so that this file can be run from the root directory with:
+# python ./mock_ca/ca_handler.py
 sys.path.append(".")
-
 from cryptography import x509
 from flask import Flask, Response, request
 from pq_logic.hybrid_issuing import (

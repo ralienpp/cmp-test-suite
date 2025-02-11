@@ -913,6 +913,8 @@ def prepare_rsa_pss_alg_id(hash_alg: str, salt_length: Optional[int] = None) -> 
 
     hash_algorithm = prepare_sha_alg_id(hash_alg)
 
+    hash_inst = hash_name_to_instance(hash_alg)
+
     mgf_algorithm = rfc9480.AlgorithmIdentifier()
     mgf_algorithm["algorithm"] = rfc8017.id_mgf1
     mgf_algorithm["parameters"] = hash_algorithm
@@ -926,7 +928,7 @@ def prepare_rsa_pss_alg_id(hash_alg: str, salt_length: Optional[int] = None) -> 
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1), cloneValueFlag=True
     )
     # 20 is the default for sha1.
-    pss_params["saltLength"] = univ.Integer(value=salt_length or 20).subtype(
+    pss_params["saltLength"] = univ.Integer(value=salt_length or hash_inst.digest_size).subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2)
     )
 
@@ -1799,10 +1801,12 @@ def verify_rsassa_pss_from_alg_id(
         if not alg_id["parameters"].isValue:
             raise ValueError("The `protectionAlg` field must have parameters for RSASSA-PSS set.")
 
-        params, rest = decoder.decode(alg_id["parameters"], rfc8017.RSASSA_PSS_params())
-        if rest != b"":
-            raise ValueError("The decoding of 'parameters' field inside the `protectionAlg` had a remainder!")
-
+        if not isinstance(alg_id["parameters"], rfc8017.RSASSA_PSS_params):
+            params, rest = decoder.decode(alg_id["parameters"], rfc8017.RSASSA_PSS_params())
+            if rest != b"":
+                raise ValueError("The decoding of 'parameters' field inside the `protectionAlg` had a remainder!")
+        else:
+            params = alg_id["parameters"]
         salt_length = int(params["saltLength"])
         hash_alg = get_hash_from_oid(params["hashAlgorithm"]["algorithm"])
         hash_algorithm = hash_name_to_instance(hash_alg)  # type: ignore
@@ -1813,9 +1817,13 @@ def verify_rsassa_pss_from_alg_id(
         if mgf_oid != rfc8017.id_mgf1:
             raise ValueError(f"The `maskGenAlgorithm` should be MGF1, but got `{mgf_oid}`!")
 
-        mgf, rest = decoder.decode(mgf_algorithm_encoded, rfc9480.AlgorithmIdentifier())
-        if rest != b"":
-            raise ValueError("The decoding of 'mgf1' field inside the `maskGenAlgorithm` field had a remainder!")
+        if not isinstance(mgf_algorithm_encoded, rfc9480.AlgorithmIdentifier):
+            mgf, rest = decoder.decode(mgf_algorithm_encoded, rfc9480.AlgorithmIdentifier())
+            if rest != b"":
+                raise ValueError("The decoding of 'mgf1' field inside the `maskGenAlgorithm` field had a remainder!")
+
+        else:
+            mgf = mgf_algorithm_encoded
 
         if mgf["algorithm"] != params["hashAlgorithm"]["algorithm"]:
             raise ValueError("Mismatch between the algorithm for MGF1 and hashAlgorithm!")

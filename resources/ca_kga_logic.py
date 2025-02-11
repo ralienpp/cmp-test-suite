@@ -1640,15 +1640,31 @@ def process_kem_recip_info(
         kem_recip_info=kem_recip_info, server_cert=server_cert, for_enc_rand=for_pop
     )
 
-    shared_secret = private_key.decaps(validated_info["kemct"])
+    if not isinstance(private_key, RSAPrivateKey):
+        shared_secret = private_key.decaps(validated_info["kemct"])
+        logging.info("Shared secret: %s", shared_secret.hex())
+    else:
+        shared_secret = perform_rsa_kemri(
+            private_key=private_key,
+            ct=validated_info["kemct"],
+            key_length=validated_info["length"],
+        )
+
+    if validated_info["ukm"] is None:
+        ukm_der = prepare_cmsori_for_kem_other_info(
+            wrap_algorithm=validated_info["wrap"],
+            kek_length=validated_info["length"],
+            ukm=validated_info["ukm"],
+        )
+    else:
+        ukm_der = validated_info["ukm"]
 
     key_enc_key = compute_kdf_from_alg_id(
         kdf_alg_id=validated_info["kdf_algorithm"],
         length=validated_info["length"],
         ss=shared_secret,
-        ukm=validated_info["ukm"],
+        ukm=ukm_der,
     )
-
     return keywrap.aes_key_unwrap(wrapping_key=key_enc_key, wrapped_key=validated_info["encrypted_key"])
 
 

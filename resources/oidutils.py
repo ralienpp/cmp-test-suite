@@ -23,6 +23,8 @@ from pq_logic.tmp_oids import (
     PREHASH_OID_2_HASH,
     PURE_COMPOSITE_NAME_TO_OID,
     PURE_OID_TO_HASH,
+    id_altSignatureExt,
+    id_altSubPubKeyExt,
     id_ce_deltaCertificateDescriptor,
     id_sntrup761_str,
 )
@@ -36,6 +38,7 @@ from pyasn1_alt_modules import (
     rfc5753,
     rfc5990,
     rfc6664,
+    rfc6960,
     rfc8017,
     rfc8018,
     rfc8619,
@@ -588,6 +591,10 @@ EXTENSION_NAME_2_OID = {
     "alt_sig_alg": id_ce_altSignatureAlgorithm,
     "alt_sig_val": id_ce_altSignatureValue,
     "alt_spki": id_ce_subjectAltPublicKeyInfo,
+    "crl": rfc5280.id_ce_cRLDistributionPoints,
+    "ocsp": rfc6960.id_pkix_ocsp,
+    "sun_hybrid_alt_sig": id_altSignatureExt,
+    "sun_hybrid_alt_pubkey": id_altSubPubKeyExt,
 }
 
 EXTENSION_OID_2_NAME = {y: x for x, y in EXTENSION_NAME_2_OID.items()}

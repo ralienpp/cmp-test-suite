@@ -1009,6 +1009,47 @@ def validate_cert_contains_sun_hybrid_extensions(  # noqa: D417 Missing argument
         raise BadAsn1Data("The AltSubPubKeyExt extension is invalid.")
 
 
+def contains_sun_hybrid_cert_form_1_or_3(  # noqa: D417 Missing argument descriptions in the docstring
+    cert_form4: rfc9480.CMPCertificate, certs: Iterable[rfc9480.CMPCertificate]
+):
+    """Check if the list of certificates contains the sun-hybrid certificate in form 1 or 3.
+
+    Arguments:
+    ---------
+        - `cert`: The certificate in form 4 to be expected.
+        - `certs`: The list of certificates to check against.
+
+    Returns:
+    -------
+        - The certificate in form 1 or 3, if found.
+
+    Raises:
+    ------
+        - `ValueError`: If the certificate is not found.
+        - `ValueError`: If the certificate does not match the expected certificate.
+
+    Examples:
+    --------
+    | ${cert_form1}= | Contains Sun Hybrid Cert Form 1 or 3 | ${cert_form4} | ${certs} |
+
+    """
+    found = None
+    for cert in certs:
+        found = _check_form_1_or_3(cert)
+        if found:
+            break
+
+    if found is None:
+        raise ValueError("The certificate is not found.")
+
+    tmp_form4 = convert_sun_hybrid_cert_to_target_form(found, "form4")
+
+    if encoder.encode(cert_form4) != encoder.encode(tmp_form4):
+        raise ValueError("The certificate did not match the expected certificate.")
+
+    return found
+
+
 @keyword("Convert Sun-Hybrid Cert to Target Form")
 def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descriptions in the docstring
     cert: rfc9480.CMPCertificate, target_form: str

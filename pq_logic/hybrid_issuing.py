@@ -570,7 +570,11 @@ def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descr
         extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
         cert_req["certTemplate"]["extensions"].append(extn)
         data = encoder.encode(cert_req)
-        sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=comp_key, use_rsa_pss=True, hash_alg=hash_alg)  # type: ignore
+        sig_alg = certbuildutils.prepare_sig_alg_id(
+            signing_key=comp_key,  # type: ignore
+            use_rsa_pss=True,
+            hash_alg=hash_alg,
+        )
         sig = pq_compute_utils.sign_data_with_alg_id(key=comp_key, alg_id=sig_alg, data=data)
 
         if bad_pop:

@@ -986,7 +986,9 @@ def validate_cert_contains_sun_hybrid_extensions(  # noqa: D417 Missing argument
     | Check Cert Contains Sun Hybrid Extensions | ${cert} |
 
     """
-    extn = certextractutils.get_extension(cert["tbsCertificate"]["extensions"], id_altSubPubKeyExt, must_be_non_crit=True)
+    extn = certextractutils.get_extension(
+        cert["tbsCertificate"]["extensions"], id_altSubPubKeyExt, must_be_non_crit=True
+    )
     if extn is None:
         raise ValueError("The certificate is missing the AltSubPubKeyExt extension.")
 
@@ -997,7 +999,9 @@ def validate_cert_contains_sun_hybrid_extensions(  # noqa: D417 Missing argument
     except pyasn1.error.PyAsn1Error:
         raise BadAsn1Data("The AltSubPubKeyExt extension is invalid.")
 
-    extn = certextractutils.get_extension(cert["tbsCertificate"]["extensions"], id_altSignatureExt, must_be_non_crit=True)
+    extn = certextractutils.get_extension(
+        cert["tbsCertificate"]["extensions"], id_altSignatureExt, must_be_non_crit=True
+    )
     if extn is None:
         raise ValueError("The certificate is missing the AltSignatureExt extension.")
 

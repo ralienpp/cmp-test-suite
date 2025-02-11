@@ -13,6 +13,7 @@ from typing import List, Optional, Union
 import pyasn1
 from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, padding, rsa, x448, x25519
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
 from pq_logic.migration_typing import KEMPrivateKey
 from pq_logic.tmp_oids import COMPOSITE_SIG_SIGNED_DATA_OID_HASH, id_rsa_kem_spki
@@ -31,6 +32,7 @@ from pyasn1_alt_modules import (
     rfc9481,
     rfc9629,
 )
+from pyasn1_alt_modules.rfc5990 import id_kdf_kdf2, id_kdf_kdf3
 from robot.api.deco import not_keyword
 
 from resources import (
@@ -46,7 +48,7 @@ from resources import (
 )
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, perform_ecdh
-from resources.envdatautils import get_aes_keywrap_length
+from resources.envdatautils import get_aes_keywrap_length, prepare_cmsori_for_kem_other_info
 from resources.exceptions import BadAlg, BadAsn1Data
 from resources.oid_mapping import (
     compute_hash,
@@ -1496,6 +1498,8 @@ def validate_kem_recip_info_structure(
         - `kemct`: The encapsulated ciphertext as bytes.
         - `kdf_algorithm`: The OID of the key derivation function (e.g., HKDF).
         - `ukm`: The User Keying Material (UKM) as bytes, or None if absent.
+        - `length`: The length of the key encryption key (KEK) in bytes.
+        - `wrap`: The algorithm identifier for key wrapping.
     :raises ValueError: If any of the following conditions are violated:
         - The `version` field is missing or not equal to `0`.
         - The `rid` (Recipient Identifier) field is missing or invalid.
@@ -1522,7 +1526,11 @@ def validate_kem_recip_info_structure(
         )
 
     kem_oid = kem_recip_info["kem"]["algorithm"]
-    if kem_oid not in KEM_OID_2_NAME and str(kem_oid) not in KEM_OID_2_NAME:
+
+    if str(kem_oid) == "1.0.18033.2.2.4":  # id_rsa_kem
+        pass
+
+    elif kem_oid not in KEM_OID_2_NAME and str(kem_oid) not in KEM_OID_2_NAME:
         raise BadAlg(f"The `kem` OID must be a known KEM id! Found: {kem_oid}")
 
     if not kem_recip_info["kemct"].isValue:
@@ -1532,7 +1540,7 @@ def validate_kem_recip_info_structure(
         raise ValueError("The `kdf` (Key Derivation Function) field of the `KEMRecipientInfo` structure is missing!")
 
     kdf_algorithm = kem_recip_info["kdf"]["algorithm"]
-    if kdf_algorithm not in HKDF_NAME_2_OID.values():
+    if kdf_algorithm not in HKDF_NAME_2_OID.values() and kdf_algorithm not in [id_kdf_kdf3, id_kdf_kdf2]:
         raise ValueError(
             "The `kdf` (Key Derivation Function) field of the "
             "`KEMRecipientInfo` structure must use a supported algorithm!"
@@ -1575,6 +1583,7 @@ def validate_kem_recip_info_structure(
         "kdf_algorithm": kem_recip_info["kdf"],
         "ukm": ukm,
         "length": kek_length,
+        "wrap": kem_recip_info["wrap"],
     }
 
 

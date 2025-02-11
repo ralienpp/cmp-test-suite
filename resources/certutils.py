@@ -35,12 +35,13 @@ from resources import (
     cryptoutils,
     keyutils,
     oid_mapping,
+    protectionutils,
     typingutils,
     utils,
 )
 from resources.exceptions import BadAsn1Data, CertRevoked
 from resources.oid_mapping import get_hash_from_oid
-from resources.oidutils import CMP_EKU_OID_2_NAME
+from resources.oidutils import CMP_EKU_OID_2_NAME, RSASSA_PSS_OID_2_NAME
 from resources.suiteenums import KeyUsageStrictness
 from resources.typingutils import PrivateKeySig, Strint
 
@@ -306,10 +307,21 @@ def check_is_cert_signer(cert: rfc9480.CMPCertificate, poss_issuer: rfc9480.CMPC
     hash_alg = oid_mapping.get_hash_from_oid(cert["signatureAlgorithm"]["algorithm"], only_hash=True)
 
     try:
-        tbs_der = encoder.encode(cert["tbsCertificate"])
-        cryptoutils.verify_signature(
-            public_key=public_key, data=tbs_der, signature=cert["signature"].asOctets(), hash_alg=hash_alg
-        )
+        if cert["signatureAlgorithm"]["algorithm"] in RSASSA_PSS_OID_2_NAME:
+            protectionutils.verify_rsassa_pss_from_alg_id(
+                public_key=public_key,
+                data=encoder.encode(cert["tbsCertificate"]),
+                signature=cert["signature"].asOctets(),
+                alg_id=cert["signatureAlgorithm"],
+            )
+        else:
+            cryptoutils.verify_signature(
+                public_key=public_key,
+                data=encoder.encode(cert["tbsCertificate"]),
+                signature=cert["signature"].asOctets(),
+                hash_alg=hash_alg,
+            )
+
         return True
     except (ValueError, InvalidSignature) as err:
         logging.info("%s", err)

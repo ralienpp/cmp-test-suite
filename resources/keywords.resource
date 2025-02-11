@@ -222,16 +222,29 @@ Generate Default Key
         Append To List    ${burned_keys}    ${private_key}
         RETURN    ${private_key}
     END
+    ${params}=    Create Dictionary    length=2048    curve=secp256r1
+    ${private_key}=    Generate Unique Key    algorithm=RSA    &{params}
+    RETURN    ${private_key}
 
-    WHILE    ${1}
-        Log    "Generated key is burned. Regenerating..."
-        ${private_key}=    Generate Key
-        ...                algorithm=${DEFAULT_ALGORITHM}
-        ...                length=${DEFAULT_KEY_LENGTH}
-        ...                curve=${DEFAULT_ECC_CURVE}
-        ${result}=    Check If Private Key In List    keys=${burned_keys}    new_key=${private_key}
-        IF    not ${result}    RETURN    ${private_key}
+
+Generate Unique Key
+    [Documentation]    Generates a unique cryptographic key using specified default parameters, set inside the config.
+    ...                Examples:
+    ...                | ${private_key}=    Generate Unique Key |
+    ...
+    [Arguments]    ${algorithm}    &{params}    ${max_attempts}=100
+    [Tags]    crypto    key
+    FOR    ${index}    IN RANGE    ${max_attempts}
+        ${key}=    Generate Key    algorithm=${algorithm}    &{params}
+        ${result}=    Check If Private Key In List    keys=${BURNED_KEYS}    new_key=${key}
+        IF    not ${result}
+            Append To List    ${BURNED_KEYS}    ${key}
+            RETURN    ${key}
+        END
+        Log    Generated key is burned. Regenerating... [Attempt ${index + 1}]
     END
+    Fail    Unable to generate a unique key after ${max_attempts} attempts.
+
 
 
 Get Next Common Name

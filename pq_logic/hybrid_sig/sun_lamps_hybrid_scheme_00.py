@@ -966,6 +966,49 @@ def _check_form_1_or_3(cert: rfc9480.CMPCertificate) -> Optional[rfc9480.CMPCert
     return None
 
 
+def validate_cert_contains_sun_hybrid_extensions(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate,
+) -> None:
+    """Validate if the certificate contains the sun-hybrid extensions.
+
+    Arguments:
+    ---------
+        - `cert`: The certificate to check.
+
+    Raises:
+    ------
+        - `ValueError`: If the certificate is missing the required extensions.
+        - `BadAsn1Data`: If the extensions are incorrectly encoded.
+        - `ValueError`: If the extensions are not non-critical.
+
+    Examples:
+    --------
+    | Check Cert Contains Sun Hybrid Extensions | ${cert} |
+
+    """
+    extn = certextractutils.get_extension(cert["tbsCertificate"]["extensions"], id_altSubPubKeyExt, must_be_non_crit=True)
+    if extn is None:
+        raise ValueError("The certificate is missing the AltSubPubKeyExt extension.")
+
+    try:
+        obj2, rest = decoder.decode(extn["extnValue"].asOctets(), AltSubPubKeyExt())
+        if rest != b"":
+            raise BadAsn1Data("Decoding of the AltSubPubKeyExt extension had trailing data.")
+    except pyasn1.error.PyAsn1Error:
+        raise BadAsn1Data("The AltSubPubKeyExt extension is invalid.")
+
+    extn = certextractutils.get_extension(cert["tbsCertificate"]["extensions"], id_altSignatureExt, must_be_non_crit=True)
+    if extn is None:
+        raise ValueError("The certificate is missing the AltSignatureExt extension.")
+
+    try:
+        obj2, rest = decoder.decode(extn["extnValue"].asOctets(), AltSignatureExt())
+        if rest != b"":
+            raise BadAsn1Data("Decoding of the AltSubPubKeyExt extension had trailing data.")
+    except pyasn1.error.PyAsn1Error:
+        raise BadAsn1Data("The AltSubPubKeyExt extension is invalid.")
+
+
 @keyword("Convert Sun-Hybrid Cert to Target Form")
 def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descriptions in the docstring
     cert: rfc9480.CMPCertificate, target_form: str

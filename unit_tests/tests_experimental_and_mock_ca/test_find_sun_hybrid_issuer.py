@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import sun_cert_template_to_cert

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
 from pq_logic.pq_validation_utils import validate_migration_oid_in_certificate

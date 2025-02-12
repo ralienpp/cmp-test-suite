@@ -11,8 +11,9 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc6402, rfc9480
-from resources import certbuildutils, cryptoutils, keyutils, utils
+from resources import certbuildutils, cmputils, cryptoutils, keyutils, protectionutils, utils
 from resources.certextractutils import get_extension
+from resources.certutils import load_certificates_from_dir
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadAsn1Data, BadPOP
 from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
@@ -24,11 +25,6 @@ from resources.oidutils import (
     id_ce_altSignatureAlgorithm,
     id_ce_altSignatureValue,
     id_ce_subjectAltPublicKeyInfo,
-)
-from resources.protectionutils import (
-    patch_sender_and_sender_kid,
-    prepare_pki_protection_field,
-    verify_rsassa_pss_from_alg_id,
 )
 from resources.typingutils import PrivateKeySig, PublicKeySig
 from robot.api.deco import keyword
@@ -269,7 +265,10 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
         public_key.verify(data=data, signature=signature, use_pss=use_pss, pre_hash=pre_hash)
 
     elif oid in RSASSA_PSS_OID_2_NAME:
-        return verify_rsassa_pss_from_alg_id(public_key=public_key, data=data, signature=signature, alg_id=alg_id)
+        protectionutils.verify_rsassa_pss_from_alg_id(public_key=public_key,
+                                                      data=data,
+                                                      signature=signature,
+                                                      alg_id=alg_id)
 
     elif oid in PQ_OID_2_NAME or str(oid) in PQ_OID_2_NAME or oid in MSG_SIG_ALG:
         hash_alg = get_hash_from_oid(oid, only_hash=True)
@@ -344,7 +343,7 @@ def _compute_protection(
         else:
             signature = utils.manipulate_first_byte(signature)
 
-    pki_message["protection"] = prepare_pki_protection_field(signature)
+    pki_message["protection"] = protectionutils.prepare_pki_protection_field(signature)
     return pki_message
 
 
@@ -417,7 +416,7 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
     | Protect Hybrid PKIMessage | ${pki_message} | ${private_key} | bad_message_check=True | protection=composite |
 
     """
-    pki_message = patch_sender_and_sender_kid(
+    pki_message = protectionutils.patch_sender_and_sender_kid(
         do_patch=do_patch,
         pki_message=pki_message,
         cert=params.get("cert"),
@@ -505,6 +504,6 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
             data=der_data,
             key=private_key,
         )
-        pki_message["protection"] = prepare_pki_protection_field(signature)
+        pki_message["protection"] = protectionutils.prepare_pki_protection_field(signature)
 
     return pki_message

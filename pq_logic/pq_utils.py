@@ -28,7 +28,7 @@ def get_kem_oid_from_key(
     :return: The Object Identifier.
     """
     if isinstance(key, (rsa.RSAPublicKey, rsa.RSAPrivateKey)):
-        return rfc5990.id_rsa_kem
+        return rfc5990.id_kem_rsa
 
     if isinstance(key, (PQKEMPublicKey, PQKEMPrivateKey)):
         return PQ_KEM_NAME_2_OID[key.name]

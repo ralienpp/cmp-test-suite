@@ -1264,6 +1264,14 @@ def prepare_subject_public_key_info(
         if isinstance(key, PrivateKey):
             key = key.public_key()
 
+        elif isinstance(key, AbstractCompositeSigPrivateKey):
+            pub_key = key.public_key()._self_to_raw_der()
+            spki = rfc5280.SubjectPublicKeyInfo()
+            spki["subjectPublicKey"] = univ.BitString.fromOctetString(pub_key)
+            oid = key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
+            spki["algorithm"]["algorithm"] = oid
+            return spki
+
     if for_kga:
         return _prepare_spki_for_kga(key=key, key_name=key_name, use_pss=use_rsa_pss, use_pre_hash=use_pre_hash)
 

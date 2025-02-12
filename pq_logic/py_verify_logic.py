@@ -285,14 +285,14 @@ def build_migration_cert_chain(  # noqa D417 undocumented-param
             continue
 
         try:
-            verify_signature_with_alg_id(
+            pq_compute_utils.verify_signature_with_alg_id(
                 public_key=certutils.load_public_key_from_cert(poss_issuer),
                 data=encoder.encode(cert["tbsCertificate"]),
                 signature=cert["signature"].asOctets(),
                 alg_id=cert["tbsCertificate"]["signature"],
             )
 
-            if compare_pyasn1_names(cert["tbsCertificate"]["subject"], cert["tbsCertificate"]["issuer"]):
+            if compareutils.compare_pyasn1_names(cert["tbsCertificate"]["subject"], cert["tbsCertificate"]["issuer"]):
                 break
 
             cert_chain.append(poss_issuer)

@@ -17,7 +17,7 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import constraint, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
-from resources import certutils, keyutils
+from resources import certutils, compareutils, keyutils
 from resources.exceptions import BadAsn1Data, BadMessageCheck, InvalidAltSignature, UnknownOID
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import (
@@ -202,14 +202,14 @@ def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
             "having the certificate with traditional signature algorithm."
         )
 
-    elif cert_sig_alg in CMS_COMPOSITE_OID_2_NAME:
+    elif cert_sig_alg in CMS_COMPOSITE_OID_2_NAME or str(cert_sig_alg) in CMS_COMPOSITE_OID_2_NAME:
         logging.info("The certificate contains a composite signature algorithm.")
         public_key = CompositeSigCMSPublicKey.from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
         CompositeSigCMSPublicKey.validate_oid(cert_sig_alg, public_key)
         pq_compute_utils.verify_signature_with_alg_id(public_key, sig_alg, data, signature)
 
     else:
-        raise UnknownOID(sig_alg["algorithm"], extra_info="Composite signature can not be verified.")
+        raise UnknownOID(cert_sig_alg, extra_info="Composite signature can not be verified.")
 
 
 def _check_names(cert, poss_issuer):

@@ -748,3 +748,31 @@ def load_certificate_from_uri(  # noqa: D417 Missing argument description in the
     certs = [cert for cert in certs if cert.strip()]
     cert = [certutils.parse_certificate(decode_pem_string(cert)) for cert in certs]
     return cert
+
+
+def may_patch_params(  # noqa D417
+    params: dict, **default_values
+) -> dict:
+    """May overwrite the values of a dictionary with the values of another dictionary.
+
+    Only overwrites the values of the keys that are not present in the original dictionary.
+
+    Arguments:
+    ---------
+        - `params`: The dictionary to be patched.
+        - `default_values`: The default values to be used.
+
+    Returns:
+    -------
+        - The patched dictionary.
+
+    Examples:
+    --------
+    | ${params} = | May Patch Params | ${params} | key1=value1 key2=value2 |
+    | ${params} = | May Patch Params | ${params} | &{params} |
+
+    """
+    for key, value in default_values.items():
+        if key not in params:
+            params[key] = value
+    return params

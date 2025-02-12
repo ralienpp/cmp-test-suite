@@ -463,6 +463,7 @@ PQ_SIG_NAME_2_OID = {}
 PQ_SIG_NAME_2_OID.update(ML_DSA_NAME_2_OID)
 PQ_SIG_NAME_2_OID.update(SLH_DSA_NAME_2_OID)
 
+PQ_SIG_OID_2_NAME = {y: x for x, y in PQ_SIG_NAME_2_OID.items()}
 
 PQ_NAME_2_OID = {}
 PQ_NAME_2_OID.update(PQ_SIG_NAME_2_OID)
@@ -554,6 +555,7 @@ KEM_OID_2_NAME.update(MCELIECE_OID_2_NAME)
 KEM_OID_2_NAME.update(CHEMPAT_OID_2_NAME)
 KEM_OID_2_NAME.update({univ.ObjectIdentifier(XWING_OID_STR): "xwing"})
 KEM_OID_2_NAME.update(COMPOSITE_KEM_OID_2_NAME)
+KEM_OID_2_NAME.update({rfc5990.id_kem_rsa: "rsa-kem"})
 
 
 TRAD_STR_OID_TO_KEY_NAME = {

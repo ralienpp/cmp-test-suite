@@ -7,7 +7,7 @@
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union, Iterable
 
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -934,6 +934,7 @@ def _prepare_extensions_for_cert_template(
     return cert_template
 
 
+
 @keyword(name="Prepare CertTemplate")
 def prepare_cert_template(  # noqa D417 undocumented-param
     key: Optional[Union[typingutils.PrivateKey, typingutils.PublicKey]] = None,
@@ -944,7 +945,7 @@ def prepare_cert_template(  # noqa D417 undocumented-param
     serial_number: Optional[typingutils.Strint] = None,
     version: Optional[typingutils.Strint] = None,
     validity: Optional[rfc5280.Validity] = None,
-    extensions: Optional[Sequence[rfc5280.Extension]] = None,
+    extensions: Optional[Iterable[rfc5280.Extension]] = None,
     for_kga: bool = False,
     cert: Optional[rfc9480.CMPCertificate] = None,
     include_cert_extensions: bool = True,

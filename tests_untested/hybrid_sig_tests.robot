@@ -178,6 +178,30 @@ CA MUST Accept a valid Composite Sig KUR
     VAR    ${COMP_SIG_KEY}         ${key}         scope=SUITE   # robocop: off=no-suite-variable
     VAR    ${COMP_SIG_CERT_CHAIN}  ${cert_chain}  scope=SUITE   # robocop: off=no-suite-variable
     Write Certs To Dir    ${cert_chain}
+
+CA MUST Revoke a valid Composite Sig Cert
+    [Documentation]    According to RFC 9483 Section 4.2, the revocation request must be signed by the private key,
+    ...                which corresponds to the certificate to be revoked. We send a valid revocation request for a
+    ...                composite signature certificate. The CA MUST process the request and revoke the certificate.
+    [Tags]             positive   rr
+    ${key}=    Generate Default Composite Sig Key
+    ${ir}=    Build Composite Signature Request    ${key}
+    ${response}=    Exchange Migration PKIMessage    ${ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    PKIMessage Body Type Must Be    ${response}    ip
+    PKIStatus Must Be    ${response}    accepted
+    ${cert}=   Confirm Certificate If Needed    ${response}
+    ${cert_chain}=   Build Migration Cert Chain    ${cert}    certs=${response["extraCerts"]}
+    ${rr}=   Build CMP Revoke Request    ${cert}    recipient=${RECIPIENT}
+    ${protected_rr}=   Protect Hybrid PKIMessage    ${rr}   private_key=${key}    cert=${cert}
+    ${response}=   Exchange Migration PKIMessage    ${protected_rr}    ${CA_CMP_URL}    ${COMPOSITE_URL_PREFIX}
+    PKIMessage Body Type Must Be    ${response}    rp
+    PKIStatus Must Be    ${response}    accepted
+    VAR    ${REVOKED_COMP_KEY}         ${key}         scope=SUITE    # robocop: off=no-suite-variable
+    VAR    ${REVOKED_COMP_CERT}        ${cert}        scope=SUITE    # robocop: off=no-suite-variable
+    VAR    ${REVOKED_COMP_CERT_CHAIN}  ${cert_chain}  scope=SUITE    # robocop: off=no-suite-variable
+    Write Certs To Dir    ${cert_chain}
+    Validate If Certificate Is Revoked    ${cert}
+
 ############################
 ## Pre-Hashed Versions  # robocop: off=0702
 ############################

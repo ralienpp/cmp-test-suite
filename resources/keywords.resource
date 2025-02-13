@@ -437,7 +437,8 @@ PKIStatus Must Be
 
 Exchange Migration PKIMessage
     [Documentation]    Exchange a PKIMessage with the Mock CA
-    [Arguments]    ${ir}    ${ca_base_url}    ${suffix}=${None}
+    [Arguments]    ${ir}    ${ca_base_url}=${CA_CMP_URL}    ${suffix}=${NONE}
     ${url} =    Add URL Suffix    ${ca_base_url}    ${suffix}
     ${response} =    Exchange PKIMessage    ${ir}    ${url}
     RETURN    ${response}
+

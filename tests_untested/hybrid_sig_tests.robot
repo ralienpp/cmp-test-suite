@@ -129,6 +129,31 @@ CA MUST Issue a Valid Composite ED448 Certificate
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
+CA MUST Accept Valid Composite Sig IR With CertConf
+    [Documentation]    According to RFC9483 Section 4.1.1, are we sending a valid IR which is signed by a valid
+    ...                composite signature certificate and corresponding key. The CA MUST process the valid request
+    ...                and update the certificate accordingly.
+    [Tags]             positive   ir
+    ${key}=    Generate Default Composite Sig Key
+    ${cm}=    Get Next Common Name
+    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   recipient=${RECIPIENT}
+    ...                            exclude_fields=senderKID,sender
+    ...                            implicit_confirm=${False}
+    ${protected_ir}=    Default Protect PKIMessage    ${ir}
+    ${response}=    Exchange Migration PKIMessage    ${protected_ir}   ${CA_CMP_URL}  ${COMPOSITE_URL_PREFIX}
+    PKIMessage Body Type Must Be    ${response}    ip
+    PKIStatus Must Be    ${response}    accepted
+    # Should not contain the implicit confirm extension.
+    ${result}=    Find OID In GeneralInfo    ${response}    1.3.6.1.5.5.7.4.13
+    Should Be True    not ${result}
+    ${cert}=    Confirm Certificate If Needed    ${response}   suffix=${COMPOSITE_URL_PREFIX}
+    # does not use `caPubs`, because MUST be absent!
+    ${cert_chain}=    Build Migration Cert Chain    ${cert}    certs=${response["extraCerts"]}
+    VAR    ${COMP_SIG_CERT}        ${cert}        scope=SUITE   # robocop: off=no-suite-variable
+    VAR    ${COMP_SIG_KEY}         ${key}         scope=SUITE   # robocop: off=no-suite-variable
+    VAR    ${COMP_SIG_CERT_CHAIN}  ${cert_chain}  scope=SUITE   # robocop: off=no-suite-variable
+    Write Certs To Dir    ${cert_chain}
+
 ############################
 ## Pre-Hashed Versions  # robocop: off=0702
 ############################

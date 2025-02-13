@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG # robocop: off=0704
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -150,7 +150,7 @@ CA MUST Issue a Valid Composite ED448 Certificate
     PKIStatus Must Be    ${response}    status=accepted
 
 ############################
-## Pre-Hashed Versions
+## Pre-Hashed Versions  # robocop: off=0702
 ############################
 
 CA MUST Issue A Valid Composite RSA-Prehashed Certificate
@@ -436,4 +436,6 @@ CA SHOULD Reject Issuing Already in use Traditional Key
     ${response}=       Exchange PKIMessage    ${ir}
     PKIMessage Body Type Must Be    ${response}    error
     PKIStatus Must Be    ${response}    rejection
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badRequest
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badRequest# disable too many lines
+# disable too many lines
+# robocop: off=0506

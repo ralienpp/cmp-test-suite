@@ -241,6 +241,30 @@ Generate Default Key
 
 
 
+Generate Default Composite Sig Key
+    [Documentation]    Generates a default composite signature key with the traditional algorithm
+    ...                and the PQ algorithm defined in the configuration.
+    ...
+    ...                Note:
+    ...                ----
+    ...                - `DEFAULT_TRAD_ALG` defines the algorithm.
+    ...                - `DEFAULT_KEY_LENGTH` defines the key length for RSA.
+    ...                - `DEFAULT_PQ_ALG` defines the pq algorithm.
+    ...                - `DEFAULT_ECC_CURVE` defines the curve for ECC.
+    ...
+    ...                Returns:
+    ...                --------
+    ...                - key: The generated key.
+    ...
+    ...               Examples:
+    ...               --------
+    ...               | ${key}= | Generate Default Composite Sig Key |
+    ...
+    [Tags]         composite-sig    key
+    ${params}=    Create Dictionary    trad_name=${DEFAULT_TRAD_ALG}   length=${DEFAULT_KEY_LENGTH}    curve=${DEFAULT_ECC_CURVE}   pq_name=${DEFAULT_PQ_SIG_ALG}
+    ${key}=      Generate Key    algorithm=composite-sig    &{params}
+    RETURN     ${key}
+
 Default Protect PKIMessage
     [Documentation]    Protect a PKIMessage with the default protection algorithm, set inside the config
     ...                and the default parameters.

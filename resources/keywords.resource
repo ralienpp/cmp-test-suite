@@ -241,6 +241,32 @@ Generate Default Key
 
 
 
+Default Protect PKIMessage
+    [Documentation]    Protect a PKIMessage with the default protection algorithm, set inside the config
+    ...                and the default parameters.
+    ...
+    ...                Note:
+    ...                ----
+    ...                - The protection algorithm is set to `signature` by default.
+    ...
+    ...                Examples:
+    ...                | ${prot_pkimessage}=    Default Protect PKIMessage    | ${pki_message} |
+    ...
+    [Arguments]    ${pki_message}    &{params}
+    [Tags]    protection
+    ${length}=   Get Length   ${params}
+    IF  ${length} == 0
+        ${args}=    Copy Dictionary    ${DEFAULT_PROTECTION_VALS}
+    ELSE
+        ${args}=    May Patch Params    ${params}    &{DEFAULT_PROTECTION_VALS}
+    END
+    ${protection}=   Get From Dictionary    ${args}    protection
+    IF  '${protection}' == 'signature'
+        ${prot_pkimessage}=    Protect Hybrid PKIMessage    ${pki_message}  &{args}
+    ELSE
+        ${prot_pkimessage}=    Protect PKIMessage    ${pki_message}    &{args}
+    END
+    RETURN    ${prot_pkimessage}
 
 Confirm Certificate If Needed
     [Documentation]    Some Test cases need a valid certificate to work. Because not all CA's might support the

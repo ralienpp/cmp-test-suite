@@ -316,7 +316,7 @@ Generate Default IR Sig Protected
     ...       cert_template=${cert_template}
     ...       recipient=${RECIPIENT}
     ...       implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-    ...       omit_fields=sender,senderKID
+    ...       exclude_fields=sender,senderKID
     ${protected_ir}=    Protect PKIMessage
     ...                 ${ir}
     ...                 protection=signature
@@ -360,7 +360,7 @@ Generate Default MAC Protected PKIMessage
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
         ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-        ...                omit_fields=${omit_fields}
+        ...                exclude_fields=${omit_fields}
     ELSE IF    ${ALLOW_CR_MAC_BASED}
         ${cert_template}    ${key}=    Generate CertTemplate For Testing
         ${pki_message}=    Build Cr From Key
@@ -369,7 +369,7 @@ Generate Default MAC Protected PKIMessage
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
         ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-        ...                omit_fields=${omit_fields}
+        ...                exclude_fields=${omit_fields}
     ELSE
         ${csr}    ${key}=    Generate CSR For Testing
         ${pki_message}=    Build P10cr From CSR
@@ -377,7 +377,7 @@ Generate Default MAC Protected PKIMessage
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
         ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-        ...                omit_fields=${omit_fields}
+        ...                exclude_fields=${omit_fields}
     END
     IF   '${mac_alg}' != 'None'
         ${pki_message}=    Protect PKIMessage

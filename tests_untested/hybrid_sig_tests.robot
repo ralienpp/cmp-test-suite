@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 *** Settings ***
-Documentation       General tests for CMP logic, not necessarily specific to the lightweight profile
+Documentation       This suite contains tests for the Composite Signature which are related to proof that the
+...                 different parameters sets are correctly processed by the CA. The tests are based on the
+...                 Composite Signature Draft CMS03, all not named features which are tested are directly related
+...                 to the Composite Signature Draft CMS03 like the RSA key size tests and other test align with the
+...                 mechanisms mentioned in RFC 9483 LwCMP.
 
 Resource            ../resources/keywords.resource
 Library             Collections

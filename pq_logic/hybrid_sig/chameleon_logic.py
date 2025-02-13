@@ -4,7 +4,6 @@
 
 """Logic for building/validating Chameleon certificates/certification requests."""
 
-import copy
 from typing import List, Optional, Tuple
 
 from cryptography.exceptions import InvalidSignature
@@ -13,7 +12,7 @@ from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc5652, rfc6402, rfc9480
 from resources import certbuildutils, certextractutils, compareutils, cryptoutils, utils
 from resources.convertutils import copy_asn1_certificate, subjectPublicKeyInfo_from_pubkey
-from resources.copyasn1utils import copy_name, copy_validity
+from resources.copyasn1utils import copy_csr, copy_name, copy_validity
 from resources.exceptions import BadAsn1Data, BadPOP
 from resources.oid_mapping import get_hash_from_oid
 from resources.prepareutils import prepare_name
@@ -491,8 +490,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
     | ${delta_req}= | Verify Paired CSR Signature | ${csr} |
 
     """
-    csr_der = copy.copy(encoder.encode(csr))
-    csr_tmp = decoder.decode(csr_der, asn1Spec=rfc6402.CertificationRequest())[0]
+    csr_tmp = copy_csr(csr)
 
     pq_compute_utils.verify_csr_signature(csr=csr_tmp)
     attributes, delta_req, delta_sig = extract_chameleon_attributes(csr=csr_tmp)

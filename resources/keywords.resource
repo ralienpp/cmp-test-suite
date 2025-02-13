@@ -210,36 +210,16 @@ Exchange PKIMessage
 # also allows more efficient unit tests.
 # TODO fix
 
-Generate Default Key
-    [Documentation]    Generates a default cryptographic key using specified default parameters, set inside the config.
-    ...                Examples:
-    ...                | ${private_key}=    Generate Default Key |
-    ...
-    [Tags]    crypto    key
-    ${private_key}=    Generate Key
-    ...                algorithm=${DEFAULT_ALGORITHM}
-    ...                length=${DEFAULT_KEY_LENGTH}
-    ...                curve=${DEFAULT_ECC_CURVE}
-    # privates keys can not be compared so this work-around.
-    ${result}=    Check If Private Key In List    keys=${burned_keys}    new_key=${private_key}
-    IF    not ${result}
-        Append To List    ${burned_keys}    ${private_key}
-        RETURN    ${private_key}
-    END
-    ${params}=    Create Dictionary    length=2048    curve=secp256r1
-    ${private_key}=    Generate Unique Key    algorithm=RSA    &{params}
-    RETURN    ${private_key}
-
-
 Generate Unique Key
     [Documentation]    Generates a unique cryptographic key using specified default parameters, set inside the config.
     ...                Examples:
-    ...                | ${private_key}=    Generate Unique Key |
-    ...
-    [Arguments]    ${algorithm}    &{params}    ${max_attempts}=100
-    [Tags]    crypto    key
+    ...                | ${private_key}=    Generate Unique Key | rsa | length=2048 |
+    [Arguments]    ${algorithm}    &{params}
+    [Tags]    key
+    ${max_attempts}=  Get From Dictionary    ${params}    max_attempts    ${100}
     FOR    ${index}    IN RANGE    ${max_attempts}
         ${key}=    Generate Key    algorithm=${algorithm}    &{params}
+        # privates keys can not be compared so this work-around.
         ${result}=    Check If Private Key In List    keys=${BURNED_KEYS}    new_key=${key}
         IF    not ${result}
             Append To List    ${BURNED_KEYS}    ${key}
@@ -248,6 +228,18 @@ Generate Unique Key
         Log    Generated key is burned. Regenerating... [Attempt ${index + 1}]
     END
     Fail    Unable to generate a unique key after ${max_attempts} attempts.
+
+Generate Default Key
+    [Documentation]    Generates a default cryptographic key using specified default parameters, set inside the config.
+    ...                Examples:
+    ...                | ${private_key}=    Generate Default Key |
+    ...
+    [Tags]    key
+    ${params}=    Create Dictionary    length=${DEFAULT_KEY_LENGTH}    curve=${DEFAULT_ECC_CURVE}
+    ${private_key}=    Generate Unique Key    algorithm=${DEFAULT_ALGORITHM}    &{params}
+    RETURN    ${private_key}
+
+
 
 
 

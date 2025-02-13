@@ -154,6 +154,30 @@ CA MUST Accept Valid Composite Sig IR With CertConf
     VAR    ${COMP_SIG_CERT_CHAIN}  ${cert_chain}  scope=SUITE   # robocop: off=no-suite-variable
     Write Certs To Dir    ${cert_chain}
 
+CA MUST Accept a valid Composite Sig KUR
+    [Documentation]    According to RFC9483 section 4.1.3, we send a valid KUR which is signed by a valid composite
+    ...                signature certificate and corresponding key. The CA MUST process the valid request and update
+    ...                the certificate accordingly.
+    [Tags]             positive   kur
+    ${result}=   Is Certificate And Key Set  ${COMP_SIG_CERT}  ${COMP_SIG_KEY}
+    Skip If     not ${result}    The composite signature certificate and key are not set.
+    ${key}=            Generate Default Composite Sig Key
+    ${cm}=             Get Next Common Name
+    ${kur}=    Build Key Update Request    ${key}   common_name=${cm}   recipient=${RECIPIENT}
+    ...        exclude_fields=senderKID,sender
+    ${protected_kur}=  Protect Hybrid PKIMessage
+    ...                ${kur}
+    ...                private_key=${COMP_SIG_KEY}
+    ...                cert=${COMP_SIG_CERT}
+    ${response}=    Exchange Migration PKIMessage    ${protected_kur}   ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    PKIMessage Body Type Must Be    ${response}    kup
+    PKIStatus Must Be    ${response}    accepted
+    ${cert}=           Get Cert From PKIMessage    ${response}
+    ${cert_chain}=   Build Migration Cert Chain    ${cert}    certs=${response["extraCerts"]}
+    VAR    ${COMP_SIG_CERT}        ${cert}        scope=SUITE   # robocop: off=no-suite-variable
+    VAR    ${COMP_SIG_KEY}         ${key}         scope=SUITE   # robocop: off=no-suite-variable
+    VAR    ${COMP_SIG_CERT_CHAIN}  ${cert_chain}  scope=SUITE   # robocop: off=no-suite-variable
+    Write Certs To Dir    ${cert_chain}
 ############################
 ## Pre-Hashed Versions  # robocop: off=0702
 ############################

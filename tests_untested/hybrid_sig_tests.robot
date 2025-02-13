@@ -202,6 +202,19 @@ CA MUST Revoke a valid Composite Sig Cert
     Write Certs To Dir    ${cert_chain}
     Validate If Certificate Is Revoked    ${cert}
 
+CA MUST Reject IR With Revoked Cert
+    [Documentation]    According to RFC 9483 Section 4.1.1, the IR must be signed by a valid composite signature
+    ...                certificate and corresponding key. We send a valid IR which is signed by a revoked composite
+    ...                signature certificate. The CA MUST detect the revoked certificate and reject the request.
+    [Tags]             negative   revocation
+    ${result}=   Is Certificate And Key Set  ${REVOKED_COMP_CERT}  ${REVOKED_COMP_KEY}
+    Skip If     not ${result}    The composite signature certificate and key are not set.
+    ${ir}=    Build Composite Signature Request
+    ${protected_ir}=    Protect Hybrid PKIMessage    ${ir}    private_key=${REVOKED_COMP_KEY}
+    ...                                               cert=${REVOKED_COMP_CERT}
+    ${response}=    Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    PKIStatus Must Be    ${response}    rejection
+    PKIStatusInfo Failinfo Bit Must Be    ${response}  signerNotTrusted
 ############################
 ## Pre-Hashed Versions  # robocop: off=0702
 ############################

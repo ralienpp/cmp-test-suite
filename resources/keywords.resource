@@ -410,9 +410,6 @@ PKIStatusInfo failinfo Bit Must Be
         END
     END
 
-
-
-
 PKIStatus Must Be
     [Documentation]   Verifies that the `PKIStatus` field in the `PKIMessage` matches the expected value.
     ...

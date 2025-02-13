@@ -950,7 +950,6 @@ def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in t
     request: PKIMessagesTMP,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,
-    cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
     **kwargs,
 ) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Build a Chameleon certificate from a `p10cr` request.
@@ -990,10 +989,6 @@ def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in t
         ca_key=ca_key,
     )
     pki_message, cert = ca_ra_utils.build_cp_from_p10cr(cert=cert, request=request, **kwargs)
-    if cmp_protection_cert is None:
-        pki_message["extraCerts"].append(cmp_protection_cert)
-
-    pki_message["extraCerts"].append(delta_cert)
     return pki_message, cert, delta_cert
 
 

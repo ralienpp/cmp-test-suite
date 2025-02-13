@@ -469,6 +469,27 @@ def _prepare_subject_alt_name_extensions(subject_alt_name: str) -> rfc5280.Exten
     return extension
 
 
+def _prepare_key_usage_extension(key_usage: str, critical: bool = True) -> rfc5280.Extension:
+    """Prepare a `KeyUsage` extension for a `CMPCertificate`, `CSR` or `CertTemplate`.
+
+    :param key_usage: The key usage value to include in the extension.
+    :param critical: Whether the extension should be marked as critical. Defaults to `True`.
+    :return: The populated `pyasn1` `Extension` structure.
+    """
+    try:
+        usage = rfc5280.KeyUsage(key_usage)
+    except pyasn1.error.PyAsn1Error as e:
+        raise ValueError(
+            f"Invalid key usage value: `{key_usage}`. Allowed are: {list(rfc5280.KeyUsage.namedValues.keys())}."
+        ) from e
+    der_key_usage = encoder.encode(usage)
+    key_usage_ext = rfc5280.Extension()
+    key_usage_ext["extnID"] = rfc5280.id_ce_keyUsage
+    key_usage_ext["critical"] = critical
+    key_usage_ext["extnValue"] = univ.OctetString(der_key_usage)
+    return key_usage_ext
+
+
 def prepare_extensions(  # noqa D417 undocumented-param
     key_usage: Optional[str] = None,
     eku: Optional[str] = None,
@@ -510,11 +531,7 @@ def prepare_extensions(  # noqa D417 undocumented-param
     extensions = rfc9480.Extensions()
 
     if key_usage is not None:
-        der_key_usage = encoder.encode(rfc5280.KeyUsage(key_usage))
-        key_usage_ext = rfc5280.Extension()
-        key_usage_ext["extnID"] = rfc5280.id_ce_keyUsage
-        key_usage_ext["critical"] = True
-        key_usage_ext["extnValue"] = univ.OctetString(der_key_usage)
+        key_usage_ext = _prepare_key_usage_extension(key_usage=key_usage, critical=critical)
         extensions.append(key_usage_ext)
 
     if eku is not None:

@@ -1821,18 +1821,20 @@ def build_rp_from_rr(
     fail_info = None
     if not request["extraCerts"].isValue:
         fail_info = "addInfoNotAvailable"
+        text = "The `extraCerts` field was empty in the revocation request message."
     else:
         try:
             protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
         except Exception:
             logging.debug("Failed to verify the PKIMessage protection.")
             fail_info = "badMessageCheck"
+            text = "Failed to verify the PKIMessage protection."
 
     if fail_info is not None:
         status_info = cmputils.prepare_pkistatusinfo(
             status="rejection",
             failinfo=fail_info,
-            texts="The `extraCerts` field was empty in the revocation request message.",
+            texts=text,
         )
         body["rp"]["status"].append(status_info)
         pki_message = cmputils.prepare_pki_message(**kwargs)

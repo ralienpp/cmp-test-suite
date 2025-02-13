@@ -55,6 +55,7 @@ from resources.asn1_structures import (
     ProtectedPartTMP,
 )
 from resources.convertutils import str_to_bytes
+from resources.exceptions import UnknownOID
 from resources.oid_mapping import (
     get_alg_oid_from_key_hash,
     get_hash_from_oid,
@@ -66,6 +67,7 @@ from resources.oidutils import (
     AES_GMAC_NAME_2_OID,
     AES_GMAC_OID_2_NAME,
     ALL_KNOWN_PROTECTION_OIDS,
+    CMS_COMPOSITE_OID_2_NAME,
     HKDF_NAME_2_OID,
     HKDF_OID_2_NAME,
     HMAC_OID_2_NAME,
@@ -73,6 +75,7 @@ from resources.oidutils import (
     KMAC_OID_2_NAME,
     LWCMP_MAC_OID_2_NAME,
     MSG_SIG_ALG,
+    PQ_SIG_OID_2_NAME,
     RSASSA_PSS_OID_2_NAME,
     SHA_OID_2_NAME,
     SYMMETRIC_PROT_ALGO,
@@ -1423,11 +1426,11 @@ def get_protection_type_from_pkimessage(  # noqa D417 undocumented-param
 
     Returns:
     -------
-        - A string indicating the protection type: 'mac' or 'sig'.
+        - A string indicating the protection type: 'mac', 'sig', 'composite-sig' or 'pq-sig'.
 
     Raises:
     ------
-        - `ValueError`: If the OID is not valid, unsupported or not allowed.
+        - `UnknownOID`: If the OID is not valid, unsupported or not allowed.
 
     Examples:
     --------
@@ -1449,7 +1452,13 @@ def get_protection_type_from_pkimessage(  # noqa D417 undocumented-param
     if alg_id in MSG_SIG_ALG:
         return "sig"
 
-    raise ValueError(f"Unsupported or unknown OID: {str(alg_id)}")
+    if alg_id in CMS_COMPOSITE_OID_2_NAME:
+        return "composite-sig"
+
+    if alg_id in PQ_SIG_OID_2_NAME:
+        return "pq-sig"
+
+    raise UnknownOID(oid=alg_id)
 
 
 def _compare_mac_params(

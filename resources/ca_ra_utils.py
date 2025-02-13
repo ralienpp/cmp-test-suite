@@ -1611,7 +1611,11 @@ def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions i
         - `BadRequest`: If the number of CertStatus's is not one (for LwCMP).
         - `BadRequest`: If the CertReqId is not zero (for LwCMP).
         - `BadRequest`: If the certificate status is not `accepted` or `rejection`.
-        - `BadPOP`: If the certificate hash is invalid in the CertConf message.
+        - `BadPOP`: If the certificate hash is invalid or not present.
+
+    Examples:
+    --------
+    | ${pki_conf} | Build PKIConf from CertConf | ${request} | ${issued_certs} |
 
     """
     if request["body"].getName() != "certConf":
@@ -1630,6 +1634,9 @@ def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions i
         if entry["certReqId"] != 0 and enforce_lwcmp:
             raise BadRequest("Invalid CertReqId in CertConf message.")
 
+        if not entry["certHash"].isValue:
+            raise BadPOP("Certificate hash is missing in CertConf message.")
+
         if entry["statusInfo"].isValue:
             if str(entry["status"]) == "rejection":
                 logging.debug("Certificate status was rejection.")
@@ -1641,13 +1648,22 @@ def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions i
                     f"Expected 'accepted' or 'rejection', got {entry['status'].getName()}"
                 )
 
-        if entry["hashAlg"]["algorithm"].isValue:
+        if entry["hashAlg"].isValue:
+            logging.warning(entry["hashAlg"])
             if int(request["header"]["pvno"]) != 3:
                 raise BadRequest("Hash algorithm is set in CertConf message, but the version is not 3.")
+            # expected to be sha256 or similar,
+            # is ensured with the flag `only_hash=False`
             hash_alg = get_hash_from_oid(entry["hashAlg"]["algorithm"], only_hash=False)
         else:
             alg_oid = issued_cert["tbsCertificate"]["signature"]["algorithm"]
             hash_alg = get_hash_from_oid(alg_oid, only_hash=True)
+
+        if hash_alg is None:
+            raise ValueError(
+                "No hash algorithm found for the certificate signature algorithm,"
+                "please use version 3 and set the hash algorithm in the `CertConf` message."
+            )
 
         computed_hash = compute_hash(
             alg_name=hash_alg,

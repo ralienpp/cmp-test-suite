@@ -510,5 +510,22 @@ CA SHOULD Reject Issuing Already in use Traditional Key
     ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badRequest
+
+CA MUST Not Issue A Composite Sig Certificate with an Invalid KeyUsage Bit
+    [Documentation]    As defined in Composite Sig Draft CMS03 Section 5.4, we generate a valid IR with a composite
+    ...                signature algorithm. The traditional algorithm is RSA and the pq algorithm is ML-DSA-44. The
+    ...                key usage bit inside the `CertTemplate` is set to an invalid value. The CA MUST reject the
+    [Tags]             negative   robot:skip-on-failure   key-usage
+    ${key}=            Generate Key    algorithm=composite-sig  trad_name=rsa   length=2048   pq_name=ml-dsa-44
+    ${cm}=             Get Next Common Name
+    ${extn}=    Prepare Extensions    key_usage=keyEncipherment,digitalSignature
+    ${cert_template}=   Prepare CertTemplate    ${key}   subject=${cm}   extensions=${extn}
+    ${ir}=    Build Ir From Key    ${key}  cert_template=${cert_template}
+    ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
+    ${protected_ir}=    Default Protect PKIMessage    ${ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    PKIStatus Must Be    ${response}    rejection
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate
+
 # disable too many lines
 # robocop: off=0506

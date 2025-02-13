@@ -527,5 +527,22 @@ CA MUST Not Issue A Composite Sig Certificate with an Invalid KeyUsage Bit
     PKIStatus Must Be    ${response}    rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate
 
+CA MUST Issue A Composite Sig Certificate with cRLSign KeyUsage Bit
+    [Documentation]    According to Composite Sig Draft CMS03 Section 5.4, the `cRLSign` key usage bit is allowed for
+    ...                composite signature certificates. We generate a valid IR with a composite signature algorithm.
+    ...                The key usage bit inside the `CertTemplate` is set to `cRLSign`. The CA MUST process the valid
+    ...                request and issue a valid certificate.
+    [Tags]             positive   key-usage
+    ${key}=            Generate Default Composite Sig Key
+    ${cm}=             Get Next Common Name
+    ${extn}=           Prepare Extensions    key_usage=cRLSign   is_ca=True
+    ${cert_template}=   Prepare CertTemplate    ${key}   subject=${cm}   extensions=${extn}
+    ${ir}=    Build Ir From Key    ${key}   cert_template=${cert_template}
+    ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
+    ${protected_ir}=  Default Protect PKIMessage    ${ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}   ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    PKIMessage Body Type Must Be    ${response}    ip
+    PKIStatus Must Be    ${response}    accepted
+
 # disable too many lines
 # robocop: off=0506

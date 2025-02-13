@@ -7,8 +7,9 @@
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Any, List, Optional, Sequence, Tuple, Union, Iterable
+from typing import Any, Iterable, List, Optional, Sequence, Tuple, Union
 
+import pyasn1.error
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeSigPrivateKey
@@ -369,10 +370,11 @@ def generate_signed_csr(  # noqa D417 undocumented-param
     return csr, key  # type: ignore
 
 
-def _prepare_extended_key_usage(oids: List[univ.ObjectIdentifier]) -> rfc5280.Extension:
+def _prepare_extended_key_usage(oids: List[univ.ObjectIdentifier], critical: bool = True) -> rfc5280.Extension:
     """Generate pyasn1 `ExtendedKeyUsage` object with the provided list of OIDs.
 
     :param oids: A list of OIDs (strings) representing the allowed usages.
+    :param critical: Whether the extension should be marked as critical. Defaults to `True`.
     :return: Encoded ASN.1 ExtendedKeyUsage object.
     """
     extended_key_usage = rfc5280.ExtKeyUsageSyntax()
@@ -382,18 +384,22 @@ def _prepare_extended_key_usage(oids: List[univ.ObjectIdentifier]) -> rfc5280.Ex
 
     ext = rfc5280.Extension()
     ext["extnID"] = rfc5280.id_ce_extKeyUsage
+    ext["critical"] = critical
     ext["extnValue"] = univ.OctetString(encoder.encode(extended_key_usage))
 
     return ext
 
 
-def _prepare_ski_extension(key: Union[typingutils.PrivateKey, typingutils.PublicKey]) -> rfc5280.Extension:
+def _prepare_ski_extension(
+    key: Union[typingutils.PrivateKey, typingutils.PublicKey], critical: bool = True
+) -> rfc5280.Extension:
     """Prepare a SubjectKeyIdentifier (SKI) extension.
 
     Used to ask for this extension by the server, or for negative testing, by sending the ski of another key.
 
     :param key: The public or private key to prepare the extension for.
-    :return: The populated `pyasn1` `Extension` structure.
+    :param critical: Whether the extension should be marked as critical. Defaults to `True`.
+    :return: The populated `Extension` structure.
     """
     if isinstance(key, typingutils.PrivateKey):
         key = key.public_key()
@@ -401,19 +407,20 @@ def _prepare_ski_extension(key: Union[typingutils.PrivateKey, typingutils.Public
     subject_key_identifier = rfc5280.SubjectKeyIdentifier(ski)
     extension = rfc5280.Extension()
     extension["extnID"] = rfc5280.id_ce_subjectKeyIdentifier
+    extension["critical"] = critical
     extension["extnValue"] = univ.OctetString(encoder.encode(subject_key_identifier))
     return extension
 
 
 def _prepare_authority_key_identifier_extension(
-    ca_key: typingutils.PublicKey, is_critical: bool = True
+    ca_key: typingutils.PublicKey, critical: bool = True
 ) -> rfc5280.Extension:
     """Prepare an `AuthorityKeyIdentifier` extension.
 
     Used to ask for this extension by the server, or for negative testing, by sending the aki of another key.
 
     :param ca_key: The public key or certificate to prepare the extension for.
-    :param is_critical: Whether the extension should be marked as critical. Defaults to `True`.
+    :param critical: Whether the extension should be marked as critical. Defaults to `True`.
     :return: The populated `Extension` structure.
     """
     if isinstance(ca_key, rfc9480.CMPCertificate):
@@ -424,16 +431,19 @@ def _prepare_authority_key_identifier_extension(
     authority_key_identifier["keyIdentifier"] = x509.AuthorityKeyIdentifier.from_public_key(ca_key).key_identifier  # type: ignore
     extension = rfc5280.Extension()
     extension["extnID"] = rfc5280.id_ce_authorityKeyIdentifier
-    extension["critical"] = is_critical
+    extension["critical"] = critical
     extension["extnValue"] = univ.OctetString(encoder.encode(authority_key_identifier))
     return extension
 
 
-def _prepare_basic_constraints_extension(ca: bool = False, path_length: Optional[int] = None) -> rfc5280.Extension:
+def _prepare_basic_constraints_extension(
+    ca: bool = False, path_length: Optional[int] = None, critical: bool = True
+) -> rfc5280.Extension:
     """Prepare BasicConstraints extension.
 
     :param ca: A boolean indicating if the certificate is a ca.
     :param path_length: The path length, which is allowed to be followed. Defaults to None.
+    :param critical: Whether the extension should be marked as critical. Defaults to `True`.
     :return: The populated `pyasn1` `Extension` structure.
     """
     basic_constraints = rfc5280.BasicConstraints()
@@ -444,18 +454,19 @@ def _prepare_basic_constraints_extension(ca: bool = False, path_length: Optional
 
     extension = rfc5280.Extension()
     extension["extnID"] = rfc5280.id_ce_basicConstraints
-    extension["critical"] = True
+    extension["critical"] = critical
     extension["extnValue"] = encoder.encode(basic_constraints)
     return extension
 
 
-def _prepare_subject_alt_name_extensions(subject_alt_name: str) -> rfc5280.Extension:
+def _prepare_subject_alt_name_extensions(subject_alt_name: str, critical: bool = True) -> rfc5280.Extension:
     """Prepare a `SubjectAltName` extension for a certificate.
 
     Parses a comma-separated string of DNS names and constructs a `SubjectAltName`.
 
     :param subject_alt_name: A comma-separated string of DNS names to include in the extension.
     (e.g., `"example.com,www.example.com,pki.example.com"`)
+    :param critical: Whether the extension should be marked as critical. Defaults to `True`.
     :return: An `rfc5280.Extension` object representing the Subject Alternative Name extension.
     """
     items = subject_alt_name.strip().split(",")
@@ -464,7 +475,7 @@ def _prepare_subject_alt_name_extensions(subject_alt_name: str) -> rfc5280.Exten
 
     extension = rfc5280.Extension()
     extension["extnID"] = rfc5280.id_ce_subjectAltName
-    extension["critical"] = True
+    extension["critical"] = critical
     extension["extnValue"] = der_data
     return extension
 
@@ -497,6 +508,7 @@ def prepare_extensions(  # noqa D417 undocumented-param
     is_ca: Optional[bool] = None,
     path_length: Optional[typingutils.Strint] = None,
     negative: bool = False,
+    critical: bool = True,
 ) -> rfc9480.Extensions:
     """Prepare a `pyasn1` Extensions structure.
 
@@ -543,14 +555,17 @@ def prepare_extensions(  # noqa D417 undocumented-param
         if not expected_eku or not_inside:
             raise ValueError("No CMP extended key usages where provided allowed are: 'cmcCA, cmcRA, cmKGA'")
 
-        ext = _prepare_extended_key_usage(oids=list(expected_eku.keys()))
+        ext = _prepare_extended_key_usage(oids=list(expected_eku.keys()), critical=critical)
         extensions.append(ext)
 
     if key is not None:
-        extensions.append(_prepare_ski_extension(key))
+        extensions.append(_prepare_ski_extension(key, critical=critical))
 
     if is_ca is not None or path_length is not None:
-        extensions.append(_prepare_basic_constraints_extension(ca=is_ca, path_length=path_length))
+        extensions.append(
+            _prepare_basic_constraints_extension(ca=is_ca, path_length=path_length, critical=critical)
+        )
+
 
     if negative:
         extensions.append(_prepare_invalid_extensions()[0])

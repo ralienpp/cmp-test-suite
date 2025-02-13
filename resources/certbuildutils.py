@@ -507,8 +507,10 @@ def prepare_extensions(  # noqa D417 undocumented-param
     key: Optional[Union[typingutils.PrivateKey, typingutils.PublicKey]] = None,
     is_ca: Optional[bool] = None,
     path_length: Optional[typingutils.Strint] = None,
-    negative: bool = False,
+    invalid_extension: bool = False,
     critical: bool = True,
+    ca_key: Optional[Union[typingutils.PublicKeySig, rfc9480.CMPCertificate]] = None,
+    SubjectAltName: Optional[str] = None,
 ) -> rfc9480.Extensions:
     """Prepare a `pyasn1` Extensions structure.
 
@@ -524,20 +526,28 @@ def prepare_extensions(  # noqa D417 undocumented-param
         - `is_ca`: A boolean indicating, if a certificate is issued for a CA. Defaults to `None`. (not included).
         - `path_length`: The length of the which is allowed to follow after the CA certificate.
         - `negative`: Adds `rsaEncryption` as a critical extension.
+        - `is_critical`: Whether the extension(s) should be marked as critical. Defaults to `True`.
+        - `ca_key`: The public key or the certificate of the CA.
+        Used to generate the authority key identifier extension. Defaults to `None`.
+        - `SubjectAltName`: A comma-separated string of DNS names to include in the extension.
+        (e.g., `"example.com,www.example.com,pki.example.com"`).
 
     Returns:
     -------
-        - A `pyasn1` Extensions structure populated with the provided key usage and extended key usage fields.
+        - A `Extensions` structure populated with the provided key usage and extended key usage fields.
 
     Raises:
     ------
         - `ValueError`: If no extension to prepare is specified.
+        - `ValueError`: If invalid values are provided for the key usage or extended key usage fields.
 
     Examples:
     --------
     | ${extensions}= | Prepare Extensions | key_usage=digitalSignature | cm_kga=True |
     | ${extensions}= | Prepare Extensions | eku=cmcCA, cmcRA, cmKGA |
     | ${extensions}= | Prepare Extensions | negative=True |
+    | ${extensions}= | Prepare Extensions | key_usage=keyCertSign | is_ca=True | path_length=1 |
+    | ${extensions}= | Prepare Extensions | key=${public_key} | key_usage=digitalSignature | is_critical=False |
 
     """
     extensions = rfc9480.Extensions()
@@ -566,9 +576,14 @@ def prepare_extensions(  # noqa D417 undocumented-param
             _prepare_basic_constraints_extension(ca=is_ca, path_length=path_length, critical=critical)
         )
 
+    if SubjectAltName is not None:
+        extensions.append(_prepare_subject_alt_name_extensions(SubjectAltName, critical=critical))
 
-    if negative:
+    if invalid_extension:
         extensions.append(_prepare_invalid_extensions()[0])
+
+    if ca_key is not None:
+        extensions.append(_prepare_authority_key_identifier_extension(ca_key, critical=critical))
 
     if len(extensions) == 0:
         raise ValueError("No value to set a extension, was provided!")
@@ -988,7 +1003,6 @@ def _prepare_extensions_for_cert_template(
         extensions_field.append(ext)
     cert_template.setComponentByName("extensions", extensions_field)
     return cert_template
-
 
 
 @keyword(name="Prepare CertTemplate")

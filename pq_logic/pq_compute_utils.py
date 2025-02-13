@@ -11,7 +11,7 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc6402, rfc9480
-from resources import certbuildutils, cmputils, cryptoutils, keyutils, protectionutils, utils
+from resources import certbuildutils, cryptoutils, keyutils, protectionutils, utils
 from resources.certextractutils import get_extension
 from resources.certutils import load_certificates_from_dir
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
@@ -30,6 +30,7 @@ from resources.typingutils import PrivateKeySig, PublicKeySig
 from robot.api.deco import keyword
 
 import pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00
+from pq_logic import py_verify_logic
 from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, chameleon_logic
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
@@ -265,10 +266,9 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
         public_key.verify(data=data, signature=signature, use_pss=use_pss, pre_hash=pre_hash)
 
     elif oid in RSASSA_PSS_OID_2_NAME:
-        protectionutils.verify_rsassa_pss_from_alg_id(public_key=public_key,
-                                                      data=data,
-                                                      signature=signature,
-                                                      alg_id=alg_id)
+        protectionutils.verify_rsassa_pss_from_alg_id(
+            public_key=public_key, data=data, signature=signature, alg_id=alg_id
+        )
 
     elif oid in PQ_OID_2_NAME or str(oid) in PQ_OID_2_NAME or oid in MSG_SIG_ALG:
         hash_alg = get_hash_from_oid(oid, only_hash=True)

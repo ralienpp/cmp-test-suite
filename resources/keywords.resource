@@ -43,6 +43,46 @@ ${TestIndex}            ${0}
 
 *** Keywords ***
 
+Set Up Test Suite
+    [Documentation]    This keyword is used to set up the test suite. It is called at the beginning of the test suite.
+    ...                Or a test file to ensure that all prerequisites are met. As an example a first certificate is issued,
+    ...                and the key is generated to be used for the tests. This ensure that a trusted certificate is present,
+    ...                which will be used to issue further certificates. This methode was chosen to allow to set a certificate,
+    ...                which is not firstly configured, but generated with the test suite. If `MAC` protection is allowed, the
+    ...                shared secret will be used to issue the first certificate `ISSUED_KEY` and `ISSUED_CERT`.
+    ...                This ensure that the test suite can be run without the modification of the database.
+    ...                If the `MAC` protection is not allowed, the `ISSUED_KEY` and `ISSUED_CERT` are issued with the **MUST**
+    ...                be set default certificate and key. If this behaviour is not wanted, the `ISSUED_KEY` and `ISSUED_CERT`
+    ...                can be set in the configuration file, and will then be loaded from there.
+    [Tags]    setup
+    VAR    ${TestIndex}    ${0}
+    IF  '${ISSUED_KEY}' == '${None}'
+        ${issued_key}=    Generate Default Key
+        IF    ${ALLOW_MAC_PROTECTION}
+            ${ir}=  Build Ir From Key    ${issued_key}    sender=${SENDER}    recipient=${RECIPIENT}    implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
+            ${protected_ir}=    Protect PKIMessage    ${ir}    password=${PRESHARED_SECRET}    protection=${DEFAULT_MAC_ALGORITHM}
+        ELSE
+            ${tmp_cert}    ${tmp_key}=    May Load Cert And Key
+            ...    cert_path=${INITIAL_CERT_PATH}
+            ...    key_path=${INITIAL_KEY_PATH}
+            ...    key_password=${INITIAL_KEY_PASSWORD}
+            ${result}=    Is Certificate And Key Set    ${tmp_cert}    ${tmp_key}
+            IF  not ${result}
+                Fatal Error    The initial certificate and key are not provided.
+            END
+            ${ir}=  Build Ir From Key    ${issued_key}   exclude_fields=sender,senderKID
+            ...                          recipient=${RECIPIENT}    implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
+            ${protected_ir}=    Protect Hybrid PKIMessage     ${ir}    private_key=${tmp_key}    cert=${tmp_cert}
+        END
+        ${response}=   Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}    ${INIT_SUFFIX}
+        ${issued_cert}=    Confirm Certificate If Needed    ${response}
+        VAR    ${ISSUED_KEY}    ${issued_key}    scope=GLOBAL
+        VAR    ${ISSUED_CERT}    ${issued_cert}    scope=GLOBAL
+        LOG    Initial certificate issued, with `MAC` protection.
+        VAR    &{CERT_CONF_DEF_VALS}    sender=${SENDER}    recipient=${RECIPIENT}    private_key=${issued_key}    cert=${issued_cert}    password=${PRESHARED_SECRET}    protection=signature   scope=GLOBAL
+        VAR    &{DEFAULT_PROTECTION_VALS}    protection=signature   private_key=${issued_key}    cert=${issued_cert}   password=${PRESHARED_SECRET}   scope=GLOBAL
+    END
+
 Increase TestIndex
     [Documentation]    Perform the incrementation of the `TestIndex` to update the sender name inside the PKIMessage,
     ...                for each test case.

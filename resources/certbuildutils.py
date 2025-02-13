@@ -405,6 +405,30 @@ def _prepare_ski_extension(key: Union[typingutils.PrivateKey, typingutils.Public
     return extension
 
 
+def _prepare_authority_key_identifier_extension(
+    ca_key: typingutils.PublicKey, is_critical: bool = True
+) -> rfc5280.Extension:
+    """Prepare an `AuthorityKeyIdentifier` extension.
+
+    Used to ask for this extension by the server, or for negative testing, by sending the aki of another key.
+
+    :param ca_key: The public key or certificate to prepare the extension for.
+    :param is_critical: Whether the extension should be marked as critical. Defaults to `True`.
+    :return: The populated `Extension` structure.
+    """
+    if isinstance(ca_key, rfc9480.CMPCertificate):
+        ca_key = ca_key["certificationRequestInfo"]["subjectPublicKeyInfo"]
+        ca_key = keyutils.load_public_key_from_spki(ca_key)
+
+    authority_key_identifier = rfc5280.AuthorityKeyIdentifier()
+    authority_key_identifier["keyIdentifier"] = x509.AuthorityKeyIdentifier.from_public_key(ca_key).key_identifier  # type: ignore
+    extension = rfc5280.Extension()
+    extension["extnID"] = rfc5280.id_ce_authorityKeyIdentifier
+    extension["critical"] = is_critical
+    extension["extnValue"] = univ.OctetString(encoder.encode(authority_key_identifier))
+    return extension
+
+
 def _prepare_basic_constraints_extension(ca: bool = False, path_length: Optional[int] = None) -> rfc5280.Extension:
     """Prepare BasicConstraints extension.
 

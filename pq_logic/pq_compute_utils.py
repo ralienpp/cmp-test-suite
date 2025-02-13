@@ -420,6 +420,9 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
         cert=params.get("cert"),
     )
 
+    if private_key is None:
+        raise ValueError("The private key must be provided, to protect the `PKIMessage`.")
+
     if protection not in ["signature", "composite", "catalyst"]:
         raise ValueError("Only 'signature', 'composite', and 'catalyst' protection types are supported.")
 

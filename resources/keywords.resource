@@ -254,6 +254,28 @@ Get Next Common Name
     Increase TestIndex
     RETURN    ${cm}
 
+Build Composite Signature Request
+    [Documentation]    Build a ir composite signature request and returns the protected ir request.
+    [Arguments]    ${comp_key}=${False}
+    [Tags]    composite-sig    positive   ir
+    IF   ${comp_key}
+        Log    Using the given composite signature key.
+    ELSE
+        ${comp_key}=   Generate Default Composite Sig Key
+    END
+    ${protection}=   Get From Dictionary    ${DEFAULT_PROTECTION_VALS}    protection   signature
+    IF  '${protection}' == 'signature'
+        VAR   ${exclude_fields}    sender,senderKID
+    ELSE
+        VAR   ${exclude_fields}    ${None}
+    END
+    ${cm}=    Get Next Common Name
+    ${ir}=   Build Ir From Key    ${comp_key}  common_name=${cm}  sender=${SENDER}
+    ...                           recipient=${RECIPIENT}   implicit_confirm=${True}
+    ...                           exclude_fields=${exclude_fields}
+    ${protected_ir}=    Default Protect PKIMessage    ${ir}
+    RETURN    ${protected_ir}
+    
 # TODO maybe Update to create a unique key.
 # because some implementations only allow new keys, if for ir or cr is the same key send.
 

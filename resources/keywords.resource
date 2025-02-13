@@ -20,6 +20,10 @@ Library             ../resources/certutils.py
 Library             ../resources/keyutils.py
 Library             ../resources/certbuildutils.py
 Library             ../resources/protectionutils.py
+Library             ../pq_logic/hybrid_issuing.py
+Library             ../pq_logic/pq_compute_utils.py
+Library             ../pq_logic/pq_validation_utils.py
+Library             ../pq_logic/py_verify_logic.py
 
 
 *** Variables ***

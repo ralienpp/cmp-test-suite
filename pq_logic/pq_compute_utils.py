@@ -382,10 +382,6 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
     - `composite`: Protect the message with a composite signature (must not be a single key).
     - `catalyst`: Protect the message with an alternative signature (can be done with a secondary key).
 
-    Note:
-    ----
-      - The extraCerts are not included in the PKIMessage (can be done with `Patch ExtraCerts`).
-
     Arguments:
     ---------
         - `pki_message`: The PKIMessage to protect.
@@ -400,6 +396,8 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
     **params:
     --------
         - `cert`: The certificate to patch the sender and senderKID fields.
+        - `certs_path`: The path to the certificates directory, to build the certificate chain.
+        - `exclude_certs`: Whether to exclude the certificates from the message.
         - `do_patch`: Whether to patch the sender and senderKID fields. Defaults to `True`.
         - `hash_alg`: The hash algorithm to use for signing. Defaults to `sha256`.
         - `use_rsa_pss`: Whether to use RSA-PSS padding for signing. Defaults to `True`.
@@ -424,6 +422,15 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
 
     if protection not in ["signature", "composite", "catalyst"]:
         raise ValueError("Only 'signature', 'composite', and 'catalyst' protection types are supported.")
+
+    if params.get("cert") and not params.get("exclude_certs", False):
+        certs = load_certificates_from_dir(params.get("certs_path", "data/cert_logs/"))
+        if certs:
+            certs = py_verify_logic.build_migration_cert_chain(
+                cert=params.get("cert"), certs=certs, allow_self_signed=True
+            )
+            logging.info(f"Loaded {len(certs)} certificates from the directory.")
+            pki_message["extraCerts"].extend(certs)
 
     if protection == "signature":
         return _compute_protection(

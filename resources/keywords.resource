@@ -242,6 +242,45 @@ Generate Default Key
 
 
 
+Confirm Certificate If Needed
+    [Documentation]    Some Test cases need a valid certificate to work. Because not all CA's might support the
+    ...                implicit confirm extension, this keyword checks if the given `PKIMessage` contains the implicit
+    ...                confirm extension. If it does, the certificate is confirmed and returned. If not, the `PKIMessage`
+    ...                a valid certificate confirmation message is send and the of the CA's response is checked.
+    ...                If the CA's response is the `PKIMessage` `pkiconf`, then is the certificate confirmed.
+    [Arguments]    ${response}    &{params}
+    [Tags]    confirm   default   cert
+    ${result}=   Find OID In GeneralInfo    ${response}   1.3.6.1.5.5.7.4.13
+    IF    ${result}
+        Log    The PKIMessage contains the implicit confirm extension.
+        ${cert}=    Get Cert From PKIMessage    ${response}
+        RETURN    ${cert}
+    ELSE
+        Log    The PKIMessage does not contain the implicit confirm extension.
+        ${length}=   Get Length   ${params}
+        IF  ${length} == 0
+            ${args}=    Copy Dictionary    ${CERT_CONF_DEF_VALS}
+        ELSE
+            ${args}=    May Patch Params   ${params}    &{CERT_CONF_DEF_VALS}
+        END
+        ${params}=    May Patch Params    ${params}    pvno=3
+        ${cert}=    Get Cert From PKIMessage    ${response}
+        ${protection}=   Get From Dictionary    ${args}    protection
+        IF  '${protection}' == 'signature'
+            VAR   ${exclude_fields}    sender,senderKID
+        ELSE
+            VAR   ${exclude_fields}    ${None}
+        END
+        ${cert_conf}=   Build Cert Conf From Resp  ${response}   sender=${sender}
+        ...                                         recipient=${recipient}
+        ...                                         exclude_fields=${exclude_fields}
+        ${cert_conf}=   Default Protect PKIMessage    ${cert_conf}    &{params}
+        ${suffix}=    Get From Dictionary    ${params}    suffix    ${None}
+        ${protection}=   Get From Dictionary    ${params}    protection
+        ${pki_conf}=   Exchange Migration PKIMessage    ${cert_conf}    ${CA_CMP_URL}    suffix=${suffix}
+        PKIMessage Body Type Must Be    ${pki_conf}    pkiconf
+        RETURN    ${cert}
+    END
 
 Get Next Common Name
     [Documentation]    Return the common name added with the current test index and increment it afterwards.

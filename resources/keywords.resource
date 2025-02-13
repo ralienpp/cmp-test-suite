@@ -423,9 +423,10 @@ PKIStatus Must Be
     ...     - `index`: Specifies which `PKIStatusInfo` to validate if the message contains multiple. Defaults to `0`.
     [Arguments]    ${pki_message}  ${status}   ${index}=0
     ${pki_status}=    Get Status From PKIMessage      ${pki_message}    ${index}
-    Should Be Equal    ${pki_status}    ${status}
-
-
+    IF  not '${pki_status}' == '${status}'
+        ${pki_status_info}=   Get PKIStatusInfo    ${pki_message}    ${index}
+        Fail   The PKIStatus is not as expected. Expected: `${status}`, Got: `${pki_status}`
+    END
 
 Exchange Migration PKIMessage
     [Documentation]    Exchange a PKIMessage with the Mock CA

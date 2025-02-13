@@ -287,7 +287,7 @@ def log_certificates(  # noqa D417 undocumented-param
 
 
 def write_certs_to_dir(  # noqa D417 undocumented-param
-    cert_chain: List[rfc9480.CMPCertificate], name_prefix: Optional[str] = None, directory="data/cert_logs"
+    cert_chain: Iterable[rfc9480.CMPCertificate], name_prefix: Optional[str] = None, directory="data/cert_logs"
 ) -> None:
     """Write a list of certificates (cert chain) to a specified directory as PEM files.
 

@@ -1527,10 +1527,7 @@ def validate_kem_recip_info_structure(
 
     kem_oid = kem_recip_info["kem"]["algorithm"]
 
-    if str(kem_oid) == "1.0.18033.2.2.4":  # id_rsa_kem
-        pass
-
-    elif kem_oid not in KEM_OID_2_NAME and str(kem_oid) not in KEM_OID_2_NAME:
+    if kem_oid not in KEM_OID_2_NAME and str(kem_oid) not in KEM_OID_2_NAME:
         raise BadAlg(f"The `kem` OID must be a known KEM id! Found: {kem_oid}")
 
     if not kem_recip_info["kemct"].isValue:

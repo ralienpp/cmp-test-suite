@@ -215,6 +215,7 @@ CA MUST Reject IR With Revoked Cert
     ${response}=    Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}  signerNotTrusted
+
 ############################
 ## Pre-Hashed Versions  # robocop: off=0702
 ############################
@@ -223,17 +224,20 @@ CA MUST Issue A Valid Composite RSA-Prehashed Certificate
     [Documentation]    Verifies compliance with Composite Sig Draft CMS03 by sending a valid IR with a POP for the
     ...                prehashed composite signature version. The traditional algorithm used is RSA and ML-DSA-44 as
     ...                pq algorithm. The CA MUST process the valid request and issue a valid certificate.
-    [Tags]             composite-sig   positive   rsa  prehashed
+    [Tags]             positive   rsa  prehashed
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=rsa   length=2048   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True  use_rsa_pss=False
-    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender   implicit_confirm=${True}
+    ${ir}=          Build Ir From Key    ${key}    common_name=${cm}
+    ...                                  spki=${spki}   recipient=${RECIPIENT}
+    ...                                  exclude_fields=senderKID,sender
+    ...                                  implicit_confirm=${True}
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -241,17 +245,19 @@ CA MUST Issue A Valid Composite RSA-PSS-Prehashed Certificate
     [Documentation]    Verifies compliance with Composite Sig Draft CMS03 by sending a valid IR with a POP for the
     ...                prehashed composite signature version. The traditional algorithm used is RSA-PSS and ML-DSA-44
     ...                as pq algorithm. The CA MUST process the valid request and issue a valid certificate.
-    [Tags]             composite-sig   positive   rsa-pss  prehashed
+    [Tags]             positive   rsa-pss  prehashed
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=rsa   length=2048   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True   use_rsa_pss=True
-    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender   implicit_confirm=${True}
+    ${ir}=          Build Ir From Key    ${key}   common_name=${cm}
+    ...                                  spki=${spki}   recipient=${RECIPIENT}
+    ...                                  exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -260,17 +266,18 @@ CA MUST Issue A Valid Composite EC-Prehashed Certificate
     ...                prehashed composite signature version. The traditional algorithm used is EC key on the secp256r1
     ...                curve and ML-DSA-44 as pq algorithm. The CA MUST process the valid request and issue a valid
     ...                certificate.
-    [Tags]             composite-sig   positive   ec  prehashed
+    [Tags]             positive   ec  prehashed
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ecdsa   curve=secp256r1   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True
-    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=          Build Ir From Key    ${key}  common_name=${cm}
+    ...                                  spki=${spki}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -279,17 +286,19 @@ CA MUST Issue A Valid Composite EC-brainpool-Prehashed Certificate
     ...                prehashed composite signature version. The traditional algorithm used is EC key on the
     ...                brainpoolP256r1 curve and ML-DSA-65 as pq algorithm. The CA MUST process the valid request
     ...                and issue a valid certificate.
-    [Tags]             composite-sig   positive   ec  prehashed  brainpool
-    ${key}=            Generate Key    algorithm=composite-sig  trad_name=ecdsa   curve=brainpoolP256r1   pq_name=ml-dsa-65
+    [Tags]             positive   ec  prehashed  brainpool
+    ${key}=            Generate Key    algorithm=composite-sig  trad_name=ecdsa
+    ...                                curve=brainpoolP256r1   pq_name=ml-dsa-65
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True
-    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=          Build Ir From Key    ${key}   common_name=${cm}
+    ...                                  spki=${spki}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -297,17 +306,18 @@ CA MUST Issue A Valid Composite ED25519-Prehashed Certificate
     [Documentation]    Verifies compliance with Composite Sig Draft CMS03 by sending a valid IR with a POP for the
     ...                prehashed composite signature version. The traditional algorithm used is ED25519 and ML-DSA-65
     ...                as pq algorithm. The CA MUST process the valid request and issue a valid certificate.
-    [Tags]             composite-sig   positive   ed25519   prehashed
+    [Tags]             positive   ed25519   prehashed
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ed25519   pq_name=ml-dsa-65
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True
-    ${ir}=          Build Ir From Key     ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=          Build Ir From Key     ${key}   common_name=${cm}
+    ...                                   spki=${spki}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -315,20 +325,20 @@ CA MUST Issue A Valid Composite ED448-Prehashed Certificate
     [Documentation]    Verifies compliance with Composite Sig Draft CMS03 by sending a valid IR with a POP for the
     ...                prehashed composite signature version. The traditional algorithm used is ED448 and ML-DSA-87 as
     ...                pq algorithm. The CA MUST process the valid request and issue a valid certificate.
-    [Tags]             composite-sig   positive   ed448  prehashed
+    [Tags]             positive   ed448  prehashed
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ed448   pq_name=ml-dsa-87
     ${cm}=             Get Next Common Name
     ${spki}=    Prepare SubjectPublicKeyInfo    ${key}   use_pre_hash=True
-    ${ir}=          Build Ir From Key    ${key}  spki=${spki}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=          Build Ir From Key    ${key}    common_name=${cm}
+    ...             spki=${spki}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
-
 
 #### Composite Signature Negative Tests ####
 
@@ -337,16 +347,17 @@ CA MUST Reject An Invalid POP For Composite RSA
     ...                a composite signature algorithm. The traditional algorithm used is RSA, and the pq algorithm
     ...                used is ML-DSA-44. The CA must detect the invalid POP and reject the request. The CA MAY respond
     ...                with the optional failInfo `badPOP`.
-    [Tags]             composite-sig   negative  rsa-pss
+    [Tags]             negative  rsa-pss
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=rsa   length=2048   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True
+    ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -355,16 +366,17 @@ CA MUST Reject An Invalid POP For Composite RSA-PSS
     ...                a composite signature algorithm. The traditional algorithm used is RSA-PSS, and the pq algorithm
     ...                used is ML-DSA-44. The CA must detect the invalid POP and reject the re quest. The CA MAY respond
     ...                with the optional failInfo `badPOP`.
-    [Tags]             composite-sig   negative  rsa-pss
+    [Tags]             negative  rsa-pss
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=rsa   length=2048   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True
+    ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -375,13 +387,14 @@ CA MUST Reject An Invalid POP For Composite EC
     ...                MAY respond with the optional failInfo `badPOP`.
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ecdsa   curve=secp256r1   pq_name=ml-dsa-44
     ${cm}=             Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True
+    ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -390,16 +403,18 @@ CA MUST Reject An Invalid POP For Composite EC-brainpool
     ...                a composite signature algorithm. The traditional algorithm used is EC key on the brainpoolP256r1
     ...                curve and ML-DSA-65 as pq algorithm. The CA must detect the invalid POP and reject the request.
     ...                The CA MAY respond with the optional failInfo `badPOP`.
-    [Tags]             composite-sig   negative  ec  brainpool
-    ${key}=            Generate Key    algorithm=composite-sig  trad_name=ecdsa   curve=brainpoolP256r1   pq_name=ml-dsa-65
+    [Tags]             negative  ec  brainpool
+    ${key}=            Generate Key    algorithm=composite-sig  trad_name=ecdsa
+    ...                                curve=brainpoolP256r1   pq_name=ml-dsa-65
     ${cm}=             Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True
+    ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -408,60 +423,57 @@ CA MUST Reject An Invalid POP For Composite ED25519
     ...                a composite signature algorithm. The traditional algorithm used is ED25519 and ML-DSA-65 as pq
     ...                algorithm. The CA must detect the invalid POP and reject the request. The CA MAY respond with the
     ...                optional failInfo `badPOP`.
-    [Tags]             composite-sig   negative  ed25519
+    [Tags]             negative  ed25519
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ed25519   pq_name=ml-dsa-65
     ${cm}=             Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True
+    ...                             recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
-
 
 CA MUST Reject An Invalid POP For Composite ED448
     [Documentation]    Verifies compliance with Composite Sig Draft CMS03 by sending a valid IR with a invalid POP for
     ...                a composite signature algorithm. The traditional algorithm used is ED448 and ML-DSA-87 as pq
     ...                algorithm. The CA must detect the invalid POP and reject the request. The CA MAY respond with the
     ...                optional failInfo `badPOP`.
-    [Tags]             composite-sig   negative  ed448
+    [Tags]             negative  ed448
     ${key}=            Generate Key    algorithm=composite-sig  trad_name=ed448   pq_name=ml-dsa-87
     ${cm}=             Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True   recipient=${RECIPIENT}   omit_fields=senderKID,sender
+    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   bad_pop=True
+    ...                             recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Protect PKIMessage
     ...                pki_message=${ir}
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
-
 #### Composite Signature Mixed/Security Tests ####
 
-CA MUST Reject Composite RSA with invalid RSA key length
+CA MUST Reject Composite IR with invalid RSA key length
     [Documentation]    As defined in Composite Sig Draft CMS03, we send a valid IR with a POP for composite signature.
     ...                The traditional algorithm is RSA key with an invalid length (512-bits) and ML-DSA-44 as pq
     ...                algorithm. The CA MUST reject the request and MAY respond with the optional failInfo
     ...                `badCertTemplate` or `badRequest`.
-    [Tags]             composite-sig   negative  rsa
+    [Tags]             negative  rsa
     # generates a rsa key with length 512 bits.
     ${trad_key}=   Generate Key       algorithm=bad_rsa_key
     ${pq_key}=     Generate Key       algorithm=ml-dsa-44
     ${key}=            Generate Key    algorithm=composite-sig   trad_key=${trad_key}   pq_key=${pq_key}
+    ${spki}=    Prepare SubjectPublicKeyInfo    ${key}
     ${cm}=             Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
-    ${protected_ir}=  Protect PKIMessage
-    ...                pki_message=${ir}
-    ...                protection=signature
-    ...                private_key=${ISSUED_KEY}
-    ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${protected_ir}
-    PKIMessage Body Type Must Be    ${response}    error
+    ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   spki=${spki}
+    ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
+    ${protected_ir}=  Default Protect PKIMessage    ${ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badRequest
 
@@ -490,18 +502,13 @@ CA SHOULD Reject Issuing Already in use Traditional Key
     ...                signature algorithm. The traditional algorithm is already in use and a matching ML-DSA key is
     ...                generated. The CA SHOULD reject the request and MAY respond with the optional failInfo
     ...                `badCertTemplate` or `badRequest`.
-    [Tags]             composite-sig   negative  security
-    ${key}=            Generate Key    algorithm=composite-sig  trad_key=${ISSUED_KEY}
+    [Tags]             negative  security
+    ${key}=            Generate Key    algorithm=composite-sig   trad_key=${ISSUED_KEY}
     ${cm}=             Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   ${cm}   recipient=${RECIPIENT}   omit_fields=senderKID,sender
-    ${protected_ir}=  Protect PKIMessage
-    ...                pki_message=${ir}
-    ...                protection=signature
-    ...                private_key=${ISSUED_KEY}
-    ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange PKIMessage    ${ir}
-    PKIMessage Body Type Must Be    ${response}    error
+    ${ir}=    Build Ir From Key    ${key}   ${cm}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
+    ${protected_ir}=  Default Protect PKIMessage    ${ir}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    rejection
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badRequest# disable too many lines
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badRequest
 # disable too many lines
 # robocop: off=0506

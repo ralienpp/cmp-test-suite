@@ -15,31 +15,26 @@ Library             ../resources/keyutils.py
 Library             ../resources/certbuildutils.py
 Library             ../resources/protectionutils.py
 Library             ../resources/checkutils.py
+Library             ../pq_logic/hybrid_issuing.py
+Library             ../pq_logic/hybrid_prepare.py
+Library             ../pq_logic/pq_compute_utils.py
 Library             ../pq_logic/pq_validation_utils.py
+Library             ../pq_logic/py_verify_logic.py
 
+Test Tags           hybrid-sig   composite-sig
 
-#Suite Setup         Do PQ SIG Tests
-Test Tags           pqc  hybrid-sig
+Suite Setup         Set Up Test Suite
+
 
 *** Variables ***
+# To show what certificates are created during run time.
+${COMP_SIG_CERT} =  ${None}
+${COMP_SIG_KEY} =  ${None}
+${REVOKED_COMP_KEY} =  ${None}
+${REVOKED_COMP_CERT} =  ${None}
 
-# New Tags: composite-sig, multiple-auth
-
-#${uri_multiple_auth}=   https://localhost:8080/cmp/cert-bindings-for-multiple-authentication
-${uri_multiple_auth}=   ${None}
-${uri_multiple_auth_neg}=  ${None}
-${DEFAULT_ML_DSA_ALG}=   ml-dsa-87
-${Allowed_freshness}=   500
 
 *** Test Cases ***
-
-############################
-# Composite Signature Tests
-############################
-
-# Technically not all parts have to be defined, because a correct combination is
-# built, but for better readability included.
-
 #### Composite Signature Positive Tests ####
 
 # Normally, you would use `ir` as usual; this is just to demonstrate that csr can be used in almost the same way.

@@ -328,8 +328,13 @@ class CAHandler:
                     f"Method not implemented, to handle the provided message: {pki_message['body'].getName()}."
                 )
         except CMPTestSuiteError as e:
+            logging.info(f"An error occurred: {str(e)}")
             return _build_error_from_exception(e)
         except Exception as e:
+            logging.info(f"An error occurred: {str(e)}")
+            logging.exception("An error occurred")
+            logging.warning("An error occurred", exc_info=True)
+            app.logger.error(e, exc_info=True)
             return _build_error_from_exception(
                 CMPTestSuiteError(f"An error occurred: {str(e)}", failinfo="systemFailure")
             )

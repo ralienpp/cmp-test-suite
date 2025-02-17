@@ -206,6 +206,8 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
         return recip_id
 
     if key is not None:
+        if not isinstance(key, (PublicKey, KEMPublicKey)):
+            key = key.public_key()
         ski = x509.SubjectKeyIdentifier.from_public_key(key).digest
 
     elif cert is not None:

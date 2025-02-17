@@ -281,6 +281,7 @@ def validate_kemri_rid_for_encrypted_cert(  # noqa D417 undocumented-param
     key: Optional[Union[KEMPublicKey, KEMPrivateKey]] = None,
     issuer: Optional[str] = None,
     serial_number: Optional[int] = None,
+    cert: Optional[rfc9480.CMPCertificate] = None,
     cert_number: Strint = 0,
 ) -> None:
     """Validate the RecipientIdentifier inside the KEMRecipientInfo structure for the encrypted certificate.
@@ -330,7 +331,13 @@ def validate_kemri_rid_for_encrypted_cert(  # noqa D417 undocumented-param
 
     rid_name = rid.getName()
 
-    expected_rid = envdatautils.prepare_recipient_identifier(key=key, issuer=issuer, serial_number=serial_number)
+    if key is not None:
+        expected_rid = envdatautils.prepare_recipient_identifier(key=key)
+    elif issuer is not None and serial_number is not None or cert is not None:
+        issuer_and_ser = envdatautils.prepare_issuer_and_serial_number(serial_number=serial_number, issuer=issuer, cert=cert)
+        expected_rid = envdatautils.prepare_recipient_identifier(key=key, issuer_and_ser=issuer_and_ser)
+    else:
+        raise ValueError("Neither the key or issuer and serial number are provided.")
 
     if encoder.encode(rid) != encoder.encode(expected_rid):
         raise ValueError(

@@ -9,6 +9,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
 
+import pyasn1
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.x509 import ocsp
 
@@ -51,7 +52,14 @@ from resources.cmputils import (
     find_oid_in_general_info,
     get_cert_response_from_pkimessage,
 )
-from resources.exceptions import BadCertTemplate, BadMessageCheck, BadRequest, CMPTestSuiteError, TransactionIdInUse
+from resources.exceptions import (
+    BadAsn1Data,
+    BadCertTemplate,
+    BadMessageCheck,
+    BadRequest,
+    CMPTestSuiteError,
+    TransactionIdInUse,
+)
 from resources.general_msg_utils import build_genp_kem_ct_info_from_genm
 from resources.keyutils import generate_key, load_private_key_from_file
 from resources.protectionutils import (
@@ -62,7 +70,7 @@ from resources.protectionutils import (
 from resources.typingutils import PrivateKey, PublicKey
 from resources.utils import load_and_decode_pem_file
 
-from mock_ca.mock_fun import CertRevStateDB
+from mock_ca.mock_fun import CertRevStateDB, build_key_update_response_error
 
 
 @dataclass
@@ -386,7 +394,7 @@ class CAHandler:
         """
         issued_certs = self.state.get_issued_certs(pki_message=pki_message)
         pki_message = build_pki_conf_from_cert_conf(
-            pki_message=pki_message,
+            request=pki_message,
             issued_certs=issued_certs,
         )
         self.state.add_certs(certs=issued_certs)
@@ -487,7 +495,11 @@ class CAHandler:
                 pki_message=pki_message,
                 certs=[paired_cert, delta_cert],
             )
-            return response
+            return self.sign_response(
+                response=response,
+                request_msg=pki_message,
+                secondary_cert=delta_cert,
+            )
 
         raise NotImplementedError(
             f"Not implemented to handle a chameleon request with body: {pki_message['body'].getName()}"

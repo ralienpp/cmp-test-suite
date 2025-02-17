@@ -10,7 +10,9 @@ Documentation     An example resource file with configuration options that are m
 *** Variables ***
 # the dev-environment always runs the latest version
 # qa - the stable version
+${CA_BASE_URL}   http://127.0.0.1:5000/
 ${CA_CMP_URL}    http://127.0.0.1:5000/issuing
+# the other URL is are down below.
 #${CA_CMP_URL}    https://broker.sdo-dev.siemens.cloud/.well-known/cmp
 
 ${PRESHARED_SECRET}    SiemensIT
@@ -92,7 +94,7 @@ ${ALLOW_CMP_EKU_EXTENSION}  ${True}
 
 ##### Section 3
 #Indicating if the PKIFailInfo must be set correctly.
-${FAILINFO_MUST_BE_PRESENT}=    False
+${FAILINFO_MUST_BE_CORRECT}=   ${True}
 # For messageTime check.
 ${MAX_ALLOW_TIME_INTERVAL_RECEIVED}  ${-500}
 
@@ -178,8 +180,12 @@ ${DEFAULT_SLH_DSA_PRE_HASH_ALG}    sha256
 
 #### Issuing
 
-${KEM_CERT_FILE_PATH}    ${None}
+${KEM_CERT_PATH}    ${None}
 
+# Hybrid Variables
+${DEFAULT_TRAD_ALG}    rsa
+${DEFAULT_PQ_SIG_ALG}   ml-dsa-44
+# Hybrid Endpoints
 
 ${ca_base_url}=   http://127.0.0.1:5000/
 ${uri_multiple_auth}=   ${None}

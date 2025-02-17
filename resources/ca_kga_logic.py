@@ -1503,13 +1503,13 @@ def validate_kem_recip_info_structure(
     :raises ValueError: If any of the following conditions are violated:
         - The `version` field is missing or not equal to `0`.
         - The `rid` (Recipient Identifier) field is missing or invalid.
-        - The `kem` (Key Encapsulation Mechanism) field is missing or incorrectly specified.
-        - The `kem` OID is not equal to `rfc9629.id_ori_kem`.
+        - The `kem` (Key Encapsulation Mechanism) field is missing.
         - The `kemct` (encapsulated ciphertext) field is missing.
         - The `kdf` (Key Derivation Function) field is missing or incorrectly specified.
         - The `wrap` (Key Wrap Algorithm Identifier) field is missing or incorrectly specified.
         - The `encryptedKey` field is missing.
         - The `kekLength` field is missing or does not match the expected value.
+    :raises BadAlg: If the `kem` OID is not a known KEM OID.
     """
     if not kem_recip_info["version"].isValue or int(kem_recip_info["version"]) != 0:
         raise ValueError("The `version` field of the `KEMRecipientInfo` structure must be present and equal to `0`!")

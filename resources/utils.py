@@ -538,6 +538,10 @@ def is_certificate_and_key_set(  # noqa D417 undocumented-param
     if cert is None and key is None:
         return False
 
+    if isinstance(cert, str):
+        der_cert = load_and_decode_pem_file(cert)
+        cert = certutils.parse_certificate(der_cert)
+
     cert_pub_key = certutils.load_public_key_from_cert(cert)  # type: ignore
     if key.public_key() != cert_pub_key:
         raise ValueError("The private key and the public key inside the certificate are not a pair!")

@@ -194,7 +194,7 @@ CA MUST support KEMBasedMAC
     ...                return the ciphertext to the client. We send then a valid KEMBasedMAC protected
     ...                message. The CA MUST process the request and respond with an `accepted` status.
     [Tags]    kem-based-mac   genm
-    ${result}=   Is Certificate And Key Set    ${KEM_CERT}   ${KEM_KEY}
+    ${result}=   Is Certificate And Key Set    ${KEM_CERT_PATH}   ${KEM_KEY}
     SKIP IF  not ${result}    KEM Certificate and Key not set
     ${info_val}=    Prepare KEMCiphertextInfo   ${KEM_KEY}
     ${genm}=   Build General Message   ${info_val}   sender=${SENDER}   recipient=${RECIPIENT}

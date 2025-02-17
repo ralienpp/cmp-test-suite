@@ -724,9 +724,16 @@ def handle_issuing() -> Response:
     :return: The DER-encoded response.
     """
     try:
-        # Access the raw data from the request body
         data = request.get_data()
         pki_message, _ = decoder.decode(data, asn1Spec=rfc9480.PKIMessage())
+
+    except pyasn1.error.PyAsn1Error:
+        pki_message = _build_error_from_exception(BadAsn1Data("Error: Could not decode the request", overwrite=True))
+        return _build_response(pki_message)
+
+    try:
+        # Access the raw data from the request body
+
         pki_message = handler.process_normal_request(pki_message)
         return _build_response(pki_message)
     except Exception as e:

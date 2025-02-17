@@ -361,15 +361,22 @@ class CAHandler:
         :param pki_message: The KUR message.
         :return: The PKI message containing the response.
         """
-        verify_pkimessage_protection(
-            pki_message=pki_message,
-            shared_secret=self.state.get_kem_mac_shared_secret(pki_message=pki_message),
-            private_key=self.xwing_key,
-            password=self.shared_secrets,
-        )
+        try:
+            verify_hybrid_pkimessage_protection(
+                pki_message=pki_message,
+            )
+        except ValueError:
+            verify_pkimessage_protection(
+                pki_message=pki_message,
+                shared_secret=self.state.get_kem_mac_shared_secret(pki_message=pki_message),
+                private_key=self.xwing_key,
+                password=self.shared_secrets,
+            )
         # self.state.cert_state_db.add_update_entry(entries)
 
-        raise NotImplementedError("Method not implemented, to return a `rp` message,but the protection was correct.")
+        return build_key_update_response_error(
+            pki_message, text="The Key Update Response logic, is not yet supported, but the protection was valid."
+        )
 
     def process_cert_conf(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
         """Process the CertConf message.

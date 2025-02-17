@@ -73,7 +73,7 @@ class TestBuildCSR(unittest.TestCase):
         csr_out = _sign_csr_builder(csr, self.private_key_rsa, hash_alg="sha256")
         der_data_crypto_lib = csr_out.public_bytes(serialization.Encoding.DER)
 
-        extensions = prepare_extensions(key=self.private_key_rsa)
+        extensions = prepare_extensions(key=self.private_key_rsa, critical=False)
         pyasn1_csr = build_csr(common_name=self.subject,
                                signing_key=self.private_key_rsa,
                                extensions=extensions, hash_alg="sha256")

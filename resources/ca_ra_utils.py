@@ -13,7 +13,7 @@ import pyasn1.error
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
-from pq_logic import pq_compute_utils
+from pq_logic import pq_compute_utils, py_verify_logic
 from pq_logic.key_pyasn1_utils import parse_key_from_one_asym_key
 from pq_logic.keys.abstract_pq import PQKEMPublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
@@ -1792,6 +1792,30 @@ def _prepare_cert_id(cert: rfc9480.CMPCertificate) -> rfc4211.CertId:
     return cert_id
 
 
+def _verify_pkimessage_protection_rp(
+    request: rfc9480.PKIMessage,
+    shared_secret: Optional[bytes],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Verify the protection of the PKIMessage for the response.
+
+    :param request: The PKIMessage to verify the protection for.
+    :param shared_secret: The shared secret to use for the response. Defaults to `None`.
+    :return: The failure information and text if the protection is invalid, `None`, `None` otherwise.
+    """
+    try:
+        py_verify_logic.verify_hybrid_pkimessage_protection(
+            request=request,
+        )
+    except:
+        try:
+            protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
+        except:
+            logging.debug("Failed to verify the PKIMessage protection.")
+            return "badMessageCheck", "Failed to verify the PKIMessage protection."
+
+    return None, None
+
+
 # TODO fix for bad order od CertID
 
 
@@ -1818,17 +1842,15 @@ def build_rp_from_rr(
     if set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
 
-    fail_info = None
+
     if not request["extraCerts"].isValue:
         fail_info = "addInfoNotAvailable"
         text = "The `extraCerts` field was empty in the revocation request message."
     else:
-        try:
-            protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
-        except Exception:
-            logging.debug("Failed to verify the PKIMessage protection.")
-            fail_info = "badMessageCheck"
-            text = "Failed to verify the PKIMessage protection."
+        fail_info, text = _verify_pkimessage_protection_rp(
+            request=request,
+            shared_secret=shared_secret,
+        )
 
     if fail_info is not None:
         status_info = cmputils.prepare_pkistatusinfo(

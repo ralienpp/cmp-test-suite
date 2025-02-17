@@ -104,12 +104,12 @@ def prepare_requester_certificate(  # noqa: D417 Missing argument descriptions i
     # DER encoded requestTime and IssuerAndSerialNumber.
     data = encoder.encode(bin_time) + encoder.encode(cert_id)
 
-    # As of section 3.q signed with the signature algorithm associated with the private key
+    # As of section 3.1 signed with the signature algorithm associated with the private key
     # of the certificate.
     if hash_alg is None:
         # could be None for ed25519, ed448, and ML-DSA, SLH-DSA and maybe more in the
         # future.
-        oid = cert_a["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]
+        oid = cert_a["tbsCertificate"]["signature"]["algorithm"]
         hash_alg = get_hash_from_oid(oid, only_hash=True)
 
     if isinstance(cert_a_key, (rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey)) and hash_alg is None:

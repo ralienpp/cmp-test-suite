@@ -755,7 +755,7 @@ def handle_chameleon():
     return _build_response(pki_message)
 
 
-@app.route("/hybrid/Sun-hybrid", methods=["POST"])
+@app.route("/sun-hybrid", methods=["POST"])
 def handle_sun_hybrid():
     """Handle the Sun Hybrid request.
 

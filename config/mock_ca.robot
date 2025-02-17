@@ -169,8 +169,9 @@ ${ALLOW_KEM_TESTS}   ${False}
 
 #### Keys
 
-${DEFAULT_ML_KEM_KEY}    ml-kem-1024
-${DEFAULT_ML_DSA_KEY}    ml-dsa-87
+${DEFAULT_ML_DSA_ALG}    ml-dsa-87
+${DEFAULT_ML_KEM_ALG}    ml-kem-768
+
 
 #### Compute
 
@@ -185,19 +186,23 @@ ${KEM_CERT_PATH}    ${None}
 # Hybrid Variables
 ${DEFAULT_TRAD_ALG}    rsa
 ${DEFAULT_PQ_SIG_ALG}   ml-dsa-44
+
 # Hybrid Endpoints
 
-${ca_base_url}=   http://127.0.0.1:5000/
-${uri_multiple_auth}=   ${None}
-${issuing_suffix}=   issuing
-${catalyst_issuing}=  hybrid/catalyst-issuing
-${catalyst_signature}=   hybrid/catalyst-sig
-${sun_hybrid_issuing_suffix}=   hybrid/Sun-hybrid
-${chameleon_suffix}=   hybrid/chameleon
-${related_cert_suffix}=   hybrid/related-Cert
-${multi_auth_suffix}=   hybrid/multi-auth
-${cert_discovery_suffix}=   hybrid/cert-discovery
+${INIT_SUFFIX}=   issuing
+${URI_MULTIPLE_AUTH}=   ${None}
+${ISSUING_SUFFIX}=   issuing
+${COMPOSITE_URL_PREFIX}=   issuing
+${CATALYST_ISSUING}=  catalyst-issuing
+${CATALYST_SIGNATURE}=   catalyst-sig
+${SUN_HYBRID_SUFFIX}=   sun-hybrid
+${CHAMELEON_SUFFIX}=   chameleon
+${RELATED_CERT_SUFFIX}=   related-Cert
+${MULTI_AUTH_SUFFIX}=   multi-auth
+${CERT_DISCOVERY_SUFFIX}=   cert-discovery
 
+
+# Hybrid Certificates and Keys
 ${ISSUED_KEY}=   ${None}
 ${ISSUED_CERT}=   ${None}
 ${COMPOSITE_KEM_KEY}=   ${None}

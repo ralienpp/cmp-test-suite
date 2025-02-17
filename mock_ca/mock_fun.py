@@ -7,9 +7,12 @@ from cryptography.x509 import CertificateRevocationList, ocsp
 from pq_logic.migration_typing import HybridPublicKey
 from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import ca_ra_utils, certutils, keyutils
+from resources.asn1_structures import PKIMessageTMP
+from resources.ca_ra_utils import build_ca_message, prepare_cert_response
 from resources.copyasn1utils import copy_subject_public_key_info
 from resources.oid_mapping import hash_name_to_instance
 from resources.typingutils import PrivateKeySig, PublicKey
+from robot.api.deco import not_keyword
 from unit_tests.utils_for_test import convert_to_crypto_lib_cert
 
 
@@ -212,3 +215,32 @@ class CertRevStateDB:
                     return True
 
         return False
+
+
+@not_keyword
+def build_key_update_response_error(
+    request: rfc9480.PKIMessage,
+    text: str,
+    set_header_fields: bool = True,
+    **kwargs,
+) -> PKIMessageTMP:
+    """Build a PKIMessage for a key update response.
+
+    This function is not yet implemented.
+
+    :param request: The PKIMessage containing the request.
+    :param set_header_fields: The PKIMessage containing the request.
+    :param kwargs: additional key-value pairs to set in the header.
+    :return: The built PKIMessage for the key update response.
+    """
+    return build_ca_message(
+        responses=prepare_cert_response(
+            cert_req_id=0,
+            status="rejection",
+            cert=None,
+            text=text,
+        ),
+        request=request,
+        set_header_fields=set_header_fields,
+        **kwargs,
+    )

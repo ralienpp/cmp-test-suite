@@ -405,7 +405,7 @@ def _parse_pkimessage_from_der(raw_bytes: bytes) -> PKIMessageTMP:
 
 @keyword(name="Process PKIMessage With Popdecc")
 def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
-    pki_message: bytes,
+    pki_message: Union[bytes, PKIMessageTMP],
     ee_key: Optional[EnvDataPrivateKey] = None,
     password: Optional[Union[str, bytes]] = None,
     challenge_size: Strint = 1,
@@ -462,7 +462,11 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     | ${response}= | Process PKIMessage With Popdecc | ${pki_message} | password=${password} |
 
     """
-    pki_message = _parse_pkimessage_from_der(pki_message)  # type: ignore
+    if isinstance(pki_message, bytes):
+       pki_message = _parse_pkimessage_from_der(pki_message)  # type: ignore
+
+    if not pki_message["body"].getName() == "popdecc":
+        raise ValueError("Expected `popdecc` in the PKIMessage body.")
 
     if len(pki_message["body"]["popdecc"]) != int(challenge_size):
         raise BadRequest(f"Expected {challenge_size} challenges, got {len(pki_message['body']['popdecc'])}")

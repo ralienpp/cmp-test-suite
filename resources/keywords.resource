@@ -74,7 +74,7 @@ Set Up Test Suite
             ...                          recipient=${RECIPIENT}    implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
             ${protected_ir}=    Protect Hybrid PKIMessage     ${ir}    private_key=${tmp_key}    cert=${tmp_cert}
         END
-        ${response}=   Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}    ${INIT_SUFFIX}
+        ${response}=   Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}    ${INIT_SUFFIX}
         ${issued_cert}=    Confirm Certificate If Needed    ${response}
         VAR    ${ISSUED_KEY}    ${issued_key}    scope=GLOBAL
         VAR    ${ISSUED_CERT}    ${issued_cert}    scope=GLOBAL
@@ -578,8 +578,9 @@ PKIStatus Must Be
 
 Exchange Migration PKIMessage
     [Documentation]    Exchange a PKIMessage with the Mock CA
-    [Arguments]    ${ir}    ${ca_base_url}=${CA_CMP_URL}    ${suffix}=${NONE}
+    [Arguments]    ${ir}    ${ca_base_url}=${CA_BASE_URL}    ${suffix}=${NONE}
     ${url} =    Add URL Suffix    ${ca_base_url}    ${suffix}
     ${response} =    Exchange PKIMessage    ${ir}    ${url}
     RETURN    ${response}
+
 

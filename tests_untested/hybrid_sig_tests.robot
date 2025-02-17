@@ -53,7 +53,7 @@ CA MUST Issue A Valid Composite RSA-PSS From CSR
     ${csr}=            Build CSR    ${key}    common_name=${cm}   use_rsa_pss=True
     ${p10cr}=          Build P10cr From CSR   ${csr}  recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_p10cr}=  Default Protect PKIMessage    ${p10cr}
-    ${response}=       Exchange Migration PKIMessage    ${protected_p10cr}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_p10cr}    ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    cp
     PKIStatus Must Be    ${response}    status=accepted
     ${cert}=           Get Cert From PKIMessage    ${response}
@@ -70,7 +70,7 @@ CA MUST Issue a Valid Composite-Sig RSA Certificate
     ${ir}=   Build Ir From Key    ${key}   common_name=${cm}  recipient=${RECIPIENT}
     ...                                    exclude_fields=senderKID,sender
     ${protected_ir}=  Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -84,7 +84,7 @@ CA MUST Issue A Valid Composite EC Certificate
     ${cm}=             Get Next Common Name
     ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -99,7 +99,7 @@ CA MUST Issue a Valid Composite EC-brainpool Certificate
     ${cm}=             Get Next Common Name
     ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -112,7 +112,7 @@ CA MUST Issue a Valid Composite ED25519 Certificate
     ${cm}=            Get Next Common Name
     ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -125,7 +125,7 @@ CA MUST Issue a Valid Composite ED448 Certificate
     ${cm}=             Get Next Common Name
     ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -140,7 +140,7 @@ CA MUST Accept Valid Composite Sig IR With CertConf
     ...                            exclude_fields=senderKID,sender
     ...                            implicit_confirm=${False}
     ${protected_ir}=    Default Protect PKIMessage    ${ir}
-    ${response}=    Exchange Migration PKIMessage    ${protected_ir}   ${CA_CMP_URL}  ${COMPOSITE_URL_PREFIX}
+    ${response}=    Exchange Migration PKIMessage    ${protected_ir}   ${CA_BASE_URL}  ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    accepted
     # Should not contain the implicit confirm extension.
@@ -169,7 +169,7 @@ CA MUST Accept a valid Composite Sig KUR
     ...                ${kur}
     ...                private_key=${COMP_SIG_KEY}
     ...                cert=${COMP_SIG_CERT}
-    ${response}=    Exchange Migration PKIMessage    ${protected_kur}   ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=    Exchange Migration PKIMessage    ${protected_kur}   ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    kup
     PKIStatus Must Be    ${response}    accepted
     ${cert}=           Get Cert From PKIMessage    ${response}
@@ -186,14 +186,14 @@ CA MUST Revoke a valid Composite Sig Cert
     [Tags]             positive   rr
     ${key}=    Generate Default Composite Sig Key
     ${ir}=    Build Composite Signature Request    ${key}
-    ${response}=    Exchange Migration PKIMessage    ${ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=    Exchange Migration PKIMessage    ${ir}    ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    accepted
     ${cert}=   Confirm Certificate If Needed    ${response}
     ${cert_chain}=   Build Migration Cert Chain    ${cert}    certs=${response["extraCerts"]}
     ${rr}=   Build CMP Revoke Request    ${cert}    recipient=${RECIPIENT}
     ${protected_rr}=   Protect Hybrid PKIMessage    ${rr}   private_key=${key}    cert=${cert}
-    ${response}=   Exchange Migration PKIMessage    ${protected_rr}    ${CA_CMP_URL}    ${COMPOSITE_URL_PREFIX}
+    ${response}=   Exchange Migration PKIMessage    ${protected_rr}    ${CA_BASE_URL}    ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    rp
     PKIStatus Must Be    ${response}    accepted
     VAR    ${REVOKED_COMP_KEY}         ${key}         scope=SUITE    # robocop: off=no-suite-variable
@@ -212,7 +212,7 @@ CA MUST Reject IR With Revoked Cert
     ${ir}=    Build Composite Signature Request
     ${protected_ir}=    Protect Hybrid PKIMessage    ${ir}    private_key=${REVOKED_COMP_KEY}
     ...                                               cert=${REVOKED_COMP_CERT}
-    ${response}=    Exchange Migration PKIMessage    ${protected_ir}    ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=    Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}  signerNotTrusted
 
@@ -237,7 +237,7 @@ CA MUST Issue A Valid Composite RSA-Prehashed Certificate
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -257,7 +257,7 @@ CA MUST Issue A Valid Composite RSA-PSS-Prehashed Certificate
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -277,7 +277,7 @@ CA MUST Issue A Valid Composite EC-Prehashed Certificate
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -298,7 +298,7 @@ CA MUST Issue A Valid Composite EC-brainpool-Prehashed Certificate
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -317,7 +317,7 @@ CA MUST Issue A Valid Composite ED25519-Prehashed Certificate
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -336,7 +336,7 @@ CA MUST Issue A Valid Composite ED448-Prehashed Certificate
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    status=accepted
 
@@ -357,7 +357,7 @@ CA MUST Reject An Invalid POP For Composite RSA
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -376,7 +376,7 @@ CA MUST Reject An Invalid POP For Composite RSA-PSS
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -394,7 +394,7 @@ CA MUST Reject An Invalid POP For Composite EC
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -414,7 +414,7 @@ CA MUST Reject An Invalid POP For Composite EC-brainpool
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -433,7 +433,7 @@ CA MUST Reject An Invalid POP For Composite ED25519
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -452,7 +452,7 @@ CA MUST Reject An Invalid POP For Composite ED448
     ...                protection=signature
     ...                private_key=${ISSUED_KEY}
     ...                cert=${ISSUED_CERT}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP  exclusive=True
 
@@ -473,7 +473,7 @@ CA MUST Reject Composite IR with invalid RSA key length
     ${ir}=    Build Ir From Key    ${key}   common_name=${cm}   spki=${spki}
     ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badRequest
 
@@ -489,7 +489,7 @@ CA SHOULD Reject Issuing Already in use Traditional Key
     ${cm}=             Get Next Common Name
     ${ir}=    Build Ir From Key    ${key}   ${cm}   recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badRequest
 
@@ -505,7 +505,7 @@ CA MUST Not Issue A Composite Sig Certificate with an Invalid KeyUsage Bit
     ${ir}=    Build Ir From Key    ${key}  cert_template=${cert_template}
     ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=    Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}  ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIStatus Must Be    ${response}    rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate
 
@@ -522,7 +522,7 @@ CA MUST Issue A Composite Sig Certificate with cRLSign KeyUsage Bit
     ${ir}=    Build Ir From Key    ${key}   cert_template=${cert_template}
     ...                            recipient=${RECIPIENT}   exclude_fields=senderKID,sender
     ${protected_ir}=  Default Protect PKIMessage    ${ir}
-    ${response}=       Exchange Migration PKIMessage    ${protected_ir}   ${CA_CMP_URL}   ${COMPOSITE_URL_PREFIX}
+    ${response}=       Exchange Migration PKIMessage    ${protected_ir}   ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    accepted
 

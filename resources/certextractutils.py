@@ -81,6 +81,7 @@ def cert_contains_extension(  # noqa D417 undocumented-param
         raise ValueError(f"Extension {name}:{oid} is not present.")
 
 
+def extension_must_be_non_critical(  # noqa D417 undocumented-param
     cert_or_extn: Union[rfc9480.CMPCertificate, rfc9480.Extensions], name_or_oid: str
 ) -> None:
     """Ensure that the extension with the given OID or name is non-critical.

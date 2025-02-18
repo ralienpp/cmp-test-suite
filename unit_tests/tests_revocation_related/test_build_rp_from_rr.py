@@ -8,6 +8,7 @@ from resources.asn1utils import is_bit_set
 from resources.ca_ra_utils import build_rp_from_rr
 from resources.certutils import parse_certificate
 from resources.cmputils import build_cmp_revoke_request
+from resources.exceptions import BadMessageCheck
 from resources.keyutils import load_private_key_from_file
 from resources.protectionutils import protect_pkimessage
 from resources.utils import load_and_decode_pem_file
@@ -74,15 +75,8 @@ class TestBuildRpFromRr(unittest.TestCase):
         THEN the response should be rejected.
         """
         self.rr["extraCerts"].append(self.cert)
-        rp, data = build_rp_from_rr(
-            request=self.rr,
-            certs=[self.cert],
-        )
-        self.assertEqual(len(rp["body"]["rp"]["status"]), 1)
-        self.assertEqual(str(rp["body"]["rp"]["status"][0]["status"]), "rejection")
-
-        result = is_bit_set(
-            rp["body"]["rp"]["status"][0]["failInfo"],
-            "badMessageCheck",
-        )
-        self.assertTrue(result)
+        with self.assertRaises(BadMessageCheck):
+            rp, _ = build_rp_from_rr(
+                request=self.rr,
+                certs=[self.cert],
+            )

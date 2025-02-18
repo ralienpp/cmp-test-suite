@@ -39,7 +39,7 @@ from resources.asn1_structures import CAKeyUpdContent, CertResponseTMP, Challeng
 from resources.certextractutils import get_extension, get_field_from_certificate
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.cryptoutils import compute_aes_cbc, perform_ecdh
-from resources.exceptions import BadAsn1Data, BadPOP, BadRequest, NotAuthorized
+from resources.exceptions import BadAsn1Data, BadPOP, BadRequest, InvalidAltSignature, NotAuthorized
 from resources.extra_issuing_logic import is_null_dn
 from resources.oid_mapping import compute_hash, get_hash_from_oid, sha_alg_name_to_oid
 from resources.prepareutils import prepare_name
@@ -1804,9 +1804,9 @@ def _verify_pkimessage_protection_rp(
     """
     try:
         py_verify_logic.verify_hybrid_pkimessage_protection(
-            request=request,
+            request,
         )
-    except:
+    except (InvalidSignature, InvalidAltSignature):
         try:
             protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
         except:
@@ -1841,7 +1841,6 @@ def build_rp_from_rr(
     body = rfc9480.PKIBody()
     if set_header_fields:
         kwargs = _set_header_fields(request, kwargs)
-
 
     if not request["extraCerts"].isValue:
         fail_info = "addInfoNotAvailable"

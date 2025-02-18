@@ -4,16 +4,16 @@
 
 """Handles Catalyst Certificates and related functionality."""
 
-import copy
 import logging
 from typing import Optional, Union
 
 import pyasn1.error
 from pyasn1.codec.der import decoder, encoder
-from pyasn1.type import tag, univ
+from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from pyasn1_alt_modules.rfc4210 import CMPCertificate
 from resources import certbuildutils, certextractutils, certutils, cryptoutils, keyutils, utils
+from resources.asn1_structures import CatalystPreTBSCertificate
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadAlg, BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid
@@ -153,68 +153,46 @@ def prepare_alt_signature_value_extn(  # noqa: D417 Missing a parameter in the D
     return alt_signature_value_extension
 
 
+def convert_tbs_to_pre_tbs(tbs_certificate: rfc5280.TBSCertificate) -> CatalystPreTBSCertificate:
+    """Converts a `TBSCertificate` to a PreTBSCertificate by removing the signature field.
+
+    :param tbs_certificate: An instance of `TBSCertificate`
+    :return: A new instance of PreTBSCertificate
+    """
+    pre_tbs_certificate = CatalystPreTBSCertificate()
+
+    pre_tbs_certificate["version"] = tbs_certificate["version"]
+    pre_tbs_certificate["serialNumber"] = tbs_certificate["serialNumber"]
+    pre_tbs_certificate["issuer"] = tbs_certificate["issuer"]
+    pre_tbs_certificate["validity"] = tbs_certificate["validity"]
+    pre_tbs_certificate["subject"] = tbs_certificate["subject"]
+    pre_tbs_certificate["subjectPublicKeyInfo"] = tbs_certificate["subjectPublicKeyInfo"]
+
+    if tbs_certificate["issuerUniqueID"].isValue:
+        pre_tbs_certificate["issuerUniqueID"] = tbs_certificate["issuerUniqueID"]
+
+    if tbs_certificate["subjectUniqueID"].isValue:
+        pre_tbs_certificate["subjectUniqueID"] = tbs_certificate["subjectUniqueID"]
+
+    if tbs_certificate["extensions"].isValue:
+        for x in tbs_certificate["extensions"]:
+            if x["extnID"] != id_ce_altSignatureValue:
+                pre_tbs_certificate["extensions"].append(x)
+
+    return pre_tbs_certificate
+
+
 @not_keyword
 def extract_alt_signature_data(
     cert: rfc9480.CMPCertificate,
-    exclude_alt_extensions: bool = False,
-    only_tbs_cert: bool = False,
-    exclude_signature_field: bool = False,
-    exclude_first_spki: bool = False,
 ) -> bytes:
     """Prepare the data to be signed for the `altSignatureValue` extension by excluding the altSignatureValue extension.
 
     :param cert: The certificate to prepare data from.
-    :param exclude_alt_extensions: Whether to exclude alternative extensions for the signature verification.
-    :param only_tbs_cert: Whether to only include the `tbsCertificate` part of the certificate and
-    exclude the `signatureAlgorithm` field.
-    :param exclude_signature_field: Whether to exclude the `signature` field from the data. Defaults to `False`.
-    :param exclude_first_spki: Whether to exclude the first `subjectPublicKeyInfo` field from the data.
-    Defaults to `False`.
     :return: DER-encoded bytes of the data to be signed.
     """
-    if cert["signature"].isValue:
-        der_data = copy.deepcopy(encoder.encode(cert))
-        tmp_cert = decoder.decode(der_data, asn1Spec=rfc9480.CMPCertificate())[0]
-    else:
-        tmp_cert = rfc9480.CMPCertificate()
-        der_tbs = encoder.encode(cert["tbsCertificate"])
-        tmp_cert["tbsCertificate"] = decoder.decode(der_tbs, asn1Spec=rfc5280.TBSCertificate())[0]
-        der_sig_alg = encoder.encode(cert["signatureAlgorithm"])
-        tmp_cert["signatureAlgorithm"] = decoder.decode(der_sig_alg, asn1Spec=rfc5280.AlgorithmIdentifier())[0]
-
-    tbs_cert = tmp_cert["tbsCertificate"]
-
-    data = b""
-
-    for field in tbs_cert.keys():
-        if field == "extensions":
-            pass
-        elif field == "subjectPublicKeyInfo" and exclude_first_spki:
-            pass
-        elif field == "signature" and not exclude_signature_field:
-            data += encoder.encode(tbs_cert[field])
-        else:
-            if tbs_cert[field].isValue:
-                data += encoder.encode(tbs_cert[field])
-
-    new_extn = rfc5280.Extensions().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 3))
-
-    exclude_extn = (
-        [id_ce_altSignatureValue]
-        if not exclude_alt_extensions
-        else [id_ce_altSignatureValue, id_ce_altSignatureAlgorithm, id_ce_subjectAltPublicKeyInfo]
-    )
-
-    for x in tmp_cert["tbsCertificate"]["extensions"]:
-        if x["extnID"] not in exclude_extn:
-            new_extn.append(x)
-
-    tmp_cert["tbsCertificate"]["extensions"] = new_extn
-    data = encoder.encode(tbs_cert)
-
-    if tmp_cert["signatureAlgorithm"].isValue and not only_tbs_cert:
-        data += encoder.encode(tmp_cert["signatureAlgorithm"])
-
+    pre_tbs = convert_tbs_to_pre_tbs(cert["tbsCertificate"])
+    data = encoder.encode(pre_tbs)
     return data
 
 
@@ -368,8 +346,6 @@ def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstrin
     cert: rfc9480.CMPCertificate,
     issuer_cert: Optional[rfc9480.CMPCertificate] = None,
     issuer_pub_key: Optional[PrivateKeySig] = None,
-    exclude_alt_extensions: bool = False,
-    only_tbs_cert: bool = False,
     sig_alg_must_be: Optional[str] = None,
 ) -> None:
     """Verify the alternative signature for migrated relying parties.
@@ -382,9 +358,6 @@ def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstrin
         - `cert`: The certificate to verify.
         - `issuer_cert`: The issuer's certificate for traditional signature verification. Defaults to `None`.
         - `issuer_pub_key`: The issuer's public key for traditional signature verification. Defaults to `None`.
-        - `exclude_alt_extensions`: Whether to exclude alternative extensions for the signature verification.
-        - `only_tbs_cert`: Whether to only include the `tbsCertificate` part of the certificate and
-        exclude the `signatureAlgorithm` field.
         - `sig_alg_must_be`: The signature algorithm name to be expected for the alternative signature.
         (e.g., "ml-dsa-44", "ml-dsa-44-sha512" can only be a pq-algorithm).
         Defaults to `None`.
@@ -418,9 +391,7 @@ def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstrin
     pq_pub_key = keyutils.load_public_key_from_spki(catalyst_ext["spki"])
     hash_alg = get_hash_from_oid(catalyst_ext["alg_id"]["algorithm"], only_hash=True)
 
-    alt_sig_data = extract_alt_signature_data(
-        cert, exclude_alt_extensions=exclude_alt_extensions, only_tbs_cert=only_tbs_cert
-    )
+    alt_sig_data = extract_alt_signature_data(cert)
 
     cryptoutils.verify_signature(
         public_key=pq_pub_key, hash_alg=hash_alg, data=alt_sig_data, signature=catalyst_ext["signature"]

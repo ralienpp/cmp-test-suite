@@ -372,3 +372,32 @@ class ProtectedPartTMP(univ.Sequence):
 #
 NestedMessageContentTMP._componentType = PKIMessagesTMP()  # pylint: disable=protected-access
 nestedMessageContent._componentType = PKIMessagesTMP()  # pylint: disable=protected-access
+
+
+class CatalystPreTBSCertificate(univ.Sequence):
+    """Defines the ASN.1 structure for the `CatalystPreTBSCertificate`."""
+
+
+CatalystPreTBSCertificate.componentType = namedtype.NamedTypes(
+    namedtype.DefaultedNamedType(
+        "version",
+        rfc5280.Version().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)).subtype(value="v1"),
+    ),
+    namedtype.NamedType("serialNumber", rfc5280.CertificateSerialNumber()),
+    namedtype.NamedType("issuer", rfc5280.Name()),
+    namedtype.NamedType("validity", rfc5280.Validity()),
+    namedtype.NamedType("subject", rfc5280.Name()),
+    namedtype.NamedType("subjectPublicKeyInfo", rfc5280.SubjectPublicKeyInfo()),
+    namedtype.OptionalNamedType(
+        "issuerUniqueID",
+        rfc5280.UniqueIdentifier().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)),
+    ),
+    namedtype.OptionalNamedType(
+        "subjectUniqueID",
+        rfc5280.UniqueIdentifier().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2)),
+    ),
+    namedtype.OptionalNamedType(
+        "extensions", rfc5280.Extensions().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 3))
+    ),
+)
+

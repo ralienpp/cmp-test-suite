@@ -6,21 +6,32 @@
 """Try out all possible combinations of alternative signature data and verify the signature of a catalyst cert."""
 
 import glob
-from itertools import product
 
-import oqs
 from pq_logic.fips.fips204 import ML_DSA
 from pq_logic.hybrid_sig.catalyst_logic import (
     extract_alt_signature_data,
     validate_catalyst_extensions,
 )
+from pq_logic.hybrid_sig.chameleon_logic import build_delta_cert_from_paired_cert
 from pq_logic.keys.abstract_pq import PQPrivateKey, PQPublicKey
 from pq_logic.keys.sig_keys import MLDSAPublicKey
 from pyasn1_alt_modules import rfc9480
 from resources.certutils import parse_certificate
-from resources.convertutils import copy_asn1_certificate
+from resources.exceptions import InvalidAltSignature
 from resources.oid_mapping import KEY_CLASS_MAPPING, may_return_oid_to_name
 from unit_tests.utils_for_test import get_subject_and_issuer, print_chain_subject_and_issuer
+
+
+def get_chameleon_certs() -> list[str]:
+    """Return a list of all chameleon certificates in the specified directory."""
+    pem_files = []
+    for file in glob.iglob("./data/pqc-certificates/providers/**", recursive=True):
+        if file.endswith(".der") and "chameleon" in file:
+            pem_files.append(file)
+
+    if pem_files == []:
+        raise FileNotFoundError("No chameleon certificates found in the specified directory.")
+    return pem_files
 
 
 def get_catalyst_certs() -> list[str]:
@@ -77,61 +88,38 @@ def _try2(asn1cert: rfc9480.CMPCertificate, pub_key: bytes, name: str, signature
     """
     # verify the key size.
     MLDSAPublicKey.from_public_bytes(pub_key, name)
+    data = extract_alt_signature_data(asn1cert["tbsCertificate"])
+    out = ML_DSA(name).verify(pk=pub_key, m=data, sig=signature, ctx=b"")
 
-    for exclude_alt_extensions, only_tbs_cert, exclude_signature_field, exclude_spki in product(
-        [True, False], repeat=4
-    ):
-        # Prepare alternative signature data with the current combination
-        tmp = copy_asn1_certificate(asn1cert)
-        alt_sig_data = extract_alt_signature_data(
-            cert=tmp,
-            exclude_alt_extensions=exclude_alt_extensions,
-            only_tbs_cert=only_tbs_cert,
-            exclude_signature_field=exclude_signature_field,  # means the signature field inside tbsCertificate,
-            # which is the signature algorithm.
-            exclude_first_spki=exclude_spki,
-        )
+    if not out:
+        raise InvalidAltSignature("Verification failed for the alternative certificate.")
 
-        out = ML_DSA(name).verify(pk=pub_key, m=alt_sig_data, sig=signature, ctx=b"")
-
-        for sigalg in oqs.get_enabled_sig_mechanisms():
-            if sigalg.startswith("Dilithium") or sigalg.startswith("ML-D"):
-                with oqs.Signature(sigalg) as verifier:
-                    try:
-                        is_valid = verifier.verify(alt_sig_data, signature, pub_key)
-
-                        if is_valid:
-                            print(
-                                f"Verification successful with {sigalg} with: "
-                                f"exclude_alt_extensions={exclude_alt_extensions}, "
-                                f"only_tbs_cert={only_tbs_cert}, "
-                                f"exclude_signature_field={exclude_signature_field}"
-                                f"exclude_spki={exclude_spki}"
-                            )
-                            return True
-                    except Exception:
-                        # print(f"Verification failed for {sigalg}:", e)
-                        continue
-
-        if out:
-            print(
-                f"Verification successful with {name} with: "
-                f"exclude_alt_extensions={exclude_alt_extensions}, "
-                f"only_tbs_cert={only_tbs_cert}, "
-                f"exclude_signature_field={exclude_signature_field}"
-                f"exclude_spki={exclude_spki}"
-            )
-            return True
-
-    print("Verification failed for all options for ", name)
-    return False
+    print(f"The Catalyst certificate has been successfully verified with {name}.")
 
 
-pem_files = get_catalyst_certs()
+def test_catalyst():
+    """Test the catalyst certificates."""
+    pem_files = get_catalyst_certs()
 
-for pem_file in pem_files:
-    with open(pem_file, "rb") as file:
-        cert = parse_certificate(file.read())
-        print_chain_subject_and_issuer([cert])
-        pub_key, name, signature = log_cert_infos(cert)
-        _try2(cert, pub_key, name, signature)
+    for pem_file in pem_files:
+        with open(pem_file, "rb") as file:
+            cert = parse_certificate(file.read())
+            print_chain_subject_and_issuer([cert])
+            pub_key, name, signature = log_cert_infos(cert)
+            _try2(cert, pub_key, name, signature)
+
+
+def test_cameleon():
+    """Test the chameleon certificates."""
+    pem_files = get_chameleon_certs()
+
+    for pem_file in pem_files:
+        with open(pem_file, "rb") as file:
+            cert = parse_certificate(file.read())
+            print_chain_subject_and_issuer([cert])
+            delta_cert = build_delta_cert_from_paired_cert(cert)
+            print_chain_subject_and_issuer([delta_cert])
+
+
+test_catalyst()
+test_cameleon()

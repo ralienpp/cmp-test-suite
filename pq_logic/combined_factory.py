@@ -72,10 +72,10 @@ class CombinedKeyFactory:
         if algorithm in ["rsa", "ecdsa", "ed25519", "ed448", "bad-rsa-key"]:
             return generate_trad_key(algorithm, **kwargs)
 
-        elif PQKeyFactory.may_be_pq_alg(algorithm=algorithm):
+        if PQKeyFactory.may_be_pq_alg(algorithm=algorithm):
             return PQKeyFactory.generate_pq_key(algorithm=algorithm)
 
-        elif algorithm in HybridKeyFactory.supported_algorithms():
+        if algorithm in HybridKeyFactory.supported_algorithms():
             if kwargs.get("pq_key") is not None or kwargs.get("trad_key") is not None:
                 return HybridKeyFactory.from_keys(
                     algorithm=algorithm, pq_key=kwargs.get("pq_key"), trad_key=kwargs.get("trad_key")
@@ -83,9 +83,8 @@ class CombinedKeyFactory:
 
             return HybridKeyFactory.generate_hybrid_key(algorithm=algorithm, **kwargs)
 
-        else:
-            options = ", ".join(CombinedKeyFactory.supported_algorithms())
-            raise ValueError(f"Unsupported key type: **{algorithm}** Supported are {options}")
+        options = ", ".join(CombinedKeyFactory.supported_algorithms())
+        raise ValueError(f"Unsupported key type: **{algorithm}** Supported are {options}")
 
     @staticmethod
     def load_public_key_from_spki(spki: rfc5280.SubjectPublicKeyInfo):

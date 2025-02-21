@@ -82,17 +82,16 @@ CA Must Issue A Certificate When We Send A Valid P10cr Request
 
 CA Must Reject Request When The CSR Signature Is Invalid
     [Documentation]    According to RFC 9483 Section 4.1.4, the signature inside the CSR serves as proof-of-possession
-    ...    to demonstrate that the End-Entity owns the private key. We send a CSR with a broken signature.
+    ...    to demonstrate that the End-Entity owns the private key. We send a CSR with a invalid signature.
     ...    The CA MUST reject the request and may respond with the optional failInfo `badPOP`.
     [Tags]    crypto    csr    negative
     ${key}=    Generate Default Key
     ${cm}=    Get Next Common Name
     ${csr}=    Build CSR    common_name=${cm}    signing_key=${key}    bad_pop=True
     ${p10cr}=    Build P10cr From Csr
-    ...    ${invalid_sig_csr}
+    ...    ${csr}
     ...    sender=${SENDER}
     ...    recipient=${RECIPIENT}
-    ...    implicit_confirm=${True}
     ${protected_p10cr}=    Protect PKIMessage
     ...    ${p10cr}
     ...    protection=${DEFAULT_MAC_ALGORITHM}

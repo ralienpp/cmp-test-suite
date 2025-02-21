@@ -13,7 +13,7 @@ from pyasn1_alt_modules import rfc5280, rfc5652, rfc6402, rfc9480
 from resources import certbuildutils, certextractutils, compareutils, cryptoutils, utils
 from resources.convertutils import copy_asn1_certificate, subjectPublicKeyInfo_from_pubkey
 from resources.copyasn1utils import copy_csr, copy_name, copy_validity
-from resources.exceptions import BadAsn1Data, BadPOP, BadCertTemplate, BadAltPOP
+from resources.exceptions import BadAltPOP, BadAsn1Data, BadCertTemplate
 from resources.keyutils import load_public_key_from_spki
 from resources.oid_mapping import get_hash_from_oid
 from resources.prepareutils import prepare_name
@@ -526,8 +526,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
             alg_id=sig_alg_id, data=data, public_key=public_key, signature=delta_sig.asOctets()
         )
     except InvalidSignature:
-        raise BadAltPOP("The chameleon alternative signature is invalid.") # pylint: disable=raise-missing-from
-
+        raise BadAltPOP("The chameleon alternative signature is invalid.")  # pylint: disable=raise-missing-from
 
     return delta_req
 

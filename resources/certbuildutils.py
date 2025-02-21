@@ -572,9 +572,7 @@ def prepare_extensions(  # noqa D417 undocumented-param
         extensions.append(_prepare_ski_extension(key, critical=critical))
 
     if is_ca is not None or path_length is not None:
-        extensions.append(
-            _prepare_basic_constraints_extension(ca=is_ca, path_length=path_length, critical=critical)
-        )
+        extensions.append(_prepare_basic_constraints_extension(ca=is_ca, path_length=path_length, critical=critical))
 
     if SubjectAltName is not None:
         extensions.append(_prepare_subject_alt_name_extensions(SubjectAltName, critical=critical))

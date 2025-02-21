@@ -44,8 +44,8 @@ from pq_logic.kem_mechanism import DHKEMRFC9180, ECDHKEM, RSAOaepKem
 from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeKEMPublicKey
 from pq_logic.keys.kem_keys import MLKEMPrivateKey, MLKEMPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
-from pq_logic.tmp_mapping import get_oid_for_composite_kem
 from pq_logic.keys.trad_key_factory import generate_trad_key as generate_key
+from pq_logic.tmp_mapping import get_oid_for_composite_kem
 from pq_logic.trad_typing import ECDHPrivateKey
 
 #####################################

@@ -400,4 +400,3 @@ CatalystPreTBSCertificate.componentType = namedtype.NamedTypes(
         "extensions", rfc5280.Extensions().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 3))
     ),
 )
-

@@ -334,7 +334,9 @@ def validate_kemri_rid_for_encrypted_cert(  # noqa D417 undocumented-param
     if key is not None:
         expected_rid = envdatautils.prepare_recipient_identifier(key=key)
     elif issuer is not None and serial_number is not None or cert is not None:
-        issuer_and_ser = envdatautils.prepare_issuer_and_serial_number(serial_number=serial_number, issuer=issuer, cert=cert)
+        issuer_and_ser = envdatautils.prepare_issuer_and_serial_number(
+            serial_number=serial_number, issuer=issuer, cert=cert
+        )
         expected_rid = envdatautils.prepare_recipient_identifier(key=key, issuer_and_ser=issuer_and_ser)
     else:
         raise ValueError("Neither the key or issuer and serial number are provided.")
@@ -470,7 +472,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
 
     """
     if isinstance(pki_message, bytes):
-       pki_message = _parse_pkimessage_from_der(pki_message)  # type: ignore
+        pki_message = _parse_pkimessage_from_der(pki_message)  # type: ignore
 
     if not pki_message["body"].getName() == "popdecc":
         raise ValueError("Expected `popdecc` in the PKIMessage body.")

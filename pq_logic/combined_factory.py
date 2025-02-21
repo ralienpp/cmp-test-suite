@@ -14,7 +14,6 @@ from resources.oid_mapping import get_curve_instance
 from resources.oidutils import CMS_COMPOSITE_OID_2_NAME, PQ_OID_2_NAME, XWING_OID_STR
 
 from pq_logic.chempatkem import ChempatPublicKey
-from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.hybrid_structures import (
     CompositeSignaturePublicKeyAsn1,
 )
@@ -25,11 +24,12 @@ from pq_logic.keys.composite_kem_pki import (
     CompositeDHKEMRFC9180PublicKey,
     parse_public_keys,
 )
+from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.keys.kem_keys import FrodoKEMPublicKey, MLKEMPublicKey
-from pq_logic.keys.xwing import XWingPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
-from pq_logic.tmp_oids import CHEMPAT_OID_2_NAME, COMPOSITE_KEM_OID_2_NAME
 from pq_logic.keys.trad_key_factory import generate_trad_key
+from pq_logic.keys.xwing import XWingPublicKey
+from pq_logic.tmp_oids import CHEMPAT_OID_2_NAME, COMPOSITE_KEM_OID_2_NAME
 
 
 def _any_string_in_string(string: str, options: List[str]) -> str:

@@ -7,8 +7,7 @@
 import logging
 
 from pyasn1_alt_modules import rfc9480
-from resources import asn1utils, certextractutils
-from resources import certutils
+from resources import asn1utils, certextractutils, certutils
 from resources.exceptions import UnknownOID
 from resources.oidutils import HYBRID_NAME_2_OID, HYBRID_OID_2_NAME, PQ_NAME_2_OID, PQ_OID_2_NAME
 from robot.api.deco import keyword
@@ -16,6 +15,7 @@ from robot.api.deco import keyword
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPublicKey
 from pq_logic.keys.abstract_pq import PQPublicKey, PQSignaturePublicKey
 from pq_logic.pq_utils import is_kem_public_key
+
 
 @keyword(name="Validate Migration Alg ID")
 def validate_migration_alg_id(  # noqa: D417 Missing argument descriptions in the docstring

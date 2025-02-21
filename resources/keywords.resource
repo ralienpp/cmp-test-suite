@@ -279,7 +279,19 @@ Generate Default Key
     ${private_key}=    Generate Unique Key    algorithm=${DEFAULT_ALGORITHM}    &{params}
     RETURN    ${private_key}
 
+Generate Default PQ Key
+    [Documentation]    Generates a default pq signature key.
+    ...                Examples:
+    ...                | ${key}= | Generate Default PQ Key |
+    ${key}=   Generate Key    ${DEFAULT_PQ_SIG_ALGORITHM}
+    RETURN    ${key}
 
+Generate Default KEM Key
+    [Documentation]    Generates a default pq kem key.
+    ...                Examples:
+    ...                | ${key}= | Generate Default KEM Key |
+    ${key}=   Generate Key    ${DEFAULT_PQ_KEM_ALGORITHM}
+    RETURN    ${key}
 
 Generate Default Composite Sig Key
     [Documentation]    Generates a default composite signature key with the traditional algorithm

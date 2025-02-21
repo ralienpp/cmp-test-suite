@@ -13,7 +13,7 @@ from resources.copyasn1utils import copy_subject_public_key_info
 from resources.oid_mapping import hash_name_to_instance
 from resources.typingutils import PrivateKeySig, PublicKey
 from robot.api.deco import not_keyword
-from unit_tests.utils_for_test import convert_to_crypto_lib_cert
+from unit_tests.utils_for_test import compare_pyasn1_objects, convert_to_crypto_lib_cert
 
 
 @dataclass
@@ -119,6 +119,17 @@ class RevokedEntryList:
         else:
             raise ValueError(f"Unsupported key type: {type(structure_or_key).__name__}")
 
+    def is_revoked(self, cert: rfc9480.CMPCertificate) -> bool:
+        """Check if the certificate is revoked.
+
+        :param cert: The certificate to check.
+        :return: Whether the certificate is revoked.
+        """
+        for x in self.certs:
+            if compare_pyasn1_objects(cert, x):
+                return True
+        return False
+
 
 @dataclass
 class CertRevStateDB:
@@ -215,6 +226,14 @@ class CertRevStateDB:
                     return True
 
         return False
+
+    def is_revoked(self, cert: rfc9480.CMPCertificate) -> bool:
+        """Check if the certificate is revoked.
+
+        :param cert: The certificate to check.
+        :return: Whether the certificate is revoked.
+        """
+        return self.rev_entry_list.is_revoked(cert) or self.update_entry_list.is_revoked(cert)
 
 
 @not_keyword

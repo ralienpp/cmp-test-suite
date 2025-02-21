@@ -190,7 +190,7 @@ class HybridKeyFactory:
 
             return XWingPrivateKey(pq_key=pq_key, trad_key=trad_key)
 
-        elif algorithm == "chempat":
+        if algorithm == "chempat":
             if pq_key is None and trad_key is None:
                 raise ValueError("Either a pq_key or trad_key must be provided, to generate a chempat key.")
 
@@ -338,26 +338,26 @@ class HybridKeyFactory:
         """
         if algorithm == "xwing":
             return XWingPrivateKey.generate()
-        elif algorithm == "composite-sig":
+        if algorithm == "composite-sig":
             return HybridKeyFactory.generate_comp_sig_key(
                 pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
             )
-        elif algorithm == "composite-kem":
+        if algorithm == "composite-kem":
             return HybridKeyFactory.generate_comp_kem_key(
                 pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
             )
 
-        elif algorithm == "composite-dhkem":
+        if algorithm == "composite-dhkem":
             keys = HybridKeyFactory.generate_comp_kem_key(
                 pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
             )
 
             return CompositeDHKEMRFC9180PrivateKey(pq_key=keys.pq_key, trad_key=keys.trad_key)
 
-        elif algorithm == "chempat":
+        if algorithm == "chempat":
             return HybridKeyFactory.generate_chempat(pq_name=pq_name, trad_name=trad_name, curve=curve)
-        else:
-            raise ValueError(f"Unknown hybrid key algorithm: {algorithm}")
+
+        raise ValueError(f"Unknown hybrid key algorithm: {algorithm}")
 
     @staticmethod
     def _get_combinations(

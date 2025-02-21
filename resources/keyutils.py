@@ -26,7 +26,7 @@ from cryptography.hazmat.primitives.asymmetric import (
     x25519,
 )
 from pq_logic.combined_factory import CombinedKeyFactory
-from pq_logic.key_pyasn1_utils import load_enc_key
+from pq_logic.keys.key_pyasn1_utils import load_enc_key
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc5280, rfc5480, rfc6664
 from robot.api.deco import not_keyword
@@ -398,7 +398,7 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
     if key_type == "ed25519":
         return ed25519.Ed25519PrivateKey.from_private_bytes(data=pem_data)
 
-    from pq_logic.key_pyasn1_utils import CUSTOM_KEY_TYPES, parse_key_from_one_asym_key
+    from pq_logic.keys.key_pyasn1_utils import CUSTOM_KEY_TYPES, parse_key_from_one_asym_key
 
     try:
         if b"SPDX-License-Identifier:" in pem_data:

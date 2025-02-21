@@ -194,7 +194,7 @@ class CombinedKeyFactory:
         :param one_asym_key: The OneAsymmetricKey structure.
         :return: The loaded private key.
         """
-        from pq_logic.key_pyasn1_utils import parse_key_from_one_asym_key
+        from pq_logic.keys.key_pyasn1_utils import parse_key_from_one_asym_key
 
         der_data = encoder.encode(one_asym_key)
         return parse_key_from_one_asym_key(der_data)

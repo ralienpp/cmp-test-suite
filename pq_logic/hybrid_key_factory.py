@@ -251,16 +251,16 @@ class HybridKeyFactory:
                     pq_name=None, trad_name=trad_name, length=length, curve=curve
                 )
 
-                return CompositeKEMPrivateKey(pq_key=comp_key.pq_key, trad_key=trad_key)
+                return parse_private_keys(pq_key=comp_key.pq_key, trad_key=trad_key)
 
             if trad_key is None:
                 pq_name = pq_key.name
                 comp_key = HybridKeyFactory.generate_comp_kem_key(
                     pq_name=pq_name,
                 )
-                return CompositeKEMPrivateKey(pq_key, comp_key.trad_key)
+                return parse_private_keys(pq_key, comp_key.trad_key)
 
-            return CompositeKEMPrivateKey(pq_key, trad_key)
+            return parse_private_keys(pq_key, trad_key)
 
         elif algorithm == "composite-sig":
             if pq_key is None and trad_key is None:

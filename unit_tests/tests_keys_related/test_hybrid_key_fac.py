@@ -4,7 +4,7 @@
 
 import unittest
 
-from pq_logic.hybrid_key_factory import HybridKeyFactory
+from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from resources.keyutils import generate_key
 from cryptography.hazmat.primitives.asymmetric import x25519,rsa
 

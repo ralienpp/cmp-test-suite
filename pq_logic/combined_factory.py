@@ -14,7 +14,7 @@ from resources.oid_mapping import get_curve_instance
 from resources.oidutils import CMS_COMPOSITE_OID_2_NAME, PQ_OID_2_NAME, XWING_OID_STR
 
 from pq_logic.chempatkem import ChempatPublicKey
-from pq_logic.hybrid_key_factory import HybridKeyFactory
+from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.hybrid_structures import (
     CompositeSignaturePublicKeyAsn1,
 )

@@ -6,7 +6,7 @@
 import unittest
 
 from pq_logic.chempatkem import ChempatMLKEMPrivateKey
-from pq_logic.hybrid_key_factory import HybridKeyFactory
+from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 
 
 class TestChempatKEM(unittest.TestCase):

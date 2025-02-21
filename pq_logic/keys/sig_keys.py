@@ -54,7 +54,7 @@ ML_DSA_NAMES = ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]
 class MLDSAPublicKey(PQSignaturePublicKey):
     """Represent an ML-DSA public key."""
 
-    def _init(self, sig_alg: str, public_key: bytes) -> None:
+    def _initialize(self, sig_alg: str, public_key: bytes) -> None:
         """Initialize the ML-DSA public key.
 
         :param sig_alg: The signature algorithm name.
@@ -293,7 +293,7 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
 class SLHDSAPublicKey(PQSignaturePublicKey):
     """Represent an SLH-DSA public key."""
 
-    def _init(self, sig_alg: str, public_key: bytes) -> None:
+    def _initialize(self, sig_alg: str, public_key: bytes) -> None:
         """Initialize the SLH-DSA public key.
 
         :param sig_alg: The signature algorithm name.

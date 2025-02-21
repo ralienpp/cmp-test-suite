@@ -238,9 +238,9 @@ class PQSignaturePublicKey(PQPublicKey, ABC):
         self._check_name(name=sig_alg)
         if self.sig_alg is None:
             self.sig_alg = sig_alg
-        self._init(sig_alg=sig_alg, public_key=public_key)
+        self._initialize(sig_alg=sig_alg, public_key=public_key)
 
-    def _init(self, sig_alg: str, public_key: bytes) -> None:
+    def _initialize(self, sig_alg: str, public_key: bytes) -> None:
         """Initialize the `PQSignaturePublicKey` object.
 
         :param sig_alg: The signature algorithm name.
@@ -262,15 +262,19 @@ class PQSignaturePublicKey(PQPublicKey, ABC):
         """
         pass
 
-    def verify(self, signature: bytes, data: bytes, hash_alg: Optional[str] = None, is_prehashed: bool = False) -> None:
+    def verify(self, signature: bytes, data: bytes, hash_alg: Optional[str] = None,
+               is_prehashed: bool = False,
+                ctx: bytes = b"",
+               ) -> None:
         """Verify a signature of the provided data.
 
         :param signature: The signature of the provided data.
         :param data: The data to verify against the signature.
         :param hash_alg: The pre-hashed hash algorithm used for the pre-hashed data
         or supposed to be used.
-        :param is_prehashed: Flag indicating if the pre-hashed data is to be verified.
-        (without the hash-oid.)
+        :param is_prehashed: Flag indicating if the pre-hashed data is to be verified
+        (without the hash-oid.).
+        :param ctx: The optional context to use.
         :raises InvalidSignature: If the signature is invalid.
         """
         self.check_hash_alg(hash_alg)
@@ -287,6 +291,8 @@ class PQSignaturePublicKey(PQPublicKey, ABC):
 
 class PQSignaturePrivateKey(PQPrivateKey, ABC):
     """Abstract base class for Post-Quantum Signature Private Keys."""
+
+    _sig_method: Optional["oqs.Signature"]
 
     def __init__(
         self,
@@ -316,9 +322,9 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
         :param public_key: The public key bytes.
         :return:
         """
-        self.sig_method = oqs.Signature(self.sig_alg, secret_key=private_bytes)
-        self._public_key_bytes = public_key or self.sig_method.generate_keypair()
-        self._private_key = private_bytes or self.sig_method.export_secret_key()
+        self._sig_method = oqs.Signature(self.sig_alg, secret_key=private_bytes)
+        self._public_key_bytes = public_key or self._sig_method.generate_keypair()
+        self._private_key = private_bytes or self._sig_method.export_secret_key()
 
     @abstractmethod
     def public_key(self) -> PQSignaturePublicKey:
@@ -359,12 +365,14 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
         if is_prehashed:
             raise NotImplementedError("Currently can the pre-hashed data not parsed, in python-liboqs.")
 
-        signature = self.sig_method.sign(data)
+        signature = self._sig_method.sign(data)
         return signature
 
 
 class PQKEMPublicKey(PQPublicKey, ABC):
     """Abstract base class for Post-Quantum KEM Public Keys."""
+
+    _kem_method: Optional["oqs.KeyEncapsulation"]
 
     def __init__(self, kem_alg: str, public_key: bytes):
         """Initialize a KEM public key object.
@@ -384,7 +392,7 @@ class PQKEMPublicKey(PQPublicKey, ABC):
         :param public_key: The public key as raw bytes.
         """
         self._check_name(name=kem_alg)
-        self.kem_method = oqs.KeyEncapsulation(self.kem_alg)
+        self._kem_method = oqs.KeyEncapsulation(self.kem_alg)
         self._public_key_bytes = public_key
 
     @property
@@ -395,12 +403,12 @@ class PQKEMPublicKey(PQPublicKey, ABC):
     @property
     def ct_length(self) -> int:
         """Return the size of the ciphertext."""
-        return self.kem_method.details["length_ciphertext"]
+        return self._kem_method.details["length_ciphertext"]
 
     @property
     def key_size(self) -> int:
         """Return the size of the public key."""
-        return self.kem_method.details["length_public_key"]
+        return self._kem_method.details["length_public_key"]
 
     @classmethod
     def from_public_bytes(cls, data: bytes, name: str):
@@ -412,13 +420,13 @@ class PQKEMPublicKey(PQPublicKey, ABC):
 
         :return: The shared secret and the ciphertext as bytes.
         """
-        ct, ss = self.kem_method.encap_secret(self._public_key_bytes)
+        ct, ss = self._kem_method.encap_secret(self._public_key_bytes)
         return ss, ct
 
     @property
     def nist_level(self) -> str:
         """Return the claimed NIST security level as string."""
-        return self.kem_method.details["claimed_nist_level"]
+        return self._kem_method.details["claimed_nist_level"]
 
 
 class PQKEMPrivateKey(PQPrivateKey, ABC):

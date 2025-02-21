@@ -13,7 +13,8 @@ from pyasn1_alt_modules import rfc5280, rfc5652, rfc6402, rfc9480
 from resources import certbuildutils, certextractutils, compareutils, cryptoutils, utils
 from resources.convertutils import copy_asn1_certificate, subjectPublicKeyInfo_from_pubkey
 from resources.copyasn1utils import copy_csr, copy_name, copy_validity
-from resources.exceptions import BadAsn1Data, BadPOP
+from resources.exceptions import BadAsn1Data, BadPOP, BadCertTemplate, BadAltPOP
+from resources.keyutils import load_public_key_from_spki
 from resources.oid_mapping import get_hash_from_oid
 from resources.prepareutils import prepare_name
 from resources.typingutils import PrivateKeySig
@@ -483,7 +484,8 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
     Raises:
     ------
         - `ValueError`: If the Delta Certificate Request attribute is missing.
-        - `BadPOP`: If the signature is invalid.
+        - `BadPOP`: If the POP signature is invalid.
+        - `BadAltPOP`: If the delta POP signature is invalid.
 
     Examples:
     --------
@@ -524,7 +526,8 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
             alg_id=sig_alg_id, data=data, public_key=public_key, signature=delta_sig.asOctets()
         )
     except InvalidSignature:
-        raise BadPOP("Invalid signature")  # pylint: disable=raise-missing-from
+        raise BadAltPOP("The chameleon alternative signature is invalid.") # pylint: disable=raise-missing-from
+
 
     return delta_req
 
@@ -596,8 +599,20 @@ def build_chameleon_cert_from_paired_csr(
     :param hash_alg: The hash algorithm used for signing. Defaults to "sha256".
     :param use_rsa_pss: Whether to use PSS-padding for signing. Defaults to `False`.
     :return: The Paired Certificate. Starts with the Base and then Delta Certificate.
+    :raises BadCertTemplate: If the Delta Certificate public key matches the Base Certificate public key.
+    :raises BadAsn1Data: If the DeltaCertificateDescriptor has a remainder.
+    :raises ValueError: If the DCD extension is missing.
+    :raises BadPOP: If the POP signature is invalid.
+    :raises BadAltPOP: If the delta POP signature is invalid.
     """
     delta_req = verify_paired_csr_signature(csr=csr)
+
+    first_key = load_public_key_from_spki(csr["certificationRequestInfo"]["subjectPublicKeyInfo"])
+    delta_key = load_public_key_from_spki(delta_req["subjectPKInfo"])
+
+    if delta_key == first_key:
+        raise BadCertTemplate("Delta Certificate public key must not match the Base Certificate public key.")
+
     cert = certbuildutils.build_cert_from_csr(
         csr=csr, ca_key=ca_key, ca_cert=ca_cert, alt_sign_key=alt_key, use_rsa_pss=use_rsa_pss
     )

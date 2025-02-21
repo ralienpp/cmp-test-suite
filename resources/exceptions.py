@@ -180,6 +180,19 @@ class BadPOP(CMPTestSuiteError):
         self.message = message
         super().__init__(message)
 
+class BadAltPOP(CMPTestSuiteError):
+    """Raised when the alternative Proof-of-Possession is invalid."""
+
+    failinfo = "badPOP"
+    bit_num = 9
+
+    def __init__(self, message: str):
+        """Initialize the exception with the message.
+
+        :param message: The message to display.
+        """
+        self.message = message
+        super().__init__(message)
 
 class CertRevoked(CMPTestSuiteError):
     """Raised when the certificate is revoked."""

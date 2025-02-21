@@ -18,7 +18,7 @@ try:
     import oqs
 except ImportError:
     logging.info("PQ support is disabled.")
-    pass
+
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat
 from pyasn1.codec.der import encoder
@@ -39,7 +39,6 @@ class PQPublicKey(ABC):
     @abstractmethod
     def name(self):
         """Return the name of the algorithm."""
-        pass
 
     def __eq__(self, other):
         """Check if two public keys are equal."""
@@ -123,7 +122,6 @@ class PQPrivateKey(ABC):
     @abstractmethod
     def _get_key_name(self) -> bytes:
         """Return the name for the PEM-Header."""
-        pass
 
     def __init__(self, alg_name: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None):
         """Initialize a Post-Quantum Private Key object.
@@ -213,7 +211,6 @@ class PQPrivateKey(ABC):
     @abstractmethod
     def public_key(self) -> PQPublicKey:
         """Derive the corresponding public key."""
-        pass
 
     def to_one_asym_key(self) -> rfc5958.OneAsymmetricKey:
         """Create a generic ASN.1 `OneAsymmetricKey` structure."""
@@ -260,7 +257,6 @@ class PQSignaturePublicKey(PQPublicKey, ABC):
 
         :return: The name of the hash algorithm.
         """
-        pass
 
     def verify(self, signature: bytes, data: bytes, hash_alg: Optional[str] = None,
                is_prehashed: bool = False,
@@ -329,10 +325,10 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
     @abstractmethod
     def public_key(self) -> PQSignaturePublicKey:
         """Derive the corresponding public key."""
-        pass
 
     def check_hash_alg(
-        self, hash_alg: Union[None, str, hashes.HashAlgorithm], allow_failure: bool = True
+        self,
+        hash_alg: Union[None, str, hashes.HashAlgorithm],
     ) -> Optional[str]:
         """Check if a specified or parsed hash algorithm is allowed."""
         return self.public_key().check_hash_alg(hash_alg)

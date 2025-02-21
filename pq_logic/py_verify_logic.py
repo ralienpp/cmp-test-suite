@@ -39,7 +39,7 @@ from pq_logic.keys.abstract_composite import AbstractCompositeSigPublicKey
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.migration_typing import CertOrCerts
-from pq_logic.pq_key_factory import PQKeyFactory
+from pq_logic.keys.pq_key_factory import PQKeyFactory
 
 # TODO fix to include CRL-Verification
 # currently only works for PQ and traditional signatures.

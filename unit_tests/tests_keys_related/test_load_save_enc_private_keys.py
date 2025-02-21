@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa, x
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.key_pyasn1_utils import load_enc_key, parse_key_from_one_asym_key
 from pq_logic.keys.serialize_utils import prepare_enc_key_pem
-from pq_logic.pq_key_factory import PQKeyFactory
+from pq_logic.keys.pq_key_factory import PQKeyFactory
 
 
 class TestEncryptedKeys(unittest.TestCase):

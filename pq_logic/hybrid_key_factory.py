@@ -21,8 +21,8 @@ from pq_logic.keys.composite_kem_pki import (
     parse_private_keys,
 )
 from pq_logic.keys.xwing import XWingPrivateKey
-from pq_logic.pq_key_factory import PQKeyFactory
-from pq_logic.trad_key_factory import generate_ec_key, generate_trad_key
+from pq_logic.keys.pq_key_factory import PQKeyFactory
+from pq_logic.keys.trad_key_factory import generate_ec_key, generate_trad_key
 
 ALL_CHEMPAT_COMBINATIONS = [
     {"pq_name": "sntrup761", "trad_name": "x25519", "curve": None},

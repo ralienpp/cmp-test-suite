@@ -25,7 +25,7 @@ from pq_logic.keys.kem_keys import (
     Sntrup761PrivateKey,
     Sntrup761PublicKey,
 )
-from pq_logic.pq_key_factory import PQKeyFactory
+from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.stat_utils import TRAD_ALG_2_NENC, get_ec_trad_name
 from pq_logic.tmp_mapping import get_oid_for_chemnpat
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey

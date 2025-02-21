@@ -20,7 +20,7 @@ from pyasn1_alt_modules import rfc5958
 from pq_logic.fips import fips203
 from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
 from pq_logic.keys.kem_keys import MLKEMPrivateKey, MLKEMPublicKey
-from pq_logic.trad_key_factory import generate_trad_key
+from pq_logic.keys.trad_key_factory import generate_trad_key
 from pq_logic.trad_typing import ECDHPrivateKey
 
 ##################################

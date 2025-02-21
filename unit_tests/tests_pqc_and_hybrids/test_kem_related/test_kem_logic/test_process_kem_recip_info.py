@@ -5,7 +5,7 @@
 import unittest
 
 from cryptography.hazmat.primitives.keywrap import InvalidUnwrap
-from pq_logic.pq_key_factory import PQKeyFactory
+from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pyasn1.type import univ
 from resources.ca_kga_logic import process_kem_recip_info
 from resources.certbuildutils import build_certificate

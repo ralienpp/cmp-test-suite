@@ -5,7 +5,7 @@
 import unittest
 
 from pq_logic.hybrid_sig import catalyst_logic
-from pq_logic.pq_key_factory import PQKeyFactory
+from pq_logic.keys.pq_key_factory import PQKeyFactory
 from resources.certbuildutils import prepare_extensions
 from resources.keyutils import generate_key
 

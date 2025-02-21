@@ -45,7 +45,6 @@ def _any_string_in_string(string: str, options: list[str]) -> str:
     raise ValueError(f"Invalid key type: {string}")
 
 
-# TODO update for Chempat and other Hybrid-KEM keys.
 class CombinedKeyFactory:
     """Factory for creating all known key types."""
 

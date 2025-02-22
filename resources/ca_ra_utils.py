@@ -1809,7 +1809,7 @@ def _verify_pkimessage_protection_rp(
     except (InvalidSignature, InvalidAltSignature):
         try:
             protectionutils.verify_pkimessage_protection(request, shared_secret=shared_secret)
-        except:
+        except (ValueError, InvalidSignature):
             logging.debug("Failed to verify the PKIMessage protection.")
             return "badMessageCheck", "Failed to verify the PKIMessage protection."
 

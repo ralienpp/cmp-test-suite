@@ -154,7 +154,7 @@ def prepare_alt_signature_value_extn(  # noqa: D417 Missing a parameter in the D
 
 
 def convert_tbs_to_pre_tbs(tbs_certificate: rfc5280.TBSCertificate) -> CatalystPreTBSCertificate:
-    """Converts a `TBSCertificate` to a PreTBSCertificate by removing the signature field.
+    """Convert a `TBSCertificate` to a PreTBSCertificate by removing the signature field.
 
     :param tbs_certificate: An instance of `TBSCertificate`
     :return: A new instance of PreTBSCertificate

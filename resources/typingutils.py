@@ -19,7 +19,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey, X448PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
-from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPrivateKey
 from pq_logic.keys.abstract_pq import (
     PQKEMPublicKey,
     PQPrivateKey,
@@ -27,6 +26,7 @@ from pq_logic.keys.abstract_pq import (
     PQSignaturePrivateKey,
     PQSignaturePublicKey,
 )
+from pq_logic.keys.abstract_wrapper_keys import HybridPrivateKey, HybridPublicKey
 from pyasn1_alt_modules import rfc9480
 
 TradSigPrivKey = Union[
@@ -45,7 +45,7 @@ PrivateKey = Union[
     X25519PrivateKey,
     X448PrivateKey,
     PQPrivateKey,
-    AbstractHybridRawPrivateKey,
+    HybridPrivateKey,
 ]
 
 
@@ -60,8 +60,7 @@ PublicKey = Union[
     X25519PublicKey,
     X448PublicKey,
     PQPublicKey,
-    PQKEMPublicKey,
-    PQSignaturePublicKey,
+    HybridPublicKey,
 ]
 
 

@@ -258,10 +258,14 @@ class PQSignaturePublicKey(PQPublicKey, ABC):
         :return: The name of the hash algorithm.
         """
 
-    def verify(self, signature: bytes, data: bytes, hash_alg: Optional[str] = None,
-               is_prehashed: bool = False,
-                ctx: bytes = b"",
-               ) -> None:
+    def verify(
+        self,
+        signature: bytes,
+        data: bytes,
+        hash_alg: Optional[str] = None,
+        is_prehashed: bool = False,
+        ctx: bytes = b"",
+    ) -> None:
         """Verify a signature of the provided data.
 
         :param signature: The signature of the provided data.

@@ -282,7 +282,7 @@ class DHKEMRFC9180:
 
         return shared_secret
 
-    def encaps(self, peer_pubkey: ECDHPublicKey) -> tuple[bytes, bytes]:
+    def encaps(self, peer_pubkey: ECDHPublicKey) -> Tuple[bytes, bytes]:
         """Perform key encapsulation to derive a shared secret and encapsulated key.
 
         :param peer_pubkey: The public key of the peer.

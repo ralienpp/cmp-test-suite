@@ -13,8 +13,11 @@ from pyasn1.type import univ
 from resources.exceptions import InvalidKeyCombination
 
 from pq_logic.kem_mechanism import DHKEMRFC9180
-from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import (
+    AbstractHybridRawPrivateKey,
+    AbstractHybridRawPublicKey,
+)
 from pq_logic.keys.kem_keys import (
     FrodoKEMPrivateKey,
     FrodoKEMPublicKey,

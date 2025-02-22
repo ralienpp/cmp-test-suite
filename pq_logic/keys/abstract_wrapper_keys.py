@@ -390,6 +390,7 @@ class HybridPublicKey(WrapperPublicKey, ABC):
     _trad_key: HYBRID_TRAD_PUB_COMP
 
     def __eq__(self, other):
+        """Compare two hybrid public keys."""
         if type(other) is not type(self):
             return False
         return self._pq_key == other.pq_key and self._trad_key == other.trad_key  # type: ignore

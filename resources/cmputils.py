@@ -2847,7 +2847,9 @@ def contains_extension(
 
 @keyword(name="Patch extraCerts")
 def patch_extra_certs(  # noqa D417 undocumented-param
-    pki_message: PKIMessageTMP, certs: List[rfc9480.CMPCertificate], swap_certs: bool = False
+    pki_message: PKIMessageTMP,
+    certs: Iterable[rfc9480.CMPCertificate],
+    swap_certs: bool = False,
 ) -> PKIMessageTMP:
     """Patch the `extraCerts` field in a `PKIMessage` with a provided list of certificates.
 
@@ -2876,6 +2878,7 @@ def patch_extra_certs(  # noqa D417 undocumented-param
         certs[0], certs[1] = certs[1], certs[0]
 
     pki_message["extraCerts"] = prepare_extra_certs(certs)
+
     return pki_message
 
 

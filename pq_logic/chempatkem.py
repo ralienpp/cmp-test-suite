@@ -390,6 +390,9 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         raise NotImplementedError("The kem_combiner is directly implemented in the ChempatKEM class.")
 
     def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
+        """Return the OID for the Chempat key."""
+        return get_oid_for_chemnpat(self.pq_key, self.trad_key)
+
     def _export_private_key(self) -> bytes:
         """Export the private key as bytes."""
         return self.private_bytes_raw()

@@ -418,8 +418,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         if isinstance(pq_key, FrodoKEMPrivateKey):
             return ChempatFrodoKEMPrivateKey(pq_key, trad_key)
 
-        else:
-            raise InvalidKeyCombination(f"Unsupported key type for ChempatPrivateKey: {pq_key.name}")
+        raise InvalidKeyCombination(f"Unsupported key type for ChempatPrivateKey: {pq_key.name}")
 
     def encaps(self, peer_key: ChempatPublicKey) -> Tuple[bytes, bytes]:
         """Perform key encapsulation with a peer's public key.

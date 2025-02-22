@@ -208,6 +208,25 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         _public_key, _private_key = ML_DSA(name).keygen_internal(xi=seed)
         return cls(sig_alg=name, private_bytes=_private_key, public_key=_public_key)
 
+    @staticmethod
+    def from_private_bytes(data: bytes, name: str) -> "MLDSAPrivateKey":
+        """Create a private key from the given byte string.
+
+        :param data: The byte string to create the private key from.
+        :param name: The name of the signature algorithm.
+        """
+        if len(data) == 32:
+            _public_key, _private_key = ML_DSA(name).keygen_internal(xi=data)
+            key = MLDSAPrivateKey(sig_alg=name, private_bytes=_private_key, public_key=_public_key)
+            key._seed = data
+            return key
+
+        key = MLDSAPrivateKey(sig_alg=name, private_bytes=data)
+        if key.key_size != len(data):
+            raise ValueError(f"Invalid private key size. Expected: {key.key_size}, got: {len(data)}")
+
+        return key
+
     def _get_key_name(self) -> bytes:
         """Return the algorithm name."""
         return b"ML-DSA"

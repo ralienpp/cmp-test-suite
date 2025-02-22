@@ -301,6 +301,20 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
 class ChempatPrivateKey(AbstractHybridRawPrivateKey):
     """Chempat private key class."""
 
+    _pq_key: PQKEMPrivateKey
+    _trad_key: ECDHPrivateKey
+
+    def __int__(self, pq_key: PQKEMPrivateKey, trad_key: ECDHPrivateKey):
+        """Initialize the ChempatPrivateKey instance with keys.
+
+        :param pq_key: The post-quantum private key.
+        :param trad_key: The traditional private key.
+        :raises ValueError: If the trad_key is not None and not an ECDHPrivateKey.
+        :raises InvalidKeyCombination: If the key combination is not supported.
+        """
+        self._pq_key = pq_key
+        self._trad_key = trad_key
+        self.chempat_kem = ChempatKEM(self.pq_key, self.trad_key)
     @classmethod
     def generate(cls):
         """Generate a ChempatPrivateKey instance."""
@@ -567,6 +581,14 @@ class ChempatMcEliecePrivateKey(ChempatPrivateKey):
 
 class ChempatMLKEMPublicKey(ChempatPublicKey):
     """Public key class for the Chempat hybrid key encapsulation mechanism."""
+
+    def __init__(self, pq_key: MLKEMPublicKey, trad_key: ECDHPublicKey):
+        """Initialize the ChempatMLKEMPublicKey instance with keys.
+
+        :param pq_key: The post-quantum public key.
+        :param trad_key: The traditional public key.
+        """
+        super().__init__(pq_key, trad_key)
 
     @classmethod
     def from_public_bytes(cls, data: bytes, name: str) -> "ChempatPublicKey":

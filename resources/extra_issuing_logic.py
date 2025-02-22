@@ -853,6 +853,10 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
     cert_key_pair: rfc9480.CertifiedKeyPair = asn1utils.get_asn1_value(
         pki_message, query=f"body.{body_name}.response/{cert_number}.certifiedKeyPair"
     )
+
+    if not cert_key_pair["certOrEncCert"]["encryptedCert"].isValue:
+        raise ValueError("The `encryptedCert` field has no value.")
+
     if cert_key_pair["certOrEncCert"]["encryptedCert"].getName() != "envelopedData":
         raise ValueError("The enc certificate field MUST be an `envelopedData` structure")
 

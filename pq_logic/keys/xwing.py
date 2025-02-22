@@ -97,15 +97,10 @@ class XWingPublicKey(AbstractHybridRawPublicKey):
             "Unsupported combination of encoding and format. Only Raw-Raw, DER-SPKI, and PEM-SPKI are supported."
         )
 
-    @property
-    def key_size(self) -> int:
-        """Return the size of the key in bits."""
-        return self.pq_key.key_size + 32
 
-    @property
-    def ct_length(self) -> int:
-        """Return the length of the ciphertext."""
-        return self.pq_key.ct_length + 32
+    def _export_public_key(self) -> bytes:
+        """Export the public key to be stored inside a `SubjectPublicKeyInfo` structure."""
+        return self.public_bytes_raw()
 
     def encaps(self, private_key: ECDHPrivateKey) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret and ciphertext for the given private key.
@@ -123,6 +118,31 @@ class XWingPublicKey(AbstractHybridRawPublicKey):
         ss = XWingPrivateKey.kem_combiner(ss_M, ss_X, ct_X, pk_X)
         ct = ct_M + ct_X
         return ss, ct
+
+    @property
+    def key_size(self) -> int:
+        """Return the size of the key in bits."""
+        return self._pq_key.key_size + 32
+
+    @property
+    def ct_length(self) -> int:
+        """Return the length of the ciphertext."""
+        return self._pq_key.ct_length + 32
+
+    @property
+    def name(self) -> str:
+        """Return the name of the key."""
+        return "xwing"
+
+    @property
+    def trad_key(self) -> x25519.X25519PublicKey:
+        """Return the X25519 public key."""
+        return self._trad_key
+
+    @property
+    def pq_key(self) -> MLKEMPublicKey:
+        """Return the ML-KEM public key."""
+        return self._pq_key
 
 
 class XWingPrivateKey(AbstractHybridRawPrivateKey):
@@ -267,3 +287,13 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
     def name(self) -> str:
         """Return the name of the key."""
         return "xwing"
+
+    @property
+    def trad_key(self) -> x25519.X25519PrivateKey:
+        """Return the X25519 private key."""
+        return self._trad_key
+
+    @property
+    def pq_key(self) -> MLKEMPrivateKey:
+        """Return the ML-KEM private key."""
+        return self._pq_key

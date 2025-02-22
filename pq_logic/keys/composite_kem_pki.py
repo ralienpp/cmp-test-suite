@@ -342,7 +342,7 @@ class CompositeKEMPrivateKey(AbstractCompositeKEMPrivateKey):
 class CompositeMLKEMRSAPublicKey(CompositeKEMPublicKey):
     """Composite ML-KEM public key with RSA-based traditional KEM."""
 
-    def get_oid(self, *args, **kwargs) -> univ.ObjectIdentifier:
+    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
         """Return the OID of the composite KEM."""
         return get_oid_for_composite_kem(self.pq_key.name, self.trad_key)
 

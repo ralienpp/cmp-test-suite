@@ -12,7 +12,7 @@ import random
 import string
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Iterable
 
 from cryptography.hazmat.primitives.asymmetric import dh, x448, x25519
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey
@@ -4160,3 +4160,42 @@ def modify_random_str(data: str, index: Optional[int] = None) -> str:  # type: i
             return "".join(chars)
 
     raise ValueError("Could not change the character.")
+
+
+def add_certs_to_pkimessage(  # noqa D417 Missing argument description in the docstring
+    pki_message: PKIMessageTMP,
+    certs: Union[rfc9480.CMPCertificate, List[rfc9480.CMPCertificate]],
+    for_ca_pubs: bool = False,
+) -> PKIMessageTMP:
+    """Add certificates to a `PKIMessage` either in the `extraCerts` or `caPubs` field.
+
+    Arguments:
+    ---------
+       - `pki_message`: The PKIMessage to which the certificate(s) will be added.
+       - `certs`: A certificate or a list of certificates to add to the `PKIMessage`.
+       - `for_ca_pubs`: A flag indicating whether the certificate(s) are CA certificates and
+       added to the `caPubs` field. Defaults to `False`.
+
+    Returns:
+    -------
+        - The PKIMessage with the added certificate(s).
+
+    Examples:
+    --------
+    ${pki_message}= | Add Certs To PKIMessage | ${pki_message} | certs=${certs} |
+    ${pki_message}= | Add Certs To PKIMessage | ${pki_message} | certs=${certs} | for_ca_pubs=True |
+
+    """
+    if isinstance(certs, rfc9480.CMPCertificate):
+        certs = [certs]
+
+    if not for_ca_pubs:
+        pki_message["extraCerts"].extend(certs)
+    else:
+        body_name = pki_message["body"].getName()
+        if body_name in ["ip", "cp", "kup", "ccp"]:
+            pki_message["body"][body_name]["caPubs"].extend(certs)
+        else:
+            raise ValueError(f"The `PKIMessage` body type does not support adding CA certificates.Got: {body_name}.")
+
+    return pki_message

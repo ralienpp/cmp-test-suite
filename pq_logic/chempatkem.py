@@ -108,6 +108,15 @@ class ChempatKEM:
         digest.update(data)
         return digest.finalize()
 
+    @staticmethod
+    def trad_public_bytes_raw(trad_key: ECDHPublicKey) -> bytes:
+        """Return the raw bytes of the traditional public key.
+
+        :param trad_key: The traditional public key.
+        :return: The raw bytes of the traditional public key.
+        """
+        return DHKEMRFC9180.encode_public_key(trad_key)
+
     def encaps(self, peer_pq_key: PQKEMPublicKey, trad_pk: ECDHPublicKey) -> Tuple[bytes, bytes]:
         """Perform hybrid key encapsulation with a peer's public key.
 
@@ -213,7 +222,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
 
     def public_bytes_raw(self) -> bytes:
         """Return the raw bytes of the public key as concatenation of the post-quantum and traditional keys."""
-        return self.pq_key.public_bytes_raw() + self.trad_key.public_bytes_raw()
+        return self._pq_key.public_bytes_raw() + ChempatKEM.trad_public_bytes_raw(self._trad_key)
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID for the Chempat key."""
@@ -279,6 +288,10 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         logging.info("Chempat: ss: %s, ct: %s", ss.hex(), ct.hex())
         return ss, ct
 
+    def _export_public_key(self) -> bytes:
+        """Export the public key as bytes."""
+        return self.public_bytes_raw()
+
 
 class ChempatPrivateKey(AbstractHybridRawPrivateKey):
     """Chempat private key class."""
@@ -288,9 +301,21 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         """Generate a ChempatPrivateKey instance."""
         raise NotImplementedError("The ChempatPrivateKey class does not support key generation.")
 
-    def private_bytes_raw(self) -> bytes:
-        """Return the raw bytes of the private key as concatenation of the post-quantum and traditional keys."""
-        return self.pq_key.private_bytes_raw() + self.trad_key.private_bytes_raw()
+    @classmethod
+    def _load_pq_key(cls, data: bytes, name: str) -> Tuple[PQKEMPrivateKey, bytes]:
+        raise NotImplementedError("The ChempatPrivateKey class does not support key loading.")
+
+    @classmethod
+    def _from_private_bytes(cls, data: bytes, name: str) -> "ChempatPrivateKey":
+        """Create a ChempatPrivateKey instance from the provided private bytes.
+
+        :param data: The private key bytes, which are the pq-part and the trad-part concatenated.
+        :param name: The pq-algorithm name.
+        :return: The created `ChempatPrivateKey` instance.
+        """
+        pq_key, rest = cls._load_pq_key(data, name)
+        trad_key = _load_private_key(rest, name)
+        return cls(pq_key, trad_key)
 
     @classmethod
     def from_private_bytes(cls, data: bytes, name: Optional[str] = None) -> "ChempatPrivateKey":
@@ -303,19 +328,23 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         if name is None:
             raise ValueError("The key name must be provided to create a ChempatPrivateKey instance.")
 
+        name = name.lower()
         if "sntrup761" in name:
-            return ChempatSntrup761PrivateKey.from_private_bytes(data)
+            return ChempatSntrup761PrivateKey._from_private_bytes(data, name=name)
 
         if "mceliece" in name:
-            return ChempatMcEliecePrivateKey.from_private_bytes(data)
+            return ChempatMcEliecePrivateKey._from_private_bytes(data, name=name)
 
-        elif "ml-kem-768" in name:
-            return ChempatMLKEMPrivateKey.from_private_bytes(data)
-        else:
-            raise ValueError("Unsupported key type for Chempat.")
+        if "ml-kem" in name:
+            return ChempatMLKEMPrivateKey._from_private_bytes(data, name=name)
 
-    def _get_key_name(self) -> bytes:
-        """Return the key name for the key, for saving the key to a file."""
+        if "frodokem" in name:
+            return ChempatFrodoKEMPrivateKey._from_private_bytes(data, name=name)
+
+        raise ValueError(f"Unsupported key type for Chempat. Got: {name}")
+
+    def _get_header_name(self) -> bytes:
+        """Return the PEM header name."""
         return b"CHEMPAT"
 
     def __init__(self, pq_key, trad_key: Optional[ECDHPrivateKey] = None):
@@ -331,6 +360,10 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
             raise ValueError("Unsupported key type for Chempat the trad_key must be `None` or `ECDHPrivateKey`")
 
         self.chempat_kem = ChempatKEM(self.pq_key, self.trad_key)
+
+    def _export_private_key(self) -> bytes:
+        """Export the private key as bytes."""
+        return self.private_bytes_raw()
 
     @staticmethod
     def parse_keys(pq_key, trad_key) -> "ChempatPrivateKey":
@@ -426,6 +459,19 @@ class ChempatSntrup761PrivateKey(ChempatPrivateKey):
         return ChempatSntrup761PublicKey(self.pq_key.public_key(), self.trad_key.public_key())
 
     @classmethod
+    def _load_pq_key(cls, data: bytes, name: str) -> Tuple[Sntrup761PrivateKey, bytes]:
+        """Load a post-quantum private key from the given data.
+
+        :param data: The private key data.
+        :param name: The key name.
+        :return: The loaded private key.
+        """
+        key = PQKeyFactory.generate_pq_key("sntrup761")
+        key_size = key.key_size
+        key = Sntrup761PrivateKey.from_private_bytes(data[:key_size], name="sntrup761")
+        return key, data[key_size:]
+
+    @classmethod
     def from_private_bytes(cls, data: bytes, name: Optional[str] = None) -> "ChempatSntrup761PrivateKey":
         """Create a ChempatSntrup761PrivateKey instance from the provided private bytes.
 
@@ -489,6 +535,24 @@ class ChempatMcEliecePrivateKey(ChempatPrivateKey):
     def public_key(self) -> ChempatMcEliecePublicKey:
         """Return the corresponding public key class."""
         return ChempatMcEliecePublicKey(self.pq_key.public_key(), self.trad_key.public_key())
+
+    @classmethod
+    def _load_pq_key(cls, data: bytes, name: str) -> Tuple[McEliecePrivateKey, bytes]:
+        """Load a post-quantum private key from the given data.
+
+        :param data: The private key data.
+        :param name: The key name.
+        :return: The loaded private key.
+        """
+        tmp = name.replace("chempat-x25519-", "")
+        tmp = tmp.replace("chempat-x448-", "")
+        tmp = "mceliece" + "-" + tmp.replace("mceliece", "")
+
+        key = PQKeyFactory.generate_pq_key(tmp)
+        key_size = key.key_size
+        key = McEliecePrivateKey.from_private_bytes(data[:key_size], name=tmp)
+
+        return key, data[key_size:]
 
 
 class ChempatMLKEMPublicKey(ChempatPublicKey):
@@ -554,6 +618,19 @@ class ChempatMLKEMPrivateKey(ChempatPrivateKey):
         """Return the corresponding public key class."""
         return ChempatMLKEMPublicKey(self.pq_key.public_key(), self.trad_key.public_key())
 
+    @classmethod
+    def _load_pq_key(cls, data: bytes, name: str) -> [MLKEMPrivateKey, bytes]:
+        """Load a post-quantum private key from the given data.
+
+        :param data: The private key data.
+        :param name: The key name.
+        :return: The loaded private key and the remaining data for the traditional key.
+        """
+        pq_name = _get_may_name(name, ["ml-kem-768", "ml-kem-1024"])
+        key_size = MLKEMPrivateKey(pq_name).key_size
+        key = MLKEMPrivateKey.from_private_bytes(data=data[:key_size], name=pq_name)
+        return key, data[key_size:]
+
 
 def _get_may_name(name: str, options: List[str]) -> Optional[str]:
     """Return the first option from the list that is in the name."""
@@ -563,26 +640,68 @@ def _get_may_name(name: str, options: List[str]) -> Optional[str]:
     return None
 
 
+def _ec_key_from_der(der_data: bytes, curve: ec.EllipticCurve) -> ec.EllipticCurvePrivateKey:
+    """Reconstruct an EllipticCurvePrivateKey from DER data.
+
+    :param der_data: The DER encoded private key.
+    :param curve: The elliptic curve.
+    :return: The reconstructed private key.
+    """
+    private_value = int.from_bytes(der_data, byteorder="big")
+    return ec.derive_private_key(private_value, curve)
+
+
+def _load_private_key(data: bytes, name: str) -> ECDHPrivateKey:
+    """Load an ECDH private key from the given data.
+
+    :param data: The private key data.
+    :param name: The key name.
+    :return: The loaded private key.
+    """
+    if "x25519" in name:
+        return x25519.X25519PrivateKey.from_private_bytes(data)
+    if "x448" in name:
+        return x448.X448PrivateKey.from_private_bytes(data)
+
+    if "p256" in name:
+        curve = ec.SECP256R1()
+        return _ec_key_from_der(data, curve)
+
+    if "p384" in name:
+        curve = ec.SECP384R1()
+        return _ec_key_from_der(data, curve)
+
+    if "brainpoolp256" in name:
+        curve = ec.BrainpoolP256R1()
+        return _ec_key_from_der(data, curve)
+
+    if "brainpoolp384" in name:
+        curve = ec.BrainpoolP384R1()
+        return _ec_key_from_der(data, curve)
+
+    raise InvalidKeyCombination(f"Unsupported key type for Chempat: {name}")
+
+
 def _load_public_key(data: bytes, name: str) -> ECDHPublicKey:
     """Load an ECDH public key from the given data."""
     if "x25519" in name:
         return x25519.X25519PublicKey.from_public_bytes(data)
-    elif "x448" in name:
+    if "x448" in name:
         return x448.X448PublicKey.from_public_bytes(data)
-    elif "p256" in name:
+    if "p256" in name:
         curve = ec.SECP256R1()
         return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
-    elif "p384" in name:
+    if "p384" in name:
         curve = ec.SECP384R1()
         return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
-    elif "brainpoolp256" in name:
+    if "brainpoolp256" in name:
         curve = ec.BrainpoolP256R1()
         return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
-    elif "brainpoolp384" in name:
+    if "brainpoolp384" in name:
         curve = ec.BrainpoolP384R1()
         return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
-    else:
-        raise InvalidKeyCombination(f"Unsupported key type for Chempat: {name}")
+
+    raise InvalidKeyCombination(f"Unsupported key type for Chempat: {name}")
 
 
 class ChempatFrodoKEMPublicKey(ChempatPublicKey):
@@ -640,3 +759,18 @@ class ChempatFrodoKEMPrivateKey(ChempatPrivateKey):
         :return: The generated `ChempatFrodoKEMPrivateKey` instance.
         """
         raise NotImplementedError("Not implemented yet.")
+
+    @classmethod
+    def _load_pq_key(cls, data: bytes, name: str) -> [FrodoKEMPrivateKey, bytes]:
+        """Load a post-quantum private key from the given data.
+
+        :param data: The private key data.
+        :param name: The key name.
+        :return: The loaded private key and the remaining data for the traditional key.
+        """
+        pq_name = _get_may_name(
+            name, ["frodokem-976-aes", "frodokem-1344-aes", "frodokem-976-shake", "frodokem-1344-shake"]
+        )
+        key_size = FrodoKEMPrivateKey(pq_name).key_size
+        key = FrodoKEMPrivateKey.from_private_bytes(data[:key_size], name=pq_name)
+        return key, data[key_size:]

@@ -674,7 +674,7 @@ def _verify_more_certs_than_three(cert_chain: List[rfc9480.CMPCertificate], dir_
     return command
 
 
-def _verify_certificate_chain(command: list[str], cert_chain: List[rfc9480.CMPCertificate], timeout: int = 60) -> None:
+def _verify_certificate_chain(command: List[str], cert_chain: List[rfc9480.CMPCertificate], timeout: int = 60) -> None:
     """Verify a certificate chain using OpenSSL commands.
 
     :param command: List of OpenSSL command line arguments to append for verification.
@@ -1508,6 +1508,7 @@ def _parse_crl_and_check_revocation(
     try:
         crl = x509.load_der_x509_crl(crl_data)
     except Exception:
+        logging.debug("Failed to load CRL data as DER. Trying to load as PEM.")
         try:
             crl = x509.load_pem_x509_crl(crl_data)
         except Exception as err2:

@@ -207,6 +207,7 @@ def generate_key(algorithm: str = "rsa", **params) -> PrivateKey:  # noqa: D417 
         - "ed25519": Ed25519.
         - "dh": Diffie-Hellman.
         - "bad_rsa_key": RSA with a bit size of 512.
+        - "rsa-kem": RSA-KEM RFC9690 (either by directly using the algorithm name or with trad_key=${key}).
 
     PQ Signature algorithms:
     ------------------------

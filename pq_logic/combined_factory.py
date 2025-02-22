@@ -28,8 +28,9 @@ from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.keys.kem_keys import FrodoKEMPublicKey, MLKEMPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.trad_key_factory import generate_trad_key
+from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
 from pq_logic.keys.xwing import XWingPublicKey
-from pq_logic.tmp_oids import CHEMPAT_OID_2_NAME, COMPOSITE_KEM_OID_2_NAME
+from pq_logic.tmp_oids import CHEMPAT_OID_2_NAME, COMPOSITE_KEM_OID_2_NAME, id_rsa_kem_spki
 
 
 def _any_string_in_string(string: str, options: List[str]) -> str:
@@ -73,6 +74,10 @@ class CombinedKeyFactory:
         if algorithm in ["rsa", "ecdsa", "ed25519", "ed448", "bad-rsa-key"]:
             return generate_trad_key(algorithm, **kwargs)
 
+        if algorithm == "rsa-kem":
+            trad_key = kwargs.get("trad_key") or generate_trad_key("rsa", **kwargs)
+            return RSADecapKey(trad_key)
+
         if PQKeyFactory.may_be_pq_alg(algorithm=algorithm):
             return PQKeyFactory.generate_pq_key(algorithm=algorithm)
 
@@ -111,6 +116,9 @@ class CombinedKeyFactory:
         if str(oid) == XWING_OID_STR:
             subject_public_key = spki["subjectPublicKey"].asOctets()
             return XWingPublicKey.from_public_bytes(subject_public_key)
+
+        if oid == id_rsa_kem_spki:
+            return RSAEncapKey.from_spki(spki)
 
         return serialization.load_der_public_key(encoder.encode(spki))
 

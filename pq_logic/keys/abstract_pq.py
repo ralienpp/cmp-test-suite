@@ -12,6 +12,7 @@ from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes, serialization
 
+from pq_logic.keys.abstract_wrapper_keys import PQPublicKey
 from pq_logic.keys.serialize_utils import prepare_enc_key_pem
 
 try:
@@ -25,90 +26,6 @@ from pyasn1.codec.der import encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc5958
 from resources.oidutils import PQ_NAME_2_OID
-
-
-class PQPublicKey(ABC):
-    """Abstract base class for Post-Quantum Public Keys."""
-
-    @abstractmethod
-    def _check_name(self, name: str):
-        """Check if the parsed name is correct."""
-        pass
-
-    @property
-    @abstractmethod
-    def name(self):
-        """Return the name of the algorithm."""
-
-    def __eq__(self, other):
-        """Check if two public keys are equal."""
-        if not isinstance(other, PQPublicKey):
-            return False
-        return self.name == other.name and self.public_bytes_raw() == other.public_bytes_raw()
-
-    def __init__(self, public_key: bytes, alg_name: str):
-        """Initialize a Post-Quantum Public Key object.
-
-        :param public_key: The public key as bytes.
-        :param alg_name: The algorithm name.
-        """
-        self._check_name(name=alg_name)
-        self._name = alg_name
-        self._public_key_bytes = public_key
-
-    def _to_spki(self) -> bytes:
-        """Encode the public key into the `SubjectPublicKeyInfo` (spki) format.
-
-        :return: The public key in DER-encoded spki format as bytes.
-        """
-        spki = rfc5280.SubjectPublicKeyInfo()
-        spki["algorithm"]["algorithm"] = PQ_NAME_2_OID[self.name]
-        spki["subjectPublicKey"] = univ.BitString.fromOctetString(self._public_key_bytes)
-        return encoder.encode(spki)
-
-    def public_bytes_raw(self) -> bytes:
-        """Return the public key as raw bytes."""
-        return self._public_key_bytes
-
-    def public_bytes(
-        self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
-    ) -> Union[bytes, str]:
-        """Get the serialized public key in bytes format.
-
-        Serialize the public key into the specified encoding (`Raw`, `DER`, or `PEM`) and
-        format (`Raw` or `SubjectPublicKeyInfo`).
-
-        :param encoding: The encoding format. Can be `Encoding.Raw`, `Encoding.DER`, or `Encoding.PEM`.
-                        Defaults to `Raw`.
-        :param format: The public key format. Can be `PublicFormat.Raw` or `PublicFormat.SubjectPublicKeyInfo`.
-                      Defaults to `SubjectPublicKeyInfo`.
-        :return: The serialized public key as bytes (or string for PEM).
-        :raises ValueError: If the combination of encoding and format is unsupported.
-        """
-        if encoding == Encoding.Raw and format == PublicFormat.Raw:
-            return self._public_key_bytes
-
-        if encoding == Encoding.DER:
-            if format == PublicFormat.SubjectPublicKeyInfo:
-                return self._to_spki()
-            if format == PublicFormat.Raw:
-                return encoder.encode(univ.OctetString(self._public_key_bytes))
-            raise ValueError(f"Unsupported format for DER encoding: {format}")
-
-        if encoding == Encoding.PEM:
-            if format == PublicFormat.SubjectPublicKeyInfo:
-                data = self._to_spki()
-            elif format == PublicFormat.Raw:
-                data = encoder.encode(univ.OctetString(self._public_key_bytes))
-            else:
-                raise ValueError(f"Unsupported format for PEM encoding: {format}")
-
-            b64_encoded = base64.b64encode(data).decode("utf-8")
-            b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
-            pem = "-----BEGIN PUBLIC KEY-----\n" + b64_encoded + "\n-----END PUBLIC KEY-----\n"
-            return pem
-
-        raise ValueError(f"Unsupported encoding: {encoding}")
 
 
 class PQPrivateKey(ABC):
@@ -230,12 +147,22 @@ class PQPrivateKey(ABC):
 class PQSignaturePublicKey(PQPublicKey, ABC):
     """Abstract base class for Post-Quantum Signature Public Keys."""
 
+    _sig_method: Optional["oqs.Signature"]
+
     def __init__(self, sig_alg: str, public_key: bytes) -> None:  # noqa D107 Missing docstring
         self.sig_alg = None
         self._check_name(name=sig_alg)
         if self.sig_alg is None:
             self.sig_alg = sig_alg
         self._initialize(sig_alg=sig_alg, public_key=public_key)
+
+    def _get_subject_public_key(self) -> bytes:
+        """Return the public key as bytes."""
+        return self._public_key_bytes
+
+    def _export_public_key(self) -> bytes:
+        """Return the public key as bytes."""
+        return self._public_key_bytes
 
     def _initialize(self, sig_alg: str, public_key: bytes) -> None:
         """Initialize the `PQSignaturePublicKey` object.
@@ -395,6 +322,10 @@ class PQKEMPublicKey(PQPublicKey, ABC):
         self._kem_method = oqs.KeyEncapsulation(self.kem_alg)
         self._public_key_bytes = public_key
 
+    def _export_public_key(self) -> bytes:
+        """Return the public key as bytes."""
+        return self._public_key_bytes
+
     @property
     def name(self) -> str:
         """Return the name of the algorithm."""
@@ -434,6 +365,8 @@ class PQKEMPrivateKey(PQPrivateKey, ABC):
 
     This class provides functionality to manage, serialize, and use KEM private keys.
     """
+
+    _kem_method: Optional["oqs.KeyEncapsulation"]
 
     def __init__(self, kem_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None):
         """Initialize a KEM private key object.

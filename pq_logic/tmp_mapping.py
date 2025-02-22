@@ -20,6 +20,7 @@ from pq_logic.keys.kem_keys import (
     MLKEMPrivateKey,
     MLKEMPublicKey,
 )
+from pq_logic.keys.trad_keys import DHKEMPrivateKey, DHKEMPublicKey
 from pq_logic.tmp_oids import CHEMPAT_NAME_2_OID, COMPOSITE_KEM_NAME_2_OID
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
@@ -44,7 +45,13 @@ def get_oid_for_composite_kem(
     :param use_dhkemrfc9180: Whether to use the DHKEMRFC9180 and not ECDH mechanism.
     :return: The Object Identifier.
     """
-    if isinstance(trad_key, (rsa.RSAPrivateKey, rsa.RSAPublicKey)):
+    if isinstance(trad_key, DHKEMPublicKey):
+        trad_name = trad_key.get_trad_name
+
+    elif isinstance(trad_key, DHKEMPrivateKey):
+        trad_name = trad_key.get_trad_name
+
+    elif isinstance(trad_key, (rsa.RSAPrivateKey, rsa.RSAPublicKey)):
         trad_name = f"rsa{length or trad_key.key_size}"
 
     elif isinstance(trad_key, (ec.EllipticCurvePrivateKey, ec.EllipticCurvePublicKey)):

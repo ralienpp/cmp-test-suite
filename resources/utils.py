@@ -510,7 +510,7 @@ def may_load_cert_and_key(  # noqa D417 undocumented-param
 
 
 def is_certificate_and_key_set(  # noqa D417 undocumented-param
-    cert: Optional[rfc9480.CMPCertificate] = None, key: Optional[PrivateKey] = None
+    cert: Optional[Union[str, rfc9480.CMPCertificate]] = None, key: Optional[PrivateKey] = None
 ) -> bool:
     """Check if a certificate and its corresponding private key are valid and set.
 
@@ -518,7 +518,7 @@ def is_certificate_and_key_set(  # noqa D417 undocumented-param
 
     Arguments:
     ---------
-        - `cert`: The certificate to validate. Default is `None`.
+        - `cert`: The certificate or path of the certificate to validate. Default is `None`.
         - `key`: The private key to validate against the certificate. Default is `None`.
 
     Returns:

@@ -53,6 +53,10 @@ ML_KEM_NAMES = ["ml-kem-512", "ml-kem-768", "ml-kem-1024"]
 class MLKEMPublicKey(PQKEMPublicKey):
     """Represents an ML-KEM public key."""
 
+    def _get_subject_public_key(self) -> bytes:
+        """Return the public key bytes."""
+        return self._public_key_bytes
+
     def _initialize(self, kem_alg: str, public_key: bytes):
         """Initialize the ML-KEM public key.
 
@@ -94,8 +98,8 @@ class MLKEMPublicKey(PQKEMPublicKey):
         """Encapsulate a shared secret using the public key."""
         if oqs is not None:
             return super().encaps()
-        else:
-            return self.ml_class.encaps_internal(ek=self._public_key_bytes, m=os.urandom(32))
+
+        return self.ml_class.encaps_internal(ek=self._public_key_bytes, m=os.urandom(32))
 
     @property
     def ct_length(self) -> int:
@@ -201,6 +205,9 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         :param name: The algorithm name.
         :return: An instance of `MLKEMPublicKey`.
         """
+        if len(data) == 64:
+            return cls.key_gen(name, data[:32], data[32:])
+
         key = cls(kem_alg=name, private_bytes=data)
         if key.key_size != len(data):
             raise ValueError(f"Invalid key size expected {key.key_size}, but got: {len(data)}")
@@ -214,8 +221,8 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         """
         if oqs is not None:
             return super().decaps(ct)
-        else:
-            return self.ml_class.decaps_internal(dk=self._private_key, c=ct)
+
+        return self.ml_class.decaps_internal(dk=self._private_key, c=ct)
 
     @property
     def ct_length(self) -> int:
@@ -242,7 +249,9 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         :return: The private key.
         """
         ek, dk = ML_KEM(name).keygen_internal(d=d, z=z)
-        return MLKEMPrivateKey(kem_alg=name, private_bytes=dk, public_key=ek)
+        key = MLKEMPrivateKey(kem_alg=name, private_bytes=dk, public_key=ek)
+        key._seed = d + z
+        return key
 
 
 ##########################

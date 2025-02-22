@@ -410,7 +410,7 @@ Get Next Common Name
 
 Build Composite Signature Request
     [Documentation]    Build a ir composite signature request and returns the protected ir request.
-    [Arguments]    ${comp_key}=${False}
+    [Arguments]    ${comp_key}=${False}   &{params}
     [Tags]    composite-sig    positive   ir
     IF   ${comp_key}
         Log    Using the given composite signature key.
@@ -427,7 +427,7 @@ Build Composite Signature Request
     ${ir}=   Build Ir From Key    ${comp_key}  common_name=${cm}  sender=${SENDER}
     ...                           recipient=${RECIPIENT}   implicit_confirm=${True}
     ...                           exclude_fields=${exclude_fields}
-    ${protected_ir}=    Default Protect PKIMessage    ${ir}
+    ${protected_ir}=    Default Protect PKIMessage    ${ir}    &{params}
     RETURN    ${protected_ir}
     
 # TODO maybe Update to create a unique key.

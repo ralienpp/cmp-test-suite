@@ -379,7 +379,7 @@ Confirm Certificate If Needed
         ${cert_conf}=   Default Protect PKIMessage    ${cert_conf}    &{params}
         ${suffix}=    Get From Dictionary    ${params}    suffix    ${None}
         ${protection}=   Get From Dictionary    ${params}    protection
-        ${pki_conf}=   Exchange Migration PKIMessage    ${cert_conf}    ${CA_CMP_URL}    suffix=${suffix}
+        ${pki_conf}=   Exchange Migration PKIMessage    ${cert_conf}    ${CA_BASE_URL}    ${suffix}
         PKIMessage Body Type Must Be    ${pki_conf}    pkiconf
         RETURN    ${cert}
     END

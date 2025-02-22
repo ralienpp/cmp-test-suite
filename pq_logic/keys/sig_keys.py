@@ -172,6 +172,8 @@ class MLDSAPublicKey(PQSignaturePublicKey):
 class MLDSAPrivateKey(PQSignaturePrivateKey):
     """Represents an ML-DSA private key."""
 
+    _public_key: Optional[bytes] = None
+
     def _initialize(
         self, sig_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None
     ) -> None:
@@ -189,6 +191,7 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
 
         if private_bytes is None:
             self._public_key, self._private_key = self.ml_class.keygen_internal(xi=self._seed)
+
         else:
             self._private_key = private_bytes
             self._public_key = public_key
@@ -422,7 +425,6 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
 
     def _check_name(self, name: str):
         """Check if the name is valid."""
-        pass
 
     def check_hash_alg(self, hash_alg: Union[None, str, hashes.HashAlgorithm]) -> Optional[str]:
         """Check if the hash algorithm is valid for the SLH-DSA key.

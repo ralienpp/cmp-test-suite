@@ -36,7 +36,6 @@ from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc5958
-
 from resources.oidutils import PQ_NAME_2_OID
 
 from pq_logic.hybrid_structures import CompositeSignaturePrivateKeyAsn1, CompositeSignaturePublicKeyAsn1
@@ -470,7 +469,6 @@ class HybridKEMPrivateKey(HybridPrivateKey, ABC):
 
 class AbstractCompositePublicKey(HybridPublicKey, ABC):
     """Abstract class for Composite public keys."""
-
 
     def _prepare_old_spki(self) -> rfc5280.SubjectPublicKeyInfo:
         """Prepare the old SPKI structure.

@@ -350,6 +350,19 @@ Confirm Certificate If Needed
     ...                confirm extension. If it does, the certificate is confirmed and returned. If not, the `PKIMessage`
     ...                a valid certificate confirmation message is send and the of the CA's response is checked.
     ...                If the CA's response is the `PKIMessage` `pkiconf`, then is the certificate confirmed.
+    ...                Arguments:
+    ...                ---------
+    ...                 - `response`: The reponse message from the CA.
+    ...                 - `params`: key=value pair to set variables for the protection.
+    ...
+    ...                Returns:
+    ...                -------
+    ...                - `cert`: The confirmed certificate.
+    ...
+    ...                Examples:
+    ...                --------
+    ...                | ${cert}= | Confirm Certificate If Needed | ${response} | &{params} |
+    ...
     [Arguments]    ${response}    &{params}
     [Tags]    confirm   default   cert
     ${result}=   Find OID In GeneralInfo    ${response}   1.3.6.1.5.5.7.4.13

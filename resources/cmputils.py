@@ -12,7 +12,7 @@ import random
 import string
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Tuple, Union, Iterable
+from typing import Iterable, List, Optional, Tuple, Union
 
 from cryptography.hazmat.primitives.asymmetric import dh, x448, x25519
 from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey

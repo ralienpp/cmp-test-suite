@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, padding, rsa, x448, x25519
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
+from pq_logic.keys.trad_keys import RSADecapKey
 from pq_logic.migration_typing import KEMPrivateKey
 from pq_logic.tmp_oids import COMPOSITE_SIG_SIGNED_DATA_OID_HASH, id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder
@@ -1586,7 +1587,7 @@ def validate_kem_recip_info_structure(
 
 @not_keyword
 def perform_rsa_kemri(
-    private_key,
+    private_key: Union[RSAPrivateKey, RSADecapKey],
     ct: bytes,
     key_length: int,
 ) -> bytes:
@@ -1597,15 +1598,15 @@ def perform_rsa_kemri(
     :param key_length: The length of the derived key.
     :return: The shared secret.
     """
-    from pq_logic.kem_mechanism import RSAKem
+    if isinstance(private_key, RSAPrivateKey):
+        private_key = RSADecapKey(private_key)
 
-    rsa_kem = RSAKem()
-    ss = rsa_kem.decaps(private_key, ct)
-    ss = compute_ansi_x9_63_kdf(
-        shared_secret=ss, key_length=key_length, other_info=b"", hash_alg="sha256", use_version_2=False
+    return private_key.decaps(
+        ciphertext=ct,
+        hash_alg="sha256",
+        use_oaep=False,
+        ss_length=key_length,
     )
-
-    return ss
 
 
 @not_keyword
@@ -1637,10 +1638,11 @@ def process_kem_recip_info(
         kem_recip_info=kem_recip_info, server_cert=server_cert, for_enc_rand=for_pop
     )
 
-    if not isinstance(private_key, RSAPrivateKey):
+    if not isinstance(private_key, (RSAPrivateKey, RSADecapKey)):
         shared_secret = private_key.decaps(validated_info["kemct"])
         logging.info("Shared secret: %s", shared_secret.hex())
     else:
+        # shared_secret = private_key.decaps(ct=validated_info["kemct"], key_length=validated_info["length"])
         shared_secret = perform_rsa_kemri(
             private_key=private_key,
             ct=validated_info["kemct"],

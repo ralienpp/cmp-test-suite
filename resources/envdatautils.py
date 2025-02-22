@@ -11,7 +11,7 @@ from typing import List, Optional, Union
 from cryptography import x509
 from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
-from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey

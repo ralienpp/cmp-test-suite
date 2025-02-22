@@ -13,7 +13,7 @@ import pyasn1.error
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeSigPrivateKey
-from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, get_oid_cms_composite_signature
 from pq_logic.tmp_oids import id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder

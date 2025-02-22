@@ -300,7 +300,7 @@ def prepare_delta_cert_req(
     :return: The populated `DeltaCertificateRequestValue` structure.
     """
     if not signing_key:
-        raise ValueError("SubjectPublicKeyInfo is required.")
+        raise ValueError("The delta value private key was not provided.")
 
     delta_req = DeltaCertificateRequestValue()
 

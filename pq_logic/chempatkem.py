@@ -198,12 +198,13 @@ class ChempatKEM:
 class ChempatPublicKey(AbstractHybridRawPublicKey):
     """Public key class for the Chempat hybrid key encapsulation mechanism."""
 
-    trad_key: Optional[ECDHPublicKey]
+    _trad_key: Optional[ECDHPublicKey]
+    _pq_key: PQKEMPublicKey
 
     def __eq__(self, other):
         """Compare the ChempatPublicKey with another object."""
         if isinstance(other, ChempatPublicKey):
-            return self.pq_key == other.pq_key and self.trad_key == other.trad_key
+            return self.pq_key == other.pq_key and self._trad_key == other.trad_key
         raise ValueError(f"Cannot compare ChempatPublicKey with other types: {type(other)}.")
 
     def __init__(self, pq_key: PQKEMPublicKey, trad_key: Optional[ECDHPublicKey] = None):

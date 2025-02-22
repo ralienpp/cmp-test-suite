@@ -13,8 +13,8 @@ from resources.oidutils import PQ_KEM_NAME_2_OID
 from robot.api.deco import not_keyword
 
 from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeKEMPublicKey
-from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
 from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey
 
 

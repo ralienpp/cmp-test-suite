@@ -230,11 +230,11 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         name = name.lower()
         if "sntrup761" in name:
             return ChempatSntrup761PublicKey.from_public_bytes(data, name=name)
-        elif "mceliece" in name:
+        if "mceliece" in name:
             return ChempatMcEliecePublicKey.from_public_bytes(data, name=name)
-        elif "ml-kem" in name:
+        if "ml-kem" in name:
             return ChempatMLKEMPublicKey.from_public_bytes(data, name=name)
-        elif "frodokem" in name:
+        if "frodokem" in name:
             return ChempatFrodoKEMPublicKey.from_public_bytes(data, name=name)
 
         raise NotImplementedError(f"The ChempatPublicKey class does not support key generation. Got name: {name}")

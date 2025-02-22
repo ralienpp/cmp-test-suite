@@ -1,3 +1,5 @@
+"""Necessary dataclasses and functions for the mock CA to operate."""
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Union

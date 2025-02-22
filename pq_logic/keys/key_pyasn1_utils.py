@@ -29,13 +29,21 @@ from resources.oidutils import (
 )
 from robot.api.deco import not_keyword
 
+from pq_logic.chempatkem import ChempatPrivateKey
 from pq_logic.hybrid_structures import CompositeSignaturePrivateKeyAsn1
 from pq_logic.keys.abstract_pq import PQPrivateKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey
 from pq_logic.keys.kem_keys import FrodoKEMPrivateKey, McEliecePrivateKey, MLKEMPrivateKey, Sntrup761PrivateKey
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, SLHDSAPrivateKey
+from pq_logic.keys.trad_keys import RSADecapKey
 from pq_logic.keys.xwing import XWingPrivateKey
-from pq_logic.tmp_oids import FRODOKEM_OID_2_NAME, MCELIECE_OID_2_NAME, id_sntrup761_str
+from pq_logic.tmp_oids import (
+    CHEMPAT_OID_2_NAME,
+    FRODOKEM_OID_2_NAME,
+    MCELIECE_OID_2_NAME,
+    id_rsa_kem_spki,
+    id_sntrup761_str,
+)
 
 RawKeyType = Union[
     ed25519.Ed25519PrivateKey,
@@ -119,6 +127,8 @@ CUSTOM_KEY_TYPES = [
     b"XWING",
     b"ML-DSA",
     b"ML-KEM",
+    b"RSA-KEM",
+    b"CHEMPAT",
 ]
 
 
@@ -235,15 +245,31 @@ def parse_key_from_one_asym_key(data: bytes):
 
     elif univ_oid in ML_DSA_OID_2_NAME:
         name = PQ_OID_2_NAME[univ_oid]
-        private_key = MLDSAPrivateKey(sig_alg=name, private_bytes=obj["privateKey"].asOctets(), public_key=public_bytes)
+        private_key = MLDSAPrivateKey.from_private_bytes(data=obj["privateKey"].asOctets(), name=name)
+        if private_key._public_key is None:
+            if private_key._public_key is not None and public_bytes is not None:
+                raise ValueError("ML-DSA Public key does not match the private key.")
+            else:
+                private_key._public_key = public_bytes
+
+        elif public_bytes is not None:
+            if not private_key.public_key().public_bytes_raw() == public_bytes:
+                raise ValueError("ML-DSA Public key does not match the private key.")
 
     elif univ_oid in ML_KEM_OID_2_NAME:
         name = PQ_OID_2_NAME[univ_oid]
-        private_key = MLKEMPrivateKey(
-            kem_alg=name,
-            private_bytes=obj["privateKey"].asOctets(),
-            public_key=public_bytes,
-        )
+
+        private_key = MLKEMPrivateKey.from_private_bytes(data=obj["privateKey"].asOctets(), name=name)
+
+        if private_key._public_key_bytes is None:
+            if private_key._public_key_bytes is not None and public_bytes is not None:
+                raise ValueError("ML-KEM Public key does not match the private key.")
+            else:
+                private_key._public_key_bytes = public_bytes
+
+        elif public_bytes is not None:
+            if not private_key.public_key().public_bytes_raw() == public_bytes:
+                raise ValueError("ML-KEM Public key does not match the private key.")
 
     elif alg_oid in MCELIECE_OID_2_NAME:
         name = PQ_OID_2_NAME[alg_oid]
@@ -270,6 +296,13 @@ def parse_key_from_one_asym_key(data: bytes):
         private_key = Sntrup761PrivateKey(
             kem_alg="sntrup761", private_bytes=obj["privateKey"].asOctets(), public_key=public_bytes
         )
+
+    elif alg_oid == str(id_rsa_kem_spki):
+        private_key = RSADecapKey.from_pkcs8(data)
+
+    elif univ_oid in CHEMPAT_OID_2_NAME:
+        name = CHEMPAT_OID_2_NAME[univ_oid]
+        private_key = ChempatPrivateKey.from_private_bytes(data=obj["privateKey"].asOctets(), name=name)
 
     else:
         oid = obj["privateKeyAlgorithm"]["algorithm"]

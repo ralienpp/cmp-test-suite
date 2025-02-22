@@ -289,6 +289,10 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         logging.info("Chempat: ss: %s, ct: %s", ss.hex(), ct.hex())
         return ss, ct
 
+    def kem_combiner(self, **kwargs) -> bytes:
+        """Generate a hybrid shared secret using traditional-KEM and PQ-KEM."""
+        raise NotImplementedError("The kem_combiner is directly implemented in the ChempatKEM class.")
+
     def _export_public_key(self) -> bytes:
         """Export the public key as bytes."""
         return self.public_bytes_raw()
@@ -362,6 +366,11 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
 
         self.chempat_kem = ChempatKEM(self.pq_key, self.trad_key)
 
+    def kem_combiner(self, **kwargs) -> bytes:
+        """Generate a hybrid shared secret using traditional-KEM and PQ-KEM."""
+        raise NotImplementedError("The kem_combiner is directly implemented in the ChempatKEM class.")
+
+    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
     def _export_private_key(self) -> bytes:
         """Export the private key as bytes."""
         return self.private_bytes_raw()

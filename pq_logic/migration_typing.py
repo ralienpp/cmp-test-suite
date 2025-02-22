@@ -15,15 +15,16 @@ from pq_logic.keys.abstract_composite import (
     AbstractCompositeSigPrivateKey,
     AbstractCompositeSigPublicKey,
 )
-from pq_logic.keys.abstract_hybrid_raw_kem_key import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
+from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
 
 HybridKEMPrivateKey = Union[AbstractCompositeKEMPrivateKey, AbstractHybridRawPrivateKey]
 HybridKEMPublicKey = Union[AbstractHybridRawPublicKey, AbstractCompositeKEMPublicKey]
 
-KEMPrivateKey = Union[PQKEMPrivateKey, HybridKEMPrivateKey]
-KEMPublicKey = Union[PQKEMPublicKey, HybridKEMPublicKey]
+KEMPrivateKey = Union[PQKEMPrivateKey, HybridKEMPrivateKey, RSADecapKey]
+KEMPublicKey = Union[PQKEMPublicKey, HybridKEMPublicKey, RSAEncapKey]
 
 HybridPublicKey = Union[HybridKEMPublicKey, AbstractCompositeSigPublicKey]
 

@@ -315,6 +315,11 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         self._pq_key = pq_key
         self._trad_key = trad_key
         self.chempat_kem = ChempatKEM(self.pq_key, self.trad_key)
+
+    def public_key(self) -> ChempatPublicKey:
+        """Return the corresponding public key class."""
+        return ChempatPublicKey(self.pq_key.public_key(), self.trad_key.public_key())
+
     @classmethod
     def generate(cls):
         """Generate a ChempatPrivateKey instance."""

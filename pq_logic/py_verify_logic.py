@@ -310,7 +310,7 @@ def build_migration_cert_chain(  # noqa D417 undocumented-param
 
 
 def build_sun_hybrid_cert_chain(  # noqa D417 undocumented-param
-    cert: rfc9480.CMPCertificate, certs: Sequence[rfc9480.CMPCertificate]
+    cert: rfc9480.CMPCertificate, certs: Iterable[rfc9480.CMPCertificate]
 ) -> List[rfc9480.CMPCertificate]:
     """Build the SUN hybrid certificate chain.
 

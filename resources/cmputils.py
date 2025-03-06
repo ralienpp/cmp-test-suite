@@ -1181,23 +1181,6 @@ def _prepare_cert_req_msg_body(body_type: str) -> rfc9480.PKIBody:
     return pki_body
 
 
-def _build_cert_req_msg_body(body_type: str) -> rfc9480.PKIBody:
-    """Create and return a `rfc9480.PKIBody` structure based on the specified body type for certificate requests.
-
-    :param body_type: Either cr,ir or kur
-    :return: A `PKIBody` object with the requested body type and tagging.
-    """
-    body_type_id = {"ir": 0, "cr": 2, "kur": 7}
-    if body_type not in body_type_id:
-        raise ValueError("The provided `body_type` is not one of the supported values (cr, ir, kur).")
-
-    pki_body = rfc9480.PKIBody()
-    pki_body[body_type] = rfc9480.CertReqMessages().subtype(
-        explicitTag=Tag(tagClassContext, tagFormatSimple, body_type_id[body_type])
-    )
-    return pki_body
-
-
 # TODO think about a nice way to add more messages.
 
 

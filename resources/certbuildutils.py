@@ -13,7 +13,7 @@ import pyasn1.error
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeSigPrivateKey
-from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey, AbstractCompositePrivateKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, get_oid_cms_composite_signature
 from pq_logic.tmp_oids import id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder
@@ -1308,46 +1308,97 @@ def prepare_cert_template_from_csr(csr: rfc6402.CertificationRequest) -> rfc4211
 
 @keyword(name="Prepare SubjectPublicKeyInfo")
 def prepare_subject_public_key_info(
-    key: Union[PrivateKey, PublicKey] = None,
-    for_kga: bool = False,
-    key_name: Optional[str] = None,
-    use_rsa_pss: bool = False,
-    use_pre_hash: bool = False,
-    hash_alg: Optional[str] = None,
+        key: Union[PrivateKey, PublicKey] = None,
+        for_kga: bool = False,
+        key_name: Optional[str] = None,
+        use_rsa_pss: bool = False,
+        use_pre_hash: bool = False,
+        hash_alg: Optional[str] = None,
+        invalid_key_size: bool = False,
+        add_params_rand_bytes: bool = False,
+        add_null: bool = False,
 ) -> rfc5280.SubjectPublicKeyInfo:
     """Prepare a `SubjectPublicKeyInfo` structure for a `Certificate`, `CSR` or `CertTemplate`.
 
-    :param key: The public or private key to use for the `SubjectPublicKeyInfo`.
-    :param for_kga: A flag indicating whether the key is for key generation authentication (KGA).
-    :param key_name: The key algorithm name to use for the `SubjectPublicKeyInfo`.
-    (can be set to `rsa_kem`. RFC 5990bis-10). Defaults to `None`.
-    :param use_rsa_pss: Whether to use RSA-PSS padding. Defaults to `False`.
-    :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
-    :param hash_alg: The pre-hash algorithm to use for the pq signature key. Defaults to `None`.
-    :return: The populated `SubjectPublicKeyInfo` structure.
+    For invalid Composite keys must the private key be provided.
+
+    Note: If the key is a CompositeSig key, the `key_name` the private key must be provided,
+    if the RSA key has an invalid key size.
+
+    Arguments:
+    ---------
+        - `key`: The public or private key to use for the `SubjectPublicKeyInfo`.
+        - `for_kga`: A flag indicating whether the key is for a key generation authority (KGA).
+        - `key_name`: The key algorithm name to use for the `SubjectPublicKeyInfo`.
+        (can be set to `rsa_kem`. RFC9690). Defaults to `None`.
+        - `use_rsa_pss`: Whether to use RSA-PSS padding. Defaults to `False`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
+        - `hash_alg`: The pre-hash algorithm to use for the pq signature key. Defaults to `None`.
+        - `invalid_key_size`: A flag indicating whether the key size is invalid. Defaults to `False`.
+        - `add_params_rand_bytes`: A flag indicating whether to add random bytes to the key parameters. Defaults to `False`.
+        - `add_null`: A flag indicating whether to add a null value to the key parameters. Defaults to `False`.
+
+    Returns:
+    -------
+        - The populated `SubjectPublicKeyInfo` structure.
+
+    Raises:
+    ------
+        - `ValueError`: If no key is provided and the for_kga flag is not set.
+        - `ValueError`: If both `add_null` and `add_params_rand_bytes` are set.
+
+
+    Examples:
+    --------
+    | ${spki}= | Prepare SubjectPublicKeyInfo | key=${key} | use_rsa_pss=True |
+    | ${spki}= | Prepare SubjectPublicKeyInfo | key=${key} | key_name=rsa-kem |
+    | ${spki}= | Prepare SubjectPublicKeyInfo | key=${key} | for_kga=True |
+    | ${spki}= | Prepare SubjectPublicKeyInfo | key=${key} | add_null=True |
+
     """
     if key is None and not for_kga:
         raise ValueError("Either a key has to be provided or the for_kga flag have to be set.")
 
+    if add_null and add_params_rand_bytes:
+        raise ValueError("Either `add_null` or `add_params_rand_bytes` can be set, not both.")
+
     if key is not None:
+        if isinstance(key, AbstractCompositePrivateKey):
+            pub_key = key.public_key().public_bytes(encoding=Encoding.DER, format=PublicFormat.Raw)
+            spki = rfc5280.SubjectPublicKeyInfo()
+            pub_key = pub_key if not invalid_key_size else pub_key + b"\x00"
+            spki["subjectPublicKey"] = univ.BitString.fromOctetString(pub_key)
+            if isinstance(key, CompositeSigCMSPrivateKey):
+                oid = key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
+            else:
+                oid = key.get_oid()
+            spki["algorithm"]["algorithm"] = oid
+
+            if add_null:
+                spki["algorithm"]["parameters"] = univ.Null("")
+
+            if add_params_rand_bytes:
+                spki["algorithm"]["algorithm"]["parameters"] = univ.BitString.fromOctetString(os.urandom(16))
+
+            return spki
+
         if isinstance(key, PrivateKey):
             key = key.public_key()
 
-        elif isinstance(key, AbstractCompositeSigPrivateKey):
-            pub_key = key.public_key()._self_to_raw_der()
-            spki = rfc5280.SubjectPublicKeyInfo()
-            spki["subjectPublicKey"] = univ.BitString.fromOctetString(pub_key)
-            oid = key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
-            spki["algorithm"]["algorithm"] = oid
-            return spki
-
     if for_kga:
-        return _prepare_spki_for_kga(key=key, key_name=key_name, use_pss=use_rsa_pss, use_pre_hash=use_pre_hash)
+        return _prepare_spki_for_kga(key=key, key_name=key_name,
+                                     use_pss=use_rsa_pss, use_pre_hash=use_pre_hash,
+                                     add_null=add_null,
+                                     add_params_rand_bytes=add_params_rand_bytes,
+                                     )
 
     if key_name in ["rsa-kem", "rsa_kem"]:
         spki = rfc5280.SubjectPublicKeyInfo()
-        # As of RFC 5990bis-10, currently only Draft.
         spki["algorithm"]["algorithm"] = id_rsa_kem_spki
+
+        if add_null:
+            spki["algorithm"]["parameters"] = univ.Null("")
+
         der_data = key.public_key().public_bytes(encoding=Encoding.DER, format=PublicFormat.PKCS1)
         spki["subjectPublicKey"] = univ.BitString.fromOctetString(der_data)
 
@@ -1355,6 +1406,13 @@ def prepare_subject_public_key_info(
         spki = subjectPublicKeyInfo_from_pubkey(
             public_key=key, use_rsa_pss=use_rsa_pss, use_pre_hash=use_pre_hash, hash_alg=hash_alg
         )
+
+        if invalid_key_size:
+            tmp = spki["subjectPublicKey"].asOctets() + b"\x00"
+            spki["subjectPublicKey"] = univ.BitString.fromOctetString(tmp)
+
+    if add_params_rand_bytes:
+        spki["algorithm"]["algorithm"]["parameters"] = univ.BitString.fromOctetString(os.urandom(16))
 
     return spki
 
@@ -1364,6 +1422,8 @@ def _prepare_spki_for_kga(
     key_name: Optional[str] = None,
     use_pss: bool = False,
     use_pre_hash: bool = False,
+    add_null: bool = False,
+    add_params_rand_bytes: bool = False,
 ) -> rfc5280.SubjectPublicKeyInfo:
     """Prepare a SubjectPublicKeyInfo for KGA usage.
 
@@ -1371,8 +1431,14 @@ def _prepare_spki_for_kga(
     :param key_name: An optional key algorithm name.
     :param use_pss: Whether to use PSS padding for RSA and a RSA-CompositeKey.
     :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
+    :param add_null: Whether to add a null value to the key parameters. Defaults to `False`.
+    :param add_params_rand_bytes: Whether to add random bytes to the key parameters. Defaults to `False`.
     :return: The populated `SubjectPublicKeyInfo` structure.
     """
+
+    if add_null and add_params_rand_bytes:
+        raise ValueError("Either `add_null` or `add_params_rand_bytes` can be set, not both.")
+
     spki = rfc5280.SubjectPublicKeyInfo()
     spki["subjectPublicKey"] = univ.BitString("")
 
@@ -1389,6 +1455,7 @@ def _prepare_spki_for_kga(
         }
         spki["algorithm"]["algorithm"] = names_2_oid[key_name]
 
+
     if key_name is not None:
         from pq_logic.combined_factory import CombinedKeyFactory
 
@@ -1399,6 +1466,12 @@ def _prepare_spki_for_kga(
     elif key is not None:
         spki_tmp = subjectPublicKeyInfo_from_pubkey(public_key=key, use_rsa_pss=use_pss)
         spki["algorithm"]["algorithm"] = spki_tmp["algorithm"]["algorithm"]
+
+    if add_null:
+        spki["algorithm"]["parameters"] = univ.Null("")
+
+    if add_params_rand_bytes:
+        spki["algorithm"]["parameters"] = univ.BitString.fromOctetString(os.urandom(16))
 
     return spki
 

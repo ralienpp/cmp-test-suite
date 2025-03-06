@@ -15,8 +15,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, Optional, Tuple, Union
 
 from cryptography.hazmat.primitives.asymmetric import dh, x448, x25519
-from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey
-from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQSignaturePrivateKey
+from pq_logic.keys.abstract_pq import PQKEMPrivateKey
 from pq_logic.migration_typing import HybridKEMPublicKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_private_key, is_kem_public_key
 from pyasn1.codec.der import decoder, encoder
@@ -977,6 +976,75 @@ def prepare_cert_request(  # noqa D417 undocumented-param
         cert_request["controls"] = controls
 
     return cert_request
+
+
+@keyword(name="Prepare Signature POPO")
+def prepare_signature_popo(  # noqa: D417 undocumented-param
+    signing_key: PrivateKeySig,
+    cert_request: rfc4211.CertRequest,
+    hash_alg: str = "sha256",
+    bad_pop: bool = False,
+    use_rsa_pss: bool = False,
+    use_pre_hash: bool = False,
+    add_params_rand_val: bool = False,
+    sender: Optional[str] = None,
+) -> rfc4211.ProofOfPossession:
+    """Prepare Proof-of-Possession for a certificate request.
+
+    Arguments:
+    ---------
+        - `signing_key`: The private key used for signing the certificate request.
+        - `cert_request`: The certificate request to sign.
+        - `hash_alg`: The hash algorithm used for signing. Defaults to `sha256`.
+        - `bad_pop`: If `True`, the first byte of the signature will be modified to create an invalid.
+        POP signature.
+        - `use_rsa_pss`: If `True`, the RSA-PSS signature scheme will be used.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
+        - `add_params_rand_val`: If `True`, the random value will be added to the parameters field of the signature
+        alg id. Defaults to `False`.
+        - `sender`: The sender information for `POPOSigningKeyInput`, which **MUST** be absent. Defaults to `None`.
+
+    Returns:
+    -------
+        - The populated `ProofOfPossession` structure.
+
+    Examples:
+    --------
+    | ${popo}= | Prepare Signature POPO | ${signing_key} | ${cert_request} | hash_alg=sha256 |
+
+    """
+    der_cert_request = encoder.encode(cert_request)
+    signature = cryptoutils.sign_data(
+        data=der_cert_request,
+        key=signing_key,
+        hash_alg=hash_alg,
+        use_pre_hash=use_pre_hash,
+        use_rsa_pss=use_rsa_pss,
+    )
+    logging.info("Calculated POPO: %s", signature.hex())
+
+    if bad_pop:
+        signature = utils.manipulate_bytes_based_on_key(signature, signing_key)
+
+    alg_id = certbuildutils.prepare_sig_alg_id(
+        signing_key=signing_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        use_pre_hash=use_pre_hash,
+        add_params_rand_val=add_params_rand_val,
+    )
+
+    popo = rfc4211.ProofOfPossession()
+    popo_key = rfc4211.POPOSigningKey().subtype(implicitTag=Tag(tagClassContext, tagFormatConstructed, 1))
+
+    popo_key["signature"] = univ.BitString().fromOctetString(signature)
+    popo_key["algorithmIdentifier"] = alg_id
+
+    if sender is not None:
+        popo_key["poposkInput"] = _prepare_poposigningkeyinput(sender=sender, public_key=signing_key.public_key())
+
+    popo["signature"] = popo_key
+    return popo
 
 
 @keyword(name="Prepare CertReqMsg")

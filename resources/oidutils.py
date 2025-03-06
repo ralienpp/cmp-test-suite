@@ -557,6 +557,7 @@ KEM_OID_2_NAME.update({univ.ObjectIdentifier(XWING_OID_STR): "xwing"})
 KEM_OID_2_NAME.update(COMPOSITE_KEM_OID_2_NAME)
 KEM_OID_2_NAME.update({rfc5990.id_kem_rsa: "rsa-kem"})
 
+KEM_NAME_2_OID = {y: x for x, y in KEM_OID_2_NAME.items()}
 
 TRAD_STR_OID_TO_KEY_NAME = {
     "1.3.101.110": "x25519",

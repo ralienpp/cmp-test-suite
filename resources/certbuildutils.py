@@ -12,8 +12,8 @@ from typing import Any, Iterable, List, Optional, Sequence, Tuple, Union
 import pyasn1.error
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeSigPrivateKey
-from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey, AbstractCompositePrivateKey
+from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, get_oid_cms_composite_signature
 from pq_logic.tmp_oids import id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder
@@ -145,13 +145,13 @@ def prepare_sig_alg_id(
 
 @keyword(name="Sign CSR")
 def sign_csr(  # noqa D417 undocumented-param
-        csr: rfc6402.CertificationRequest,
-        signing_key: PrivateKeySig,
-        hash_alg: str = "sha256",
-        other_key: Optional[PrivateKeySig] = None,
-        use_rsa_pss: bool = False,
-        bad_pop: bool = False,
-        use_pre_hash: bool = False,
+    csr: rfc6402.CertificationRequest,
+    signing_key: PrivateKeySig,
+    hash_alg: str = "sha256",
+    other_key: Optional[PrivateKeySig] = None,
+    use_rsa_pss: bool = False,
+    bad_pop: bool = False,
+    use_pre_hash: bool = False,
 ):
     """Sign a `pyasn1` `CertificationRequest` (CSR).
 
@@ -215,18 +215,18 @@ def sign_csr(  # noqa D417 undocumented-param
 
 @keyword(name="Build CSR")
 def build_csr(  # noqa D417 undocumented-param
-        signing_key: PrivateKeySig,
-        common_name: str = "CN=Hans Mustermann",
-        extensions: Optional[Sequence[rfc5280.Extension]] = None,
-        hash_alg: Union[None, str] = "sha256",
-        use_rsa_pss: bool = False,
-        subjectAltName: Optional[str] = None,
-        exclude_signature: bool = False,
-        for_kga: bool = False,
-        bad_pop: bool = False,
-        use_pre_hash: bool = False,
-        use_pre_hash_pub_key: Optional[bool] = None,
-        spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
+    signing_key: PrivateKeySig,
+    common_name: str = "CN=Hans Mustermann",
+    extensions: Optional[Sequence[rfc5280.Extension]] = None,
+    hash_alg: Union[None, str] = "sha256",
+    use_rsa_pss: bool = False,
+    subjectAltName: Optional[str] = None,
+    exclude_signature: bool = False,
+    for_kga: bool = False,
+    bad_pop: bool = False,
+    use_pre_hash: bool = False,
+    use_pre_hash_pub_key: Optional[bool] = None,
+    spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
 ) -> rfc6402.CertificationRequest:
     """Build a PKCS#10 Certification Request (CSR) with the given parameters.
 
@@ -1190,9 +1190,7 @@ def _prepare_public_key_for_cert_template(
         key,
         (
             typingutils.PrivateKey,
-            AbstractCompositeKEMPrivateKey,
-            AbstractHybridRawPrivateKey,
-            AbstractCompositeSigPrivateKey,
+            CompositeSigCMSPrivateKey,
         ),
     ):
         key = key.public_key()
@@ -1307,16 +1305,16 @@ def prepare_cert_template_from_csr(csr: rfc6402.CertificationRequest) -> rfc4211
 
 
 @keyword(name="Prepare SubjectPublicKeyInfo")
-def prepare_subject_public_key_info(
-        key: Union[PrivateKey, PublicKey] = None,
-        for_kga: bool = False,
-        key_name: Optional[str] = None,
-        use_rsa_pss: bool = False,
-        use_pre_hash: bool = False,
-        hash_alg: Optional[str] = None,
-        invalid_key_size: bool = False,
-        add_params_rand_bytes: bool = False,
-        add_null: bool = False,
+def prepare_subject_public_key_info( # noqa D417 undocumented-param
+    key: Union[PrivateKey, PublicKey] = None,
+    for_kga: bool = False,
+    key_name: Optional[str] = None,
+    use_rsa_pss: bool = False,
+    use_pre_hash: bool = False,
+    hash_alg: Optional[str] = None,
+    invalid_key_size: bool = False,
+    add_params_rand_bytes: bool = False,
+    add_null: bool = False,
 ) -> rfc5280.SubjectPublicKeyInfo:
     """Prepare a `SubjectPublicKeyInfo` structure for a `Certificate`, `CSR` or `CertTemplate`.
 
@@ -1335,7 +1333,8 @@ def prepare_subject_public_key_info(
         - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
         - `hash_alg`: The pre-hash algorithm to use for the pq signature key. Defaults to `None`.
         - `invalid_key_size`: A flag indicating whether the key size is invalid. Defaults to `False`.
-        - `add_params_rand_bytes`: A flag indicating whether to add random bytes to the key parameters. Defaults to `False`.
+        - `add_params_rand_bytes`: A flag indicating whether to add random bytes to the key parameters. \
+        Defaults to `False`.
         - `add_null`: A flag indicating whether to add a null value to the key parameters. Defaults to `False`.
 
     Returns:
@@ -1386,11 +1385,14 @@ def prepare_subject_public_key_info(
             key = key.public_key()
 
     if for_kga:
-        return _prepare_spki_for_kga(key=key, key_name=key_name,
-                                     use_pss=use_rsa_pss, use_pre_hash=use_pre_hash,
-                                     add_null=add_null,
-                                     add_params_rand_bytes=add_params_rand_bytes,
-                                     )
+        return _prepare_spki_for_kga(
+            key=key,
+            key_name=key_name,
+            use_pss=use_rsa_pss,
+            use_pre_hash=use_pre_hash,
+            add_null=add_null,
+            add_params_rand_bytes=add_params_rand_bytes,
+        )
 
     if key_name in ["rsa-kem", "rsa_kem"]:
         spki = rfc5280.SubjectPublicKeyInfo()
@@ -1435,7 +1437,6 @@ def _prepare_spki_for_kga(
     :param add_params_rand_bytes: Whether to add random bytes to the key parameters. Defaults to `False`.
     :return: The populated `SubjectPublicKeyInfo` structure.
     """
-
     if add_null and add_params_rand_bytes:
         raise ValueError("Either `add_null` or `add_params_rand_bytes` can be set, not both.")
 
@@ -1454,7 +1455,6 @@ def _prepare_spki_for_kga(
             "rsa-kem": id_rsa_kem_spki,
         }
         spki["algorithm"]["algorithm"] = names_2_oid[key_name]
-
 
     if key_name is not None:
         from pq_logic.combined_factory import CombinedKeyFactory

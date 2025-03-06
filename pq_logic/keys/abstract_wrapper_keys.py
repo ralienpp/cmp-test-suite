@@ -639,7 +639,7 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
 class AbstractCompositePrivateKey(HybridPrivateKey, ABC):
     """Abstract class for Composite private keys."""
 
-    def __init__(self, pq_key: PQPrivateKey, trad_key: WrapperPrivateKey):
+    def __init__(self, pq_key: PQPrivateKey, trad_key: Union[ECDHPrivateKey, rsa.RSAPrivateKey]):
         """Initialize the CompositePrivateKey.
 
         :param pq_key: The post-quantum private key object.
@@ -649,18 +649,10 @@ class AbstractCompositePrivateKey(HybridPrivateKey, ABC):
         self._trad_key = trad_key
 
     @abstractmethod
-    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
-        """Return the Object Identifier for the composite signature algorithm."""
-
     def public_key(self) -> "AbstractCompositePublicKey":
         """Return the corresponding public key class."""
-        return AbstractCompositePublicKey(self._pq_key.public_key(), self._trad_key.public_key())
 
     def _export_private_key(self) -> bytes:
-        """Export the private key bytes."""
-        return self._to_der()
-
-    def _to_der(self) -> bytes:
         """Convert the private key to a CompositeSignaturePrivateKeyAsn1 structure.
 
         :return: The DER-encoded CompositeSignaturePrivateKeyAsn1 structure.
@@ -677,9 +669,15 @@ class AbstractCompositePrivateKey(HybridPrivateKey, ABC):
 
         return encoder.encode(data)
 
+    @property
+    def key_size(self) -> int:
+        """Get the size of the key."""
+        return len(self._export_private_key())
 
-class AbstractCompositeKEMPublicKey(AbstractCompositePublicKey, ABC):
-    """Abstract class for Composite KEM public keys."""
+    def _get_rsa_size(self, value: int):
+        """Return the closest size to the allowed RSA key."""
+        predefined_values = [2048, 3072, 4096]
+        return min(predefined_values, key=lambda x: abs(x - value))
 
 
 class AbstractHybridRawPublicKey(HybridKEMPublicKey, ABC):

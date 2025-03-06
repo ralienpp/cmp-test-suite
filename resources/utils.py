@@ -17,18 +17,17 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 import pyasn1
 import requests
 from pq_logic.hybrid_structures import CompositeCiphertextValue, CompositeSignatureValue
+from pq_logic.keys.composite_kem import CompositeKEMPrivateKey, CompositeKEMPublicKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, char, univ
 from pyasn1_alt_modules import rfc2986, rfc5280, rfc6402, rfc9480
 from robot.api.deco import keyword, not_keyword
 
-
-from pq_logic.keys.composite_kem import CompositeKEMPublicKey, CompositeKEMPrivateKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPublicKey, CompositeSigCMSPrivateKey
 from resources import certutils, keyutils
 from resources.exceptions import BadAsn1Data
 from resources.oidutils import PYASN1_CM_NAME_2_OIDS
-from resources.typingutils import PrivateKey, Strint, PublicKey
+from resources.typingutils import PrivateKey, PublicKey, Strint
 
 
 def nonces_must_be_diverse(nonces: List[bytes], minimal_hamming_distance: Strint = 10):
@@ -630,8 +629,8 @@ def ensure_list(data: Optional[Union[List[Any], Any]]) -> list:
 
 
 def manipulate_bytes_based_on_key(  # noqa D417 Missing argument description in the docstring
-        data: bytes,
-        key: Union[PrivateKey, PublicKey],
+    data: bytes,
+    key: Union[PrivateKey, PublicKey],
 ) -> bytes:
     """Manipulate the data based on the provided key.
 
@@ -667,7 +666,7 @@ def manipulate_bytes_based_on_key(  # noqa D417 Missing argument description in 
 
 
 def manipulate_composite_sig(  # noqa: D417 Missing argument description in the docstring
-        sig: bytes,
+    sig: bytes,
 ) -> bytes:
     """Manipulate the first signature of a CompositeSignature.
 
@@ -710,7 +709,7 @@ def manipulate_composite_sig(  # noqa: D417 Missing argument description in the 
 
 @keyword(name="Manipulate Composite KEM CT")
 def manipulate_composite_kem_ct(  # noqa: D417 Missing argument description in the docstring
-        kem_ct: bytes,
+    kem_ct: bytes,
 ) -> bytes:
     """Manipulate the first ct of the `CompositeCiphertextValue`.
 

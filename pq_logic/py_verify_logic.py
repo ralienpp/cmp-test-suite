@@ -35,7 +35,6 @@ from robot.api.deco import keyword
 import pq_logic
 from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
-from pq_logic.keys.abstract_composite import AbstractCompositeSigPublicKey
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
@@ -495,7 +494,7 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
     data = encoder.encode(pki_message["header"]) + encoder.encode(pki_message["body"])
 
     oid = prot_alg_id["algorithm"]
-    if isinstance(public_key, AbstractCompositeSigPublicKey) and oid in CMS_COMPOSITE_OID_2_NAME:
+    if isinstance(public_key, CompositeSigCMSPublicKey) and oid in CMS_COMPOSITE_OID_2_NAME:
         pq_compute_utils.verify_signature_with_alg_id(
             public_key=public_key,
             alg_id=prot_alg_id,

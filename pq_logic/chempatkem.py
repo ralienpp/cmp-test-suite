@@ -68,7 +68,9 @@ class ChempatKEM:
         """
         self.pq_key = pq_key
         self.trad_key = trad_key
-        self.context = self.get_context()
+        self.context = None
+        if pq_key is not None and trad_key is not None:
+            self.context = self.get_context()
 
     def get_context(self) -> bytes:
         """Generate the context string based on the traditional and post-quantum keys.
@@ -125,12 +127,18 @@ class ChempatKEM:
         :return: A tuple containing the kem combined shared secret and combined ciphertext
         """
         dhkem = DHKEMRFC9180(private_key=self.trad_key)
-        self.trad_key = dhkem.private_key
+
         ss_T, ct_T = dhkem.encaps(trad_pk)
+        self.trad_key = dhkem.private_key
         ss_PQ, ct_PQ = peer_pq_key.encaps()
 
         pk_trad = DHKEMRFC9180.encode_public_key(trad_pk)
         pk_pq = peer_pq_key.public_bytes_raw()
+
+        if self.context is None:
+            self.pq_key = peer_pq_key
+            self.context = self.get_context()
+            self.pq_key = None
 
         ss = self.kem_combiner(ss_T, ss_PQ, ct_T, ct_PQ, pk_trad, pk_pq)
         return ss, b"".join([ct_T, ct_PQ])
@@ -145,9 +153,7 @@ class ChempatKEM:
         nenc = TRAD_ALG_2_NENC[get_ec_trad_name(self.trad_key)]
 
         if len(ct) != nenc + self.pq_key.ct_length:
-            raise ValueError(
-                "Invalid ciphertext length. Expected: %d, got: %d" % (nenc + self.pq_key.ct_length, len(ct))
-            )
+            raise ValueError(f"Invalid ciphertext length. Expected: {nenc + self.pq_key.ct_length}, got: {len(ct)}")
 
         ct_T = ct[0:nenc]
         ct_PQ = ct[nenc:]

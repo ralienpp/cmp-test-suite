@@ -9,16 +9,21 @@ from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa, x448, x25519
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PrivateFormat,
+    PublicFormat,
+)
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc5958, rfc9481
 from resources.oid_mapping import get_curve_instance
 
+from pq_logic.chempatkem import get_trad_key_length
 from pq_logic.kem_mechanism import DHKEMRFC9180, ECDHKEM, RSAKem, RSAOaepKem
 from pq_logic.keys.abstract_wrapper_keys import TradKEMPrivateKey, TradKEMPublicKey
 from pq_logic.tmp_oids import id_rsa_kem_spki
-
-# TODO: Update codebase for better and cleaner code.
+from pq_logic.trad_typing import ECDHPrivateKey
 
 
 class RSAEncapKey(TradKEMPublicKey):
@@ -47,11 +52,10 @@ class RSAEncapKey(TradKEMPublicKey):
 
     def _export_public_key(self) -> bytes:
         """Export the public key as bytes."""
-        spki = self._public_key.public_bytes(
-            serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
+        return self._public_key.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.PKCS1,
         )
-        obj, _ = decoder.decode(spki, rfc5280.SubjectPublicKeyInfo())
-        return obj["subjectPublicKey"].asOctets()
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the encapsulation key."""
@@ -91,17 +95,21 @@ class RSAEncapKey(TradKEMPublicKey):
     @property
     def key_size(self) -> int:
         """Return the size of the encapsulation key."""
-        return self._public_key.key_size
+        return self._public_key.key_size // 8
 
     @property
     def get_trad_name(self) -> str:
         """Return the traditional name of the encapsulation key (rsa<size>)."""
-        return f"rsa{self.key_size}"
+        return f"rsa{self._public_key.key_size}"
 
     @property
     def public_numbers(self):
         """Return the public modulus and exponent of the RSA key."""
         return self._public_key.public_numbers()
+
+    def encode(self) -> bytes:
+        """Encode the public key as RSAPublicKey bytes."""
+        return self._export_public_key()
 
 
 class RSADecapKey(TradKEMPrivateKey):
@@ -146,10 +154,6 @@ class RSADecapKey(TradKEMPrivateKey):
         obj, _ = decoder.decode(der_data, asn1Spec=rfc5958.OneAsymmetricKey())
         return obj["privateKey"].asOctets()
 
-    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
-        """Return the OID of the Decapsulation key."""
-        return self.public_key().get_oid()
-
     @classmethod
     def generate_key(cls, key_size: int = 2048) -> "RSADecapKey":
         """Generate an RSA private key.
@@ -170,7 +174,7 @@ class RSADecapKey(TradKEMPrivateKey):
     @property
     def key_size(self) -> int:
         """Return the size of the decapsulation key."""
-        return self._private_key.key_size
+        return get_trad_key_length(self._private_key)
 
     def public_key(self) -> RSAEncapKey:
         """Return the public encapsulation key.
@@ -180,11 +184,11 @@ class RSADecapKey(TradKEMPrivateKey):
         return RSAEncapKey(self._private_key.public_key())
 
     def decaps(
-        self, ciphertext: bytes, use_oaep: bool = True, hash_alg: str = "sha256", ss_length: Optional[int] = None
+        self, ct: bytes, use_oaep: bool = True, hash_alg: str = "sha256", ss_length: Optional[int] = None
     ) -> bytes:
         """Decapsulate a shared secret using RSA-OAEP if `use_oaep` is True, otherwise RSA-KEM.
 
-        :param ciphertext: The ciphertext to decrypt.
+        :param ct: The ciphertext to decrypt.
         :param use_oaep: Flag to determine whether to use RSA-OAEP. Defaults to `True`.
         :param hash_alg: Hash algorithm to use for RSA-OAEP. Defaults to "sha256".
         :param ss_length: Length of the shared secret for RSA-KEM.
@@ -195,12 +199,12 @@ class RSADecapKey(TradKEMPrivateKey):
         else:
             kem = RSAKem(ss_length=ss_length)
 
-        return kem.decaps(self._private_key, ciphertext)
+        return kem.decaps(self._private_key, ct)
 
     @property
     def get_trad_name(self) -> str:
         """Return the traditional name of the encapsulation key (rsa<size>)."""
-        return f"rsa{self.key_size}"
+        return f"rsa{self._private_key.key_size}"
 
     @property
     def private_numbers(self):

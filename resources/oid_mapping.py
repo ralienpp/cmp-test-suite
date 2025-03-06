@@ -166,7 +166,7 @@ def hash_name_to_instance(alg: str) -> hashes.HashAlgorithm:
 
 @not_keyword
 def get_alg_oid_from_key_hash(
-    key: PrivateKey, hash_alg: str, use_pss: bool = False, use_prehashed: bool = False
+    key: PrivateKey, hash_alg: str, use_rsa_pss: bool = False, use_pre_hash: bool = False
 ) -> univ.ObjectIdentifier:
     """Find the pyasn1 oid given the hazmat key instance and a name of a hashing algorithm.
 
@@ -174,8 +174,8 @@ def get_alg_oid_from_key_hash(
 
     :param key: The private key instance.
     :param hash_alg: Name of hashing algorithm, e.g., 'sha256'
-    :param use_pss: Flag to use RSA-PSS padding. Default is False.
-    :param use_prehashed: Flag to use prehashed key. Default is False.
+    :param use_rsa_pss: Flag to use RSA-PSS padding. Default is False.
+    :param use_pre_hash: Flag to use prehashed key. Default is False.
     :return: The OID of the signature algorithm.
     """
     if isinstance(key, dsa.DSAPrivateKey):
@@ -184,7 +184,7 @@ def get_alg_oid_from_key_hash(
             return id_dsa_with_sha256
         raise ValueError("DSA is only allowed with sha256!")
 
-    alg_oid = get_signing_oid(key, hash_alg, use_pss=use_pss)
+    alg_oid = get_signing_oid(key, hash_alg, use_pss=use_rsa_pss)
 
     if isinstance(key, PQSignaturePrivateKey) and alg_oid is None:
         hash_alg = key.check_hash_alg(hash_alg)
@@ -195,10 +195,10 @@ def get_alg_oid_from_key_hash(
 
         return PQ_NAME_2_OID[name]
 
-    from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey
+    from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
 
-    if isinstance(key, AbstractCompositeSigPrivateKey):
-        alg_oid = key.get_oid(use_pss=use_pss, pre_hash=use_prehashed)
+    if isinstance(key, CompositeSigCMSPrivateKey):
+        alg_oid = key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
 
     if alg_oid is not None:
         return alg_oid

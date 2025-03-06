@@ -368,7 +368,7 @@ class HybridKeyFactory:
         :return: The pq and traditional key instances.
         """
         if pq_name is None or trad_name is None:
-            key_params = get_valid_comb(pq_name=pq_name, trad_name=trad_name)
+            key_params = get_valid_comp_sig_combination(pq_name=pq_name, trad_name=trad_name)
             pq_key = PQKeyFactory.generate_pq_key(key_params["pq_name"])
             trad_key = generate_trad_key(
                 algorithm=key_params["trad_name"], length=key_params.get("length"), curve=key_params.get("curve")
@@ -454,3 +454,40 @@ class HybridKeyFactory:
             trad_key = generate_ec_key(algorithm=trad_name, curve=curve)
 
         return ChempatPrivateKey.parse_keys(pq_key, trad_key)
+
+
+def get_valid_comp_sig_combination(
+    pq_name: Optional[str] = None,
+    trad_name: Optional[str] = None,
+    length: Optional[str] = None,
+    curve: Optional[str] = None,
+):
+    """Get the valid combination of ML-DSA and traditional algorithm based on the given parameters.
+
+    :param pq_name: The name of the PQ algorithm.
+    :param trad_name: The traditional algorithm name.
+    :param length: The key length for RSA keys.
+    :param curve: The curve name for EC keys.
+    :return: A dictionary with the matching combination, or None if no match is found.
+    """
+    if pq_name is None and trad_name is None:
+        return {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"}
+
+    for entry in ALL_COMPOSITE_SIG_COMBINATIONS:
+        if pq_name and entry["pq_name"] == pq_name:
+            return entry
+
+        if entry["trad_name"] == trad_name:
+            if length is None and curve is None and pq_name is None:
+                return entry
+
+            if "length" in entry and length and entry["length"] == length:
+                return entry
+            if "curve" in entry and curve and entry["curve"] == curve:
+                return entry
+            if "length" not in entry and "curve" not in entry:
+                return entry
+
+    raise ValueError(
+        f"No valid combination found for pq_name={pq_name}, trad_name={trad_name}, length={length}, curve={curve}"
+    )

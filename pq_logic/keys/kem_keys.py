@@ -21,6 +21,7 @@ and format.
 - `_check_name(name: str)`: Validate the provided algorithm name.
 """
 
+import importlib.util
 import logging
 import os
 from typing import Optional, Tuple
@@ -29,10 +30,10 @@ from pq_logic.fips.fips203 import ML_KEM
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
 from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
 
-try:
+if importlib.util.find_spec("oqs") is not None:
     import oqs
-except ImportError:
-    logging.info("liboqs support is disabled.")
+else:
+    logging.warning("oqs module is not installed. Some functionalities may be disabled.")
     oqs = None
 
 

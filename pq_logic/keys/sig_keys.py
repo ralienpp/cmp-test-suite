@@ -39,13 +39,11 @@ from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKe
 ##########################
 # ML-DSA
 ##########################
-
-try:
+if importlib.util.find_spec("oqs") is not None:
     import oqs
-except ImportError:
-    logging.info("liboqs support is disabled.")
+else:
+    logging.warning("oqs module is not installed. Some functionalities may be disabled.")
     oqs = None
-
 
 FALCON_NAMES = ["falcon-512", "falcon-1024", "falcon-padded-512", "falcon-padded-1024"]
 ML_DSA_NAMES = ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]

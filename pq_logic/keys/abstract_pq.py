@@ -15,10 +15,11 @@ from cryptography.hazmat.primitives import hashes, serialization
 from pq_logic.keys.abstract_wrapper_keys import PQPublicKey
 from pq_logic.keys.serialize_utils import prepare_enc_key_pem
 
-try:
+if importlib.util.find_spec("oqs") is not None:
     import oqs
-except ImportError:
-    logging.info("PQ support is disabled.")
+else:
+    logging.warning("oqs module is not installed. Some functionalities may be disabled.")
+    oqs = None
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat

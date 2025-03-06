@@ -229,14 +229,15 @@ class PQPublicKey(WrapperPublicKey, ABC):
 
     _public_key_bytes: bytes
 
-    def __init__(self, public_key: bytes, alg_name: str):
+    def __init__(self, alg_name: str, public_key: bytes):
         """Initialize the PQPublicKey.
 
         :param public_key: The public key as bytes.
         :param alg_name: The name of the algorithm.
         """
         self._public_key_bytes = public_key
-        self._name = alg_name
+        self._name, self._other_name = self._check_name(alg_name)
+        self._initialize_key()
 
     def __eq__(self, other: "PQPublicKey") -> bool:
         """Compare two public keys.
@@ -247,6 +248,10 @@ class PQPublicKey(WrapperPublicKey, ABC):
         if type(other) is not type(self):
             return False
         return self._public_key_bytes == other._public_key_bytes
+
+    @abstractmethod
+    def _initialize_key(self):
+        """Initialize the key."""
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name, used in the header of the PEM file."""
@@ -269,9 +274,12 @@ class PQPublicKey(WrapperPublicKey, ABC):
         """Check if the parsed name is correct."""
 
     @classmethod
-    def from_public_bytes(cls, data: bytes, name: bytes) -> "PQPublicKey":
+    def from_public_bytes(cls, data: bytes, name: str) -> "PQPublicKey":
         """Create a public key from bytes."""
-        raise NotImplementedError("The method `from_public_bytes` is not implemented.")
+        key = cls(name, data)
+        if len(data) != key.key_size:
+            raise ValueError(f"Invalid key size. Expected {key.key_size}, but got: {len(data)}")
+        return key
 
     def _get_subject_public_key(self) -> bytes:
         """Return the public key as bytes."""
@@ -288,6 +296,7 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
 
     _seed: Optional[bytes]
     _private_key_bytes: bytes
+    _public_key_bytes: bytes
 
     def __init__(
         self,
@@ -307,10 +316,25 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         self._private_key_bytes = private_bytes
         self._public_key_bytes = public_key
         self._seed = seed
+        self._initialize_key()
 
+    @property
+    def name(self) -> str:
+        """Get the name of the key."""
+        return self._name
 
-    @classmethod
-    def _from_seed(cls, alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, Optional[bytes]]:
+    def _initialize_key(self):
+        """Initialize the key."""
+        # currently must be both keys for liboqs to work.
+        if self._private_key_bytes is not None and self._public_key_bytes is not None:
+            return
+        if self._seed is not None:
+            self._private_key_bytes, self._public_key_bytes, self._seed = self._from_seed(self._name, self._seed)
+            return
+        raise NotImplementedError("The private key can not be initialized without a seed or private key.")
+
+    @staticmethod
+    def _from_seed(alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, bytes]:
         """Generate a key pair from a seed.
 
         :param alg_name: The name of the algorithm.
@@ -338,13 +362,17 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         :return: The correct name and the name of the public key for OQS or other library.
         """
 
+    def get_oid(self) -> univ.ObjectIdentifier:
+        """Get the Object Identifier of the key."""
+        return PQ_NAME_2_OID[self.name]
+
     def _to_one_asym_key(self) -> bytes:
         """Prepare a PyAsn1 OneAsymmetricKey structure."""
         one_asym_key = rfc5958.OneAsymmetricKey()
         # MUST be version 2 otherwise, liboqs will generate a wrong key.
         one_asym_key["version"] = 2
-        one_asym_key["privateKeyAlgorithm"]["algorithm"] = PQ_NAME_2_OID[self.name]
-        one_asym_key["privateKey"] = univ.OctetString(self.private_bytes_raw())
+        one_asym_key["privateKeyAlgorithm"]["algorithm"] = self.get_oid()
+        one_asym_key["privateKey"] = univ.OctetString(self._export_private_key())
         public_key_asn1 = univ.BitString(hexValue=self.public_key().public_bytes_raw().hex()).subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)
         )

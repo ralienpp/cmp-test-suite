@@ -162,8 +162,7 @@ def _get_trad_name(
         trad_name = f"rsa{key_size}"
         if use_pss:
             trad_name += "-pss"
-        else:
-            trad_name += "-pkcs15"
+
     elif isinstance(trad_key, (ed25519.Ed25519PrivateKey, ed25519.Ed25519PublicKey)):
         trad_name = "ed25519"
     elif isinstance(trad_key, (ed448.Ed448PrivateKey, ed448.Ed448PublicKey)):

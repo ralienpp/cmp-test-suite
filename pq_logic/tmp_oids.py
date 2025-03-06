@@ -150,13 +150,13 @@ id_mldsa87_ed448 = univ.ObjectIdentifier(f"{id_CompSig}.33")
 
 PURE_COMPOSITE_NAME_TO_OID = {
     "ml-dsa-44-rsa2048-pss": id_mldsa44_rsa2048_pss,
-    "ml-dsa-44-rsa2048-pkcs15": id_mldsa44_rsa2048_pkcs15,
+    "ml-dsa-44-rsa2048": id_mldsa44_rsa2048_pkcs15,
     "ml-dsa-44-ed25519": id_mldsa44_ed25519,
     "ml-dsa-44-ecdsa-secp256r1": id_mldsa44_ecdsa_p256,
     "ml-dsa-65-rsa3072-pss": id_mldsa65_rsa3072_pss,
-    "ml-dsa-65-rsa3072-pkcs15": id_mldsa65_rsa3072_pkcs15,
+    "ml-dsa-65-rsa3072": id_mldsa65_rsa3072_pkcs15,
     "ml-dsa-65-rsa4096-pss": id_mldsa65_rsa4096_pss,
-    "ml-dsa-65-rsa4096-pkcs15": id_mldsa65_rsa4096_pkcs15,
+    "ml-dsa-65-rsa4096": id_mldsa65_rsa4096_pkcs15,
     "ml-dsa-65-ecdsa-secp384r1": id_mldsa65_ecdsa_p384,
     "ml-dsa-65-ecdsa-brainpoolp256r1": id_mldsa65_ecdsa_brainpool_p256r1,
     "ml-dsa-65-ed25519": id_mldsa65_ed25519,
@@ -169,13 +169,13 @@ PURE_COMPOSITE_SIG_OID_TO_NAME = {y: x for x, y in PURE_COMPOSITE_NAME_TO_OID.it
 
 HASH_COMPOSITE_NAME_TO_OID = {
     "hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
-    "hash-ml-dsa-44-rsa2048-pkcs15": id_hash_mldsa44_rsa2048_pkcs15_sha256,
+    "hash-ml-dsa-44-rsa2048": id_hash_mldsa44_rsa2048_pkcs15_sha256,
     "hash-ml-dsa-44-ed25519": id_hash_mldsa44_ed25519_sha512,
     "hash-ml-dsa-44-ecdsa-secp256r1": id_hash_mldsa44_ecdsa_p256_sha256,
     "hash-ml-dsa-65-rsa3072-pss": id_hash_mldsa65_rsa3072_pss_sha512,
-    "hash-ml-dsa-65-rsa3072-pkcs15": id_hash_mldsa65_rsa3072_pkcs15_sha512,
+    "hash-ml-dsa-65-rsa3072": id_hash_mldsa65_rsa3072_pkcs15_sha512,
     "hash-ml-dsa-65-rsa4096-pss": id_hash_mldsa65_rsa4096_pss_sha512,
-    "hash-ml-dsa-65-rsa4096-pkcs15": id_hash_mldsa65_rsa4096_pkcs15_sha512,
+    "hash-ml-dsa-65-rsa4096": id_hash_mldsa65_rsa4096_pkcs15_sha512,
     "hash-ml-dsa-65-ecdsa-secp384r1": id_hash_mldsa65_ecdsa_p384_sha512,
     "hash-ml-dsa-65-ecdsa-brainpoolp256r1": id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512,
     "hash-ml-dsa-65-ed25519": id_hash_mldsa65_ed25519_sha512,

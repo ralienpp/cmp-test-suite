@@ -41,6 +41,54 @@ CURVE_NAME_2_CONTEXT_NAME = {
 }
 
 
+@not_keyword
+def get_oid_for_chemnpat(
+    pq_key: Union[PQKEMPrivateKey, PQKEMPublicKey],
+    trad_key: Union[ECDHPrivateKey, ECDHPublicKey],
+    curve_name: Optional[str] = None,
+) -> univ.ObjectIdentifier:
+    """Return the OID for a Chempat key combination.
+
+    :param pq_key: The post-quantum key object.
+    :param trad_key: The traditional key object.
+    :param curve_name: The name of the elliptic curve.
+    :return: The Object Identifier.
+    :raises InvalidKeyCombination: If the traditional key type or the post-quantum key type is not supported,
+    or if the Chempat key combination is not supported.
+
+    """
+    if pq_key.name == "sntrup761":
+        pq_name = "sntrup761"
+
+    elif isinstance(pq_key, (McEliecePrivateKey, McEliecePublicKey)):
+        pq_name = pq_key.name.replace("-", "").lower()
+    elif isinstance(pq_key, (MLKEMPrivateKey, MLKEMPublicKey)):
+        pq_name = pq_key.name.upper()
+
+    elif isinstance(pq_key, (FrodoKEMPublicKey, FrodoKEMPrivateKey)):
+        pq_name = pq_key.name
+
+    else:
+        raise InvalidKeyCombination(f"Unsupported post-quantum key type for Chempat.: {pq_key.name}")
+
+    if isinstance(trad_key, (ec.EllipticCurvePrivateKey, ec.EllipticCurvePublicKey)):
+        curve_name = curve_name or trad_key.curve.name
+        trad_name = CURVE_NAME_2_CONTEXT_NAME[curve_name]
+
+    elif isinstance(trad_key, (x25519.X25519PrivateKey, x25519.X25519PublicKey)):
+        trad_name = "X25519"
+
+    elif isinstance(trad_key, (x448.X448PrivateKey, x448.X448PublicKey)):
+        trad_name = "X448"
+    else:
+        raise InvalidKeyCombination(f"Unsupported traditional key type.: {type(trad_key).__name__}")
+
+    try:
+        return CHEMPAT_NAME_2_OID[f"Chempat-{trad_name}-{pq_name}"]
+    except KeyError as e:
+        raise InvalidKeyCombination(f"Unsupported Chempat key combination: Chempat-{trad_name}-{pq_name}") from e
+
+
 def _get_trad_name(trad_key: Union[ECDHPrivateKey, ECDHPrivateKey]) -> str:
     """Return the traditional name to generate the context string"""
     if isinstance(trad_key, (ec.EllipticCurvePrivateKey, ec.EllipticCurvePublicKey)):

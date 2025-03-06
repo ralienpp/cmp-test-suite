@@ -4,16 +4,14 @@
 
 """Utility for preparing and generating post-quantum keys."""
 
-import base64
+import importlib.util
 import logging
-import textwrap
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, Union
 
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 
-from pq_logic.keys.abstract_wrapper_keys import PQPublicKey
-from pq_logic.keys.serialize_utils import prepare_enc_key_pem
+from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
 
 if importlib.util.find_spec("oqs") is not None:
     import oqs
@@ -21,128 +19,8 @@ else:
     logging.warning("oqs module is not installed. Some functionalities may be disabled.")
     oqs = None
 
+
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat
-from pyasn1.codec.der import encoder
-from pyasn1.type import tag, univ
-from pyasn1_alt_modules import rfc5280, rfc5958
-from resources.oidutils import PQ_NAME_2_OID
-
-
-class PQPrivateKey(ABC):
-    """Abstract base class for Post-Quantum Private Keys."""
-
-    @abstractmethod
-    def _check_name(self, name: str):
-        """Check if the parsed name is correct."""
-        pass
-
-    @abstractmethod
-    def _get_key_name(self) -> bytes:
-        """Return the name for the PEM-Header."""
-
-    def __init__(self, alg_name: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None):
-        """Initialize a Post-Quantum Private Key object.
-
-        :param alg_name: The algorithm name.
-        :param private_bytes: The private key as bytes.
-        :param public_key: The public key as bytes.
-        """
-        self._check_name(name=alg_name)
-        self._name = alg_name
-        self._private_key = private_bytes
-        self._public_key_bytes = public_key
-
-    def _one_asym_key(self) -> rfc5958.OneAsymmetricKey:
-        """Prepare a PyAsn1 OneAsymmetricKey structure."""
-        one_asym_key = rfc5958.OneAsymmetricKey()
-        # MUST be version 2 otherwise, liboqs will generate a wrong key.
-        one_asym_key["version"] = 2
-        one_asym_key["privateKeyAlgorithm"]["algorithm"] = PQ_NAME_2_OID[self.name]
-        one_asym_key["privateKey"] = univ.OctetString(self.private_bytes_raw())
-        public_key_asn1 = univ.BitString(hexValue=self.public_key().public_bytes_raw().hex()).subtype(
-            implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)
-        )
-        one_asym_key["publicKey"] = public_key_asn1
-        return one_asym_key
-
-    def private_bytes_raw(self) -> bytes:
-        """Return the private key as raw bytes."""
-        return self._private_key
-
-    def private_bytes(
-        self,
-        encoding: Encoding = Encoding.DER,
-        format: PrivateFormat = PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    ) -> bytes:
-        """Serialize the private key as PEM string.
-
-        Decode the ASN.1 structure and then add the PEM string around. The public key is included.
-
-        :param encoding: The encoding format. Can be `Encoding.Raw` or `Encoding.PEM`.
-                        Defaults to `Raw`.
-        :param format: The private key format. Can be `PrivateFormat.PKCS8`.
-
-        :return: The PEM string.
-        """
-        if not isinstance(encryption_algorithm, serialization.NoEncryption) and encoding == encoding.DER:
-            raise ValueError("Encryption is not supported for DER encoding, only for PEM.")
-
-        if encoding == Encoding.Raw and format == PublicFormat.Raw:
-            return self.private_bytes_raw()
-
-        if format == PrivateFormat.PKCS8:
-            data = encoder.encode(self.to_one_asym_key())
-
-            if encoding == encoding.DER:
-                return data
-
-            if encoding == encoding.PEM and isinstance(encryption_algorithm, serialization.BestAvailableEncryption):
-                password = encryption_algorithm.password.decode("utf-8")
-                return prepare_enc_key_pem(password, data, self._get_key_name())
-
-            if encoding == encoding.PEM:
-                key_name = self._get_key_name()
-                b64_encoded = base64.b64encode(data).decode("utf-8")
-                b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64)).encode("utf-8")
-                pem_data = (
-                    b"-----BEGIN "
-                    + key_name
-                    + b" PRIVATE KEY-----\n"
-                    + b64_encoded
-                    + b"\n-----END "
-                    + key_name
-                    + b" PRIVATE KEY-----\n"
-                )
-                return pem_data
-
-            raise ValueError(f"Unsupported encoding: {encoding}")
-
-        raise ValueError(f"Unsupported format: {format}")
-
-    @property
-    def name(self) -> str:
-        """Return the name of the algorithm."""
-        return self._name.lower()
-
-    @abstractmethod
-    def public_key(self) -> PQPublicKey:
-        """Derive the corresponding public key."""
-
-    def to_one_asym_key(self) -> rfc5958.OneAsymmetricKey:
-        """Create a generic ASN.1 `OneAsymmetricKey` structure."""
-        asn1_obj = rfc5958.OneAsymmetricKey()
-        asn1_obj["version"] = 2
-        algorithm_identifier = rfc5280.AlgorithmIdentifier()
-        algorithm_identifier["algorithm"] = PQ_NAME_2_OID[self.name]
-        asn1_obj["privateKeyAlgorithm"] = algorithm_identifier
-        asn1_obj["privateKey"] = univ.OctetString(self._private_key)
-        public_key_asn1 = univ.BitString(hexValue=self.public_key().public_bytes_raw().hex()).subtype(
-            implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)
-        )
-        asn1_obj["publicKey"] = public_key_asn1
-        return asn1_obj
 
 
 class PQSignaturePublicKey(PQPublicKey, ABC):
@@ -150,34 +28,14 @@ class PQSignaturePublicKey(PQPublicKey, ABC):
 
     _sig_method: Optional["oqs.Signature"]
 
-    def __init__(self, sig_alg: str, public_key: bytes) -> None:  # noqa D107 Missing docstring
-        self.sig_alg = None
-        self._check_name(name=sig_alg)
-        if self.sig_alg is None:
-            self.sig_alg = sig_alg
-        self._initialize(sig_alg=sig_alg, public_key=public_key)
-
-    def _get_subject_public_key(self) -> bytes:
-        """Return the public key as bytes."""
-        return self._public_key_bytes
-
-    def _export_public_key(self) -> bytes:
-        """Return the public key as bytes."""
-        return self._public_key_bytes
-
-    def _initialize(self, sig_alg: str, public_key: bytes) -> None:
-        """Initialize the `PQSignaturePublicKey` object.
-
-        :param sig_alg: The signature algorithm name.
-        :param public_key: The public key as bytes.
-        :return:
-        """
-        self.sig_method = oqs.Signature(self.sig_alg)
-        self._public_key_bytes = public_key
+    def _initialize_key(self) -> None:
+        """Initialize the `PQSignaturePublicKey` object."""
+        self._sig_method = oqs.Signature(self._other_name)
 
     @abstractmethod
     def check_hash_alg(
-        self, hash_alg: Union[None, str, hashes.HashAlgorithm], allow_failure: bool = True
+        self,
+        hash_alg: Union[None, str, hashes.HashAlgorithm],
     ) -> Optional[str]:
         """Check if the hash algorithm is valid and return the name of the hash algorithm.
 
@@ -213,8 +71,21 @@ class PQSignaturePublicKey(PQPublicKey, ABC):
         if is_prehashed:
             raise NotImplementedError("Currently can the pre-hashed data not parsed, in python-liboqs.")
 
-        if not self.sig_method.verify(data, signature, self._public_key_bytes):
-            raise InvalidSignature()
+        try:
+            if ctx != b"":
+                result = self._sig_method.verify_with_ctx_str(data, signature, ctx, self._public_key_bytes)
+            else:
+                result = self._sig_method.verify(data, signature, self._public_key_bytes)
+        except RuntimeError as e:
+            raise InvalidSignature(f"Signature verification failed, for {self.name}.") from e
+
+        if not result:
+            raise InvalidSignature(f"Signature verification failed, for {self.name}.")
+
+    @property
+    def sig_size(self) -> int:
+        """Return the size of the signature."""
+        return self._sig_method.details["length_signature"]
 
 
 class PQSignaturePrivateKey(PQPrivateKey, ABC):
@@ -222,37 +93,11 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
 
     _sig_method: Optional["oqs.Signature"]
 
-    def __init__(
-        self,
-        sig_alg: str,
-        private_bytes: Optional[bytes] = None,
-        public_key: Optional[bytes] = None,
-    ) -> None:
-        """Initialize a Post-Quantum Signature Private Key object.
-
-        :param sig_alg: The signature algorithm name.
-        :param private_bytes: The private key as bytes.
-        :param public_key: The public key as bytes.
-        """
-        self.sig_alg = None
-        self._check_name(name=sig_alg)
-        if self.sig_alg is None:
-            self.sig_alg = sig_alg
-        self._initialize(sig_alg=sig_alg, private_bytes=private_bytes, public_key=public_key)
-
-    def _initialize(
-        self, sig_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None
-    ) -> None:
-        """Initialize the private key and public key bytes.
-
-        :param sig_alg: The signature algorithm name.
-        :param private_bytes: The private key bytes.
-        :param public_key: The public key bytes.
-        :return:
-        """
-        self._sig_method = oqs.Signature(self.sig_alg, secret_key=private_bytes)
-        self._public_key_bytes = public_key or self._sig_method.generate_keypair()
-        self._private_key = private_bytes or self._sig_method.export_secret_key()
+    def _initialize_key(self) -> None:
+        """Initialize the private key and public key bytes."""
+        self._sig_method = oqs.Signature(self._other_name, secret_key=self._private_key_bytes)
+        self._public_key_bytes = self._public_key_bytes or self._sig_method.generate_keypair()
+        self._private_key_bytes = self._private_key_bytes or self._sig_method.export_secret_key()
 
     @abstractmethod
     def public_key(self) -> PQSignaturePublicKey:
@@ -284,17 +129,32 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
         """
         self.check_hash_alg(hash_alg)
 
-        if ctx != b"":
-            raise NotImplementedError("Currently is signed with context not possible with liboqs-python")
-
         if hash_alg is not None:
             raise NotImplementedError("Currently can the hash algorithm not parsed directly.")
 
         if is_prehashed:
             raise NotImplementedError("Currently can the pre-hashed data not parsed, in python-liboqs.")
 
-        signature = self._sig_method.sign(data)
-        return signature
+        if ctx != b"":
+            return self._sig_method.sign_with_ctx_str(data, ctx)
+        return self._sig_method.sign(data)
+
+    @property
+    def sig_size(self) -> int:
+        """Return the size of the signature."""
+        return self._sig_method.details["length_signature"]
+
+    @property
+    def key_size(self) -> int:
+        return len(self._private_key_bytes)
+
+    @classmethod
+    def from_private_bytes(cls, data: bytes, name: str) -> "PQSignaturePrivateKey":
+        """Create a new private key object from the provided bytes."""
+        key = cls(alg_name=name, private_bytes=data)
+        if key.key_size != len(data):
+            raise ValueError(f"Invalid key size expected {key.key_size}, but got: {len(data)}")
+        return key
 
 
 class PQKEMPublicKey(PQPublicKey, ABC):
@@ -302,35 +162,13 @@ class PQKEMPublicKey(PQPublicKey, ABC):
 
     _kem_method: Optional["oqs.KeyEncapsulation"]
 
-    def __init__(self, kem_alg: str, public_key: bytes):
-        """Initialize a KEM public key object.
-
-        :param kem_alg: The KEM algorithm name.
-        :param public_key: The public key as raw bytes.
-
-        :raises ValueError: If an invalid algorithm name is provided.
-        """
-        super().__init__(public_key=public_key, alg_name=kem_alg)
-        self._initialize(public_key=public_key, kem_alg=kem_alg)
-
-    def _initialize(self, kem_alg: str, public_key: bytes):
-        """Initialize the KEM method, defaults to liboqs.
-
-        :param kem_alg: The KEM algorithm name.
-        :param public_key: The public key as raw bytes.
-        """
-        self._check_name(name=kem_alg)
-        self._kem_method = oqs.KeyEncapsulation(self.kem_alg)
-        self._public_key_bytes = public_key
+    def _initialize_key(self):
+        """Initialize the KEM method, defaults to liboqs."""
+        self._kem_method = oqs.KeyEncapsulation(self._other_name)
 
     def _export_public_key(self) -> bytes:
         """Return the public key as bytes."""
         return self._public_key_bytes
-
-    @property
-    def name(self) -> str:
-        """Return the name of the algorithm."""
-        return self.kem_alg.lower()
 
     @property
     def ct_length(self) -> int:
@@ -343,9 +181,12 @@ class PQKEMPublicKey(PQPublicKey, ABC):
         return self._kem_method.details["length_public_key"]
 
     @classmethod
-    def from_public_bytes(cls, data: bytes, name: str):
+    def from_public_bytes(cls, data: bytes, name: str) -> "PQKEMPublicKey":
         """Create a new public key object from the provided bytes."""
-        return cls(kem_alg=name, public_key=data)
+        key = cls(alg_name=name, public_key=data)
+        if key.key_size != len(data):
+            raise ValueError(f"Invalid key size expected {key.key_size}, but got: {len(data)}")
+        return key
 
     def encaps(self) -> Tuple[bytes, bytes]:
         """Perform encapsulation to generate a shared secret.
@@ -369,41 +210,23 @@ class PQKEMPrivateKey(PQPrivateKey, ABC):
 
     _kem_method: Optional["oqs.KeyEncapsulation"]
 
-    def __init__(self, kem_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None):
-        """Initialize a KEM private key object.
-
-        :param kem_alg: The KEM algorithm name.
-        :param private_bytes: The private key as raw bytes.
-        :param oid: The Object Identifier associated with the algorithm name.
-
-        :raises ValueError: If an invalid algorithm name is provided.
-        """
-        super().__init__(alg_name=kem_alg, private_bytes=private_bytes, public_key=public_key)
-        self._initialize(kem_alg, private_bytes, public_key)
-
-    def _initialize(self, kem_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None):
-        self.kem_method = oqs.KeyEncapsulation(self.kem_alg, secret_key=private_bytes)
-        if private_bytes is None:
+    def _initialize_key(self):
+        self.kem_method = oqs.KeyEncapsulation(self._other_name, secret_key=self._private_key_bytes)
+        if self._private_key_bytes is None:
             self._public_key_bytes = self.kem_method.generate_keypair()
-        else:
-            self._public_key_bytes = public_key
-        # MUST first generate a keypair, before the secret key can be exported.
-        self._private_key = private_bytes or self.kem_method.export_secret_key()
 
-    def decaps(self, ciphertext: bytes) -> bytes:
+        # MUST first generate a keypair, before the secret key can be exported.
+        self._private_key_bytes = self._private_key_bytes or self.kem_method.export_secret_key()
+
+    def decaps(self, ct: bytes) -> bytes:
         """Perform decapsulation to retrieve a shared secret.
 
         Use the ciphertext to recover the shared secret corresponding to this private key.
 
-        :param ciphertext: The ciphertext generated during encapsulation.
+        :param ct: The ciphertext generated during encapsulation.
         :return: The shared secret as bytes.
         """
-        return self.kem_method.decap_secret(ciphertext)
-
-    @property
-    def name(self) -> str:
-        """Return the name of the algorithm."""
-        return self.kem_alg.lower()
+        return self.kem_method.decap_secret(ct)
 
     @property
     def ct_length(self) -> int:
@@ -424,10 +247,14 @@ class PQKEMPrivateKey(PQPrivateKey, ABC):
         :return: The private key object.
         :raises ValueError: If the key size does not match the expected size.
         """
-        key = cls(kem_alg=name, private_bytes=data)
+        key = cls(alg_name=name, private_bytes=data)
         if len(data) != key.key_size:
             raise ValueError(f"Invalid private key size for {cls.name}. Expected {key.key_size}, got {len(data)}")
         return key
+
+    @abstractmethod
+    def public_key(self) -> PQKEMPublicKey:
+        """Derive the corresponding public key."""
 
     @property
     def nist_level(self) -> str:

@@ -839,3 +839,30 @@ class ChempatFrodoKEMPrivateKey(ChempatPrivateKey):
         key_size = FrodoKEMPrivateKey(pq_name).key_size
         key = FrodoKEMPrivateKey.from_private_bytes(data[:key_size], name=pq_name)
         return key, data[key_size:]
+
+
+def get_ec_trad_name(trad_key: Union[ECDHPrivateKey, ECDHPublicKey]) -> str:
+    """Return the traditional name to generate the context string"""
+    if isinstance(trad_key, (ec.EllipticCurvePrivateKey, ec.EllipticCurvePublicKey)):
+        name = CURVE_NAME_2_CONTEXT_NAME[trad_key.curve.name]
+    elif isinstance(trad_key, (x448.X448PrivateKey, x448.X448PublicKey)):
+        name = "X448"
+    elif isinstance(trad_key, (x25519.X25519PrivateKey, x25519.X25519PublicKey)):
+        name = "X25519"
+    else:
+        raise ValueError(f"Unsupported key type. Got: {type(trad_key).__name__}")
+    return name
+
+
+def get_trad_key_length(key: Union[ECDHPrivateKey, ECDHPrivateKey, rsa.RSAPrivateKey, rsa.RSAPublicKey]) -> int:
+    """Return the key size of the traditional key.
+
+    :param key: The traditional key for which to get the key size.
+    :return: The key size of the specified key.
+    """
+    if isinstance(key, (rsa.RSAPrivateKey, rsa.RSAPublicKey)):
+        return key.key_size
+    return TRAD_ALG_2_NENC[get_ec_trad_name(key)]
+
+
+TRAD_ALG_2_NENC = {"brainpoolP384": 97, "P256": 65, "brainpoolP256": 65, "X448": 56, "X25519": 32, "P384": 97}

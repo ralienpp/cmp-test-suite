@@ -281,7 +281,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID for the Chempat key."""
-        return get_oid_for_chemnpat(self.pq_key, self.trad_key)
+        return get_oid_for_chemnpat(self._pq_key, self.trad_key)
 
     @classmethod
     def from_public_bytes(cls, data: bytes, name: str) -> "ChempatPublicKey":
@@ -307,7 +307,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
     def ct_length(self) -> int:
         """Return the length of the ciphertext."""
         nenc = TRAD_ALG_2_NENC[get_ec_trad_name(self.trad_key)]
-        return self.pq_key.ct_length + nenc
+        return self._pq_key.ct_length + nenc
 
     @property
     def key_size(self) -> int:
@@ -338,8 +338,8 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         :param private_key: The peer's private key.
         :return: The encapsulated shared secret and ciphertext.
         """
-        self.chempat_kem = ChempatKEM(self.pq_key, private_key)
-        ss, ct = self.chempat_kem.encaps(self.pq_key, self.trad_key)
+        self.chempat_kem = ChempatKEM(self.pq_key, private_key)  # type: ignore
+        ss, ct = self.chempat_kem.encaps(self.pq_key, self.trad_key)  # type: ignore
         logging.info("Chempat: ss: %s, ct: %s", ss.hex(), ct.hex())
         return ss, ct
 
@@ -506,6 +506,16 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
     def name(self) -> str:
         """Return the name of the key."""
         return self.public_key().name
+
+    @property
+    def trad_key(self) -> "ECDHPrivateKey":
+        """Return the traditional key."""
+        return self._trad_key
+
+    @property
+    def pq_key(self) -> "PQKEMPrivateKey":
+        """Return the pq key."""
+        return self._pq_key
 
 
 class ChempatSntrup761PublicKey(ChempatPublicKey):

@@ -3,13 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import unittest
-from datetime import datetime, timedelta
 
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509 import ocsp
-from cryptography.x509.oid import NameOID
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc5280
 
@@ -37,6 +34,11 @@ class TestBuildOCSPResponse(unittest.TestCase):
         cls.certs = [cls.leaf_cert]
 
     def test_build_ocsp_response_good(self):
+        """
+        GIVEN a valid OCSP response with a good status.
+        WHEN checking the OCSP response,
+        THEN the response should be accepted.
+        """
         status = "good"
 
         ocsp_response = build_ocsp_response(

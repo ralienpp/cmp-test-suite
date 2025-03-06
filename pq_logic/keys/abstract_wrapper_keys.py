@@ -31,10 +31,10 @@ from abc import ABC, abstractmethod
 from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, x448, x25519
+from cryptography.hazmat.primitives.asymmetric import ed448, ed25519, rsa, x448, x25519
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat
 from pyasn1.codec.der import decoder, encoder
-from pyasn1.type import univ
+from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc5958
 from resources.oidutils import PQ_NAME_2_OID
 
@@ -44,8 +44,8 @@ from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 # TODO fix and add into the Test-Suite.
 
-HYBRID_TRAD_PUB_COMP = Union["TradKEMPublicKey", ECDHPublicKey, rsa.RSAPublicKey]
-HYBRID_TRAD_PRIV_COMP = Union["TradKEMPrivateKey", ECDHPrivateKey, rsa.RSAPrivateKey]
+HybridTradPubComp = Union["TradKEMPublicKey", ECDHPublicKey, rsa.RSAPublicKey]
+HybridTradPrivComp = Union["TradKEMPrivateKey", ECDHPrivateKey, rsa.RSAPrivateKey]
 
 
 class WrapperPublicKey(ABC):

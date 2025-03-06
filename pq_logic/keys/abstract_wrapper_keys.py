@@ -524,10 +524,6 @@ class HybridKEMPrivateKey(HybridPrivateKey, ABC):
         """
 
     @abstractmethod
-    def kem_combiner(self, **kwargs) -> bytes:
-        """Combine the traditional and post-quantum decapsulation outputs, accoring to the algorithm."""
-
-    @abstractmethod
     def public_key(self) -> HybridKEMPublicKey:
         """Derive the public key from the private key."""
 

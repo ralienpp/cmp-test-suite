@@ -54,28 +54,9 @@ ML_KEM_NAMES = ["ml-kem-512", "ml-kem-768", "ml-kem-1024"]
 class MLKEMPublicKey(PQKEMPublicKey):
     """Represents an ML-KEM public key."""
 
-    def _get_subject_public_key(self) -> bytes:
-        """Return the public key bytes."""
-        return self._public_key_bytes
-
-    def _initialize(self, kem_alg: str, public_key: bytes):
-        """Initialize the ML-KEM public key.
-
-        :param kem_alg: Algorithm name to use (e.g., "ml-kem-512").
-        :param public_key: Public key as raw bytes.
-        """
-        if oqs is not None:
-            super()._initialize(kem_alg=kem_alg, public_key=public_key)
-        else:
-            self._check_name(kem_alg)
-            self.kem_alg = kem_alg
-            self.ml_class = ML_KEM(kem_alg)
-            self._public_key_bytes = public_key
-
-    @property
-    def name(self) -> str:
-        """Return the algorithm name."""
-        return self.kem_alg.lower()
+    def _initialize_key(self):
+        """Initialize the ML-KEM public key."""
+        self.ml_class = ML_KEM(self.name)
 
     def _check_name(self, name: str):
         """Validate the provided algorithm name.
@@ -85,15 +66,7 @@ class MLKEMPublicKey(PQKEMPublicKey):
         """
         if name.lower() not in ML_KEM_NAMES:
             raise ValueError(f"Invalid ML-KEM algorithm name: {name}. Supported options: {ML_KEM_NAMES}")
-        self.kem_alg = name.upper()
-
-    @classmethod
-    def from_public_bytes(cls, data: bytes, name: str) -> "MLKEMPublicKey":
-        """Create an ML-KEM public key from raw bytes."""
-        key = cls(kem_alg=name, public_key=data)
-        if key.key_size != len(data):
-            raise ValueError(f"Invalid key size expected {key.key_size}, but got: {len(data)}")
-        return key
+        return name, name.upper()
 
     def encaps(self) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using the public key."""
@@ -117,6 +90,11 @@ class MLKEMPublicKey(PQKEMPublicKey):
         """Get the claimed NIST level."""
         return {"ml-kem-768": 3, "ml-kem-512": 1, "ml-kem-1024": 5}[self.name]
 
+    @classmethod
+    def from_public_bytes(cls, data: bytes, name: str) -> "MLKEMPublicKey":
+        """Load an ML-KEM public key from raw bytes."""
+        return super().from_public_bytes(data, name)  # type: ignore
+
 
 class MLKEMPrivateKey(PQKEMPrivateKey):
     """Represents an ML-KEM private key.
@@ -124,30 +102,16 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
     This class provides functionality for validating, managing, and using ML-KEM private keys.
     """
 
-    def _initialize(self, kem_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None):
-        """Initialize the ML-KEM private key.
+    def _initialize_key(self):
+        """Initialize the ML-KEM private key."""
+        self.ml_class = ML_KEM(self.name)
 
-        :param kem_alg: Algorithm name to use (e.g., "ml-kem-512").
-        :param private_bytes: Private key as raw bytes.
-        :param public_key: Public key as raw bytes.
-        """
-        if oqs is not None:
-            super()._initialize(kem_alg=kem_alg, private_bytes=private_bytes, public_key=public_key)
-        else:
-            logging.info("ML-DSA Key generation is done with pure python.")
-            self._check_name(kem_alg)
-            self.kem_alg = kem_alg
-            self.ml_class = ML_KEM(kem_alg)
-            self._seed = os.urandom(64)
+        if self._private_key_bytes is None and self._public_key_bytes is None:
+            self._seed = self._seed or os.urandom(64)
+            d, z = self._seed[:32], self._seed[32:]
+            self._public_key_bytes, self._private_key_bytes = self.ml_class.keygen_internal(d=d, z=z)
 
-            if private_bytes is None:
-                d, z = self._seed[:32], self._seed[32:]
-                self._public_key_bytes, self._private_key = self.ml_class.keygen_internal(d=d, z=z)
-            else:
-                self._private_key = private_bytes
-                self._public_key_bytes = public_key
-
-    def _get_key_name(self) -> bytes:
+    def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"ML-KEM"
 
@@ -159,15 +123,7 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         """
         if name not in ML_KEM_NAMES:
             raise ValueError(f"Invalid ML-KEM algorithm name: {name}. Supported options: {ML_KEM_NAMES}")
-        self.kem_alg = name.upper()
-
-    @property
-    def name(self) -> str:
-        """Get the algorithm name for this private key.
-
-        :return: The name of the algorithm (e.g., "ml-kem-512").
-        """
-        return self.kem_alg.lower()
+        return name, name.upper()
 
     def public_key(self) -> MLKEMPublicKey:
         """Derive the corresponding ML-KEM public key from this private key.
@@ -179,8 +135,7 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
             # if a private key is parsed, the public key is not set.
             k = {"ml-kem-768": 3, "ml-kem-512": 2, "ml-kem-1024": 4}[self.name]
             self._public_key_bytes = self.private_bytes_raw()[384 * k : 768 * k + 32]
-
-        return MLKEMPublicKey(public_key=self._public_key_bytes, kem_alg=self.kem_alg)
+        return MLKEMPublicKey(public_key=self._public_key_bytes, alg_name=self.name)
 
     @classmethod
     def generate(cls, kem_alg: str = "ml-kem-512") -> "MLKEMPrivateKey":
@@ -190,12 +145,10 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         :param kem_alg: Algorithm name to use (default: "ml-kem-512").
         :return: An instance of `MLKEMPrivateKey`.
         """
-        if kem_alg not in ["ml-kem-512", "ml-kem-768", "ml-kem-1024"]:
-            raise ValueError(
-                f"Invalid ML-KEM algorithm name: {kem_alg}."
-                f"Supported options: ['ml-kem-512', 'ml-kem-768', 'ml-kem-1024']"
-            )
-        return MLKEMPrivateKey(kem_alg=kem_alg)
+        if kem_alg not in ML_KEM_NAMES:
+            _name = ", ".join(ML_KEM_NAMES)
+            raise ValueError(f"Invalid ML-KEM algorithm name: {kem_alg}.Supported options: {_name}")
+        return MLKEMPrivateKey(alg_name=kem_alg)
 
     @classmethod
     def from_private_bytes(cls, data: bytes, name: str) -> "MLKEMPrivateKey":
@@ -207,9 +160,9 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         :return: An instance of `MLKEMPublicKey`.
         """
         if len(data) == 64:
-            return cls.key_gen(name, data[:32], data[32:])
+            return cls.from_seed(alg_name=name, seed=data)
 
-        key = cls(kem_alg=name, private_bytes=data)
+        key = cls(alg_name=name, private_bytes=data)
         if key.key_size != len(data):
             raise ValueError(f"Invalid key size expected {key.key_size}, but got: {len(data)}")
         return key
@@ -224,6 +177,10 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
             return super().decaps(ct)
 
         return self.ml_class.decaps_internal(dk=self._private_key, c=ct)
+        try:
+            return self.ml_class.decaps_internal(dk=self._private_key_bytes, c=ct)
+        except IndexError as e:
+            raise ValueError("Invalid ciphertext.") from e
 
     @property
     def ct_length(self) -> int:
@@ -240,19 +197,19 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         """Get the claimed NIST level."""
         return {"ml-kem-768": 3, "ml-kem-512": 1, "ml-kem-1024": 5}[self.name]
 
-    @classmethod
-    def key_gen(cls, name: str, d: bytes, z: bytes) -> "MLKEMPrivateKey":
-        """Generate a new ML-KEM private key.
+    @staticmethod
+    def _from_seed(alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, bytes]:
+        """Generate a new ML-KEM private key from a seed.
 
-        :param name: The algorithm name (e.g., "ml-kem-512").
-        :param d: The random value d.
-        :param z: The random value z.
-        :return: The private key.
+        :param alg_name: The algorithm name (e.g., "ml-kem-512").
+        :param seed: The seed to use for key generation.
+        :return: The private key, public key, and seed.
         """
-        ek, dk = ML_KEM(name).keygen_internal(d=d, z=z)
-        key = MLKEMPrivateKey(kem_alg=name, private_bytes=dk, public_key=ek)
-        key._seed = d + z
-        return key
+        if len(seed) != 64:
+            raise ValueError(f"Invalid seed length. Expected 64 bytes. Got: {len(seed)}")
+
+        ek, dk = ML_KEM(alg_name).keygen_internal(d=seed[:32], z=seed[32:])
+        return dk, ek, seed
 
 
 ##########################

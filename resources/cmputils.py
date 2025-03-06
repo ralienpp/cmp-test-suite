@@ -790,6 +790,7 @@ def _prepare_poposigningkey(
     signature: Optional[bytes] = None,
     sender: Optional[Union[dict, str]] = None,
     alg_oid: Optional[univ.ObjectIdentifier] = None,
+    alg_id: Optional[rfc9480.AlgorithmIdentifier] = None,
     hash_alg: Optional[str] = None,
 ):
     """Prepare the `POPOSigningKey` structure.
@@ -798,6 +799,7 @@ def _prepare_poposigningkey(
     :param signature: The signature of the `CertRequest` to include.
     :param sender: The sender information for `POPOSigningKeyInput`.
     :param alg_oid: The algorithm OID (if not provided, derived from signing_key and hash_alg).
+    :param alg_id: The algorithm identifier to use.
     :param hash_alg: The hash algorithm used for signing.
     :return: A populated `POPOSigningKey` object.
     """
@@ -815,13 +817,14 @@ def _prepare_poposigningkey(
             "determine the algorithm identifier for the signature."
         )
 
-    if isinstance(signing_key, AbstractCompositeSigPrivateKey):
-        alg_oid = signing_key.get_oid()
-
-    elif alg_oid is None:
+    if alg_oid is None and alg_id is None:
         alg_oid = oid_mapping.get_alg_oid_from_key_hash(signing_key, hash_alg=hash_alg)  # type: ignore
 
-    popo_key["algorithmIdentifier"]["algorithm"] = alg_oid
+    if alg_oid is not None:
+        popo_key["algorithmIdentifier"]["algorithm"] = alg_oid
+
+    if alg_id is not None:
+        popo_key["algorithmIdentifier"] = alg_id
 
     return popo_key
 

@@ -287,13 +287,14 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
     """Post-Quantum Private Key class."""
 
     _seed: Optional[bytes]
+    _private_key_bytes: bytes
 
     def __init__(
-        self,
-        alg_name: str,
-        private_bytes: Optional[bytes] = None,
-        public_key: Optional[bytes] = None,
-        seed: Optional[bytes] = None,
+            self,
+            alg_name: str,
+            private_bytes: Optional[bytes] = None,
+            public_key: Optional[bytes] = None,
+            seed: Optional[bytes] = None,
     ):
         """Initialize the PQPrivateKey.
 
@@ -302,8 +303,6 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         :param public_key: The public key as bytes.
         :param seed: The seed used to generate the key pair.
         """
-        alg_name, name = self._check_name(alg_name)
-
         if private_bytes is None and public_key is None:
             private_bytes, public_key, seed = self._from_seed(alg_name, seed)
         elif private_bytes is None or public_key is None:
@@ -311,7 +310,6 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
 
         self._private_key_bytes = private_bytes
         self._public_key_bytes = public_key
-        self._name = name
         self._seed = seed
 
     @classmethod
@@ -342,7 +340,19 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         :param name: The name to check.
         :return: The correct name and the name of the public key for OQS or other library.
         """
-        pass
+
+    def _to_one_asym_key(self) -> bytes:
+        """Prepare a PyAsn1 OneAsymmetricKey structure."""
+        one_asym_key = rfc5958.OneAsymmetricKey()
+        # MUST be version 2 otherwise, liboqs will generate a wrong key.
+        one_asym_key["version"] = 2
+        one_asym_key["privateKeyAlgorithm"]["algorithm"] = PQ_NAME_2_OID[self.name]
+        one_asym_key["privateKey"] = univ.OctetString(self.private_bytes_raw())
+        public_key_asn1 = univ.BitString(hexValue=self.public_key().public_bytes_raw().hex()).subtype(
+            implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1)
+        )
+        one_asym_key["publicKey"] = public_key_asn1
+        return encoder.encode(one_asym_key)
 
     def private_bytes_raw(self) -> bytes:
         """Return the private key as raw bytes."""
@@ -352,13 +362,13 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         """Export the private key as bytes."""
         return self._seed or self._private_key_bytes
 
-    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
+    def get_oid(self) -> univ.ObjectIdentifier:
         """Get the Object Identifier of the key."""
         return PQ_NAME_2_OID[self.name]
 
+    @abstractmethod
     def public_key(self) -> PQPublicKey:
         """Get the public key."""
-        return PQPublicKey(self._public_key_bytes, self._name)
 
 
 class TradKEMPublicKey(WrapperPublicKey, ABC):

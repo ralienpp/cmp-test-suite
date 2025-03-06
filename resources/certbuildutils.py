@@ -12,7 +12,6 @@ from typing import Any, Iterable, List, Optional, Sequence, Tuple, Union
 import pyasn1.error
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey
 from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, get_oid_cms_composite_signature
 from pq_logic.tmp_oids import id_rsa_kem_spki
@@ -99,11 +98,11 @@ def prepare_validity(  # noqa D417 undocumented-param
 
 @keyword(name="Prepare Signature AlgorithmIdentifier")
 def prepare_sig_alg_id(  # noqa D417 undocumented-param
-        signing_key: PrivateKeySig,
-        hash_alg: str = "sha256",
-        use_rsa_pss: bool = False,
-        use_pre_hash: bool = False,
-        add_params_rand_val: bool = False,
+    signing_key: PrivateKeySig,
+    hash_alg: str = "sha256",
+    use_rsa_pss: bool = False,
+    use_pre_hash: bool = False,
+    add_params_rand_val: bool = False,
 ) -> rfc9480.AlgorithmIdentifier:
     """Prepare the AlgorithmIdentifier for the signature algorithm based on the key and hash algorithm.
 
@@ -713,6 +712,13 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
     | ${signed_cert}= | Sign Cert | ${signing_key} | ${cert} | bad_sig=True |
 
     """
+    cert["signatureAlgorithm"] = prepare_sig_alg_id(
+        signing_key=signing_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        use_pre_hash=use_pre_hash,
+    )
+    cert["tbsCertificate"]["signature"] = cert["signatureAlgorithm"]
     der_tbs_cert = encoder.encode(cert["tbsCertificate"])
 
     signature = cryptoutils.sign_data(
@@ -726,19 +732,13 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
     logging.info("Certificate signature: %s", signature.hex())
 
     if bad_sig:
-        if isinstance(signing_key, AbstractCompositeSigPrivateKey):
+        if isinstance(signing_key, CompositeSigCMSPrivateKey):
             signature = utils.manipulate_composite_sig(signature)
         else:
             signature = utils.manipulate_first_byte(signature)
         logging.info("Modified certificate signature: %s", signature.hex())
 
     cert["signature"] = univ.BitString.fromOctetString(signature)
-    cert["signatureAlgorithm"] = prepare_sig_alg_id(
-        signing_key=signing_key,
-        hash_alg=hash_alg,
-        use_rsa_pss=use_rsa_pss,
-        use_pre_hash=use_pre_hash,
-    )
 
     return cert
 

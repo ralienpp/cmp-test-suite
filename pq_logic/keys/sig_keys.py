@@ -21,9 +21,13 @@ and format.
 - `_check_name(name: str)`: Validate the provided algorithm name.
 """
 
+##########################
+# ML-DSA
+##########################
+import importlib.util
 import logging
 import os
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
@@ -36,9 +40,6 @@ from pq_logic.fips.fips204 import ML_DSA
 from pq_logic.fips.fips205 import SLH_DSA, integer_to_bytes
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 
-##########################
-# ML-DSA
-##########################
 if importlib.util.find_spec("oqs") is not None:
     import oqs
 else:
@@ -52,24 +53,15 @@ ML_DSA_NAMES = ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]
 class MLDSAPublicKey(PQSignaturePublicKey):
     """Represent an ML-DSA public key."""
 
-    def _initialize(self, sig_alg: str, public_key: bytes) -> None:
-        """Initialize the ML-DSA public key.
-
-        :param sig_alg: The signature algorithm name.
-        :param public_key: The public key bytes.
-        :return: The initialized ML-DSA public key.
-        """
-        self._check_name(sig_alg)
-        self.ml_class = ML_DSA(sig_alg)
-        self._public_key_bytes = public_key
+    def _initialize_key(self) -> None:
+        """Initialize the ML-DSA public key."""
+        self.ml_class = ML_DSA(self.name)
 
     @property
     def sig_size(self) -> int:
         """Return the size of the signature."""
-        if oqs is None:
-            sig_size = {"ml-dsa-44": 2420, "ml-dsa-65": 3309, "ml-dsa-87": 4627}
-            return sig_size[self.name]
-        return self.sig_method.details["length_signature"]
+        sig_size = {"ml-dsa-44": 2420, "ml-dsa-65": 3309, "ml-dsa-87": 4627}
+        return sig_size[self.name]
 
     @property
     def key_size(self) -> int:
@@ -108,19 +100,12 @@ class MLDSAPublicKey(PQSignaturePublicKey):
 
             if not is_prehashed:
                 data = compute_hash(hash_alg, data)
-            else:
-                data = data
 
             mp = b"\x01" + ml_.integer_to_bytes(len(ctx), 1) + ctx + oid + data
             sig = ml_.verify_internal(pk=self._public_key_bytes, mp=mp, sig=signature)
 
         if not sig:
             raise InvalidSignature()
-
-    @property
-    def name(self) -> str:
-        """Return the name of the algorithm."""
-        return self.sig_alg.lower()
 
     def check_hash_alg(self, hash_alg: Optional[str], allow_failure: bool = True) -> Optional[str]:
         """Check if the hash algorithm is valid.
@@ -137,12 +122,12 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         if hash_alg not in [None, "sha512"]:
             if not allow_failure:
                 raise ValueError(f"The provided hash algorithm is not supported for ML-DSA. Provided: {hash_alg}")
-            logging.info(f"{self.name} does not support the hash algorithm: {hash_alg}")
+            logging.info("%s does not support the hash algorithm: %s", self.name, hash_alg)
             return None
 
         return hash_alg
 
-    def _check_name(self, name: str):
+    def _check_name(self, name: str) -> Tuple[str, str]:
         """Check if the parsed name is valid.
 
         :param name: The name to check.
@@ -151,7 +136,7 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         if name not in ML_DSA_NAMES:
             raise ValueError(f"Invalid signature algorithm name provided: {name}.")
 
-        self.sig_alg = name.upper()
+        return name, name.upper()
 
     @classmethod
     def from_public_bytes(cls, data: bytes, name: str) -> "MLDSAPublicKey":
@@ -160,10 +145,9 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         :param data: The byte string to create the public key from.
         :param name: The name of the signature algorithm.
         """
-        key = cls(sig_alg=name, public_key=data)
+        key = MLDSAPublicKey(alg_name=name, public_key=data)
         if key.key_size != len(data):
             raise ValueError(f"Invalid public key size. Expected: {key.key_size}, got: {len(data)}")
-
         return key
 
 
@@ -186,49 +170,59 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         self.sig_alg = sig_alg
         self.ml_class = ML_DSA(sig_alg)
         self._seed = os.urandom(32)
+    def _initialize_key(self) -> None:
+        """Initialize the ML-DSA private key."""
+        self.ml_class = ML_DSA(self.name)
 
-        if private_bytes is None:
-            self._public_key, self._private_key = self.ml_class.keygen_internal(xi=self._seed)
+        if self._private_key_bytes is None and self._public_key_bytes is None:
+            self._seed = self._seed or os.urandom(32)
+            self._public_key_bytes, self._private_key_bytes = self.ml_class.keygen_internal(xi=self._seed)
 
+        elif self._public_key_bytes is None and self._private_key_bytes is not None:
+            self._public_key_bytes = self.derive_public_key_from_secret_key(sk=self._private_key_bytes)
         else:
-            self._private_key = private_bytes
-            self._public_key = public_key
+            raise ValueError("Invalid key initialization")
+
+    @staticmethod
+    def _from_seed(alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, bytes]:
+        """Generate a ML-DSA private key from the seed."""
+        _ml_class = ML_DSA(alg_name)
+        if seed is None:
+            seed = os.urandom(32)
+
+        _public_key, _private_key = ML_DSA(alg_name).keygen_internal(xi=seed)
+        return _private_key, _public_key, seed
 
     @classmethod
-    def key_gen(cls, name: str, seed: bytes = None):
+    def from_seed(cls, alg_name: str, seed: bytes = None) -> "MLDSAPrivateKey":
         """Generate a MLDSAPrivateKey.
 
-        :param name: The name of the ML-DSA parameter set (e.g., "ml-dsa-44").
+        :param alg_name: The name of the ML-DSA parameter set (e.g., "ml-dsa-44").
         :param seed: The seed to use for the key generation. Defaults to `None`.
         (will generate a random 32-bytes, seed if not provided).
         :return: The generated MLDSAPrivateKey.
         """
         if seed is None:
             seed = os.urandom(32)
+        return cls(alg_name=alg_name, seed=seed)
 
-        _public_key, _private_key = ML_DSA(name).keygen_internal(xi=seed)
-        return cls(sig_alg=name, private_bytes=_private_key, public_key=_public_key)
-
-    @staticmethod
-    def from_private_bytes(data: bytes, name: str) -> "MLDSAPrivateKey":
+    @classmethod
+    def from_private_bytes(cls, data: bytes, name: str) -> "MLDSAPrivateKey":
         """Create a private key from the given byte string.
 
         :param data: The byte string to create the private key from.
         :param name: The name of the signature algorithm.
         """
         if len(data) == 32:
-            _public_key, _private_key = ML_DSA(name).keygen_internal(xi=data)
-            key = MLDSAPrivateKey(sig_alg=name, private_bytes=_private_key, public_key=_public_key)
-            key._seed = data
-            return key
+            return cls.from_seed(alg_name=name, seed=data)
 
-        key = MLDSAPrivateKey(sig_alg=name, private_bytes=data)
+        key = cls(alg_name=name, private_bytes=data)
         if key.key_size != len(data):
             raise ValueError(f"Invalid private key size. Expected: {key.key_size}, got: {len(data)}")
 
         return key
 
-    def _get_key_name(self) -> bytes:
+    def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"ML-DSA"
 
@@ -237,18 +231,13 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         """Generate a MLDSAPrivateKey."""
         return cls(name)
 
-    @property
-    def name(self) -> str:
-        """Return the name of the key."""
-        return self.sig_alg.lower()
-
     def _check_name(self, name: str):
         """Check if the name is valid."""
         name = name.lower()
         if name not in ML_DSA_NAMES:
             raise ValueError(f"Invalid signature algorithm name provided.: {name}")
 
-        self.sig_alg = name
+        return name, name.upper()
 
     @property
     def key_size(self) -> int:
@@ -256,12 +245,18 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         key_size = {"ml-dsa-44": 2560, "ml-dsa-65": 4032, "ml-dsa-87": 4896}
         return key_size[self.name]
 
+    @property
+    def sig_size(self) -> bytes:
+        """Return the size of the signature."""
+        sig_size = {"ml-dsa-44": 2420, "ml-dsa-65": 3309, "ml-dsa-87": 4627}
+        return sig_size[self.name]
+
     def public_key(self) -> MLDSAPublicKey:
         """Derive the corresponding public key.
 
         :return: An `MLDSAPublicKey` instance.
         """
-        return MLDSAPublicKey(sig_alg=self.sig_alg, public_key=self._public_key)
+        return MLDSAPublicKey(alg_name=self.name, public_key=self._public_key_bytes)
 
     def sign(
         self,
@@ -283,9 +278,9 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         if len(ctx) > 255:
             raise ValueError(f"The context length is longer then 255 bytes.Got: {len(ctx)}")
 
-        elif hash_alg is None:
+        if hash_alg is None:
             ml_ = fips204.ML_DSA(self.name)
-            sig = ml_.sign(sk=self.private_bytes_raw(), m=data, ctx=ctx)
+            sig = ml_.sign(sk=self._private_key_bytes, m=data, ctx=ctx)
         else:
             ml_ = fips204.ML_DSA(self.name)
             hash_alg = self.check_hash_alg(hash_alg=hash_alg)
@@ -297,7 +292,7 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
                 pre_hashed = data
 
             mp = b"\x01" + ml_.integer_to_bytes(len(ctx), 1) + ctx + oid + pre_hashed
-            sig = ml_.sign_internal(self._private_key, mp, os.urandom(32))
+            sig = ml_.sign_internal(self._private_key_bytes, mp, os.urandom(32))
 
         if not sig:
             raise ValueError("Could not sign the data with ML-DSA")

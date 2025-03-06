@@ -121,7 +121,7 @@ class WrapperPublicKey(BaseKey):
         return encoder.encode(spki)
 
     def public_bytes(
-            self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
+        self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
     ) -> Union[bytes, str]:
         """Get the serialized public key in bytes format.
 
@@ -152,9 +152,9 @@ class WrapperPublicKey(BaseKey):
             b64_encoded = base64.b64encode(data).decode("utf-8")
             b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
             pem = (
-                    f"-----BEGIN {self._get_header_name()} PUBLIC KEY-----\n"
-                    + b64_encoded
-                    + f"\n-----END {self._get_header_name()} PUBLIC KEY-----\n"
+                f"-----BEGIN {self._get_header_name()} PUBLIC KEY-----\n"
+                + b64_encoded
+                + f"\n-----END {self._get_header_name()} PUBLIC KEY-----\n"
             )
             return pem
 
@@ -184,10 +184,10 @@ class WrapperPrivateKey(BaseKey):
         return encoder.encode(data)
 
     def private_bytes(
-            self,
-            encoding: Encoding = Encoding.PEM,
-            format: PrivateFormat = PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
+        self,
+        encoding: Encoding = Encoding.PEM,
+        format: PrivateFormat = PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
     ) -> bytes:
         """Get the serialized private key in bytes format.
 
@@ -215,9 +215,9 @@ class WrapperPrivateKey(BaseKey):
             b64_encoded = base64.b64encode(data).decode("utf-8")
             b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
             pem = (
-                    f"-----BEGIN {self._get_header_name()} PRIVATE KEY-----\n"
-                    + b64_encoded
-                    + f"\n-----END {self._get_header_name()} PRIVATE KEY-----\n"
+                f"-----BEGIN {self._get_header_name()} PRIVATE KEY-----\n"
+                + b64_encoded
+                + f"\n-----END {self._get_header_name()} PRIVATE KEY-----\n"
             )
             return pem.encode("utf-8")
 
@@ -290,11 +290,11 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
     _private_key_bytes: bytes
 
     def __init__(
-            self,
-            alg_name: str,
-            private_bytes: Optional[bytes] = None,
-            public_key: Optional[bytes] = None,
-            seed: Optional[bytes] = None,
+        self,
+        alg_name: str,
+        private_bytes: Optional[bytes] = None,
+        public_key: Optional[bytes] = None,
+        seed: Optional[bytes] = None,
     ):
         """Initialize the PQPrivateKey.
 
@@ -303,14 +303,11 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         :param public_key: The public key as bytes.
         :param seed: The seed used to generate the key pair.
         """
-        if private_bytes is None and public_key is None:
-            private_bytes, public_key, seed = self._from_seed(alg_name, seed)
-        elif private_bytes is None or public_key is None:
-            raise ValueError("Both private and public key must be provided or none of them.")
-
+        self._name, self._other_name = self._check_name(alg_name)
         self._private_key_bytes = private_bytes
         self._public_key_bytes = public_key
         self._seed = seed
+
 
     @classmethod
     def _from_seed(cls, alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, Optional[bytes]]:
@@ -598,7 +595,7 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         return encoder.encode(data)
 
     def to_spki(
-            self, use_pss: bool = False, pre_hash: bool = False, use_2_spki: bool = False
+        self, use_pss: bool = False, pre_hash: bool = False, use_2_spki: bool = False
     ) -> rfc5280.SubjectPublicKeyInfo:
         """Convert CompositePublicKey to a SubjectPublicKeyInfo structure.
 
@@ -618,7 +615,7 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         return spki
 
     def public_bytes(
-            self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
+        self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
     ) -> Union[bytes, str]:
         """Get the serialized public key in bytes format.
 

@@ -20,12 +20,12 @@ from pq_logic.hybrid_structures import (
     CompositeSignaturePublicKeyAsn1,
 )
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePublicKey
-from pq_logic.keys.composite_sig import (
-    CompositeSigCMSPublicKey,
-)
 from pq_logic.keys.composite_kem import (
     CompositeDHKEMRFC9180PublicKey,
     CompositeKEMPublicKey,
+)
+from pq_logic.keys.composite_sig import (
+    CompositeSigCMSPublicKey,
 )
 from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.keys.kem_keys import FrodoKEMPublicKey, MLKEMPublicKey

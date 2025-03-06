@@ -387,10 +387,6 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         """Export the private key as bytes."""
         return self._seed or self._private_key_bytes
 
-    def get_oid(self) -> univ.ObjectIdentifier:
-        """Get the Object Identifier of the key."""
-        return PQ_NAME_2_OID[self.name]
-
     @abstractmethod
     def public_key(self) -> PQPublicKey:
         """Get the public key."""

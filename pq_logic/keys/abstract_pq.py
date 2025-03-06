@@ -146,6 +146,7 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
 
     @property
     def key_size(self) -> int:
+        """Return the size of the private key."""
         return len(self._private_key_bytes)
 
     @classmethod

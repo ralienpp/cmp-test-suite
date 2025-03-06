@@ -4,33 +4,22 @@
 
 """Defines the keys-typings for newly created wrapper keys."""
 
-from typing import Sequence, Union
+from typing import Iterable, Union
 
 from pyasn1_alt_modules import rfc9480
 from resources.typingutils import PrivateKeySig, PublicKeySig
 
-from pq_logic.keys.abstract_composite import (
-    AbstractCompositeKEMPrivateKey,
-    AbstractCompositeKEMPublicKey,
-    AbstractCompositeSigPrivateKey,
-    AbstractCompositeSigPublicKey,
-)
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
-from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
+from pq_logic.keys.abstract_wrapper_keys import HybridKEMPrivateKey, HybridKEMPublicKey, HybridPublicKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
-
-HybridKEMPrivateKey = Union[AbstractCompositeKEMPrivateKey, AbstractHybridRawPrivateKey]
-HybridKEMPublicKey = Union[AbstractHybridRawPublicKey, AbstractCompositeKEMPublicKey]
 
 KEMPrivateKey = Union[PQKEMPrivateKey, HybridKEMPrivateKey, RSADecapKey]
 KEMPublicKey = Union[PQKEMPublicKey, HybridKEMPublicKey, RSAEncapKey]
 
-HybridPublicKey = Union[HybridKEMPublicKey, AbstractCompositeSigPublicKey]
+HybridPublicKey = HybridPublicKey
 
-HybridSignKey = Union[AbstractCompositeSigPrivateKey]
-HybridVerifyKey = Union[AbstractCompositeSigPublicKey]
-CertOrCerts = Union[rfc9480.CMPCertificate, Sequence[rfc9480.CMPCertificate]]
+CertOrCerts = Union[rfc9480.CMPCertificate, Iterable[rfc9480.CMPCertificate]]
 
 # Type for all keys which are allowed to verify signatures.
 VerifyKey = Union[PQSignaturePublicKey, PublicKeySig, CompositeSigCMSPublicKey]

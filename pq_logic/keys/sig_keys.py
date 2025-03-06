@@ -326,28 +326,18 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
 class SLHDSAPublicKey(PQSignaturePublicKey):
     """Represent an SLH-DSA public key."""
 
-    def _initialize(self, sig_alg: str, public_key: bytes) -> None:
-        """Initialize the SLH-DSA public key.
+    def _get_header_name(self) -> bytes:
+        """Return the algorithm name."""
+        return b"SLH-DSA"
 
-        :param sig_alg: The signature algorithm name.
-        :param public_key: The public key bytes.
-        :return: The initialized SLH-DSA public key.
-        """
-        self.sig_alg = sig_alg.replace("_", "-")
-        self._slh_class: SLH_DSA = fips205.SLH_DSA_PARAMS[self.sig_alg]
-        self._public_key_bytes = public_key
+    def _initialize_key(self) -> None:
+        """Initialize the SLH-DSA public key."""
+        _other = self.name.replace("_", "-")
+        self._slh_class: SLH_DSA = fips205.SLH_DSA_PARAMS[_other]
 
-    @property
-    def name(self):
-        """Return the name of the key."""
-        return self.sig_alg
-
-    def _check_name(self, name: str):
-        """Check if the parsed name is valid.
-
-        :param name: The name to check.
-        """
-        pass
+    def _check_name(self, name: str) -> Tuple[str, str]:
+        """Check if the name is valid."""
+        return name, name.replace("_", "-")
 
     def check_hash_alg(self, hash_alg: Union[None, str, hashes.HashAlgorithm]) -> Optional[str]:
         """Check if the hash algorithm is valid to be used with SLH-DSA.
@@ -364,7 +354,7 @@ class SLHDSAPublicKey(PQSignaturePublicKey):
         alg = self.name + "-" + hash_alg
         if SLH_DSA_NAME_2_OID_PRE_HASH.get(alg):
             return hash_alg
-        logging.info(f"{self.name} does not support the hash algorithm: {hash_alg}")
+        logging.info("%s does not support the hash algorithm: %s", self.name, hash_alg)
         return None
 
     def verify(
@@ -387,55 +377,87 @@ class SLHDSAPublicKey(PQSignaturePublicKey):
         hash_alg = self.check_hash_alg(hash_alg=hash_alg)
         if hash_alg is None:
             sig = self._slh_class.slh_verify(m=data, sig=signature, pk=self._public_key_bytes, ctx=ctx)
-
         else:
             oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
 
             if not is_prehashed:
-                pre_hashed = compute_hash(hash_alg, data)
-            else:
-                pre_hashed = data
+                data = compute_hash(hash_alg, data)
 
-            mp = b"\x01" + integer_to_bytes(len(ctx), 1) + ctx + oid + pre_hashed
+            mp = b"\x01" + integer_to_bytes(len(ctx), 1) + ctx + oid + data
             sig = self._slh_class.slh_verify_internal(m=mp, sig=signature, pk=self._public_key_bytes)
 
         if not sig:
             raise InvalidSignature()
 
+    @classmethod
+    def from_public_bytes(cls, data: bytes, name: str) -> "SLHDSAPublicKey":
+        """Create a public key from the given byte string.
+
+        :param data: The byte string to create the public key from.
+        :param name: The name of the signature algorithm.
+        """
+        key = SLHDSAPublicKey(alg_name=name, public_key=data)
+        _n = key._slh_class.n * 2
+        if _n != len(data):
+            raise ValueError(f"Invalid public key size. Expected: {_n}, got: {len(data)}")
+        return key
+
 
 class SLHDSAPrivateKey(PQSignaturePrivateKey):
     """Represents an SLH-DSA private key."""
 
-    def _initialize(
-        self, sig_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None
-    ) -> None:
-        """Initialize the SLH-DSA private key.
+    def _derive_public_key(self, private_key: bytes) -> bytes:
+        """Derive the public key from the SLH-DSA private key.
 
-        :param sig_alg: The signature algorithm name.
-        :param private_bytes: The private key.
-        :param public_key: The public key.
+        The private key is structured as (each part is n bytes-long):
+        private_key = sk_seed || sk_prf || pk_seed || pk_root
+
+        The public key is: public_key = pk_seed || pk_root
+
+        :param private_key: The SLH-DSA private key as bytes.
+        :return: The corresponding public key as bytes.
         """
-        self.sig_alg = sig_alg.replace("_", "-")
+        _n = self._slh_class.n
+        if len(private_key) < 4 * _n:
+            raise ValueError("Invalid private key length")
 
-        self._slh_class: SLH_DSA = fips205.SLH_DSA_PARAMS[self.sig_alg]
+        pk_seed = private_key[2 * _n : 3 * _n]
+        pk_root = private_key[3 * _n : 4 * _n]
+        return pk_seed + pk_root
 
-        if private_bytes is None:
-            self._public_key_bytes, self._private_key = self._slh_class.slh_keygen()
-        else:
-            self._private_key = private_bytes
-            self._public_key_bytes = public_key
+    @staticmethod
+    def _from_seed(alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, bytes]:
+        """Generate a SLH-DSA private key from the seed."""
+        _slh_class: SLH_DSA = fips205.SLH_DSA_PARAMS[alg_name.replace("_", "-")]
+        _n = _slh_class.n
+        if seed is None:
+            seed = os.urandom(3 * _n)
 
-    @property
-    def name(self):
-        """Return the name of the key."""
-        return self.sig_alg
+        if len(seed) != 3 * _n:
+            raise ValueError(f"Invalid seed size. Expected: {3 * _n}. Got: {len(seed)}")
 
-    def _get_key_name(self) -> bytes:
+        sk_seed = seed[:_n]
+        sk_prf = seed[_n : 2 * _n]
+        pk_seed = seed[2 * _n :]
+        pub_key, priv_key = _slh_class.slh_keygen_internal(sk_seed, sk_prf, pk_seed)
+        return priv_key, pub_key, seed
+
+    def _initialize_key(self) -> None:
+        """Initialize the SLH-DSA private key."""
+        self._slh_class: SLH_DSA = fips205.SLH_DSA_PARAMS[self._other_name]
+        if self._private_key_bytes is None and self._public_key_bytes is None:
+            priv_key, pub_key, seed = self._from_seed(self.name, self._seed)
+            self._private_key_bytes = priv_key
+            self._public_key_bytes = pub_key
+            self._seed = seed
+
+    def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"SLH-DSA"
 
     def _check_name(self, name: str):
         """Check if the name is valid."""
+        return name, name.replace("_", "-")
 
     def check_hash_alg(self, hash_alg: Union[None, str, hashes.HashAlgorithm]) -> Optional[str]:
         """Check if the hash algorithm is valid for the SLH-DSA key.
@@ -450,7 +472,7 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
 
         :return: An `SLHDSAPublicKey` instance.
         """
-        return SLHDSAPublicKey(sig_alg=self.sig_alg, public_key=self._public_key_bytes)
+        return SLHDSAPublicKey(alg_name=self.name, public_key=self._public_key_bytes)
 
     def sign(self, data: bytes, hash_alg: Optional[str] = None, ctx: bytes = b"", is_prehashed: bool = False) -> bytes:
         """Sign the data with SLH-DSA private key.
@@ -465,23 +487,72 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
         """
         hash_alg = self.check_hash_alg(hash_alg=hash_alg)
         if hash_alg is None:
-            sig = self._slh_class.slh_sign(m=data, sk=self._private_key, ctx=ctx)
+            sig = self._slh_class.slh_sign(m=data, sk=self._private_key_bytes, ctx=ctx)
 
         else:
             oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
 
             if not is_prehashed:
                 data = compute_hash(hash_alg, data)
-            else:
-                data = data
 
             mp = b"\x01" + integer_to_bytes(len(ctx), 1) + ctx + oid + data
-            sig = self._slh_class.slh_sign_internal(m=mp, sk=self._private_key)
+            sig = self._slh_class.slh_sign_internal(m=mp, sk=self._private_key_bytes)
 
         if not sig:
             raise ValueError("Could not sign the data with SLH-DSA")
 
         return sig
+
+    @classmethod
+    def from_seed(cls, alg_name: str, seed: bytes) -> "SLHDSAPrivateKey":
+        """Create a SLH-DSA private key from the seed."""
+        private_bytes, public_bytes, seed = cls._from_seed(alg_name=alg_name, seed=seed)
+        return SLHDSAPrivateKey(alg_name=alg_name, private_bytes=private_bytes, public_key=public_bytes, seed=seed)
+
+    @classmethod
+    def from_private_bytes(cls, data: bytes, name: str) -> "SLHDSAPrivateKey":
+        """Create a private key from the given byte string.
+
+        :param data: The byte string to create the private key from.
+        :param name: The name of the signature algorithm.
+        """
+        obj = cls(alg_name=name)
+        _n = obj._slh_class.n
+
+        if len(data) == 3 * _n:
+            s_key = cls.from_seed(alg_name=name, seed=data)
+
+        elif _n * 4 != len(data):
+            raise ValueError(f"Invalid private key size. Expected: {3 * _n}, got: {len(data)}")
+
+        else:
+            pub_key = obj._derive_public_key(private_key=data)
+            s_key = SLHDSAPrivateKey(alg_name=name, private_bytes=data, public_key=pub_key)
+
+        return s_key
+
+    @classmethod
+    def _verify_loaded_key(cls, alg_name: str, data: bytes, public_key: Optional[bytes] = None) -> "SLHDSAPrivateKey":
+        """Verify the loaded key."""
+        obj = cls(alg_name=alg_name)
+        _n = obj._slh_class.n
+
+        if len(data) == 3 * _n:
+            s_key = cls.from_seed(alg_name=alg_name, seed=data)
+
+        elif len(data) != 4 * _n:
+            raise ValueError(f"Invalid private key size. Expected: {4 * _n}, got: {len(data)}")
+        else:
+            s_key = SLHDSAPrivateKey(alg_name=alg_name, private_bytes=data, public_key=public_key)
+
+        if public_key is not None:
+            if len(public_key) != 2 * _n:
+                raise ValueError(f"Invalid public key size. Expected: {2 * _n}, got: {len(public_key)}")
+
+            if s_key.public_key().public_bytes_raw() != public_key:
+                raise ValueError("The provided public key does not match the private key.")
+
+        return s_key
 
 
 ##########################
@@ -493,10 +564,9 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
 class FalconPublicKey(PQSignaturePublicKey):
     """Represent a Falcon public key."""
 
-    @property
-    def name(self) -> str:
-        """Return the name of the key."""
-        return self.sig_alg.lower()
+    def _get_header_name(self) -> bytes:
+        """Return the algorithm name, for the PEM header."""
+        return b"FALCON"
 
     def _check_name(self, name: str):
         """Check if the parsed name is valid."""
@@ -504,39 +574,33 @@ class FalconPublicKey(PQSignaturePublicKey):
             names = ", ".join(f"`{name}`" for name in FALCON_NAMES)
             raise ValueError(f"Invalid `Falcon` signature algorithm name provided.: {name} Supported names: {names}")
 
-        self.sig_alg = name.capitalize()
+        return name, name.capitalize()
 
     def check_hash_alg(
-        self, hash_alg: Union[None, str, hashes.HashAlgorithm], allow_failure: bool = True
+        self,
+        hash_alg: Union[None, str, hashes.HashAlgorithm],
     ) -> Optional[str]:
         """Check if the hash algorithm is valid.
 
         Falcon does not support any hash algorithms, so always return `None`.
 
         :param hash_alg: The hash algorithm to check.
-        :param allow_failure: The flag to allow failure or not.
         :return: The hash algorithm name or None.
         """
         if hash_alg is not None:
-            logging.info(f"{self.name} does not support the hash algorithm: {hash_alg}")
-        return None
+            logging.info("%s does not support the hash algorithm: %s", self.name, hash_alg)
 
 
 class FalconPrivateKey(PQSignaturePrivateKey):
     """Represent a Falcon private key."""
 
-    @property
-    def name(self):
-        """Return the name of the key."""
-        return self.sig_alg.lower()
-
-    def _get_key_name(self) -> bytes:
+    def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"FALCON"
 
     def public_key(self) -> FalconPublicKey:
         """Derive the corresponding public key."""
-        return FalconPublicKey(sig_alg=self.name, public_key=self._public_key_bytes)
+        return FalconPublicKey(alg_name=self.name, public_key=self._public_key_bytes)
 
     def _check_name(self, name: str):
         """Check if the name is valid.
@@ -546,5 +610,4 @@ class FalconPrivateKey(PQSignaturePrivateKey):
         names = ", ".join(f"`{name}`" for name in FALCON_NAMES)
         if name not in FALCON_NAMES:
             raise ValueError(f"Invalid `Falcon` signature algorithm name provided.: {name} Supported names: {names}")
-
-        self.sig_alg = name.capitalize()
+        return name, name.capitalize()

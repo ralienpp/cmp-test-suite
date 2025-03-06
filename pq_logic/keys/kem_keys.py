@@ -222,11 +222,14 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
 
 
 class McEliecePublicKey(PQKEMPublicKey):
-    """
-    Represents a McEliece public key.
+    """Represents a McEliece public key.
 
     This class provides functionality for validating and managing McEliece public keys.
     """
+
+    def _get_header_name(self) -> bytes:
+        """Return the algorithm name."""
+        return b"McEliece"
 
     def _check_name(self, name: str):
         """Validate the provided algorithm name against supported McEliece options.
@@ -235,54 +238,34 @@ class McEliecePublicKey(PQKEMPublicKey):
         :raises ValueError: If the algorithm name is not supported.
         """
         for x, y in VALID_MCELIECE_OPTIONS.items():
-            if y == name or x == name:
-                self.kem_alg = y
-                return
+            if name in [y, x]:
+                return name, y
         raise ValueError(f"Invalid McEliece algorithm name: {name}. Supported options: {VALID_MCELIECE_OPTIONS}")
 
     @property
     def name(self) -> str:
         """Return the algorithm name."""
         for x, y in VALID_MCELIECE_OPTIONS.items():
-            if y == self.kem_alg:
+            if y == self._other_name:
                 return x
 
         raise ValueError(
-            f"Invalid McEliece algorithm name: {self.kem_alg}. Supported options: {VALID_MCELIECE_OPTIONS}"
+            f"Invalid McEliece algorithm name: {self._other_name}. Supported options: {VALID_MCELIECE_OPTIONS}"
         )
 
     @classmethod
     def from_public_bytes(cls, data: bytes, name: str) -> "McEliecePublicKey":
-        """
-        Create a McEliece public key from raw bytes.
-
-        :param data: The public key as raw bytes.
-        :param name: The algorithm name.
-        :return: An instance of `McEliecePublicKey`.
-        """
-        key = cls(kem_alg=name, public_key=data)
-        return key
+        """Load a McEliece public key from raw bytes."""
+        return super().from_public_bytes(data, name)  # type: ignore
 
 
 class McEliecePrivateKey(PQKEMPrivateKey):
-    """
-    Represents a McEliece private key.
+    """Represents a McEliece private key.
 
     This class provides functionality for validating, managing, and using McEliece private keys.
     """
 
-    @property
-    def name(self) -> str:
-        """Return the key algorithm name."""
-        for x, y in VALID_MCELIECE_OPTIONS.items():
-            if y == self.kem_alg:
-                return x
-
-        raise ValueError(
-            f"Invalid McEliece algorithm name: {self.kem_alg}. Supported options: {VALID_MCELIECE_OPTIONS}"
-        )
-
-    def _get_key_name(self) -> bytes:
+    def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"McEliece"
 
@@ -295,7 +278,8 @@ class McEliecePrivateKey(PQKEMPrivateKey):
         if name not in VALID_MCELIECE_OPTIONS:
             raise ValueError(f"Invalid McEliece algorithm name: {name}. Supported options: {VALID_MCELIECE_OPTIONS}")
 
-        self.kem_alg = VALID_MCELIECE_OPTIONS[name]
+        _other = VALID_MCELIECE_OPTIONS[name]
+        return name, _other
 
     def public_key(self) -> McEliecePublicKey:
         """
@@ -303,7 +287,7 @@ class McEliecePrivateKey(PQKEMPrivateKey):
 
         :return: An instance of `McEliecePublicKey`.
         """
-        return McEliecePublicKey(public_key=self._public_key_bytes, kem_alg=self.kem_alg)
+        return McEliecePublicKey(public_key=self._public_key_bytes, alg_name=self.name)
 
 
 ##########################
@@ -327,20 +311,12 @@ class Sntrup761PublicKey(PQKEMPublicKey):
         """
         if name != "sntrup761":
             raise ValueError(f"Invalid key name '{name}'. Expected 'sntrup761'.")
-        self.kem_alg = name
+        return name, name
 
     @classmethod
     def from_public_bytes(cls, data: bytes, name: str) -> "Sntrup761PublicKey":
-        """
-        Create an Sntrup761 public key from raw bytes.
-
-        :param data: The public key as raw bytes.
-        :param name: The algorithm name.
-        :return: An instance of `Sntrup761PublicKey`.
-        """
-        key = cls(kem_alg=name, public_key=data)
-        key._check_name(name)
-        return key
+        """Load a McEliece public key from raw bytes."""
+        return super().from_public_bytes(data, name)  # type: ignore
 
 
 class Sntrup761PrivateKey(PQKEMPrivateKey):
@@ -350,7 +326,7 @@ class Sntrup761PrivateKey(PQKEMPrivateKey):
     This class provides functionality for validating, managing, and using SNTRUP761 private keys.
     """
 
-    def _get_key_name(self) -> bytes:
+    def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"SNTRUP761"
 
@@ -363,17 +339,7 @@ class Sntrup761PrivateKey(PQKEMPrivateKey):
         """
         if name != "sntrup761":
             raise ValueError(f"Invalid key name '{name}'. Expected 'sntrup761'.")
-
-        self.kem_alg = name
-
-    @property
-    def name(self) -> str:
-        """
-        Get the algorithm name for this private key.
-
-        :return: The name of the algorithm, "sntrup761".
-        """
-        return self.kem_alg
+        return name, name
 
     def public_key(self) -> Sntrup761PublicKey:
         """
@@ -381,7 +347,7 @@ class Sntrup761PrivateKey(PQKEMPrivateKey):
 
         :return: An instance of `Sntrup761PublicKey`.
         """
-        return Sntrup761PublicKey(public_key=self._public_key_bytes, kem_alg="sntrup761")
+        return Sntrup761PublicKey(public_key=self._public_key_bytes, alg_name="sntrup761")
 
     @classmethod
     def generate(cls) -> "Sntrup761PrivateKey":
@@ -390,7 +356,7 @@ class Sntrup761PrivateKey(PQKEMPrivateKey):
 
         :return: An instance of `Sntrup761PrivateKey`.
         """
-        return Sntrup761PrivateKey(kem_alg="sntrup761")
+        return Sntrup761PrivateKey(alg_name="sntrup761")
 
 
 ##########################
@@ -401,33 +367,39 @@ class Sntrup761PrivateKey(PQKEMPrivateKey):
 class FrodoKEMPublicKey(PQKEMPublicKey):
     """Represents a FrodoKEM public key."""
 
-    @classmethod
-    def from_public_bytes(cls, data: bytes, name: str):
-        """Create a FrodoKEM public key from raw bytes."""
-        return cls(kem_alg=name, public_key=data)
+    def _get_header_name(self) -> bytes:
+        """Return the key name to write the PEM-header for the key."""
+        return b"FrodoKEM"
 
-    def _check_name(self, name: str):
+    def _check_name(self, name: str) -> Tuple[str, str]:
         """Validate the provided algorithm name."""
         if name.lower() not in FRODOKEM_NAME_2_OID:
             raise ValueError(f"Invalid key name '{name}'. Expected one of {FRODOKEM_NAME_2_OID.keys()}.")
 
-        self.kem_alg = name.upper().replace("FRODOKEM", "FrodoKEM")
+        _other = name.upper().replace("FRODOKEM", "FrodoKEM")
+        return name, _other
+
+    @classmethod
+    def from_public_bytes(cls, data: bytes, name: str) -> "FrodoKEMPublicKey":
+        """Load an ML-KEM public key from raw bytes."""
+        return super().from_public_bytes(data, name)  # type: ignore
 
 
 class FrodoKEMPrivateKey(PQKEMPrivateKey):
     """Represents a FrodoKEM private key."""
 
-    def _check_name(self, name: str):
+    def _check_name(self, name: str) -> Tuple[str, str]:
         """Validate the provided algorithm name."""
         if name not in FRODOKEM_NAME_2_OID:
             raise ValueError(f"Invalid key name '{name}'. Expected one of {FRODOKEM_NAME_2_OID.keys()}.")
 
-        self.kem_alg = name.upper().replace("FRODOKEM", "FrodoKEM")
+        _other = name.upper().replace("FRODOKEM", "FrodoKEM")
+        return name, _other
 
-    def _get_key_name(self) -> bytes:
+    def _get_header_name(self) -> bytes:
         """Return the key name to write the PEM-header for the key."""
         return b"FrodoKEM"
 
     def public_key(self) -> FrodoKEMPublicKey:
         """Derive the corresponding public key from the private key."""
-        return FrodoKEMPublicKey(public_key=self._public_key_bytes, kem_alg=self.kem_alg)
+        return FrodoKEMPublicKey(public_key=self._public_key_bytes, alg_name=self.name)

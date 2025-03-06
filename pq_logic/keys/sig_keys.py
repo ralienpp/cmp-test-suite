@@ -154,22 +154,40 @@ class MLDSAPublicKey(PQSignaturePublicKey):
 class MLDSAPrivateKey(PQSignaturePrivateKey):
     """Represents an ML-DSA private key."""
 
-    _public_key: Optional[bytes] = None
+    def _derive_public_key(self, sk: bytes) -> bytes:
+        """Derive the public key from the given ML-DSA secret key.
 
-    def _initialize(
-        self, sig_alg: str, private_bytes: Optional[bytes] = None, public_key: Optional[bytes] = None
-    ) -> None:
-        """Initialize the ML-DSA private key.
+        The secret key is encoded as:
+          sk = sk_encode(rho, kk, tr, s1, s2, t0)
 
-        :param sig_alg: The signature algorithm name.
-        :param private_bytes: The private key bytes.
-        :param public_key: The public key bytes.
-        :return: The initialized ML-DSA private key.
+        The public key is computed as:
+          pk = pk_encode(rho, t1)
+        where (t1, _) = power2round(t) and t is computed as:
+          t = [ add(ntt_inverse(w_i), s2[i])
+                for i, w_i in enumerate(matrix_vector_ntt(ah, s1h)) ]
+        with:
+          ah   = expand_a(rho)
+          s1h  = [ ntt(v) for v in s1 ]
+
+        :param sk: The ML-DSA secret key as bytes.
+        :return: The corresponding public key as bytes.
         """
-        self._check_name(sig_alg)
-        self.sig_alg = sig_alg
-        self.ml_class = ML_DSA(sig_alg)
-        self._seed = os.urandom(32)
+        # Decode the secret key to retrieve its components.
+        rho, kk, tr, s1, s2, t0 = self.ml_class.sk_decode(sk)
+        # Compute the matrix a from rho.
+        ah = self.ml_class.expand_a(rho)
+        # Compute the NTT of each s1 vector.
+        s1h = [self.ml_class.ntt(v) for v in s1]
+        # Multiply the matrix a with s1 in the NTT domain.
+        t = self.ml_class.matrix_vector_ntt(ah, s1h)
+        # Add s2 (after applying the inverse NTT) component wise.
+        t = [self.ml_class.add(self.ml_class.ntt_inverse(t_i), s2[i]) for i, t_i in enumerate(t)]
+        # Compute (t1, t0) via power 2 round (we only need t1 for the public key).
+        t1, _ = self.ml_class.power2round(t)
+        # Encode and return the public key using rho and t1.
+        pk = self.ml_class.pk_encode(rho, t1)
+        return pk
+
     def _initialize_key(self) -> None:
         """Initialize the ML-DSA private key."""
         self.ml_class = ML_DSA(self.name)
@@ -179,7 +197,7 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
             self._public_key_bytes, self._private_key_bytes = self.ml_class.keygen_internal(xi=self._seed)
 
         elif self._public_key_bytes is None and self._private_key_bytes is not None:
-            self._public_key_bytes = self.derive_public_key_from_secret_key(sk=self._private_key_bytes)
+            self._public_key_bytes = self._derive_public_key(sk=self._private_key_bytes)
         else:
             raise ValueError("Invalid key initialization")
 

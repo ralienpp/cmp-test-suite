@@ -220,7 +220,7 @@ class HybridKeyFactory:
 
             return ChempatPrivateKey(pq_key, trad_key)
 
-        elif algorithm == "composite-kem":
+        if algorithm == "composite-kem":
             if pq_key is None and trad_key is None:
                 raise ValueError("Either a pq_key or trad_key must be provided, to generate a composite kem key.")
 
@@ -259,7 +259,7 @@ class HybridKeyFactory:
 
             return CompositeKEMPrivateKey(pq_key, trad_key)
 
-        elif algorithm == "composite-sig":
+        if algorithm == "composite-sig":
             if pq_key is None and trad_key is None:
                 raise ValueError("Either a pq_key or trad_key must be provided, to generate a composite sig key.")
 
@@ -286,7 +286,6 @@ class HybridKeyFactory:
                 comp_key = HybridKeyFactory.generate_comp_sig_key(
                     pq_name=None, trad_name=trad_name, length=length, curve=curve
                 )
-
                 pq_key = comp_key.pq_key
 
             if trad_key is None:
@@ -294,14 +293,13 @@ class HybridKeyFactory:
                 return HybridKeyFactory.generate_comp_sig_key(
                     pq_name=pq_name,
                 )
-
             return CompositeSigCMSPrivateKey(pq_key, trad_key)
 
-        elif algorithm == "composite-dhkem":
+        if algorithm == "composite-dhkem":
             keys = HybridKeyFactory.from_keys(algorithm="composite-kem", pq_key=pq_key, trad_key=trad_key)
             return CompositeDHKEMRFC9180PrivateKey(pq_key=keys.pq_key, trad_key=keys.trad_key)
-        else:
-            raise NotImplementedError(f"Unsupported hybrid algorithm: {algorithm}")
+
+        raise NotImplementedError(f"Unsupported hybrid algorithm: {algorithm}")
 
     @staticmethod
     def get_all_kem_coms_as_dict() -> Dict[str, List[Dict]]:

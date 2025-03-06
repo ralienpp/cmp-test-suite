@@ -4,7 +4,7 @@
 
 import unittest
 
-from pq_logic.keys.composite_kem_pki import CompositeMLKEMRSAPrivateKey
+from pq_logic.keys.composite_kem import CompositeKEMPrivateKey
 from pq_logic.keys.kem_keys import MLKEMPrivateKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc4211
@@ -33,10 +33,11 @@ class TestValidateEnvDataPOP(unittest.TestCase):
         cls.xwing_cert = parse_certificate(load_and_decode_pem_file("data/unittest/hybrid_cert_xwing.pem"))
         cls.xwing_key_other = load_private_key_from_file("data/keys/private-key-xwing-other.pem")
 
-        cls.private_key_rsa_1 = CompositeMLKEMRSAPrivateKey.generate(pq_name="ml-kem-768", trad_param=2048)
-        cls.private_key_rsa_2 = CompositeMLKEMRSAPrivateKey.generate(pq_name="ml-kem-768", trad_param=2048)
+        rsa_key = generate_key("rsa", length=2048)
+        pq_key = generate_key("ml-kem-768")
 
-        cls.comp_cert = build_certificate(private_key=cls.private_key_rsa_2, signing_key=generate_key("rsa"))[0]
+        cls.private_key_rsa_1 = CompositeKEMPrivateKey(pq_key, rsa_key)
+        cls.comp_cert = build_certificate(private_key=cls.private_key_rsa_1, signing_key=generate_key("rsa"))[0]
 
     def test_prepare_kem_env_data_for_popo(self):
         """
@@ -103,12 +104,11 @@ class TestValidateEnvDataPOP(unittest.TestCase):
             cek=B"A" * 32,
             enc_key_sender="CN=Null-DN",
             key_encipherment=True,
-            hybrid_key_recip=self.private_key_rsa_1,
         )
 
         der_data = encoder.encode(popo_structure)
         decoded, _ = decoder.decode(der_data, rfc4211.ProofOfPossession())
         env_data = decoded["keyEncipherment"]["encryptedKey"]
 
-        secure_data = validate_enveloped_data(env_data=env_data, for_pop=True, ee_key=self.private_key_rsa_2)
+        secure_data = validate_enveloped_data(env_data=env_data, for_pop=True, ee_key=self.private_key_rsa_1)
         self.assertEqual(secure_data, b"AAAAAAAAA")

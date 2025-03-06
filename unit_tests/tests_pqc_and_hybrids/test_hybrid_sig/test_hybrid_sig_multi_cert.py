@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
 from pq_logic.py_verify_logic import verify_composite_signature_with_hybrid_cert
 from resources.certbuildutils import generate_certificate
 from resources.certutils import parse_certificate

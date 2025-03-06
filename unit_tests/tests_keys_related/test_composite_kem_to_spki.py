@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
 from cryptography.hazmat.primitives.serialization import PublicFormat, Encoding
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc5280
-from pyasn1_alt_modules.rfc5480 import RSAPublicKey, ECPoint
+from pyasn1_alt_modules.rfc5480 import RSAPublicKey
 
 from pq_logic.hybrid_structures import CompositeKEMPublicKey
 from resources.keyutils import generate_key
@@ -63,4 +63,4 @@ class TestCompositeKEMToSPKI(unittest.TestCase):
         self.assertEqual(rest, b"")
 
         x25519_key = X25519PublicKey.from_public_bytes(seq_of[1].asOctets())
-        self.assertEqual(x25519_key.public_bytes_raw(), composite_kem.public_key().trad_key.public_bytes_raw())
+        self.assertEqual(x25519_key.public_bytes_raw(), composite_kem.public_key().trad_key.encode())

@@ -6,7 +6,7 @@ import unittest
 
 from pq_logic.combined_factory import CombinedKeyFactory
 from unit_tests.pq_workflow_exp import build_sun_hybrid_composite_csr
-from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, get_names_from_oid
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, get_names_from_oid
 from pq_logic.pq_compute_utils import verify_csr_signature
 from pq_logic.tmp_oids import PREHASH_OID_2_HASH
 from pyasn1.codec.der import encoder

@@ -10,12 +10,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import hashes, serialization
 from datetime import datetime, timedelta
 
-from pyasn1.type import univ
-from pyasn1_alt_modules import rfc5280
-
 from cryptography.x509 import ExtensionNotFound
 
-from mock_ca.ca_handler import ca_cert
 from resources.certbuildutils import prepare_ocsp_extension
 from resources.certutils import build_ocsp_response, check_ocsp_response_for_cert, parse_certificate
 from resources.keyutils import load_private_key_from_file

@@ -7,7 +7,7 @@ import unittest
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
-from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 
 

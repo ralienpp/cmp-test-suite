@@ -5,6 +5,7 @@
 import unittest
 
 from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
+from pq_logic.keys.trad_keys import RSADecapKey, DHKEMPrivateKey
 from resources.keyutils import generate_key
 from cryptography.hazmat.primitives.asymmetric import x25519,rsa
 
@@ -56,7 +57,7 @@ class TestHybridKeyFactory(unittest.TestCase):
                                                 )
 
         self.assertEqual(key.pq_key.name, "ml-kem-768")
-        self.assertIsInstance(key.trad_key, x25519.X25519PrivateKey)
+        self.assertIsInstance(key.trad_key, DHKEMPrivateKey)
 
     def test_hybrid_key_factory_comp_kem_rsa(self):
         """
@@ -69,7 +70,7 @@ class TestHybridKeyFactory(unittest.TestCase):
                                                 )
 
         self.assertEqual(key.pq_key.name, "ml-kem-768")
-        self.assertIsInstance(key.trad_key, rsa.RSAPrivateKey)
+        self.assertIsInstance(key.trad_key, RSADecapKey)
 
 
     def test_hybrid_key_factory_comp_kem_frodokem(self):
@@ -83,4 +84,4 @@ class TestHybridKeyFactory(unittest.TestCase):
                                                 )
 
         self.assertEqual(key.pq_key.name, "frodokem-976-aes")
-        self.assertIsInstance(key.trad_key, x25519.X25519PrivateKey)
+        self.assertIsInstance(key.trad_key, DHKEMPrivateKey)

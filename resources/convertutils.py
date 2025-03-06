@@ -11,8 +11,8 @@ import datetime
 from typing import Any, Optional, Union
 
 from cryptography.hazmat.primitives import serialization
-from pq_logic.keys.abstract_composite import AbstractCompositePrivateKey, AbstractCompositePublicKey
 from pq_logic.keys.abstract_pq import PQSignaturePublicKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
@@ -26,7 +26,7 @@ from resources.typingutils import PrivateKeySig, PublicKey
 @not_keyword
 def ensure_is_sign_key(key: Any) -> PrivateKeySig:
     """Ensure provided key is allowed to sign."""
-    if not isinstance(key, (PrivateKeySig, AbstractCompositePrivateKey)):
+    if not isinstance(key, (PrivateKeySig, CompositeSigCMSPrivateKey)):
         raise ValueError(f"the provided key is not allowed to be used for signing: {type(key)}")
     return key
 
@@ -57,7 +57,7 @@ def subjectPublicKeyInfo_from_pubkey(
     (some implementations may require two SPKIs for the public key).
     :return: An `rfc5280.SubjectPublicKeyInfo` structure containing the public key information.
     """
-    if isinstance(public_key, AbstractCompositePublicKey):
+    if isinstance(public_key, CompositeSigCMSPublicKey):
         return public_key.to_spki(use_pss=use_rsa_pss, pre_hash=use_pre_hash, use_2_spki=use_2_spkis)
 
     oid = None

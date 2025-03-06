@@ -14,6 +14,7 @@ from collections import Counter
 from itertools import combinations
 from typing import Any, Iterable, List, Optional, Tuple, Union
 
+import pyasn1
 import requests
 from pq_logic.hybrid_structures import CompositeCiphertextValue, CompositeSignatureValue
 from pyasn1.codec.der import decoder, encoder
@@ -21,9 +22,13 @@ from pyasn1.type import base, char, univ
 from pyasn1_alt_modules import rfc2986, rfc5280, rfc6402, rfc9480
 from robot.api.deco import keyword, not_keyword
 
+
+from pq_logic.keys.composite_kem import CompositeKEMPublicKey, CompositeKEMPrivateKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPublicKey, CompositeSigCMSPrivateKey
 from resources import certutils, keyutils
+from resources.exceptions import BadAsn1Data
 from resources.oidutils import PYASN1_CM_NAME_2_OIDS
-from resources.typingutils import PrivateKey, Strint
+from resources.typingutils import PrivateKey, Strint, PublicKey
 
 
 def nonces_must_be_diverse(nonces: List[bytes], minimal_hamming_distance: Strint = 10):
@@ -624,8 +629,45 @@ def ensure_list(data: Optional[Union[List[Any], Any]]) -> list:
     return [data]
 
 
+def manipulate_bytes_based_on_key(  # noqa D417 Missing argument description in the docstring
+        data: bytes,
+        key: Union[PrivateKey, PublicKey],
+) -> bytes:
+    """Manipulate the data based on the provided key.
+
+    Decodes the structure and manipulates the first byte of the data, of the
+    first entry, inside a Composite signature or ciphertext structure.
+
+    Arguments:
+    ---------
+       - `data`: The data to manipulate.
+       - `key`: The key to use for the manipulation.
+
+    Returns:
+    -------
+       - The manipulated data.
+
+    Raises:
+    ------
+         - `BadAsn1Data`: If the data manipulation fails, because the structure is not valid.
+
+    Examples:
+    --------
+    | ${manipulated_data}= | Manipulate Bytes Based On Key | data=${data} |
+    | ${manipulated_data}= | Manipulate Bytes Based On Key | data=${data} | key=${key} |
+
+    """
+    if key is None:
+        return manipulate_first_byte(data)
+    if isinstance(key, (CompositeKEMPublicKey, CompositeKEMPrivateKey)):
+        return manipulate_composite_kem_ct(data)
+    if isinstance(key, (CompositeSigCMSPublicKey, CompositeSigCMSPrivateKey)):
+        return manipulate_composite_sig(data)
+    return manipulate_first_byte(data)
+
+
 def manipulate_composite_sig(  # noqa: D417 Missing argument description in the docstring
-    sig: bytes,
+        sig: bytes,
 ) -> bytes:
     """Manipulate the first signature of a CompositeSignature.
 
@@ -639,10 +681,17 @@ def manipulate_composite_sig(  # noqa: D417 Missing argument description in the 
 
     Raises:
     ------
-            - `pyasn1.error.PyAsn1Error`: if the provided `sig` is not a valid `CompositeSignatureValue`.
+            - `BadAsn1Data`: if the provided `sig` is not a valid `CompositeSignatureValue`.
+
+    Examples:
+    --------
+    | ${manipulated_sig}= | Manipulate Composite Sig | sig=${sig} |
 
     """
-    obj, _ = decoder.decode(sig, CompositeSignatureValue())
+    try:
+        obj, _ = decoder.decode(sig, CompositeSignatureValue())
+    except pyasn1.error.PyAsn1Error as e:
+        raise BadAsn1Data(f"Failed to manipulate the data: {e}")  # pylint: disable=raise-missing-from
 
     sig1 = obj[0].asOctets()
     sig2 = obj[1].asOctets()
@@ -659,8 +708,9 @@ def manipulate_composite_sig(  # noqa: D417 Missing argument description in the 
     return encoder.encode(out)
 
 
-def manipulate_composite_kemct(  # noqa: D417 Missing argument description in the docstring
-    kem_ct: bytes,
+@keyword(name="Manipulate Composite KEM CT")
+def manipulate_composite_kem_ct(  # noqa: D417 Missing argument description in the docstring
+        kem_ct: bytes,
 ) -> bytes:
     """Manipulate the first ct of the `CompositeCiphertextValue`.
 
@@ -674,10 +724,17 @@ def manipulate_composite_kemct(  # noqa: D417 Missing argument description in th
 
     Raises:
     ------
-       - `pyasn1.error.PyAsn1Error`: if the provided `kem_ct` is not a valid `CompositeCiphertextValue`.
+       - `BadAsn1Data`: if the provided `kem_ct` is not a valid `CompositeCiphertextValue`.
+
+    Examples:
+    --------
+    | ${manipulated_kem_ct}= | Manipulate Composite KEM CT | kem_ct=${kem ct} |
 
     """
-    obj, _ = decoder.decode(kem_ct, CompositeCiphertextValue())
+    try:
+        obj, _ = decoder.decode(kem_ct, CompositeCiphertextValue())
+    except pyasn1.error.PyAsn1Error as e:
+        raise BadAsn1Data(f"Failed to manipulate the data: {e}")  # pylint: disable=raise-missing-from
 
     kem_ct1 = obj[0].asOctets()
     kem_ct2 = obj[1].asOctets()

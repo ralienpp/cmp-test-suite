@@ -115,6 +115,19 @@ class PQKeyFactory:
         )
 
     @staticmethod
+    def get_pq_alg_name(algorithm: str) -> str:
+        """Return the full name of the post-quantum algorithm.
+
+        :param algorithm: The algorithm name to check.
+        :return: The full name of the post-quantum algorithm (e.g. 'ml-dsa-44').
+        :raises ValueError: If the algorithm name is not recognized.
+        """
+        for x in PQ_NAME_2_OID:
+            if x in algorithm:
+                return x
+        raise ValueError(f"Invalid algorithm name provided: '{algorithm}'.")
+
+    @staticmethod
     def from_one_asym_key(one_asy_key: rfc5958.OneAsymmetricKey):
         """Create a post-quantum private key from an `rfc5958.OneAsymmetricKey` object.
 

@@ -97,23 +97,42 @@ def prepare_validity(  # noqa D417 undocumented-param
     return validity
 
 
-@not_keyword
-def prepare_sig_alg_id(
-    signing_key: PrivateKeySig,
-    hash_alg: str,
-    use_rsa_pss: bool,
-    use_pre_hash: bool = False,
+@keyword(name="Prepare Signature AlgorithmIdentifier")
+def prepare_sig_alg_id(  # noqa D417 undocumented-param
+        signing_key: PrivateKeySig,
+        hash_alg: str = "sha256",
+        use_rsa_pss: bool = False,
+        use_pre_hash: bool = False,
+        add_params_rand_val: bool = False,
 ) -> rfc9480.AlgorithmIdentifier:
     """Prepare the AlgorithmIdentifier for the signature algorithm based on the key and hash algorithm.
 
     If `use_rsa_pss` is `True`, configures RSA-PSS; otherwise, it selects the signature OID
     based on the signing key type and hash algorithm.
 
-    :param signing_key: The private key to use for signing the certificate.
-    :param hash_alg: The hash algorithm to use (e.g., "sha256").
-    :param use_rsa_pss: Whether to use RSA-PSS for the signature algorithm. Defaults to `False`.
-    :param use_pre_hash: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
-    :return: An `rfc9480.AlgorithmIdentifier` for the specified signing configuration.
+    Arguments:
+    ---------
+        - `signing_key`: The private key used for signing.
+        - `hash_alg`: The hash algorithm to use. Defaults to `"sha256"`.
+        (must be populated with the correct hash algorithm for PQ signature keys)
+        - `use_rsa_pss`: Whether to use RSA-PSS for the signature algorithm. Defaults to `False`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite-sig key. Defaults to `False`.
+        - `add_params_rand_val`: Whether to add the `parameters` field with a random value. Defaults to `False`.
+        (Or hash algorithm for RSA-PSS-SHA256) (**MUST** be absent)
+
+    Returns:
+    -------
+        - An `rfc9480.AlgorithmIdentifier` for the specified signing configuration.
+
+    Examples:
+    --------
+    | ${alg_id}= | Prepare Signature AlgorithmIdentifier | signing_key=${private_key} |
+    | ${alg_id}= | Prepare Signature AlgorithmIdentifier | signing_key=${private_key} | hash_alg="sha256" |
+    | ${alg_id}= | Prepare Signature AlgorithmIdentifier | signing_key=${private_key} | \
+    hash_alg="sha256" | use_rsa_pss=True |
+    | ${alg_id}= | Prepare Signature AlgorithmIdentifier | signing_key=${private_key} | \
+    use_rsa_pss=True | use_pre_hash=True |
+
     """
     alg_id = rfc9480.AlgorithmIdentifier()
 
@@ -122,23 +141,32 @@ def prepare_sig_alg_id(
         # Left like this, because unknown how the cryptography library will
         # implement the CompositeSigPrivateKey (Probably for every key a new class).
         domain_oid = get_oid_cms_composite_signature(
-            signing_key.pq_key.name, signing_key.trad_key, use_pss=use_rsa_pss, pre_hash=use_pre_hash
+            signing_key.pq_key.name,
+            signing_key.trad_key,
+            use_pss=use_rsa_pss,
+            pre_hash=use_pre_hash,
+            allow_bad_rsa=True,
         )
+        # domain_oid = signing_key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
+
         alg_id["algorithm"] = domain_oid
 
-    elif isinstance(signing_key, AbstractCompositeSigPrivateKey):
+    elif isinstance(signing_key, CompositeSigCMSPrivateKey):
         # means an expired key is used.
         domain_oid = signing_key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
         alg_id["algorithm"] = domain_oid
 
     else:
-        oid = oid_mapping.get_alg_oid_from_key_hash(key=signing_key, hash_alg=hash_alg, use_pss=use_rsa_pss)
+        oid = oid_mapping.get_alg_oid_from_key_hash(key=signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
         alg_id["algorithm"] = oid
         if oid in RSA_SHA_OID_2_NAME:
-            alg_id["parameters"] = univ.Null("")
+            alg_id["parameters"] = univ.Null("") if not add_params_rand_val else univ.OctetString(os.urandom(16))
 
         if oid in RSASSA_PSS_OID_2_NAME:
-            return protectionutils.prepare_rsa_pss_alg_id(hash_alg=hash_alg)
+            return protectionutils.prepare_rsa_pss_alg_id(hash_alg=hash_alg, add_params_rand_val=add_params_rand_val)
+
+    if add_params_rand_val:
+        alg_id["parameters"] = univ.OctetString(os.urandom(16))
 
     return alg_id
 

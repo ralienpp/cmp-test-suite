@@ -1305,7 +1305,7 @@ def prepare_cert_template_from_csr(csr: rfc6402.CertificationRequest) -> rfc4211
 
 
 @keyword(name="Prepare SubjectPublicKeyInfo")
-def prepare_subject_public_key_info( # noqa D417 undocumented-param
+def prepare_subject_public_key_info(  # noqa D417 undocumented-param
     key: Union[PrivateKey, PublicKey] = None,
     for_kga: bool = False,
     key_name: Optional[str] = None,

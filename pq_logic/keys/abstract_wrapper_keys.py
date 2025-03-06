@@ -559,23 +559,46 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         spki["subjectPublicKey"] = univ.BitString.fromOctetString(encoder.encode(tmp))
         return spki
 
+    def _get_subject_public_key(self) -> bytes:
+        """Get the public key for the `SubjectPublicKeyInfo` structure.
+
+        Will be included in the SubjectPublicKeyInfo structure,
+        MUST not include the BIT STRING encoding.
+        """
+        return self._export_public_key()
+
     @abstractmethod
     def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Return the Object Identifier for the composite signature algorithm."""
 
-    def _export_public_key(self) -> bytes:
-        """Export the composite public key as bytes."""
-        return self._self_to_raw_der()
+    def encode_trad_part(self) -> bytes:
+        """Encode the traditional part of the public key.
 
-    def _self_to_raw_der(self) -> bytes:
+        :return: The traditional part of the public key as bytes.
+        """
+        if isinstance(self._trad_key, TradKEMPublicKey):
+            return self._trad_key.encode()
+
+        if isinstance(self._trad_key, (x25519.X25519PublicKey, x448.X448PublicKey)):
+            return self._trad_key.public_bytes_raw()
+
+        if isinstance(self._trad_key, (ed25519.Ed25519PublicKey, ed448.Ed448PublicKey)):
+            return self._trad_key.public_bytes_raw()
+
+        if isinstance(self._trad_key, rsa.RSAPublicKey):
+            return self._trad_key.public_bytes(Encoding.DER, PublicFormat.PKCS1)
+
+        return self._trad_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+
+    def _export_public_key(self) -> bytes:
         """Convert the public key to a raw DER-encoded structure."""
         data = CompositeSignaturePublicKeyAsn1()
         data.append(univ.BitString.fromOctetString(self._pq_key.public_bytes_raw()))
-        data.append(univ.BitString.fromOctetString(self._trad_key.public_bytes(Encoding.Raw, PublicFormat.Raw)))
+        data.append(univ.BitString.fromOctetString(self.encode_trad_part()))
         return encoder.encode(data)
 
     def to_spki(
-        self, use_pss: bool = False, pre_hash: bool = False, use_2_spki: bool = False
+            self, use_pss: bool = False, pre_hash: bool = False, use_2_spki: bool = False
     ) -> rfc5280.SubjectPublicKeyInfo:
         """Convert CompositePublicKey to a SubjectPublicKeyInfo structure.
 
@@ -585,7 +608,7 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         :return: `SubjectPublicKeyInfo`.
         """
         if not use_2_spki:
-            data = self._self_to_raw_der()
+            data = self._export_public_key()
         else:
             data = encoder.encode(self._prepare_old_spki())
 
@@ -593,6 +616,24 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         spki["algorithm"]["algorithm"] = self.get_oid(use_pss, pre_hash)
         spki["subjectPublicKey"] = univ.BitString.fromOctetString(data)
         return spki
+
+    def public_bytes(
+            self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
+    ) -> Union[bytes, str]:
+        """Get the serialized public key in bytes format.
+
+        :param encoding: The encoding format. Can be `Encoding.Raw`, `Encoding.DER`, or `Encoding.PEM`.
+        :param format: The public key format. Can be `PublicFormat.Raw` or `PublicFormat.SubjectPublicKeyInfo`.
+        :return: The serialized public key as bytes (or string for PEM).
+        """
+        if encoding == Encoding.DER and format == PublicFormat.Raw:
+            return self._export_public_key()
+        return super().public_bytes(encoding, format)
+
+    @property
+    def key_size(self) -> int:
+        """Return the size of the key inside the DER encoded structure."""
+        return len(self._export_public_key())
 
 
 class AbstractCompositePrivateKey(HybridPrivateKey, ABC):

@@ -444,10 +444,22 @@ class HybridPublicKey(WrapperPublicKey, ABC):
     """Abstract class for hybrid public keys."""
 
     _pq_key: PQPublicKey
-    _trad_key: HYBRID_TRAD_PUB_COMP
+    _trad_key: HybridTradPubComp
+
+    def __init__(self, pq_key: PQPublicKey, trad_key: HybridTradPubComp):
+        """Initialize the HybridPublicKey.
+
+        :param pq_key: The post-quantum public key object.
+        :param trad_key: The traditional public key object.
+        """
+        self._pq_key = pq_key
+        self._trad_key = trad_key
 
     def __eq__(self, other):
         """Compare two hybrid public keys."""
+        if not isinstance(other, WrapperPublicKey):
+            raise ValueError(f"Cannot compare {type(self)} with {type(other)}")
+
         if type(other) is not type(self):
             return False
         return self._pq_key == other.pq_key and self._trad_key == other.trad_key  # type: ignore
@@ -458,7 +470,7 @@ class HybridPublicKey(WrapperPublicKey, ABC):
         return self._pq_key
 
     @property
-    def trad_key(self) -> HYBRID_TRAD_PUB_COMP:
+    def trad_key(self) -> HybridTradPubComp:
         """Get the public key of the traditional algorithm."""
         return self._trad_key
 
@@ -467,7 +479,7 @@ class HybridPrivateKey(WrapperPrivateKey, ABC):
     """Abstract class for hybrid private keys."""
 
     _pq_key: PQPrivateKey
-    _trad_key: HYBRID_TRAD_PRIV_COMP
+    _trad_key: HybridTradPrivComp
 
     @property
     def pq_key(self) -> WrapperPrivateKey:
@@ -475,7 +487,7 @@ class HybridPrivateKey(WrapperPrivateKey, ABC):
         return self._pq_key
 
     @property
-    def trad_key(self) -> HYBRID_TRAD_PRIV_COMP:
+    def trad_key(self) -> HybridTradPrivComp:
         """Get the private key of the traditional algorithm."""
         return self._trad_key
 
@@ -487,20 +499,15 @@ class HybridPrivateKey(WrapperPrivateKey, ABC):
 class HybridKEMPublicKey(HybridPublicKey, ABC):
     """Abstract class for KEM public keys."""
 
-    @property
-    def ct_length(self):
-        """Get the length of the ciphertext."""
-        return len(self.encaps()[1])
+    @abstractmethod
+    def get_oid(self) -> univ.ObjectIdentifier:
+        """Return the Object Identifier for the hybrid KEM algorithm."""
 
     @abstractmethod
-    def kem_combiner(self, **kwargs) -> bytes:
-        """Combine the traditional and post-quantum encapsulation outputs, accoring to the algorithm."""
-
-    @abstractmethod
-    def encaps(self, ec_key: Optional[ECDHPrivateKey] = None) -> Tuple[bytes, bytes]:
+    def encaps(self, private_key: Optional[ECDHPrivateKey] = None) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret and the ciphertext.
 
-        :param ec_key: The ECDH private key to use for encapsulation. Defaults to `None`.
+        :param private_key: The ECDH private key to use for encapsulation. Defaults to `None`.
         :return: The shared secret and the ciphertext.
         """
 
@@ -527,6 +534,9 @@ class HybridKEMPrivateKey(HybridPrivateKey, ABC):
 
 class AbstractCompositePublicKey(HybridPublicKey, ABC):
     """Abstract class for Composite public keys."""
+
+    _pq_key: PQPublicKey
+    _trad_key: Union[ECDHPublicKey, rsa.RSAPublicKey]
 
     def _prepare_old_spki(self) -> rfc5280.SubjectPublicKeyInfo:
         """Prepare the old SPKI structure.
@@ -641,12 +651,13 @@ class AbstractHybridRawPublicKey(HybridKEMPublicKey, ABC):
     _pq_key: PQPublicKey
     _trad_key: ECDHPublicKey
 
-    def __init__(self, pq_key: PQPublicKey, trad_key: ECDHPrivateKey):
+    def __init__(self, pq_key: PQPublicKey, trad_key: ECDHPublicKey):
         """Initialize the HybridRawPublicKey.
 
         :param pq_key: The post-quantum public key object.
         :param trad_key: The traditional public key object.
         """
+        super().__init__(pq_key, trad_key)
         self._pq_key = pq_key
         self._trad_key = trad_key
 

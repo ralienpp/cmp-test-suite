@@ -197,6 +197,8 @@ def generate_key(algorithm: str = "rsa", **params) -> PrivateKey:  # noqa: D417 
     Arguments:
     ---------
         - `algorithm`: The cryptographic algorithm to use for key generation. Defaults to "rsa".
+        - `by_name`: If True, the key is generated based on the algorithm name. Defaults to `False`.
+        (e.g., "rsa" -> RSAPrivateKey) The parameters are ignored in this case.
         - `**params`: Additional parameters specific to the algorithm.
 
     Traditional algorithms:

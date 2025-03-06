@@ -212,12 +212,26 @@ class RSADecapKey(TradKEMPrivateKey):
         return self._private_key.private_numbers()
 
 
-class DHKEMPublicKey:
+class DHKEMPublicKey(TradKEMPublicKey):
     """Wrapper class for Diffie-Hellman Key Encapsulation Mechanism (DHKEM) public keys."""
+
+    def get_oid(self) -> univ.ObjectIdentifier:
+        """Return the OID of the encapsulation key."""
+        raise NotImplementedError("This method is not implemented for DHKEMPublicKey.")
+
+    def _export_public_key(self) -> bytes:
+        """Export the public key as bytes.
+
+        :return: return the public key as bytes.
+        """
+        return self.encode()
+
+    def _get_subject_public_key(self) -> bytes:
+        raise NotImplementedError("This method is not implemented for DHKEMPublicKey. Use the encode method instead.")
 
     def __init__(
         self,
-        public_key: Union[ec.EllipticCurvePublicKey, x25519.X25519PublicKey, x448.X448PublicKey],
+        public_key: Union[ec.EllipticCurvePublicKey, x25519.X25519PublicKey, x448.X448PublicKey, "DHKEMPublicKey"],
         use_rfc9180: bool = True,
     ):
         """Initialize the DHKEM public key.
@@ -225,15 +239,19 @@ class DHKEMPublicKey:
         :param public_key: The Diffie-Hellman (ECDH/X25519/X448) public key.
         :param use_rfc9180: Whether to use DHKEM as per RFC 9180 (True) or ECDH-KEM (False).
         """
+        if isinstance(public_key, DHKEMPublicKey):
+            public_key = public_key._public_key
+
         self._public_key = public_key
         self.use_rfc9180 = use_rfc9180
 
-    def encaps(self) -> Tuple[bytes, bytes]:
+    def encaps(self, private_key: Union["DHKEMPrivateKey", "ECDHPrivateKey"]) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using DHKEM (RFC 9180) or ECDH-KEM.
 
         :return: A tuple of (shared secret, encapsulated public key).
         """
-        kem = DHKEMRFC9180() if self.use_rfc9180 else ECDHKEM()
+        private_key = DHKEMPrivateKey(private_key)
+        kem = DHKEMRFC9180(private_key._private_key) if self.use_rfc9180 else ECDHKEM(private_key._private_key)
         return kem.encaps(self._public_key)
 
     @property
@@ -244,7 +262,7 @@ class DHKEMPublicKey:
     @property
     def key_size(self) -> int:
         """Return the size of the encapsulation key."""
-        return self._public_key.key_size
+        return get_trad_key_length(self._public_key)
 
     @property
     def get_trad_name(self) -> str:
@@ -262,23 +280,20 @@ class DHKEMPublicKey:
         """Return the public numbers of the key (curve-dependent)."""
         if isinstance(self._public_key, ec.EllipticCurvePublicKey):
             return self._public_key.public_numbers()
-        else:
-            raise ValueError("Public numbers are not available for this key type.")
+        raise ValueError("Public numbers are not available for this key type.")
 
-    def public_bytes(self, encoding: serialization.Encoding, format: serialization.PublicFormat) -> bytes:
+    def public_bytes(self, encoding: Encoding, format: PublicFormat) -> bytes:
         """Return the public key as bytes."""
         return self._public_key.public_bytes(encoding, format)
 
     def encode(self) -> bytes:
         """Encode the public key as bytes."""
         if isinstance(self._public_key, ec.EllipticCurvePublicKey):
-            return self._public_key.public_bytes(
-                serialization.Encoding.DER, serialization.PublicFormat.UncompressedPoint
-            )
+            return self._public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
         return self._public_key.public_bytes_raw()
 
 
-class DHKEMPrivateKey:
+class DHKEMPrivateKey(TradKEMPrivateKey):
     """Wrapper class for Diffie-Hellman Key Encapsulation Mechanism (DHKEM) private keys."""
 
     def __init__(
@@ -291,6 +306,9 @@ class DHKEMPrivateKey:
         :param private_key: The private key.
         :param use_rfc9180: Whether to use DHKEM (RFC 9180) or ECDH-KEM.
         """
+        if isinstance(private_key, DHKEMPrivateKey):
+            private_key = private_key._private_key
+
         self._private_key = private_key
         self.use_rfc9180 = use_rfc9180
 
@@ -305,11 +323,10 @@ class DHKEMPrivateKey:
         """
         if curve.lower() == "x25519":
             return cls(x25519.X25519PrivateKey.generate(), use_rfc9180)
-        elif curve.lower() == "x448":
+        if curve.lower() == "x448":
             return cls(x448.X448PrivateKey.generate(), use_rfc9180)
-        else:
-            curve_obj = get_curve_instance(curve)
-            return cls(ec.generate_private_key(curve_obj), use_rfc9180)
+        curve_obj = get_curve_instance(curve)
+        return cls(ec.generate_private_key(curve_obj), use_rfc9180)
 
     @property
     def name(self) -> str:
@@ -319,7 +336,7 @@ class DHKEMPrivateKey:
     @property
     def key_size(self) -> int:
         """Return the size of the decapsulation key."""
-        return self._private_key.key_size
+        return get_trad_key_length(self._private_key)
 
     @property
     def get_trad_name(self) -> str:
@@ -358,4 +375,21 @@ class DHKEMPrivateKey:
         if isinstance(self._private_key, ec.EllipticCurvePrivateKey):
             private_numbers = self._private_key.private_numbers()
             return private_numbers.private_value.to_bytes(self._private_key.key_size, byteorder="big")
+        return self._private_key.private_bytes_raw()
+
+    def private_bytes(
+        self,
+        encoding: Encoding = Encoding.PEM,
+        format: PrivateFormat = PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ) -> bytes:
+        """Return the private key as bytes."""
+        return self._private_key.private_bytes(encoding, format, encryption_algorithm)
+
+    def _export_private_key(self) -> bytes:
+        """Export the private key as bytes (raw bytes)."""
+        if isinstance(self._private_key, ec.EllipticCurvePrivateKey):
+            return self._private_key.private_bytes(
+                serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()
+            )
         return self._private_key.private_bytes_raw()

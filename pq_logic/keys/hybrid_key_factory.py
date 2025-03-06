@@ -304,10 +304,7 @@ class HybridKeyFactory:
     @staticmethod
     def get_all_kem_coms_as_dict() -> Dict[str, List[Dict]]:
         """Return a dictionary of all possible hybrid key combinations to generate a stat table."""
-        data = {"xwing": [{}]}
-        data["composite-kem"] = ALL_COMPOSITE_KEM_COMBINATIONS
-        data["chempat"] = ALL_CHEMPAT_COMBINATIONS
-        return data
+        return {"xwing": [{}], "composite-kem": ALL_COMPOSITE_KEM_COMBINATIONS, "chempat": ALL_CHEMPAT_COMBINATIONS}
 
     @staticmethod
     def supported_algorithms() -> List[str]:

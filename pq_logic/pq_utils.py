@@ -9,12 +9,14 @@ from typing import Any, Union, get_args
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5990
-from resources.oidutils import PQ_KEM_NAME_2_OID
+from resources.oidutils import KEM_NAME_2_OID
 from robot.api.deco import not_keyword
 
-from pq_logic.keys.abstract_composite import AbstractCompositeKEMPrivateKey, AbstractCompositeKEMPublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
-from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
+from pq_logic.keys.abstract_wrapper_keys import (
+    HybridKEMPrivateKey,
+    HybridKEMPublicKey,
+)
 from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey
 
 
@@ -31,16 +33,12 @@ def get_kem_oid_from_key(
         return rfc5990.id_kem_rsa
 
     if isinstance(key, (PQKEMPublicKey, PQKEMPrivateKey)):
-        return PQ_KEM_NAME_2_OID[key.name]
+        return KEM_NAME_2_OID[key.name]
 
-    if isinstance(key, (AbstractCompositeKEMPrivateKey, AbstractCompositeKEMPublicKey)):
+    if isinstance(key, (HybridKEMPrivateKey, HybridKEMPublicKey)):
         return key.get_oid()
 
-    if isinstance(key, (AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey)):
-        return key.get_oid()
-
-    else:
-        raise ValueError(f"Invalid KEM key. Got: {type(key).__name__}")
+    raise ValueError(f"Invalid KEM key. Got: {type(key).__name__}")
 
 
 @not_keyword

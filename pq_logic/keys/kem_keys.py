@@ -57,6 +57,8 @@ class MLKEMPublicKey(PQKEMPublicKey):
     def _initialize_key(self):
         """Initialize the ML-KEM public key."""
         self.ml_class = ML_KEM(self.name)
+        if oqs is not None:
+            self._kem_method = oqs.KeyEncapsulation(self.name)
 
     def _check_name(self, name: str):
         """Validate the provided algorithm name.
@@ -110,6 +112,9 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
             self._seed = self._seed or os.urandom(64)
             d, z = self._seed[:32], self._seed[32:]
             self._public_key_bytes, self._private_key_bytes = self.ml_class.keygen_internal(d=d, z=z)
+
+        if oqs is not None:
+            self._kem_method = oqs.KeyEncapsulation(self.name)
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
@@ -176,7 +181,6 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         if oqs is not None:
             return super().decaps(ct)
 
-        return self.ml_class.decaps_internal(dk=self._private_key, c=ct)
         try:
             return self.ml_class.decaps_internal(dk=self._private_key_bytes, c=ct)
         except IndexError as e:

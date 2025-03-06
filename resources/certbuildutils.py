@@ -145,13 +145,13 @@ def prepare_sig_alg_id(
 
 @keyword(name="Sign CSR")
 def sign_csr(  # noqa D417 undocumented-param
-    csr: rfc6402.CertificationRequest,
-    signing_key: PrivateKeySig,
-    hash_alg: str = "sha256",
-    other_key: Optional[PrivateKeySig] = None,
-    use_rsa_pss: bool = False,
-    bad_pop: bool = False,
-    use_pre_hash: bool = False,
+        csr: rfc6402.CertificationRequest,
+        signing_key: PrivateKeySig,
+        hash_alg: str = "sha256",
+        other_key: Optional[PrivateKeySig] = None,
+        use_rsa_pss: bool = False,
+        bad_pop: bool = False,
+        use_pre_hash: bool = False,
 ):
     """Sign a `pyasn1` `CertificationRequest` (CSR).
 
@@ -190,13 +190,13 @@ def sign_csr(  # noqa D417 undocumented-param
     signature = cryptoutils.sign_data(
         data=der_data, key=other_key or signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss
     )
-    logging.info(f"CSR Signature: {signature}")
+    logging.info("CSR Signature: %s", signature)
     if bad_pop:
-        if isinstance(signing_key, AbstractCompositeSigPrivateKey):
+        if isinstance(signing_key, CompositeSigCMSPrivateKey):
             signature = utils.manipulate_composite_sig(signature)
         else:
             signature = utils.manipulate_first_byte(signature)
-        logging.info(f"Modified CSR signature: {signature}")
+        logging.info("Modified CSR signature: %s", signature)
 
     csr["signature"] = univ.BitString.fromOctetString(signature)
     csr["signatureAlgorithm"] = prepare_sig_alg_id(
@@ -215,18 +215,18 @@ def sign_csr(  # noqa D417 undocumented-param
 
 @keyword(name="Build CSR")
 def build_csr(  # noqa D417 undocumented-param
-    signing_key: PrivateKeySig,
-    common_name: str = "CN=Hans Mustermann",
-    extensions: Optional[Sequence[rfc5280.Extension]] = None,
-    hash_alg: Union[None, str] = "sha256",
-    use_rsa_pss: bool = False,
-    subjectAltName: Optional[str] = None,
-    exclude_signature: bool = False,
-    for_kga: bool = False,
-    bad_pop: bool = False,
-    use_pre_hash: bool = False,
-    use_pre_hash_pub_key: Optional[bool] = None,
-    spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
+        signing_key: PrivateKeySig,
+        common_name: str = "CN=Hans Mustermann",
+        extensions: Optional[Sequence[rfc5280.Extension]] = None,
+        hash_alg: Union[None, str] = "sha256",
+        use_rsa_pss: bool = False,
+        subjectAltName: Optional[str] = None,
+        exclude_signature: bool = False,
+        for_kga: bool = False,
+        bad_pop: bool = False,
+        use_pre_hash: bool = False,
+        use_pre_hash_pub_key: Optional[bool] = None,
+        spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
 ) -> rfc6402.CertificationRequest:
     """Build a PKCS#10 Certification Request (CSR) with the given parameters.
 

@@ -49,7 +49,7 @@ from resources import (
 from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.exceptions import BadAsn1Data
-from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKey, Strint, TradSigPrivKey
+from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKey, Strint
 
 # When dealing with post-quantum crypto algorithms, we encounter big numbers, which wouldn't be pretty-printed
 # otherwise. This is just for cosmetic convenience.
@@ -1055,6 +1055,7 @@ def prepare_cert_req_msg(  # noqa D417 undocumented-param
     hash_alg: str = "sha256",
     extensions: Optional[rfc9480.Extensions] = None,
     cert_template: Optional[rfc4211.CertTemplate] = None,
+    cert_request: Optional[rfc4211.CertRequest] = None,
     popo_structure: Optional[rfc4211.ProofOfPossession] = None,
     ra_verified: bool = False,
     for_kga: bool = False,
@@ -1115,7 +1116,7 @@ def prepare_cert_req_msg(  # noqa D417 undocumented-param
 
     """
     cert_request_msg = rfc4211.CertReqMsg()
-    cert_request = prepare_cert_request(
+    cert_request = cert_request or prepare_cert_request(
         key=private_key,
         common_name=common_name,
         cert_req_id=int(cert_req_id),
@@ -1134,26 +1135,25 @@ def prepare_cert_req_msg(  # noqa D417 undocumented-param
 
     if popo_structure is not None:
         cert_request_msg["popo"] = popo_structure
+        return cert_request_msg
 
     elif exclude_popo:
-        pass
+        return cert_request_msg
 
     elif isinstance(private_key, PQKEMPrivateKey) or is_kem_private_key(private_key):
         popo = prepare_popo_challenge_for_non_signing_key(use_encr_cert=use_encr_cert, use_key_enc=True)
         cert_request_msg["popo"] = popo
 
     elif not isinstance(private_key, (x448.X448PrivateKey, x25519.X25519PrivateKey, dh.DHPrivateKey)):
-        der_cert_request = encoder.encode(cert_request)
-        signature = cryptoutils.sign_data(data=der_cert_request, key=private_key, hash_alg=hash_alg)
-        logging.info("Calculated POPO: %s", signature.hex())
+        popo = prepare_signature_popo(
+            signing_key=private_key,
+            cert_request=cert_request,
+            hash_alg=hash_alg,
+            bad_pop=bad_pop,
+        )
 
-        if bad_pop:
-            if isinstance(private_key, (TradSigPrivKey, PQSignaturePrivateKey)):
-                signature = utils.manipulate_first_byte(signature)
-            else:
-                signature = utils.manipulate_composite_sig(signature)
-
-        popo = prepare_popo(signature=signature, signing_key=private_key, ra_verified=ra_verified, hash_alg=hash_alg)
+        if ra_verified:
+            popo = prepare_popo(signature=None, signing_key=private_key, ra_verified=ra_verified, hash_alg=hash_alg)
         cert_request_msg["popo"] = popo
     elif isinstance(private_key, (x448.X448PrivateKey, x25519.X25519PrivateKey)):
         popo = prepare_popo_challenge_for_non_signing_key(use_encr_cert=use_encr_cert, use_key_enc=False)

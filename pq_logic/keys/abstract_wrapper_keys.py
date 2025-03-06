@@ -227,6 +227,8 @@ class WrapperPrivateKey(BaseKey):
 class PQPublicKey(WrapperPublicKey, ABC):
     """Post-Quantum Public Key class."""
 
+    _public_key_bytes: bytes
+
     def __init__(self, public_key: bytes, alg_name: str):
         """Initialize the PQPublicKey.
 
@@ -236,6 +238,20 @@ class PQPublicKey(WrapperPublicKey, ABC):
         self._public_key_bytes = public_key
         self._name = alg_name
 
+    def __eq__(self, other: "PQPublicKey") -> bool:
+        """Compare two public keys.
+
+        :param other: The other public key to compare with.
+        :return: The result of the comparison.
+        """
+        if type(other) is not type(self):
+            return False
+        return self._public_key_bytes == other._public_key_bytes
+
+    def _get_header_name(self) -> bytes:
+        """Return the algorithm name, used in the header of the PEM file."""
+        return b"PQ"
+
     def public_bytes_raw(self) -> bytes:
         """Return the public key as raw bytes."""
         return self._public_key_bytes
@@ -244,23 +260,27 @@ class PQPublicKey(WrapperPublicKey, ABC):
         """Export the public key as bytes."""
         return self._public_key_bytes
 
-    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
+    def get_oid(self) -> univ.ObjectIdentifier:
         """Get the Object Identifier of the key."""
         return PQ_NAME_2_OID[self.name]
 
     @abstractmethod
-    def _check_name(self, name: str):
+    def _check_name(self, name: str) -> Tuple[str, str]:
         """Check if the parsed name is correct."""
-        pass
 
     @classmethod
-    def from_public_bytes(cls, name: str, data: bytes) -> "PQPublicKey":
+    def from_public_bytes(cls, data: bytes, name: bytes) -> "PQPublicKey":
         """Create a public key from bytes."""
         raise NotImplementedError("The method `from_public_bytes` is not implemented.")
 
     def _get_subject_public_key(self) -> bytes:
         """Return the public key as bytes."""
         return self._public_key_bytes
+
+    @property
+    def key_size(self) -> int:
+        """Get the size of the key."""
+        return len(self.public_bytes_raw())
 
 
 class PQPrivateKey(WrapperPrivateKey, ABC):

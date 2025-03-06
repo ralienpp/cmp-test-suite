@@ -371,7 +371,7 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         """Get the public key."""
 
 
-class TradKEMPublicKey(WrapperPublicKey, ABC):
+class TradKEMPublicKey(WrapperPublicKey, KEMPublicKey, ABC):
     """Abstract class for traditional KEM public keys."""
 
     _public_key: Union[ECDHPublicKey, rsa.RSAPublicKey]
@@ -396,9 +396,13 @@ class TradKEMPublicKey(WrapperPublicKey, ABC):
         """
 
     @property
-    def ct_length(self) -> int:
-        """Get the length of the ciphertext."""
-        return len(self.encaps()[1])
+    @abstractmethod
+    def get_trad_name(self) -> str:
+        """Get the name of the traditional algorithm."""
+
+    @abstractmethod
+    def encode(self) -> bytes:
+        """Encode the public key."""
 
 
 class TradKEMPrivateKey(WrapperPrivateKey, ABC):
@@ -420,6 +424,20 @@ class TradKEMPrivateKey(WrapperPrivateKey, ABC):
     def ct_length(self) -> int:
         """Get the length of the ciphertext."""
         return self.public_key().ct_length
+
+    @property
+    @abstractmethod
+    def key_size(self) -> int:
+        """Get the key size."""
+
+    def get_oid(self) -> univ.ObjectIdentifier:
+        """Get the Object Identifier of the key."""
+        return self.public_key().get_oid()
+
+    @property
+    def get_trad_name(self) -> str:
+        """Get the name of the traditional algorithm."""
+        return self.public_key().get_trad_name
 
 
 class HybridPublicKey(WrapperPublicKey, ABC):

@@ -47,41 +47,60 @@ from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 HybridTradPubComp = Union["TradKEMPublicKey", ECDHPublicKey, rsa.RSAPublicKey]
 HybridTradPrivComp = Union["TradKEMPrivateKey", ECDHPrivateKey, rsa.RSAPrivateKey]
 
+# Base Key Class
+# to add functionality and properties to all key types.
 
-class WrapperPublicKey(ABC):
-    """Abstract class for public keys."""
+
+class BaseKey(ABC):
+    """Abstract Base Class for all key types."""
 
     _name: str
-    _public_key_bytes: bytes
-
-    def __eq__(self, other: "WrapperPublicKey") -> bool:
-        """Compare two public keys.
-
-        :param other: The other public key to compare with.
-        :return: The result of the comparison.
-        """
-        if type(other) is not type(self):
-            return False
-        return self._public_key_bytes == other._public_key_bytes
-
-    @classmethod
-    def _get_header_name(self) -> bytes:
-        """Return the algorithm name, used in the header of the PEM file."""
-        return b"WRAPPER"
+    # this name is used if a library uses a different name style for the algorithm.
+    _other_name: Optional[str]
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Get the name of the key."""
         return self._name.lower()
 
     @abstractmethod
-    def _export_public_key(self) -> bytes:
-        """Export the public key as bytes."""
-        pass
+    def get_oid(self) -> univ.ObjectIdentifier:
+        """Retrieve the Object Identifier of the key."""
+
+    @property
+    @abstractmethod
+    def key_size(self) -> int:
+        """Retrieve the size of the key in bytes."""
+
+    def _get_header_name(self) -> bytes:
+        """Return the algorithm name, used in the header of the PEM file."""
+        return b"BASE"
+
+
+class KEMPublicKey(BaseKey, ABC):
+    """Abstract class for KEM public keys."""
+
+    @classmethod
+    @abstractmethod
+    def encaps(cls, **kwargs) -> Tuple[bytes, bytes]:
+        """Encapsulate a shared secret and the ciphertext.
+
+        :param kwargs: Additional arguments for encapsulation.
+        :return: The shared secret and the ciphertext.
+        """
+
+    @property
+    def ct_length(self):
+        """Get the length of the ciphertext."""
+        return len(self.encaps()[1])
+
+
+class WrapperPublicKey(BaseKey):
+    """Abstract class for public keys."""
 
     @abstractmethod
-    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
-        """Get the Object Identifier of the key."""
+    def _export_public_key(self) -> bytes:
+        """Export the public key as bytes or seed for some PQ keys."""
 
     @abstractmethod
     def _get_subject_public_key(self) -> bytes:
@@ -102,7 +121,7 @@ class WrapperPublicKey(ABC):
         return encoder.encode(spki)
 
     def public_bytes(
-        self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
+            self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
     ) -> Union[bytes, str]:
         """Get the serialized public key in bytes format.
 
@@ -132,34 +151,22 @@ class WrapperPublicKey(ABC):
 
             b64_encoded = base64.b64encode(data).decode("utf-8")
             b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
-            pem = "-----BEGIN PUBLIC KEY-----\n" + b64_encoded + "\n-----END PUBLIC KEY-----\n"
+            pem = (
+                    f"-----BEGIN {self._get_header_name()} PUBLIC KEY-----\n"
+                    + b64_encoded
+                    + f"\n-----END {self._get_header_name()} PUBLIC KEY-----\n"
+            )
             return pem
 
         raise ValueError(f"Unsupported encoding: {encoding}")
 
 
-class WrapperPrivateKey(ABC):
+class WrapperPrivateKey(BaseKey):
     """Abstract class for private keys."""
-
-    _name: str
-
-    @property
-    def name(self):
-        """Get the name of the key."""
-        return self._name.lower()
 
     @abstractmethod
     def public_key(self) -> WrapperPublicKey:
         """Get the public key."""
-
-    @classmethod
-    def _get_header_name(self) -> bytes:
-        """Return the algorithm name, used in the header of the PEM file."""
-        return b"WRAPPER"
-
-    @abstractmethod
-    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
-        """Get the Object Identifier of the key."""
 
     @abstractmethod
     def _export_private_key(self) -> bytes:
@@ -177,15 +184,17 @@ class WrapperPrivateKey(ABC):
         return encoder.encode(data)
 
     def private_bytes(
-        self,
-        encoding: Encoding = Encoding.PEM,
-        format: PrivateFormat = PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
+            self,
+            encoding: Encoding = Encoding.PEM,
+            format: PrivateFormat = PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
     ) -> bytes:
         """Get the serialized private key in bytes format.
 
         :param encoding: The encoding format. Can be `Encoding.Raw`, `Encoding.DER`, or `Encoding.PEM`.
         :param format: The private key format. Can be `PrivateFormat.Raw` or `PrivateFormat.PKCS8`.
+        :param encryption_algorithm: The encryption algorithm to use. Defaults to `NoEncryption`.
+        (Only `NoEncryption` and `BestAvailableEncryption` are supported).
         :return: The serialized private key as bytes.
         """
         if format != PrivateFormat.PKCS8:
@@ -206,9 +215,9 @@ class WrapperPrivateKey(ABC):
             b64_encoded = base64.b64encode(data).decode("utf-8")
             b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
             pem = (
-                f"-----BEGIN {self._get_header_name()} PRIVATE KEY-----\n"
-                + b64_encoded
-                + f"\n-----END {self._get_header_name()} PRIVATE KEY-----\n"
+                    f"-----BEGIN {self._get_header_name()} PRIVATE KEY-----\n"
+                    + b64_encoded
+                    + f"\n-----END {self._get_header_name()} PRIVATE KEY-----\n"
             )
             return pem.encode("utf-8")
 

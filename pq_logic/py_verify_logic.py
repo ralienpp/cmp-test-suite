@@ -36,7 +36,7 @@ import pq_logic
 from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.migration_typing import CertOrCerts
 

@@ -32,7 +32,7 @@ from robot.api.deco import not_keyword
 from pq_logic.chempatkem import ChempatPrivateKey
 from pq_logic.hybrid_structures import CompositeSignaturePrivateKeyAsn1
 from pq_logic.keys.abstract_pq import PQPrivateKey
-from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
 from pq_logic.keys.kem_keys import FrodoKEMPrivateKey, McEliecePrivateKey, MLKEMPrivateKey, Sntrup761PrivateKey
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, SLHDSAPrivateKey
 from pq_logic.keys.trad_keys import RSADecapKey

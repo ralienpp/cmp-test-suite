@@ -20,7 +20,7 @@ from pq_logic.hybrid_structures import (
     CompositeSignaturePublicKeyAsn1,
 )
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePublicKey
-from pq_logic.keys.comp_sig_cms03 import (
+from pq_logic.keys.composite_sig import (
     CompositeSigCMSPublicKey,
 )
 from pq_logic.keys.composite_kem import (

@@ -10,64 +10,25 @@ Composite ML-DSA For use in X.509 Public Key Infrastructure and CMS
 
 """
 
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, padding, rsa
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
-from pyasn1_alt_modules import rfc5280
 from resources import oid_mapping
 from resources.exceptions import BadAsn1Data, InvalidKeyCombination
-from resources.oid_mapping import get_curve_instance, sha_alg_name_to_oid
+from resources.oid_mapping import sha_alg_name_to_oid
 from resources.oidutils import (
-    ALL_COMPOSITE_SIG_COMBINATIONS,
     CMS_COMPOSITE_NAME_2_OID,
     CURVE_NAMES_TO_INSTANCES,
 )
 from robot.api.deco import not_keyword
 
-from pq_logic.hybrid_structures import CompositeSignaturePublicKeyAsn1, CompositeSignatureValue
-from pq_logic.keys.abstract_composite import AbstractCompositeSigPrivateKey, AbstractCompositeSigPublicKey
+from pq_logic.hybrid_structures import CompositeSignatureValue
+from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, AbstractCompositePublicKey
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import CMS_COMPOSITE_OID_2_HASH, HASH_COMPOSITE_NAME_TO_OID, PURE_COMPOSITE_NAME_TO_OID
-
-
-def get_valid_comb(
-    pq_name: Optional[str] = None,
-    trad_name: Optional[str] = None,
-    length: Optional[str] = None,
-    curve: Optional[str] = None,
-):
-    """Get the valid combination of ML-DSA and traditional algorithm based on the given parameters.
-
-    :param pq_name: The name of the PQ algorithm.
-    :param trad_name: The traditional algorithm name.
-    :param length: The key length for RSA keys.
-    :param curve: The curve name for EC keys.
-    :return: A dictionary with the matching combination, or None if no match is found.
-    """
-    if pq_name is None and trad_name is None:
-        return {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"}
-
-    for entry in ALL_COMPOSITE_SIG_COMBINATIONS:
-        if pq_name and entry["pq_name"] == pq_name:
-            return entry
-
-        if entry["trad_name"] == trad_name:
-            if length is None and curve is None and pq_name is None:
-                return entry
-
-            if "length" in entry and length and entry["length"] == length:
-                return entry
-            if "curve" in entry and curve and entry["curve"] == curve:
-                return entry
-            if "length" not in entry and "curve" not in entry:
-                return entry
-
-    raise ValueError(
-        f"No valid combination found for pq_name={pq_name}, trad_name={trad_name}, length={length}, curve={curve}"
-    )
 
 
 # to avoid import conflicts will be removed in the future.
@@ -96,38 +57,23 @@ def get_names_from_oid(oid: univ.ObjectIdentifier) -> Tuple[str, str]:
                         or HASH_COMPOSITE_NAME_TO_OID.
     """
 
-    def split_name(name: str, prefix: str = "") -> Tuple[str, str]:
+    def split_name(parsed_name: str, prefix: str = "") -> Tuple[str, str]:
         if prefix:
-            name = name.replace(prefix, "")
-        parts = name.split("-")
+            parsed_name = parsed_name.replace(prefix, "")
+        parts = parsed_name.split("-")
         parameter_set = "-".join(parts[:3])  # "ml-dsa-44", "ml-dsa-65", etc.
         key_type = "-".join(parts[3:])  # "rsa2048-pss", "ed25519", etc.
         return parameter_set, key_type
 
     for name, registered_oid in PURE_COMPOSITE_NAME_TO_OID.items():
         if oid == registered_oid:
-            return split_name(name)
+            return split_name(name, prefix="composite-sig-")
 
     for name, registered_oid in HASH_COMPOSITE_NAME_TO_OID.items():
         if oid == registered_oid:
-            return split_name(name, prefix="hash-")
+            return split_name(name, prefix="composite-sig-hash-")
 
     raise ValueError(f"OID {oid} not found in the composite name mappings.")
-
-
-def _prepare_sig_vals(sigs: List[bytes]) -> CompositeSignatureValue:
-    """Prepare a CompositeSignatureValue object from a list of individual signatures.
-
-    :param sigs: List of byte representations of individual signatures.
-    :return: A CompositeSignatureValue object containing the encoded signatures.
-    """
-    sig_vals = CompositeSignatureValue()
-
-    for x in sigs:
-        val = univ.BitString.fromOctetString(x)
-        sig_vals.append(val)
-
-    return sig_vals
 
 
 def _get_trad_name(
@@ -144,13 +90,15 @@ def _get_trad_name(
     use_pss: bool = False,
     curve: Optional[str] = None,
     length: Optional[int] = None,
+    allow_bad_rsa: bool = False,
 ) -> str:
     """Retrieve the traditional algorithm name based on the key type.
 
     :param trad_key: The traditional key object.
-    :param use_pss: Whether to use RSA-PSS padding.
-    :param curve: Optional curve name for EC keys.
-    :param length: Optional key length for RSA keys.
+    :param use_pss: Whether to use RSA-PSS padding. Defaults to `False`.
+    :param curve: Optional curve name for EC keys. Defaults to `None`.
+    :param length: Optional key length for RSA keys. Defaults to `None`.
+    :param allow_bad_rsa: Allow the use of bad RSA key. Defaults to `False`.
     :return: The traditional algorithm name.
     :raise ValueError: If the composite key mapping is unsupported.
     """
@@ -159,10 +107,12 @@ def _get_trad_name(
         trad_name = f"ecdsa-{actual_curve}"
     elif isinstance(trad_key, (rsa.RSAPublicKey, rsa.RSAPrivateKey)):
         key_size = length or trad_key.key_size
+        if allow_bad_rsa and key_size not in [2048, 3072, 4096]:
+            key_size = length or 2048
+
         trad_name = f"rsa{key_size}"
         if use_pss:
             trad_name += "-pss"
-
     elif isinstance(trad_key, (ed25519.Ed25519PrivateKey, ed25519.Ed25519PublicKey)):
         trad_name = "ed25519"
     elif isinstance(trad_key, (ed448.Ed448PrivateKey, ed448.Ed448PublicKey)):
@@ -178,6 +128,7 @@ def get_oid_cms_composite_signature(
     use_pss: bool = False,
     pre_hash: bool = False,
     length: Optional[int] = None,
+    allow_bad_rsa: bool = False,
 ) -> univ.ObjectIdentifier:
     """Retrieve the OID for a composite signature, using a stringified version of the key name.
 
@@ -186,12 +137,15 @@ def get_oid_cms_composite_signature(
     :param use_pss: Indicates whether RSA-PSS padding is used.
     :param pre_hash: Indicates if the data is pre-hashed before signing.
     :param length: Optional key length for RSA keys.
+    :param allow_bad_rsa: Allow the use of bad RSA key.
     :return: The OID representing the composite signature configuration.
     :raises KeyError: If the OID cannot be resolved.
     """
-    stringified_trad_name = _get_trad_name(trad_key=trad_key, use_pss=use_pss, length=length)
+    stringified_trad_name = _get_trad_name(
+        trad_key=trad_key, use_pss=use_pss, length=length, allow_bad_rsa=allow_bad_rsa
+    )
     pre_hash = "" if not pre_hash else "hash-"
-    oid_base = f"{pre_hash}{ml_dsa_name}-{stringified_trad_name}"
+    oid_base = f"composite-sig-{pre_hash}{ml_dsa_name}-{stringified_trad_name}"
     oid = CMS_COMPOSITE_NAME_2_OID.get(oid_base)
     if oid is None:
         raise InvalidKeyCombination(f"Invalid composite signature combination: {oid_base}")
@@ -199,7 +153,37 @@ def get_oid_cms_composite_signature(
     return oid
 
 
-class CompositeSigCMSPublicKey(AbstractCompositeSigPublicKey):
+def _prepare_composite_sig(pq_sig: bytes, trad_sig: bytes) -> bytes:
+    """Prepare the composite signature.
+
+    :param pq_sig: The post-quantum signature.
+    :param trad_sig: The traditional signature.
+    """
+    vals = CompositeSignatureValue()
+    vals.append(univ.BitString.fromOctetString(pq_sig))
+    vals.append(univ.BitString.fromOctetString(trad_sig))
+    return encoder.encode(vals)
+
+
+def _get_hash(param: Union[str, int]) -> hashes.HashAlgorithm:
+    """Retrieve the hash algorithm based on the given parameter."""
+    if isinstance(param, int):
+        return {
+            2048: hashes.SHA256(),
+            3072: hashes.SHA256(),
+            4096: hashes.SHA384(),
+        }[param]
+
+    curve_to_hash = {
+        "secp256r1": hashes.SHA256(),
+        "secp384r1": hashes.SHA384(),
+        "brainpoolP256r1": hashes.SHA256(),
+        "brainpoolP384r1": hashes.SHA384(),
+    }
+    return curve_to_hash[param]
+
+
+class CompositeSigCMSPublicKey(AbstractCompositePublicKey):
     """Composite signature public key."""
 
     pq_key: MLDSAPublicKey
@@ -233,39 +217,71 @@ class CompositeSigCMSPublicKey(AbstractCompositeSigPublicKey):
         domain_oid = domain_oid or self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
         return CMS_COMPOSITE_OID_2_HASH[domain_oid]
 
-    @staticmethod
-    def from_spki(spki: rfc5280.SubjectPublicKeyInfo):
-        """Parse a Composite Signature Public key from a `SubjectPublicKeyInfo` object.
+    def _verify_trad(
+        self,
+        data: bytes,
+        signature: bytes,
+        use_pss: bool = False,
+    ) -> None:
+        """Verify a traditional signature using the corresponding public key.
 
-        :param spki: The `SubjectPublicKeyInfo` object to parse.
-        :return: The parsed `CompositeSigCMSPublicKey` instance.
-        :raises ValueError: If the public key cannot be parsed.
-        :raises ValueError: If extra data is present after decoding the public key.
+        :param data: The data that was signed.
+        :param signature: The traditional signature to be verified.
+        :param use_pss: Indicates whether RSA-PSS padding was used during signing.
+        :raises ValueError: If the key type is unsupported.
+        :raises InvalidSignature: If the signature verification fails.
+        :raises ValueError: If the key type is unsupported.
         """
-        obj, rest = decoder.decode(spki["subjectPublicKey"].asOctets(), CompositeSignaturePublicKeyAsn1())
-        if rest != b"":
-            raise ValueError("Extra data after decoding public key")
+        if isinstance(self.trad_key, rsa.RSAPublicKey):
+            hash_instance = _get_hash(self.trad_key.key_size)
 
-        pq_pub_bytes = obj[0].asOctets()
-        trad_pub_bytes = obj[1].asOctets()
+            rsa_padding = (
+                padding.PSS(mgf=padding.MGF1(hash_instance), salt_length=hash_instance.digest_size)
+                if use_pss
+                else padding.PKCS1v15()
+            )
 
-        ml_dsa_name, trad_name = get_names_from_oid(spki["algorithm"]["algorithm"])
-
-        pq_pub = MLDSAPublicKey(public_key=pq_pub_bytes, sig_alg=ml_dsa_name.upper())
-
-        if trad_name.startswith("ecdsa"):
-            curve_name = trad_name.split("-")[1]
-            curve = get_curve_instance(curve_name)
-            trad_pub = ec.EllipticCurvePublicKey.from_encoded_point(curve, trad_pub_bytes)
-        elif trad_name == "ed448":
-            trad_pub = ed448.Ed448PublicKey.from_public_bytes(trad_pub_bytes)
-        elif trad_name == "ed25519":
-            trad_pub = ed25519.Ed25519PublicKey.from_public_bytes(trad_pub_bytes)
-        elif trad_name.startswith("rsa"):
-            trad_pub = serialization.load_der_public_key(trad_pub_bytes)
+            self.trad_key.verify(
+                signature=signature,
+                data=data,
+                padding=rsa_padding,
+                algorithm=hash_instance,
+            )
+        elif isinstance(self.trad_key, (ed448.Ed448PublicKey, ed25519.Ed25519PublicKey)):
+            self.trad_key.verify(signature=signature, data=data)
+        elif isinstance(self.trad_key, ec.EllipticCurvePublicKey):
+            hash_instance = _get_hash(self.trad_key.curve.name)
+            self.trad_key.verify(signature=signature, data=data, signature_algorithm=ec.ECDSA(hash_instance))
         else:
-            raise ValueError(f"Unsupported traditional public key type: {trad_name}")
-        return CompositeSigCMSPublicKey(pq_pub, trad_pub)
+            raise ValueError("Unsupported traditional public key type.")
+
+    def _prepare_input(self, data: bytes, ctx: bytes, use_pss: bool, pre_hash: bool) -> bytes:
+        """Prepare the input for the composite signature.
+
+        :param data: The data to be signed.
+        :param ctx: The context for the signature.
+        :param use_pss: Indicates whether RSA-PSS padding was used during signing.
+        :param pre_hash: Indicates whether the data was pre-hashed before signing.
+        :return: The prepared input.
+        """
+        if len(ctx) > 255:
+            raise ValueError("Context length exceeds 255 bytes")
+
+        domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
+        length_bytes = len(ctx).to_bytes(1, "big", signed=False)
+
+        if pre_hash:
+            hash_alg = CMS_COMPOSITE_OID_2_HASH[domain_oid]
+            hash_oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
+            hashed_data = compute_hash(alg_name=hash_alg, data=data)
+            # Construct M' with pre-hashing
+            # Compute M' = Domain || len(ctx) || ctx || HashOID || PH(M)
+            m_prime = encoder.encode(domain_oid) + length_bytes + ctx + hash_oid + hashed_data
+        else:
+            # Construct M' without pre-hashing
+            # Compute M' = Domain || len(ctx) || ctx || M
+            m_prime = encoder.encode(domain_oid) + length_bytes + ctx + data
+        return m_prime
 
     def verify(
         self, data: bytes, signature: bytes, ctx: bytes = b"", use_pss: bool = False, pre_hash: bool = False
@@ -300,21 +316,7 @@ class CompositeSigCMSPublicKey(AbstractCompositeSigPublicKey):
             use_pss=use_pss,
             pre_hash=pre_hash,
         )
-        length_bytes = len(ctx).to_bytes(1, "big", signed=False)
-
-        if pre_hash:
-            hash_alg = CMS_COMPOSITE_OID_2_HASH[domain_oid]
-            hash_oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
-            hashed_data = compute_hash(alg_name=hash_alg, data=data)
-
-            # Construct M' with pre-hashing
-            # Compute M' = Domain || len(ctx) || ctx || DERHashOID || PH(M)
-            m_prime = encoder.encode(domain_oid) + length_bytes + ctx + hash_oid + hashed_data
-        else:
-            # Construct M' without pre-hashing
-            # Compute M' = Domain || len(ctx) || ctx || M
-            m_prime = encoder.encode(domain_oid) + length_bytes + ctx + data
-
+        m_prime = self._prepare_input(data=data, ctx=ctx, use_pss=use_pss, pre_hash=pre_hash)
         self.pq_key.verify(data=m_prime, signature=mldsa_sig, ctx=encoder.encode(domain_oid))
         self._verify_trad(data=m_prime, signature=trad_sig, use_pss=use_pss)
 
@@ -330,13 +332,18 @@ class CompositeSigCMSPublicKey(AbstractCompositeSigPublicKey):
         CompositeSigCMSPrivateKey.validate_oid(oid, key)
 
 
-class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
+class CompositeSigCMSPrivateKey(AbstractCompositePrivateKey):
     """Composite signature private key."""
 
-    pq_key: MLDSAPrivateKey
-    trad_key: Union[rsa.RSAPrivateKey, ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey, ec.EllipticCurvePrivateKey]
+    _pq_key: MLDSAPrivateKey
+    _trad_key: Union[rsa.RSAPrivateKey, ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey, ec.EllipticCurvePrivateKey]
 
-    def _get_key_name(self) -> bytes:
+    @property
+    def pq_key(self) -> MLDSAPrivateKey:
+        """Return the post-quantum private key."""
+        return self._pq_key
+
+    def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"COMPOSITE SIGNATURE"
 
@@ -351,8 +358,8 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
         """
         try:
             pq_name, trad_name = get_names_from_oid(oid)
-        except ValueError:
-            raise ValueError(f"Invalid OID: {oid}")
+        except ValueError as e:
+            raise ValueError(f"Invalid OID: {oid}") from e
 
         if not pq_name.startswith(key.pq_key.name):
             raise ValueError(f"OID's PQ name '{pq_name}' does not match the key's PQ name '{key.pq_key.name}'")
@@ -412,14 +419,13 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
         :return: A `CompositeSigPublicKey` instance containing the public keys derived
              from the composite private key.
         """
-        return CompositeSigCMSPublicKey(self.pq_key.public_key(), self.trad_key.public_key())
+        return CompositeSigCMSPublicKey(self._pq_key.public_key(), self.trad_key.public_key())
 
     def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Return the Object Identifier for the composite signature."""
         length = None
         if isinstance(self.trad_key, rsa.RSAPrivateKey):
-            length = min(max(self.trad_key.key_size, 2048), 4096)
-
+            length = self._get_rsa_size(self.trad_key.key_size)
         return get_oid_cms_composite_signature(
             self.pq_key.name,
             self.trad_key,  # type: ignore
@@ -428,24 +434,14 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
             length=length,
         )
 
-    def _get_hash_name(
-        self, domain_oid: Optional[univ.ObjectIdentifier] = None, use_padding: bool = False, pre_hash: bool = False
-    ) -> str:
-        """Retrieve the hash algorithm name for the given composite signature combination."""
-        domain_oid = domain_oid or get_oid_cms_composite_signature(
-            self.pq_key.name, self.trad_key, use_pss=use_padding, pre_hash=pre_hash
-        )
-        return CMS_COMPOSITE_OID_2_HASH[domain_oid]
+    def _prepare_input(self, data: bytes, ctx: bytes, use_pss: bool, pre_hash: bool) -> bytes:
+        """Prepare the input for the composite signature.
 
-    def sign(self, data: bytes, ctx: bytes = b"", use_pss: bool = False, pre_hash: bool = False) -> bytes:
-        """
-        Sign data with optional pre-hashing and context.
-
-        :param data: The data to sign.
-        :param ctx: The context for the signature, must not exceed 255 bytes.
-        :param use_pss: Whether to use padding.
-        :param pre_hash: Whether to pre-hash the data before signing.
-        :return: The encoded signature.
+        :param data: The data to be signed.
+        :param ctx: The context for the signature.
+        :param use_pss: Indicates whether RSA-PSS padding was used during signing.
+        :param pre_hash: Indicates whether the data was pre-hashed before signing.
+        :return: The prepared input.
         """
         if len(ctx) > 255:
             raise ValueError("Context length exceeds 255 bytes")
@@ -464,11 +460,55 @@ class CompositeSigCMSPrivateKey(AbstractCompositeSigPrivateKey):
             # Construct M' without pre-hashing
             # Compute M' = Domain || len(ctx) || ctx || M
             m_prime = encoder.encode(domain_oid) + length_bytes + ctx + data
+        return m_prime
+
+    def sign(self, data: bytes, ctx: bytes = b"", use_pss: bool = False, pre_hash: bool = False) -> bytes:
+        """
+        Sign data with optional pre-hashing and context.
+
+        :param data: The data to sign.
+        :param ctx: The context for the signature, must not exceed 255 bytes.
+        :param use_pss: Whether to use padding.
+        :param pre_hash: Whether to pre-hash the data before signing.
+        :return: The encoded signature.
+        """
+        if len(ctx) > 255:
+            raise ValueError("Context length exceeds 255 bytes")
+
+        domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
+        m_prime = self._prepare_input(data=data, ctx=ctx, use_pss=use_pss, pre_hash=pre_hash)
 
         mldsa_sig = self.pq_key.sign(m_prime, ctx=encoder.encode(domain_oid))
         trad_sig = self._sign_trad(data=m_prime, use_pss=use_pss)
 
-        return self.prepare_composite_sig(mldsa_sig, trad_sig)
+        return _prepare_composite_sig(mldsa_sig, trad_sig)
+
+    def _sign_trad(self, data: bytes, use_pss: bool = False) -> bytes:
+        """Generate a signature using the traditional private key.
+
+        :param data: The data to be signed.
+        :param use_pss: Indicates whether RSA-PSS padding should be used.
+        :return: The signature as bytes.
+        :raises ValueError: If the key type is unsupported.
+        """
+        if isinstance(self.trad_key, rsa.RSAPrivateKey):
+            size = self._get_rsa_size(self.trad_key.key_size)
+            hash_instance = _get_hash(size)
+
+            if use_pss:
+                rsa_padding = padding.PSS(mgf=padding.MGF1(hash_instance), salt_length=hash_instance.digest_size)
+            else:
+                rsa_padding = padding.PKCS1v15()
+            return self.trad_key.sign(data=data, padding=rsa_padding, algorithm=hash_instance)
+        if isinstance(self.trad_key, (ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey)):
+            return self.trad_key.sign(data)  # type: ignore
+        if isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
+            hash_instance = _get_hash(self.trad_key.curve.name)
+            return self.trad_key.sign(data=data, signature_algorithm=ec.ECDSA(hash_instance))
+
+        raise ValueError(
+            f"CompositeSigPrivateKey: Unsupported traditional private key type.: {type(self.trad_key).__name__}"
+        )
 
     @property
     def name(self) -> str:

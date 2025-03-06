@@ -33,7 +33,7 @@ from robot.api.deco import keyword, not_keyword
 from pq_logic import pq_compute_utils
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.hybrid_structures import AltSignatureExt, AltSubPubKeyExt, UniformResourceIdentifier
-from pq_logic.keys.comp_sig_cms03 import (
+from pq_logic.keys.composite_sig import (
     CompositeSigCMSPublicKey,
     compute_hash,
 )

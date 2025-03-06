@@ -8,9 +8,10 @@ import logging
 from typing import List, Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec, x448, x25519
+from cryptography.hazmat.primitives.asymmetric import ec, rsa, x448, x25519
 from pyasn1.type import univ
 from resources.exceptions import InvalidKeyCombination
+from robot.api.deco import not_keyword
 
 from pq_logic.kem_mechanism import DHKEMRFC9180
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
@@ -29,8 +30,7 @@ from pq_logic.keys.kem_keys import (
     Sntrup761PublicKey,
 )
 from pq_logic.keys.pq_key_factory import PQKeyFactory
-from pq_logic.stat_utils import TRAD_ALG_2_NENC, get_ec_trad_name
-from pq_logic.tmp_mapping import get_oid_for_chemnpat
+from pq_logic.tmp_oids import CHEMPAT_NAME_2_OID
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 CURVE_NAME_2_CONTEXT_NAME = {
@@ -358,7 +358,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
     _pq_key: PQKEMPrivateKey
     _trad_key: ECDHPrivateKey
 
-    def __int__(self, pq_key: PQKEMPrivateKey, trad_key: ECDHPrivateKey):
+    def __init__(self, pq_key: PQKEMPrivateKey, trad_key: ECDHPrivateKey):
         """Initialize the ChempatPrivateKey instance with keys.
 
         :param pq_key: The post-quantum private key.
@@ -366,18 +366,12 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         :raises ValueError: If the trad_key is not None and not an ECDHPrivateKey.
         :raises InvalidKeyCombination: If the key combination is not supported.
         """
-        self._pq_key = pq_key
-        self._trad_key = trad_key
-        self.chempat_kem = ChempatKEM(self.pq_key, self.trad_key)
+        super().__init__(pq_key, trad_key)
+        self.chempat_kem = ChempatKEM(self._pq_key, self.trad_key)
 
     def public_key(self) -> ChempatPublicKey:
         """Return the corresponding public key class."""
         return ChempatPublicKey(self.pq_key.public_key(), self.trad_key.public_key())
-
-    @classmethod
-    def generate(cls):
-        """Generate a ChempatPrivateKey instance."""
-        raise NotImplementedError("The ChempatPrivateKey class does not support key generation.")
 
     @classmethod
     def _load_pq_key(cls, data: bytes, name: str) -> Tuple[PQKEMPrivateKey, bytes]:
@@ -408,16 +402,16 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
 
         name = name.lower()
         if "sntrup761" in name:
-            return ChempatSntrup761PrivateKey._from_private_bytes(data, name=name)
+            return ChempatSntrup761PrivateKey.from_private_bytes(data, name=name)
 
         if "mceliece" in name:
-            return ChempatMcEliecePrivateKey._from_private_bytes(data, name=name)
+            return ChempatMcEliecePrivateKey.from_private_bytes(data, name=name)
 
         if "ml-kem" in name:
-            return ChempatMLKEMPrivateKey._from_private_bytes(data, name=name)
+            return ChempatMLKEMPrivateKey.from_private_bytes(data, name=name)
 
         if "frodokem" in name:
-            return ChempatFrodoKEMPrivateKey._from_private_bytes(data, name=name)
+            return ChempatFrodoKEMPrivateKey.from_private_bytes(data, name=name)
 
         raise ValueError(f"Unsupported key type for Chempat. Got: {name}")
 
@@ -425,25 +419,11 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         """Return the PEM header name."""
         return b"CHEMPAT"
 
-    def __init__(self, pq_key, trad_key: Optional[ECDHPrivateKey] = None):
-        """Initialize the ChempatPrivateKey instance with keys.
-
-        :param pq_key: The post-quantum private key.
-        :param trad_key: The traditional private key, if None, will be created in the `encaps` function.
-        :raises ValueError: If the trad_key is not None and not an ECDHPrivateKey.
-        :raises InvalidKeyCombination: If the key combination is not supported.
-        """
-        super().__init__(pq_key, trad_key)
-        if trad_key and not isinstance(trad_key, ECDHPrivateKey):
-            raise ValueError("Unsupported key type for Chempat the trad_key must be `None` or `ECDHPrivateKey`")
-
-        self.chempat_kem = ChempatKEM(self.pq_key, self.trad_key)
-
     def kem_combiner(self, **kwargs) -> bytes:
         """Generate a hybrid shared secret using traditional-KEM and PQ-KEM."""
         raise NotImplementedError("The kem_combiner is directly implemented in the ChempatKEM class.")
 
-    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
+    def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID for the Chempat key."""
         return get_oid_for_chemnpat(self.pq_key, self.trad_key)
 
@@ -473,14 +453,6 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
             return ChempatFrodoKEMPrivateKey(pq_key, trad_key)
 
         raise InvalidKeyCombination(f"Unsupported key type for ChempatPrivateKey: {pq_key.name}")
-
-    def encaps(self, peer_key: ChempatPublicKey) -> Tuple[bytes, bytes]:
-        """Perform key encapsulation with a peer's public key.
-
-        :param peer_key: The peer's hybrid public key.
-        :return: The encapsulated shared secret and ciphertext.
-        """
-        return self.chempat_kem.encaps(peer_key.pq_key, peer_key.trad_key)
 
     def decaps(self, ct: bytes) -> bytes:
         """Perform key decapsulation using the provided ciphertext.
@@ -551,7 +523,7 @@ class ChempatSntrup761PrivateKey(ChempatPrivateKey):
 
     def public_key(self) -> ChempatSntrup761PublicKey:
         """Return the corresponding public key class."""
-        return ChempatSntrup761PublicKey(self.pq_key.public_key(), self.trad_key.public_key())
+        return ChempatSntrup761PublicKey(self._pq_key.public_key(), self.trad_key.public_key())
 
     @classmethod
     def _load_pq_key(cls, data: bytes, name: str) -> Tuple[Sntrup761PrivateKey, bytes]:
@@ -705,21 +677,11 @@ class ChempatMLKEMPublicKey(ChempatPublicKey):
 class ChempatMLKEMPrivateKey(ChempatPrivateKey):
     """Chempat ML-KEM 768 private key class."""
 
-    @classmethod
-    def generate(cls, trad_name: str = None, curve: str = None):
-        """Generate a ChempatMLKEM768PrivateKey instance.
-
-        :param trad_name: The traditional key name.
-        :param curve: The curve name.
-        :return: The generated `ChempatMLKEM768PrivateKey` instance.
-        """
-        if trad_name is None or trad_name == "x25519":
-            return cls(PQKeyFactory.generate_pq_key("ml-kem-768"), x25519.X25519PrivateKey.generate())
-        raise NotImplementedError("Currently only x25519 is supported.")
+    _pq_key: MLKEMPrivateKey
 
     def public_key(self) -> ChempatMLKEMPublicKey:
         """Return the corresponding public key class."""
-        return ChempatMLKEMPublicKey(self.pq_key.public_key(), self.trad_key.public_key())
+        return ChempatMLKEMPublicKey(self._pq_key.public_key(), self.trad_key.public_key())
 
     @classmethod
     def _load_pq_key(cls, data: bytes, name: str) -> [MLKEMPrivateKey, bytes]:

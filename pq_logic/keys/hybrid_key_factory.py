@@ -8,17 +8,14 @@ from typing import Dict, List, Optional
 
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa, x448, x25519
 from resources.exceptions import InvalidKeyCombination
+from resources.oidutils import ALL_COMPOSITE_SIG_COMBINATIONS
 from resources.typingutils import Strint
 
 from pq_logic.chempatkem import ChempatPrivateKey
-from pq_logic.keys.abstract_composite import (
-    AbstractCompositeSigPrivateKey,
-)
-from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey, get_valid_comb
-from pq_logic.keys.composite_kem_pki import (
+from pq_logic.keys.comp_sig_cms03 import CompositeSigCMSPrivateKey
+from pq_logic.keys.composite_kem import (
     CompositeDHKEMRFC9180PrivateKey,
     CompositeKEMPrivateKey,
-    parse_private_keys,
 )
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.trad_key_factory import generate_ec_key, generate_trad_key
@@ -251,16 +248,16 @@ class HybridKeyFactory:
                     pq_name=None, trad_name=trad_name, length=length, curve=curve
                 )
 
-                return parse_private_keys(pq_key=comp_key.pq_key, trad_key=trad_key)
+                return CompositeKEMPrivateKey(pq_key=comp_key.pq_key, trad_key=trad_key)
 
             if trad_key is None:
                 pq_name = pq_key.name
                 comp_key = HybridKeyFactory.generate_comp_kem_key(
                     pq_name=pq_name,
                 )
-                return parse_private_keys(pq_key, comp_key.trad_key)
+                return CompositeKEMPrivateKey(pq_key, comp_key.trad_key)
 
-            return parse_private_keys(pq_key, trad_key)
+            return CompositeKEMPrivateKey(pq_key, trad_key)
 
         elif algorithm == "composite-sig":
             if pq_key is None and trad_key is None:

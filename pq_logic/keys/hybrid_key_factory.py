@@ -347,7 +347,7 @@ class HybridKeyFactory:
                 pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
             )
 
-            return CompositeDHKEMRFC9180PrivateKey(pq_key=keys.pq_key, trad_key=keys.trad_key)
+            return CompositeDHKEMRFC9180PrivateKey(pq_key=keys.pq_key, trad_key=keys.trad_key._private_key)
 
         if algorithm == "chempat":
             return HybridKeyFactory.generate_chempat(pq_name=pq_name, trad_name=trad_name, curve=curve)
@@ -388,7 +388,7 @@ class HybridKeyFactory:
         trad_name: Optional[str] = None,
         length: Optional[Strint] = None,
         curve: Optional[str] = None,
-    ) -> AbstractCompositeSigPrivateKey:
+    ) -> CompositeSigCMSPrivateKey:
         """
         Generate a composite signature key.
 
@@ -432,7 +432,7 @@ class HybridKeyFactory:
             algorithm=key_params["trad_name"], length=key_params.get("length"), curve=key_params.get("curve")
         )
 
-        return parse_private_keys(pq_key, trad_key)
+        return CompositeKEMPrivateKey(pq_key, trad_key)
 
     @staticmethod
     def generate_chempat(

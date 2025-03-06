@@ -115,6 +115,7 @@ class CombinedKeyFactory:
             return CombinedKeyFactory._generate_chempat_key_by_name(algorithm)
 
         return CombinedKeyFactory.generate_key(algorithm)
+
     @staticmethod
     def get_all_kem_coms_as_dict() -> Dict[str, List[Dict]]:
         """Return all KEM composites key combinations as a dictionary.
@@ -160,6 +161,77 @@ class CombinedKeyFactory:
         raise ValueError(f"Unsupported key type: **{algorithm}** Supported are {options}")
 
     @staticmethod
+    def _comp_load_trad_key(
+        public_key: bytes,
+        trad_name: str,
+        curve: Optional[str],
+    ):
+        """Load a traditional composite public key from the provided bytes.
+
+        :param public_key: The public key bytes.
+        :param trad_name: The traditional key type.
+        :param curve: The name of the elliptic curve.
+        :return: The loaded public key.
+        :raises ValueError: If the traditional key type is not supported or cannot be loaded.
+        """
+        if trad_name == "rsa":
+            return serialization.load_der_public_key(public_key)
+        if trad_name in ["ecdsa", "ecdh", "ec"]:
+            curve_instance = get_curve_instance(curve_name=curve)
+            return ec.EllipticCurvePublicKey.from_encoded_point(curve_instance, public_key)
+        if trad_name == "x25519":
+            return x25519.X25519PublicKey.from_public_bytes(public_key)
+        if trad_name == "x448":
+            return x448.X448PublicKey.from_public_bytes(public_key)
+
+        if trad_name == "ed25519":
+            return ed25519.Ed25519PublicKey.from_public_bytes(public_key)
+
+        if trad_name == "ed448":
+            return ed448.Ed448PublicKey.from_public_bytes(public_key)
+
+        raise ValueError(f"Unsupported traditional public key type: {trad_name}")
+
+    @staticmethod
+    def _get_composite_public_key(oid: univ.ObjectIdentifier, public_key: bytes) -> AbstractCompositePublicKey:
+        """Get a composite public key from the provided OID and public key bytes.
+
+        :param oid:
+        :param public_key:
+        :return: The loaded public key.
+        """
+        if oid in CMS_COMPOSITE_OID_2_NAME:
+            name = CMS_COMPOSITE_OID_2_NAME[oid]
+        elif str(oid) in COMPOSITE_KEM_OID_2_NAME:
+            name = COMPOSITE_KEM_OID_2_NAME[str(oid)]
+        else:
+            raise BadAlg(f"Unsupported composite key OID: {oid}")
+
+        prefix = _any_string_in_string(name, ["dhkem", "kem", "sig-hash", "sig"])
+        name = name.replace(f"composite-{prefix}-", "", 1)
+        pq_name = PQKeyFactory.get_pq_alg_name(algorithm=name)
+        rest = name.replace(f"{pq_name}-", "", 1)
+        trad_name = _any_string_in_string(rest, ["rsa", "ecdsa", "ecdh", "ec", "ed25519", "x25519", "x448", "ed448"])
+        rest = rest.replace(f"{trad_name}", "")
+        curve = None
+        if not rest.isdigit():
+            curve = rest.replace("-", "", 1) if rest else None
+
+        obj, rest = decoder.decode(public_key, CompositeSignaturePublicKeyAsn1())
+        if rest != b"":
+            raise BadAsn1Data("Extra data after decoding public key")
+
+        pq_pub_bytes = obj[0].asOctets()
+        trad_pub_bytes = obj[1].asOctets()
+        pq_key = PQKeyFactory.from_public_bytes(name=pq_name, data=pq_pub_bytes)
+        trad_key = CombinedKeyFactory._comp_load_trad_key(public_key=trad_pub_bytes, trad_name=trad_name, curve=curve)
+        if prefix == "dhkem":
+            return CompositeDHKEMRFC9180PublicKey(pq_key, trad_key)
+        if prefix == "kem":
+            return CompositeKEMPublicKey(pq_key, trad_key)
+        return CompositeSigCMSPublicKey(pq_key, trad_key)  # type: ignore
+
+    @staticmethod
     def load_public_key_from_spki(spki: rfc5280.SubjectPublicKeyInfo):
         """Load a public key from an SPKI structure.
 
@@ -169,7 +241,7 @@ class CombinedKeyFactory:
         oid = spki["algorithm"]["algorithm"]
 
         if oid in CMS_COMPOSITE_OID_2_NAME:
-            return CompositeSigCMSPublicKey.from_spki(spki)
+            return CombinedKeyFactory._get_composite_public_key(oid, spki["subjectPublicKey"].asOctets())
 
         if str(oid) in COMPOSITE_KEM_OID_2_NAME:
             return CombinedKeyFactory.load_composite_kem_key(spki)
@@ -287,7 +359,5 @@ class CombinedKeyFactory:
         alg_name = alg_name or CHEMPAT_OID_2_NAME[str(oid)]
         if alg_name is None:
             raise KeyError(f"Invalid Chempat key OID: {oid}")
-
         raw_bytes = spki["subjectPublicKey"].asOctets()
-
         return ChempatPublicKey.from_public_bytes(data=raw_bytes, name=alg_name)

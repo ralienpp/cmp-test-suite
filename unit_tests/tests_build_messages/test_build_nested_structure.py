@@ -13,7 +13,7 @@ from unit_tests.utils_for_test import de_and_encode_pkimessage
 def _nested_example() -> PKIMessageTMP:  # noqa D417 undocumented-param
     """Build fresh messages to ensure new ones can be added to a nested message."""
     messages = []
-    key = load_private_key_from_file("data/keys/private-key-ed25519.pem", key_type="ed25519")
+    key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
 
     for x in range(5):
         pki_message = build_ir_from_key(key, sender=f"test{x}@example.com")

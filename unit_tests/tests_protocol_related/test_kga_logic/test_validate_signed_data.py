@@ -22,7 +22,7 @@ class TestCheckSignedData(unittest.TestCase):
             utils.load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem")
         )
         self.root_key = load_private_key_from_file(
-            "data/keys/private-key-ed25519.pem", key_type="ed25519"
+            "data/keys/private-key-ed25519.pem"
         )
 
         # Load KGA certificate and key

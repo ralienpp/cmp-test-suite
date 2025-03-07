@@ -25,7 +25,7 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.hybrid_key = load_private_key_from_file("data/keys/private-key-x25519.pem", key_type="x25519")
+        cls.hybrid_key = load_private_key_from_file("data/keys/private-key-x25519.pem")
         cls.xwing_key = load_private_key_from_file("data/keys/private-key-xwing.pem")
         cls.xwing_key_other = load_private_key_from_file("data/keys/private-key-xwing-other.pem")
 

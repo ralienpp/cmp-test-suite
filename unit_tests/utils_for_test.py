@@ -233,7 +233,7 @@ def _gen_new_certs() -> None:
       - `data/unittest/ca1_cert_ecdsa.pem`: The next intermediate certificate in the chain saved as PEM.
       - `data/unittest/ca2_cert_rsa.pem`: The following intermediate certificate in the chain saved as PEM.
     """
-    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem", key_type="ed25519")
+    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
     ca1_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
     ca2_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
     cert_chain, _ = build_certificate_chain(length=6, keys=[root_key, ca1_key, ca2_key, ca1_key, ca1_key, ca1_key])
@@ -254,7 +254,7 @@ def _generate_crl()-> None:
 
     :return: None.
     """
-    root_key: ed25519.Ed25519PrivateKey = load_private_key_from_file("data/keys/private-key-ed25519.pem", key_type="ed25519")
+    root_key: ed25519.Ed25519PrivateKey = load_private_key_from_file("data/keys/private-key-ed25519.pem")
     root_cert = parse_certificate(load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
     builder = x509.CertificateRevocationListBuilder()
 
@@ -300,7 +300,7 @@ def load_or_generate_cert_chain() -> Tuple[List[Union[rfc9480.CMPCertificate, x5
     :return: Tuple list of certificates and list of keys.
     """
     ca2_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
-    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem", key_type="ed25519")
+    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
     ca1_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
 
     if not os.path.isfile("data/unittest/test_cert_chain_len6.pem"):
@@ -521,7 +521,7 @@ def _build_kga_cert_signed_by_root():
     # are not time independent, because verified with OpenSSL
 
     # because the verify cert chain is already test creates a minimal chain.
-    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem", key_type="ed25519")
+    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
     root_cert = parse_certificate(load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
 
     ca1_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
@@ -559,10 +559,10 @@ def _build_time_independent_certs():
     """
     _build_certs_root_ca_key_update_content()
 
-    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem", key_type="ed25519")
+    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
     root_cert = parse_certificate(load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
     # used for kari.
-    private_key = load_private_key_from_file("data/keys/server-key-x25519.pem", key_type="x25519")
+    private_key = load_private_key_from_file("data/keys/private-key-x25519.pem")
     # cannot be self-signed, because x25519, but otherwise does not need to be signed, by a
     # valid trusted anchor, because it is used for validation of the envelopeData structure,
     # which does not include that check.
@@ -580,11 +580,11 @@ def _build_time_independent_certs():
     _build_pq_certs()
 
 def _build_pq_certs():
-    mldsa_key = load_private_key_from_file("data/keys/private-key-ml-dsa-65.pem", key_type="ml-dsa-65")
-    mlkem_key = load_private_key_from_file("data/keys/private-key-ml-kem-768.pem", key_type="ml-kem-768")
-    slh_dsa_key = load_private_key_from_file("data/keys/private-key-slh-dsa-sha2-256f.pem", key_type="slh-dsa")
-    mcelliece_key = load_private_key_from_file("data/keys/private-key-mceliece-6960119.pem", key_type="mceliece-6960119")
-    composite_sig_rsa = load_private_key_from_file("data/keys/private-key-composite-sig-rsa.pem", key_type="composite-sig")
+    mldsa_key = load_private_key_from_file("data/keys/private-key-ml-dsa-65.pem")
+    mlkem_key = load_private_key_from_file("data/keys/private-key-ml-kem-768.pem")
+    slh_dsa_key = load_private_key_from_file("data/keys/private-key-slh-dsa-sha2-256f.pem")
+    mcelliece_key = load_private_key_from_file("data/keys/private-key-mceliece-6960119.pem")
+    composite_sig_rsa = load_private_key_from_file("data/keys/private-key-composite-sig-rsa2048-ml-dsa-44.pem")
 
     cert, key = build_certificate(signing_key=mldsa_key, common_name="CN=PQ Root CA",
                       is_ca=True, path_length=None, ski=True)
@@ -666,11 +666,6 @@ def _gen_and_save_keys():
     save_key(generate_key("slh-dsa-shake-128f"), "data/keys/private-key-slh-dsa-shake-128f.pem")
 
 
-
-
-
-
-
 def _save_tmp_kem_pq_certs():
     """Generate and save a set of certificates for PQ algorithms.
 
@@ -706,20 +701,17 @@ def _save_tmp_kem_pq_certs():
 
 
 
-    mc_key = load_private_key_from_file("data/keys/private-key-mceliece-6960119.pem", key_type="mceliece-6960119")
+    mc_key = load_private_key_from_file("data/keys/private-key-mceliece-6960119.pem", )
     mc_cert, _ = build_certificate(private_key=mc_key, signing_key=mldsa_key,
                                    common_name="CN=PQ KEM McEliece 6960119", issuer_cert=mldsa_cert)
     write_cmp_certificate_to_pem(mc_cert, "data/unittest/pq_cert_mceliece_6960119.pem")
-
-
-
 
 def _generate_pq_certs():
 
     _gen_and_save_keys()
 
     # Generate PQ Signature certs:
-    mldsa_key = load_private_key_from_file("data/keys/private-key-ml-dsa-65.pem", key_type="ml-dsa-65")
+    mldsa_key = load_private_key_from_file("data/keys/private-key-ml-dsa-65.pem", )
     mldsa_cert, _ = build_certificate(private_key=mldsa_key, common_name="CN=PQ Root CA MLDSA 65")
     write_cmp_certificate_to_pem(mldsa_cert, "data/unittest/pq_root_ca_ml_dsa_65.pem")
 
@@ -727,12 +719,12 @@ def _generate_pq_certs():
     mldsa_cert44, _ = build_certificate(private_key=mldsa_key44, common_name="CN=PQ Root CA MLDSA 44")
     write_cmp_certificate_to_pem(mldsa_cert44, "data/unittest/pq_root_ca_ml_dsa_44.pem")
 
-    slh_dsa_key = load_private_key_from_file("data/keys/private-key-slh-dsa-sha2-256f.pem", key_type="slh-dsa")
+    slh_dsa_key = load_private_key_from_file("data/keys/private-key-slh-dsa-sha2-256f.pem", )
     slh_dsa_cert, _ = build_certificate(private_key=slh_dsa_key, common_name="CN=PQ Root CA SLH-DSA-SHA2-256f")
     write_cmp_certificate_to_pem(slh_dsa_cert, "data/unittest/pq_root_ca_slh_dsa_sha2_256f.pem")
 
     # Generate PQ KEM certs:
-    mlkem_key = load_private_key_from_file("data/keys/private-key-ml-kem-768.pem", key_type="ml-kem-768")
+    mlkem_key = load_private_key_from_file("data/keys/private-key-ml-kem-768.pem", )
     mlkem_cert, _ = build_certificate(private_key=mlkem_key, signing_key=mldsa_key,
                                       common_name="CN=MLKEM 768", issuer_cert=mldsa_cert)
     write_cmp_certificate_to_pem(mlkem_cert, "data/unittest/pq_cert_ml_kem_768.pem")

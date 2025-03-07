@@ -1111,7 +1111,7 @@ CA MAY Issue A Ed25519 Certificate With A Valid IR
     ...    If not, the CA should respond with the failinfo set to `badCertTemplate` or `badAlg`.
     [Tags]    key    positive   robot:skip-on-failure
     ${result}=    Should Contain    ${ALLOWED_ALGORITHM}    ed25519
-    ${ecc_key}=    Load Private Key From File    ./data/keys/private-key-ed25519.pem    key_type=ed25519
+    ${ecc_key}=    Load Private Key From File    ./data/keys/private-key-ed25519.pem
     ${extensions}=    Prepare Extensions    key_usage=digitalSignature
     ${pki_message}=    Build Ir From Key
     ...    signing_key=${ecc_key}
@@ -1154,7 +1154,7 @@ CA Must Accept No POPO For Request With X25519 Key
     Skip    Not implemented yet.
     ${result}=    Should Contain    ${ALLOWED_ALGORITHM}    x25519
     ${extensions}=    Prepare Extensions    key_usage=keyAgreement
-    ${csr_key}=    Load Private Key From File    ./data/keys/client-key-x25519.pem    key_type=x25519
+    ${csr_key}=    Load Private Key From File    ./data/keys/client-key-x25519.pem
     ${pki_message}=    Build Ir From Key
     ...    signing_key=${csr_key}
     ...    common_name=${SENDER}

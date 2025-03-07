@@ -504,7 +504,7 @@ def may_load_cert_and_key(  # noqa D417 undocumented-param
     der_cert = load_and_decode_pem_file(cert_path)
     cert = certutils.parse_certificate(der_cert)
 
-    key = keyutils.load_private_key_from_file(filepath=key_path, password=key_password, key_type=key_type)
+    key = keyutils.load_private_key_from_file(filepath=key_path, password=key_password)
 
     cert_pub_key = certutils.load_public_key_from_cert(cert)  # type: ignore
     if key.public_key() != cert_pub_key:

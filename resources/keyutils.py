@@ -370,8 +370,8 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
     Examples:
     --------
     | ${key}= | Load Private Key From File | /path/to/key.pem | password123 |
-    | ${x448_key}= | Load Private Key From File | /path/to/x448_key.pem | key_type=x448 |
-    | ${x25519_key}= | Load Private Key From File | /path/to/ed25519_key.pem | key_type=ed25519 |
+    | ${x448_key}= | Load Private Key From File | /path/to/x448_key.pem |
+    | ${x25519_key}= | Load Private Key From File | /path/to/ed25519_key.pem |
 
     """
     with open(filepath, "rb") as key_file:

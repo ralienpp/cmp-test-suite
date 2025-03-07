@@ -52,7 +52,7 @@ class TestCAMessageWithEnvelopeDataKARI(unittest.TestCase):
 
         # Load server's X25519 key and certificate
         self.server_x25519_key = load_private_key_from_file(
-            "data/keys/server-key-x25519.pem", key_type="x25519"
+            "data/keys/private-key-x25519.pem"
         )
         self.server_x25519_cert = parse_certificate(
             utils.load_and_decode_pem_file("data/unittest/cmp_prot_kari_x25519.pem")
@@ -156,7 +156,7 @@ class TestCAMessageWithEnvelopeDataKARI(unittest.TestCase):
         )
 
         # Client's X25519 private key requesting a new key
-        ee_key = load_private_key_from_file("data/keys/client-key-x25519.pem", key_type="x25519")
+        ee_key = load_private_key_from_file("data/keys/client-key-x25519.pem")
         ee_pub_key = ee_key.public_key()
 
         recip_info = self._prepare_kari(

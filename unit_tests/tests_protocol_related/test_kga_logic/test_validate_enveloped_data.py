@@ -33,7 +33,7 @@ class TestValidateEnvelopeData(unittest.TestCase):
     def setUp(self):
         self.content_encryption_key = b"\xaa" * 16
         self.trusted_root = parse_certificate(utils.load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
-        self.root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem", key_type="ed25519")
+        self.root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
         self.kga_certificate, self.key = build_certificate(
             common_name="CN=Hans the Tester",
             key="ec",

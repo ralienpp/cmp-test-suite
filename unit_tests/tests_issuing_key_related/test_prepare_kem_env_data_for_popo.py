@@ -19,7 +19,7 @@ class TestPrepareKemEnvDataForPopo(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.kem_key: MLKEMPrivateKey = load_private_key_from_file("data/keys/private-key-ml-kem-768.pem")
-        cls.x25519 = load_private_key_from_file("data/keys/private-key-x25519.pem", key_type="x25519")
+        cls.x25519 = load_private_key_from_file("data/keys/private-key-x25519.pem")
         cls.kem_cert = parse_certificate(
             load_and_decode_pem_file("data/unittest/pq_cert_ml_kem_768.pem"))
         cls.xwing_key = XWingPrivateKey(pq_key=cls.kem_key, trad_key=cls.x25519)

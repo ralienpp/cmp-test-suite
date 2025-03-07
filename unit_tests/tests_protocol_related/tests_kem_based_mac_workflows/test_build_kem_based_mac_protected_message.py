@@ -47,7 +47,7 @@ class TestBuildKemBasedMacProtectedMessage(unittest.TestCase):
         WHEN building a KEM based MAC protected message.
         THEN the message is correctly protected.
         """
-        key = load_private_key_from_file("data/keys/client-key-x25519.pem", key_type="x25519")
+        key = load_private_key_from_file("data/keys/client-key-x25519.pem")
         ss, ct = self.xwing.public_key().encaps(key.public_key())
         kem_ct_info = prepare_kem_ciphertextinfo(
             key=self.xwing,

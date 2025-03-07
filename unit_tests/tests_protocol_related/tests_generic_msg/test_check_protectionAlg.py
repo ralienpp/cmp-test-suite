@@ -15,7 +15,7 @@ class TestCheckProtectionAlgField(unittest.TestCase):
     @classmethod
     def setUp(cls):
         """Set up a valid PKI message for both signature-based and MAC-based protection."""
-        cls.private_key = load_private_key_from_file("data/keys/private-key-ed25519.pem", key_type="ed25519")
+        cls.private_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
 
         cls.sig_pki_message = build_pkimessage()
         cls.mac_pki_message = build_pkimessage()

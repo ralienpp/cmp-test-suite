@@ -696,6 +696,23 @@ def prepare_cert_and_private_key_for_kga(
     return cert, enveloped_data
 
 
+def check_if_request_is_for_kga(pki_message: rfc9480.PKIMessage, index: int = 0) -> bool:
+    """Check if the request is for key generation action.
+
+    :param pki_message: The PKIMessage to check.
+    :param index: The index of the certificate request to check. Defaults to `0`.
+    :return: True if the request is for key generation action, False otherwise.
+    :raises ValueError: If the body type is not one of `ir`, `cr`, `kur`, or `crr`.
+    :raises BadCertTemplate: If the key OID is not recognized, or if the public key value is set,
+    but not the OID.
+    """
+    cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message, index)
+    if not cert_req_msg["popo"].isValue:
+        _get_kga_key_from_cert_template(cert_req_msg["certReq"]["certTemplate"])
+        return True
+    return False
+
+
 def _verify_pop_signature(
     pki_message: rfc9480.PKIMessage,
 ) -> None:

@@ -32,7 +32,7 @@ from resources import (
     protectionutils,
     utils,
 )
-from resources.exceptions import BadMessageCheck
+from resources.exceptions import BadMessageCheck, BadAlg
 from resources.oid_mapping import (
     get_hash_from_oid,
 )
@@ -476,20 +476,20 @@ def _verify_senderkid_for_mac(pki_message: rfc9480.PKIMessage, allow_mac_failure
     :param pki_message: The PKIMessage object containing the `sender` and `senderKID` fields to verify.
     :param allow_mac_failure: Boolean flag to allow logging a warning instead of raising an error
                               when a mismatch or issue is detected. Defaults to `False`.
-    :raises ValueError: If the `sender` field is missing, not of type `directoryName`,
+    :raises BadMessageCheck: If the `sender` field is missing, not of type `directoryName`,
                         lacks a common name, or if the `senderKID` does not match the common name,
                         and `allow_mac_failure` is False.
 
     :return: None
     """
     if not pki_message["header"]["sender"].isValue:
-        raise ValueError("The sender field of PKIMessage must be present for MAC-based protection.")
+        raise BadMessageCheck("The sender field of PKIMessage must be present for MAC-based protection.")
 
     sender: rfc9480.GeneralName = pki_message["header"]["sender"]
 
     if sender.getName() != "directoryName":
         if not allow_mac_failure:
-            raise ValueError(
+            raise BadMessageCheck(
                 f"`Sender` field for MAC protection must be of type: `directoryName` but is `{sender.getName()}`"
             )
 
@@ -508,7 +508,7 @@ def _verify_senderkid_for_mac(pki_message: rfc9480.PKIMessage, allow_mac_failure
 
     if not cm_name:
         if not allow_mac_failure:
-            raise ValueError(f"PKIMessage `sender` did not contain a commonName: {sender_name.prettyPrint()}")
+            raise BadMessageCheck(f"PKIMessage `sender` did not contain a commonName: {sender_name.prettyPrint()}")
         logging.warning("PKIMessage `sender` did not contain a commonName: %s", sender_name.prettyPrint())
         return
 
@@ -516,7 +516,7 @@ def _verify_senderkid_for_mac(pki_message: rfc9480.PKIMessage, allow_mac_failure
     if sender_kid_name != cm_name:
         if not allow_mac_failure:
             sender_name_formatted = utils.get_openssl_name_notation(name=sender_name)
-            raise ValueError(
+            raise BadMessageCheck(
                 "PKIMessage Mismatch between the field `sender` and `senderKID` for MAC protection. "
                 f"Expected to be equal! senderKID is: {sender_kid} and sender is: {sender_name_formatted}"
             )
@@ -554,10 +554,10 @@ def validate_senderkid_for_cmp_protection(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - `ValueError`: If protection is required but not present.
-        - `ValueError`: If the `senderKID` field is missing.
-        - `ValueError`: If the `senderKID` does not match the SubjectKeyIdentifier for signature-based protection.
-        - `ValueError`: If the `senderKID` does not match the `commonName` for MAC-based protection.
+        - `BadMessageCheck`: If protection is required but not present.
+        - `BadMessageCheck`: If the `senderKID` field is missing.
+        - `BadMessageCheck`: If the `senderKID` does not match the SubjectKeyIdentifier for signature-based protection.
+        - `BadMessageCheck`: If the `senderKID` does not match the `commonName` for MAC-based protection.
 
     Examples:
     --------
@@ -570,10 +570,10 @@ def validate_senderkid_for_cmp_protection(  # noqa D417 undocumented-param
         return
 
     if not is_protected and must_be_protected:
-        raise ValueError("PKIMessage protection is not present!")
+        raise BadMessageCheck("PKIMessage protection is not present!")
 
     if not pki_message["header"]["senderKID"].isValue:
-        raise ValueError("The senderKID field in the PKIHeader must be set if protection is applied!")
+        raise BadMessageCheck("The senderKID field in the PKIHeader must be set if protection is applied!")
 
     if protection_cert is None:
         protection_cert = pki_message["extraCerts"][0]
@@ -591,7 +591,7 @@ def validate_senderkid_for_cmp_protection(  # noqa D417 undocumented-param
 
         if subject_ski != sender_kid:
             logging.info("senderKID: %s, CMP certificate ski: %s", sender_kid.hex(), subject_ski.hex())
-            raise ValueError("The SubjectKeyIdentifier of the CMP-protection certificate differs from the senderKID.")
+            raise BadMessageCheck("The SubjectKeyIdentifier of the CMP-protection certificate differs from the senderKID.")
     else:
         _verify_senderkid_for_mac(pki_message=pki_message, allow_mac_failure=allow_mac_failure)
 
@@ -618,10 +618,10 @@ def check_pkimessage_signature_protection(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - `ValueError`: The signature is invalid.
-        - `ValueError`: The CMP-protection certificate is not correctly positioned as specified in RFC 9483.
-        - `ValueError`: The `extraCerts` field is missing or does not contain certificates.
-        - `ValueError`: The protection algorithm is not supported.
+        - `BadMessageCheck`: The signature is invalid.
+        - `BadMessageCheck`: The CMP-protection certificate is not correctly positioned as specified in RFC 9483.
+        - `BadMessageCheck`: The `extraCerts` field is missing or does not contain certificates.
+        - `BadAlg`: The protection algorithm is not supported.
 
     Examples:
     --------
@@ -638,10 +638,10 @@ def check_pkimessage_signature_protection(  # noqa D417 undocumented-param
     encoded: bytes = protectionutils.extract_protected_part(pki_message)
 
     if protection_type_oid not in MSG_SIG_ALG:
-        raise ValueError("PKIMessage is not signed by a known signature oid!")
+        raise BadAlg("PKIMessage is not signed by a known signature oid!")
 
     if not pki_message["extraCerts"].isValue:
-        raise ValueError("PKIMessage is does not contains certificates!")
+        raise BadMessageCheck("PKIMessage is does not contains certificates!")
 
     # check if values are correctly set.
     check_protection_alg_field(pki_message=pki_message, must_be_protected=True)
@@ -661,11 +661,11 @@ def check_pkimessage_signature_protection(  # noqa D417 undocumented-param
         return
     if index != -1:
         logging.warning("found the right Certificate at position: %s", str(index))
-        raise ValueError(
+        raise BadMessageCheck(
             "The first certificate must be the CMP-Protection certificate as specified in RFC 9483, Section 3.3."
         )
 
-    raise ValueError("CMP-Protection certificate was not present.")
+    raise BadMessageCheck("CMP-Protection certificate was not present.")
 
 
 def _prepare_indicies(extra_certs: List[rfc9480.CMPCertificate]) -> Dict[Tuple[str, int], int]:

@@ -17,6 +17,7 @@ from resources.cmputils import (
     patch_senderkid,
     prepare_general_name,
 )
+from resources.exceptions import BadMessageCheck
 from resources.protectionutils import protect_pkimessage
 from resources.utils import decode_pem_string
 
@@ -84,9 +85,7 @@ class TestValidateSenderKID(unittest.TestCase):
             do_patch=False,
         )
 
-
-
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadMessageCheck):
             validate_senderkid_for_cmp_protection(pki_message=protected_msg)
 
     def test_check_sig_senderKID_with_valid_ski(self):
@@ -127,7 +126,7 @@ class TestValidateSenderKID(unittest.TestCase):
 
         protected_msg = de_and_encode_pkimessage(protected_msg)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadMessageCheck):
             validate_senderkid_for_cmp_protection(pki_message=protected_msg, allow_mac_failure=False)
 
     def test_check_mac_protected_valid_senderKID_and_sender(self):
@@ -162,5 +161,5 @@ class TestValidateSenderKID(unittest.TestCase):
 
         protected_msg = de_and_encode_pkimessage(protected_msg)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadMessageCheck):
             validate_senderkid_for_cmp_protection(pki_message=protected_msg, allow_mac_failure=False)

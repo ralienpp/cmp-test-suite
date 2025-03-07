@@ -10,6 +10,7 @@ from resources.asn1utils import encode_to_der
 from resources.certbuildutils import generate_certificate, generate_signed_csr
 from resources.checkutils import check_pkimessage_signature_protection
 from resources.cmputils import build_p10cr_from_csr, parse_csr, patch_extra_certs, prepare_general_name
+from resources.exceptions import BadMessageCheck
 from resources.keyutils import generate_key, load_private_key_from_file
 from resources.protectionutils import protect_pkimessage
 from resources.utils import decode_pem_string
@@ -78,7 +79,7 @@ class TestCheckSignatureProtection(unittest.TestCase):
         der_data = encode_to_der(protected_msg)
         protected_msg, rest = decoder.decode(der_data, asn1Spec=rfc9480.PKIMessage())
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadMessageCheck):
             check_pkimessage_signature_protection(pki_message=protected_msg, check_sender_kid=False)
 
     def test_check_sig_with_wrong_extra_cert_pos(self):
@@ -110,5 +111,5 @@ class TestCheckSignatureProtection(unittest.TestCase):
         der_data = encode_to_der(protected_msg)
         protected_msg, rest = decoder.decode(der_data, asn1Spec=rfc9480.PKIMessage())
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadMessageCheck):
             check_pkimessage_signature_protection(pki_message=protected_msg, check_sender_kid=False)

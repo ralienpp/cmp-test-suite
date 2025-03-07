@@ -4,10 +4,15 @@
 
 """Generate cryptographic keys using the `cryptography` library."""
 
-from typing import Optional
+import logging
+from typing import Optional, Union
 
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import dh, dsa, ec, ed448, ed25519, rsa, x448, x25519
-from resources.oid_mapping import get_curve_instance
+from pyasn1.codec.der import decoder, encoder
+from pyasn1_alt_modules import rfc4211, rfc5958, rfc6664, rfc9481
+from resources.exceptions import BadAlg, BadAsn1Data
+from resources.oid_mapping import get_curve_instance, may_return_oid_to_name
 from resources.typingutils import PrivateKey
 from robot.api.deco import not_keyword
 
@@ -157,5 +162,79 @@ def generate_trad_key(algorithm="rsa", **params) -> PrivateKey:  # noqa: D417 fo
 
     else:
         raise ValueError(f"Unsupported algorithm: {algorithm}")
+
+    return private_key
+
+
+@not_keyword
+def parse_trad_key_from_one_asym_key(
+    one_asym_key: Union[rfc5958.OneAsymmetricKey, bytes], must_be_version_2: bool = True
+):
+    """Parse a traditional key from a single asymmetric key.
+
+    :param one_asym_key: The OneAsymmetricKey object or its DER-encoded bytes.
+    :param must_be_version_2: If True, the key must be a version 2 key.
+    :return: The parsed private key.
+    :raises BadAsn1Data: If the provided data is not a OneAsymmetricKey object.
+    :raises ValueError: If the key is not a version 2 key.
+    """
+    if isinstance(one_asym_key, bytes):
+        one_asym_key, rest = decoder.decode(one_asym_key, rfc5958.OneAsymmetricKey())[0]
+        if rest:
+            raise BadAsn1Data("OneAsymmetricKey")
+
+    version = int(one_asym_key["version"])
+    private_key = one_asym_key["privateKey"].asOctets()
+    if version != 1 and must_be_version_2:
+        raise ValueError("The provided key is not a version 2 key.")
+
+    public_key_extracted = one_asym_key["publicKey"].asOctets() if one_asym_key["publicKey"].isValue else None
+
+    if public_key_extracted is None:
+        return serialization.load_der_private_key(private_key, password=None)
+
+    oid = one_asym_key["privateKeyAlgorithm"]["algorithm"]
+    private_key_bytes = private_key.asOctets()
+    public_key_bytes = public_key_extracted.asOctets()
+
+    private_len = len(private_key_bytes)
+    pub_len = len(public_key_bytes)
+
+    # the `cryptography` library does not support v2.
+    tmp = rfc4211.PrivateKeyInfo()
+    tmp["privateKeyAlgorithm"] = oid
+    tmp["privateKeyAlgorithm"]["parameters"] = one_asym_key["privateKeyAlgorithm"]["parameters"]
+    tmp["privateKey"] = private_key
+    tmp["version"] = 0
+    private_info = encoder.encode(tmp)
+
+    logging.info("The Private Key size is: %d bytes", private_len)
+    logging.info("The Public Key size is: %d bytes", pub_len)
+    if oid == rfc9481.id_Ed25519:
+        # is saved as decoded OctetString, is done by the `cryprography` library.
+        # maybe verify if this is correct.
+        private_key = serialization.load_der_private_key(private_info, password=None)
+        # key_bytes = decoder.decode(private_key_bytes, univ.OctetString())[0].asOctets()
+        # private_key = ed25519.Ed25519PrivateKey.from_private_bytes(key_bytes)
+        public_key = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
+
+    elif oid in [rfc9481.rsaEncryption]:
+        # As per section 2 in RFC 5958: "Earlier versions of this
+        # specification [RFC5208] did not specify a particular encoding rule
+        # set, but generators SHOULD use DER [X.690] and receivers MUST support
+        # BER [X.690], which also includes DER [X.690]".
+        private_key = serialization.load_der_private_key(private_info, password=None)
+        public_key = serialization.load_der_public_key(public_key_bytes)
+
+    elif oid == rfc6664.id_ecPublicKey:
+        private_key = serialization.load_der_private_key(private_info, password=None)
+        public_key = ec.EllipticCurvePublicKey.from_encoded_point(data=public_key_bytes, curve=private_key.curve)
+
+    else:
+        _name = may_return_oid_to_name(oid)
+        raise BadAlg(f"Can not load the traditional key for the algorithm: {_name}")
+
+    if private_key.public_key() != public_key:
+        raise ValueError("The public key does not match the private key.")
 
     return private_key

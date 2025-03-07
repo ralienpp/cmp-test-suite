@@ -1922,6 +1922,7 @@ def prepare_certstatus(  # noqa D417 undocumented-param
     text: Optional[str] = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     bad_pop: bool = False,
+    different_hash: bool = False,
 ) -> rfc9480.CertStatus:
     """Prepare a `CertStatus` structure for a certificate confirmation `certConf` PKIMessage.
 
@@ -1943,6 +1944,7 @@ def prepare_certstatus(  # noqa D417 undocumented-param
         - `text`: An optional text message to include in the status information.
         - `cert`: An optional certificate to use for the hash algorithm, if none is provided.
         - `bad_pop`: If `True`, the Proof of Possession (POPO) will be manipulated to create an invalid signature.
+        - `different_hash`: If `True`, a different hash algorithm is used for the certificate hash.
 
     Returns:
     -------
@@ -1968,13 +1970,18 @@ def prepare_certstatus(  # noqa D417 undocumented-param
         cert_status["statusInfo"] = status_info
 
     if hash_alg is not None:
-        alg_id = rfc9480.AlgorithmIdentifier().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
-        alg_id["algorithm"] = oid_mapping.sha_alg_name_to_oid(hash_alg)
-        cert_status["hashAlg"] = alg_id
+        cert_status["hashAlg"]["algorithm"] = oid_mapping.sha_alg_name_to_oid(hash_alg)
 
     if hash_alg is None and cert is not None:
         sig_algorithm = cert["signatureAlgorithm"]["algorithm"]
         hash_alg = oid_mapping.get_hash_from_oid(sig_algorithm, only_hash=True)
+        if different_hash:
+            hash_alg = oid_mapping.get_hash_from_oid(sig_algorithm).split("-")[1]
+            if hash_alg == "sha256":
+                hash_alg = "sha512"
+            else:
+                hash_alg = "sha256"
+            cert_status["hashAlg"]["algorithm"] = oid_mapping.sha_alg_name_to_oid(hash_alg)
 
     if cert is not None and not cert_hash and hash_alg:
         cert_hash = oid_mapping.compute_hash(alg_name=hash_alg, data=encoder.encode(cert))
@@ -2212,8 +2219,18 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
             - Other fields as per `certConf` requirements.
         - `cert_status`: A `CertStatus` object or a list of `CertStatus` objects. If not provided, it will be generated
          for all issued certificates.
-        - `**params`: Additional fields to override the extracted fields from the response `PKIMessage`
-                     and/or fields to set for the `certConf` body.
+        - `exclude_fields`: A comma-separated list of fields to omit from the PKIHeader.
+        - `hash_alg`: The hash algorithm to use for calculating the certificate hash. Defaults to `None`.
+
+
+    **params:
+    ----------
+       - Additional parameters for customizing the `PKIHeader`:
+       - `status_info` (PKISatusInfo): PKISatusInfo object to include in the `CertStatus`.
+       - `cert_req_id` (int, str): The certificate request ID. Defaults to `0`.
+       - `cert_hash` (bytes): The hash of the certificate to confirm.
+       - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     Returns:
     -------
@@ -2250,9 +2267,10 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
             cert_status = prepare_certstatus(
                 hash_alg=hash_alg,
                 cert=cert,
-                cert_req_id=cert_req_id,
+                cert_req_id=params.get("cert_req_id", cert_req_id),
                 status="accepted",
-                status_info=None,
+                status_info=params.get("status_info"),
+                cert_hash=params.get("cert_hash"),
             )
 
             cert_status_list.append(cert_status)
@@ -2326,6 +2344,7 @@ def build_cert_conf(  # noqa D417 undocumented-param
         - `for_mac` (bool): Flag indicating if the message is MAC protected. Defaults to `False`.
         ( set the sender inside the directoryName choice of the GeneralName structure)
         .
+
     Returns:
     -------
         - The populated `PKIMessage` with the `certConf` `PKIBody`.

@@ -227,4 +227,5 @@ def may_return_oid_to_name(oid: univ.ObjectIdentifier) -> str:
     :param oid: The OID to perform the lookup for.
     :return: Either a human-readable name or the OID as dotted string.
     """
-    return ALL_KNOWN_PROTECTION_OIDS.get(oid, str(oid))
+    oid = ALL_KNOWN_PROTECTION_OIDS.get(oid, str(oid))
+    return str(ALL_KNOWN_PROTECTION_OIDS.get(oid, oid))

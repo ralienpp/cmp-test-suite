@@ -357,10 +357,10 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
         """
         return DHKEMPublicKey(self._private_key.public_key(), use_rfc9180=self.use_rfc9180)
 
-    def decaps(self, enc: bytes) -> bytes:
+    def decaps(self, ct: bytes) -> bytes:
         """Decapsulate a shared secret using DHKEM (RFC 9180) or ECDH-KEM.
 
-        :param enc: The encapsulated public key bytes.
+        :param ct: The encapsulated public key bytes.
         :return: The shared secret.
         """
         kem = (
@@ -368,7 +368,7 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
             if self.use_rfc9180
             else (ECDHKEM(private_key=self._private_key))
         )
-        return kem.decaps(enc)
+        return kem.decaps(ct)
 
     def encode(self) -> bytes:
         """Encode the private key as bytes."""

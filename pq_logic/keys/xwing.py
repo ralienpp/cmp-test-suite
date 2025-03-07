@@ -10,11 +10,8 @@ from typing import Optional, Tuple
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import x25519
-from pyasn1.codec.der import encoder
 from pyasn1.type import univ
-from pyasn1_alt_modules import rfc5958
 
-from pq_logic.fips import fips203
 from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPrivateKey, AbstractHybridRawPublicKey
 from pq_logic.keys.kem_keys import MLKEMPrivateKey, MLKEMPublicKey
 from pq_logic.trad_typing import ECDHPrivateKey
@@ -23,9 +20,7 @@ from pq_logic.trad_typing import ECDHPrivateKey
 # XWing Keys
 ##################################
 
-# TODO fix XWing serialization
-
-_XWingLabel = rb"""
+_XWING_LABEL = rb"""
                 \./
                 /^\
               """.replace(b"\n", b"").replace(b" ", b"")
@@ -72,22 +67,7 @@ class XWingPublicKey(AbstractHybridRawPublicKey):
         """Serialize the public keys into a concatenated byte string."""
         return self._pq_key.public_bytes_raw() + self._trad_key.public_bytes_raw()
 
-    def kem_combiner(self, mlkem_ss: bytes, trad_ss: bytes, trad_ct: bytes, trad_pk: bytes) -> bytes:
-        """Combine shared secrets and other parameters into a final shared secret.
-
-        :param mlkem_ss: Shared secret from ML-KEM.
-        :param trad_ss: Shared secret from X25519.
-        :param trad_ct: Ciphertext from X25519.
-        :param trad_pk: Serialized X25519 public key.
-        :return: The combined shared secret.
-        """
-        return XWingPrivateKey.kem_combiner(mlkem_ss, trad_ss, trad_ct, trad_pk)
-
-    def _export_public_key(self) -> bytes:
-        """Export the public key to be stored inside a `SubjectPublicKeyInfo` structure."""
-        return self.public_bytes_raw()
-
-    def encaps(self, private_key: ECDHPrivateKey) -> Tuple[bytes, bytes]:
+    def encaps(self, private_key: Optional[ECDHPrivateKey] = None) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret and ciphertext for the given private key.
 
         :param private_key: The private key to encapsulate the shared secret for.
@@ -100,7 +80,7 @@ class XWingPublicKey(AbstractHybridRawPublicKey):
         ss_X = private_key.exchange(self._trad_key)
         ss_M, ct_M = self._pq_key.encaps()
         ct_X = private_key.public_key().public_bytes_raw()
-        ss = self.kem_combiner(ss_M, ss_X, ct_X, pk_X)
+        ss = XWingPrivateKey.kem_combiner(ss_M, ss_X, ct_X, pk_X)
         ct = ct_M + ct_X
         return ss, ct
 
@@ -149,6 +129,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         :param trad_key: The X25519 private key.
         :param seed: The seed to derive the keys from.
         """
+        super().__init__(pq_key, trad_key)
         if pq_key is None and trad_key is None:
             _key = XWingPrivateKey.expand(seed)
             pq_key = _key.pq_key
@@ -197,27 +178,10 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         :return: The combined shared secret.
         """
         hash_function = hashes.Hash(hashes.SHA3_256())
-        hash_function.update(mlkem_ss + trad_ss + trad_ct + trad_pk + _XWingLabel)
+        hash_function.update(mlkem_ss + trad_ss + trad_ct + trad_pk + _XWING_LABEL)
         ss = hash_function.finalize()
         logging.info("XWing ss: %s", ss)
         return ss
-
-    def _to_one_asym_key(self) -> bytes:
-        """Convert the private key into a `OneAsymmetricKey` object.
-
-        To write the private key in the PKCS#8 format, the `OneAsymmetricKey` object is used.
-        (formerly known as `PrivateKeyInfo`)
-
-        :return: The `OneAsymmetricKey` object.
-        """
-        one_asym_key = rfc5958.OneAsymmetricKey()
-        one_asym_key["version"] = 0
-        one_asym_key["privateKeyAlgorithm"]["algorithm"] = univ.ObjectIdentifier(_XWING_OID_STR)
-        one_asym_key["privateKey"] = univ.OctetString(self.private_bytes_raw())
-        # The publicKey component MUST be absent
-        # as of https://www.ietf.org/archive/id/draft-connolly-cfrg-xwing-kem-06.html
-        # Section 5.8.2. Private key
-        return encoder.encode(one_asym_key)
 
     def encaps(self, public_key: XWingPublicKey) -> (bytes, bytes):
         """Encapsulate a shared secret and ciphertext for the given public key.
@@ -261,45 +225,46 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         return self._seed or self.private_bytes_raw()
 
     @staticmethod
-    def ml_kem_keygen_internal(d: bytes, z: bytes) -> MLKEMPrivateKey:
-        """Generate the ML-KEM key pair.
+    def _from_seed(seed: bytes) -> Tuple[MLKEMPrivateKey, x25519.X25519PrivateKey, bytes]:
+        """Create a new key from the given seed."""
+        if len(seed) == 32:
+            shake = hashes.SHAKE256(digest_size=96)
+            hasher = hashes.Hash(shake)
+            hasher.update(seed)
+            seed = hasher.finalize()
 
-        :param d: The randomness d.
-        :param z: The randomness z.
-        :return: The ML-KEM private key.
-        """
-        ek, dk = fips203.ML_KEM("ml-kem-768").keygen_internal(d, z)
-        return MLKEMPrivateKey(kem_alg="ml-kem-768", public_key=ek, private_bytes=dk)
+        if len(seed) != 96:
+            raise ValueError("The seed must be 32 or 96 bytes long.")
+
+        ml_kem_key = MLKEMPrivateKey.from_private_bytes(name="ml-kem-768", data=seed[:64])
+        x25519_key = x25519.X25519PrivateKey.from_private_bytes(seed[64:96])
+        return ml_kem_key, x25519_key, seed
 
     @classmethod
-    def expand(cls, sk: Optional[bytes] = None):
+    def from_seed(cls, seed: bytes) -> "XWingPrivateKey":
+        """Create a private key from the given seed.
+
+        :param seed: The seed to derive the keys from.
+        :return: The private key.
+        """
+        if len(seed) in [32, 96]:
+            return cls(*cls._from_seed(seed))
+        raise ValueError("The seed must be 32 bytes for X25519 and 96 bytes for ML-KEM.")
+
+    @classmethod
+    def expand(cls, sk: Optional[bytes] = None) -> "XWingPrivateKey":
         """Expand the 32-byte secret seed into its components.
 
         :param sk: A 32-byte secret seed to derive the keys from.
         :return: The created private key.
         """
         sk = sk or os.urandom(32)
-        shake = hashes.SHAKE256(digest_size=96)
-        hasher = hashes.Hash(shake)
-        hasher.update(sk)
-        expanded = hasher.finalize()
-        seed1 = expanded[:32]
-        seed2 = expanded[32:64]
-
-        ml_kem_key = XWingPrivateKey.ml_kem_keygen_internal(seed1, seed2)
-        x25519_key = x25519.X25519PrivateKey.from_private_bytes(expanded[64:96])
-        key = XWingPrivateKey(ml_kem_key, x25519_key, seed=sk)
-        return key
+        return cls(*cls._from_seed(sk))
 
     @property
     def key_size(self) -> int:
         """Return the size of the key in bits."""
         return self.pq_key.key_size + 32
-
-    @property
-    def ct_length(self) -> int:
-        """Return the length of the ciphertext."""
-        return self.public_key().ct_length
 
     @property
     def name(self) -> str:

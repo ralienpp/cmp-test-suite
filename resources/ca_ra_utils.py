@@ -549,6 +549,57 @@ def _get_kga_key_from_cert_template(cert_template: rfc4211.CertTemplate) -> Priv
     return CombinedKeyFactory.generate_key_from_name(alg_name)
 
 
+def _prepare_private_key_for_kga(
+    new_private_key: PrivateKey,
+    pki_message: rfc9480.PKIMessage,
+    cert: Optional[rfc9480.CMPCertificate] = None,
+    password: Optional[Union[bytes, str]] = None,
+    kga_cert_chain: Optional[List[rfc9480.CMPCertificate]] = None,
+    hash_alg: str = "sha256",
+    kga_key: Optional[PrivateKeySig] = None,
+    ec_priv_key: Optional[ECDHPrivateKey] = None,
+) -> rfc5652.EnvelopedData:
+    """Prepare the private key for the key generation action.
+
+    :param pki_message: The PKIMessage to prepare the private key for.
+    :param password: The password to use for encrypting the private key. Defaults to `None`.
+    :param kga_cert_chain: The KGA certificate chain to use. Defaults to `None`.
+    :param hash_alg: The hash algorithm to use. Defaults to "sha256".
+    :param kga_key: The key generation authority key to use. Defaults to `None`.
+    :param ec_priv_key: The ECDH private key to use for `KARI`. Defaults to `None`.
+    :raises BadCertTemplate: If the key OID is not recognized.
+    """
+    pub_key = None
+    if pki_message["extraCerts"].isValue:
+        pub_key = keyutils.load_public_key_from_spki(
+            pki_message["extraCerts"][0]["tbsCertificate"]["subjectPublicKeyInfo"]
+        )
+
+    cek = os.urandom(32)
+    recip_info = _prepare_recip_info_for_kga(
+        cek=cek,
+        password=password,
+        public_key=pub_key,
+        cert=cert,
+        ec_priv_key=ec_priv_key,
+    )
+
+    signed_data = envdatautils.prepare_signed_data(
+        signing_key=kga_key,
+        sig_hash_name=hash_alg,
+        cert=kga_cert_chain[0],
+        private_keys=[new_private_key],
+        cert_chain=kga_cert_chain,
+    )
+    signed_data_der = encoder.encode(signed_data)
+    enveloped_data = envdatautils.prepare_enveloped_data(
+        recipient_infos=[recip_info],
+        data_to_protect=signed_data_der,
+        cek=cek,
+    )
+    return enveloped_data
+
+
 def _verify_pop_signature(
     pki_message: rfc9480.PKIMessage,
 ) -> None:

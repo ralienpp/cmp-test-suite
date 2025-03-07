@@ -65,6 +65,7 @@ FALCON_NAME_2_OID = {
     "falcon-padded-1024": id_falcon_padded_1024,
 }
 
+FALCON_OID_2_NAME = {y: x for x, y in FALCON_NAME_2_OID.items()}
 
 id_ntru = f"{id_kem_test_suite}.1"
 id_sntrup761_str = f"{id_ntru}.1"
@@ -149,39 +150,39 @@ id_mldsa87_ed448 = univ.ObjectIdentifier(f"{id_CompSig}.33")
 
 
 PURE_COMPOSITE_NAME_TO_OID = {
-    "ml-dsa-44-rsa2048-pss": id_mldsa44_rsa2048_pss,
-    "ml-dsa-44-rsa2048": id_mldsa44_rsa2048_pkcs15,
-    "ml-dsa-44-ed25519": id_mldsa44_ed25519,
-    "ml-dsa-44-ecdsa-secp256r1": id_mldsa44_ecdsa_p256,
-    "ml-dsa-65-rsa3072-pss": id_mldsa65_rsa3072_pss,
-    "ml-dsa-65-rsa3072": id_mldsa65_rsa3072_pkcs15,
-    "ml-dsa-65-rsa4096-pss": id_mldsa65_rsa4096_pss,
-    "ml-dsa-65-rsa4096": id_mldsa65_rsa4096_pkcs15,
-    "ml-dsa-65-ecdsa-secp384r1": id_mldsa65_ecdsa_p384,
-    "ml-dsa-65-ecdsa-brainpoolp256r1": id_mldsa65_ecdsa_brainpool_p256r1,
-    "ml-dsa-65-ed25519": id_mldsa65_ed25519,
-    "ml-dsa-87-ecdsa-secp384r1": id_mldsa87_ecdsa_p384,
-    "ml-dsa-87-ecdsa-brainpoolp384r1": id_mldsa87_ecdsa_brainpool_p384r1,
-    "ml-dsa-87-ed448": id_mldsa87_ed448,
+    "composite-sig-ml-dsa-44-rsa2048-pss": id_mldsa44_rsa2048_pss,
+    "composite-sig-ml-dsa-44-rsa2048": id_mldsa44_rsa2048_pkcs15,
+    "composite-sig-ml-dsa-44-ed25519": id_mldsa44_ed25519,
+    "composite-sig-ml-dsa-44-ecdsa-secp256r1": id_mldsa44_ecdsa_p256,
+    "composite-sig-ml-dsa-65-rsa3072-pss": id_mldsa65_rsa3072_pss,
+    "composite-sig-ml-dsa-65-rsa3072": id_mldsa65_rsa3072_pkcs15,
+    "composite-sig-ml-dsa-65-rsa4096-pss": id_mldsa65_rsa4096_pss,
+    "composite-sig-ml-dsa-65-rsa4096": id_mldsa65_rsa4096_pkcs15,
+    "composite-sig-ml-dsa-65-ecdsa-secp384r1": id_mldsa65_ecdsa_p384,
+    "composite-sig-ml-dsa-65-ecdsa-brainpoolp256r1": id_mldsa65_ecdsa_brainpool_p256r1,
+    "composite-sig-ml-dsa-65-ed25519": id_mldsa65_ed25519,
+    "composite-sig-ml-dsa-87-ecdsa-secp384r1": id_mldsa87_ecdsa_p384,
+    "composite-sig-ml-dsa-87-ecdsa-brainpoolp384r1": id_mldsa87_ecdsa_brainpool_p384r1,
+    "composite-sig-ml-dsa-87-ed448": id_mldsa87_ed448,
 }
 
 PURE_COMPOSITE_SIG_OID_TO_NAME = {y: x for x, y in PURE_COMPOSITE_NAME_TO_OID.items()}
 
 HASH_COMPOSITE_NAME_TO_OID = {
-    "hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
-    "hash-ml-dsa-44-rsa2048": id_hash_mldsa44_rsa2048_pkcs15_sha256,
-    "hash-ml-dsa-44-ed25519": id_hash_mldsa44_ed25519_sha512,
-    "hash-ml-dsa-44-ecdsa-secp256r1": id_hash_mldsa44_ecdsa_p256_sha256,
-    "hash-ml-dsa-65-rsa3072-pss": id_hash_mldsa65_rsa3072_pss_sha512,
-    "hash-ml-dsa-65-rsa3072": id_hash_mldsa65_rsa3072_pkcs15_sha512,
-    "hash-ml-dsa-65-rsa4096-pss": id_hash_mldsa65_rsa4096_pss_sha512,
-    "hash-ml-dsa-65-rsa4096": id_hash_mldsa65_rsa4096_pkcs15_sha512,
-    "hash-ml-dsa-65-ecdsa-secp384r1": id_hash_mldsa65_ecdsa_p384_sha512,
-    "hash-ml-dsa-65-ecdsa-brainpoolp256r1": id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512,
-    "hash-ml-dsa-65-ed25519": id_hash_mldsa65_ed25519_sha512,
-    "hash-ml-dsa-87-ecdsa-secp384r1": id_hash_mldsa87_ecdsa_p384_sha512,
-    "hash-ml-dsa-87-ecdsa-brainpoolp384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
-    "hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
+    "composite-sig-hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
+    "composite-sig-hash-ml-dsa-44-rsa2048": id_hash_mldsa44_rsa2048_pkcs15_sha256,
+    "composite-sig-hash-ml-dsa-44-ed25519": id_hash_mldsa44_ed25519_sha512,
+    "composite-sig-hash-ml-dsa-44-ecdsa-secp256r1": id_hash_mldsa44_ecdsa_p256_sha256,
+    "composite-sig-hash-ml-dsa-65-rsa3072-pss": id_hash_mldsa65_rsa3072_pss_sha512,
+    "composite-sig-hash-ml-dsa-65-rsa3072": id_hash_mldsa65_rsa3072_pkcs15_sha512,
+    "composite-sig-hash-ml-dsa-65-rsa4096-pss": id_hash_mldsa65_rsa4096_pss_sha512,
+    "composite-sig-hash-ml-dsa-65-rsa4096": id_hash_mldsa65_rsa4096_pkcs15_sha512,
+    "composite-sig-hash-ml-dsa-65-ecdsa-secp384r1": id_hash_mldsa65_ecdsa_p384_sha512,
+    "composite-sig-hash-ml-dsa-65-ecdsa-brainpoolp256r1": id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512,
+    "composite-sig-hash-ml-dsa-65-ed25519": id_hash_mldsa65_ed25519_sha512,
+    "composite-sig-hash-ml-dsa-87-ecdsa-secp384r1": id_hash_mldsa87_ecdsa_p384_sha512,
+    "composite-sig-hash-ml-dsa-87-ecdsa-brainpoolp384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
+    "composite-sig-hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
 }
 HASH_COMPOSITE_SIG_OID_TO_NAME = {y: x for x, y in HASH_COMPOSITE_NAME_TO_OID.items()}
 
@@ -472,35 +473,35 @@ id_altSubPubKeyExt = univ.ObjectIdentifier(f"{id_hybrid_sun}.6")
 id_altSignatureExt = univ.ObjectIdentifier(f"{id_hybrid_sun}.7")
 
 COMPOSITE_MLKEM_NAME_2_OID = {
-    "ml-kem-768-rsa2048": id_mlkem768_rsa2048,
-    "ml-kem-768-rsa3072": id_mlkem768_rsa3072,
-    "ml-kem-768-rsa4096": id_mlkem768_rsa4096,
-    "ml-kem-768-ecdh-secp384r1": id_mlkem768_ecdh_p384,
-    "ml-kem-768-ecdh-brainpoolP256r1": id_mlkem768_ecdh_brainpool_p256r1,
-    "ml-kem-768-x25519": id_mlkem768_x25519,
-    "ml-kem-1024-ecdh-secp384r1": id_mlkem1024_ecdh_p384,
-    "ml-kem-1024-ecdh-brainpoolP384r1": id_mlkem1024_ecdh_brainpool_p384r1,
-    "ml-kem-1024-x448": id_mlkem1024_x448,
+    "composite-kem-ml-kem-768-rsa2048": id_mlkem768_rsa2048,
+    "composite-kem-ml-kem-768-rsa3072": id_mlkem768_rsa3072,
+    "composite-kem-ml-kem-768-rsa4096": id_mlkem768_rsa4096,
+    "composite-kem-ml-kem-768-ecdh-secp384r1": id_mlkem768_ecdh_p384,
+    "composite-kem-ml-kem-768-ecdh-brainpoolP256r1": id_mlkem768_ecdh_brainpool_p256r1,
+    "composite-kem-ml-kem-768-x25519": id_mlkem768_x25519,
+    "composite-kem-ml-kem-1024-ecdh-secp384r1": id_mlkem1024_ecdh_p384,
+    "composite-kem-ml-kem-1024-ecdh-brainpoolP384r1": id_mlkem1024_ecdh_brainpool_p384r1,
+    "composite-kem-ml-kem-1024-x448": id_mlkem1024_x448,
 }
 COMPOSITE_FRODOKEM_NAME_2_OID = {
-    "frodokem-976-aes-rsa2048": id_frodokem_976_aes_rsa2048,
-    "frodokem-976-aes-rsa3072": id_frodokem_976_aes_rsa3072,
-    "frodokem-976-aes-rsa4096": id_frodokem_976_aes_rsa4096,
-    "frodokem-976-aes-x25519": id_frodokem_976_aes_x25519,
-    "frodokem-976-aes-ecdh-secp384r1": id_frodokem_976_aes_ecdh_p384,
-    "frodokem-976-aes-ecdh-brainpoolP256r1": id_frodokem_976_aes_brainpoolP256r1,
-    "frodokem-976-shake-rsa2048": id_frodokem_976_shake_rsa2048,
-    "frodokem-976-shake-rsa3072": id_frodokem_976_shake_rsa3072,
-    "frodokem-976-shake-rsa4096": id_frodokem_976_shake_rsa4096,
-    "frodokem-976-shake-x25519": id_frodokem_976_shake_x25519,
-    "frodokem-976-shake-ecdh-secp384r1": id_frodokem_976_shake_ecdh_p384,
-    "frodokem-976-shake-ecdh-brainpoolP256r1": id_frodokem_976_shake_brainpoolP256r1,
-    "frodokem-1344-aes-ecdh-secp384r1": id_frodokem_1344_aes_ecdh_p384,
-    "frodokem-1344-aes-ecdh-brainpoolP384r1": id_frodokem_1344_aes_ecdh_brainpoolP384r1,
-    "frodokem-1344-aes-x448": id_frodokem_1344_aes_x448,
-    "frodokem-1344-shake-ecdh-secp384r1": id_frodokem_1344_shake_ecdh_p384,
-    "frodokem-1344-shake-ecdh-brainpoolP384r1": id_frodokem_1344_shake_ecdh_brainpoolP384r1,
-    "frodokem-1344-shake-x448": id_frodokem_1344_shake_x448,
+    "composite-kem-frodokem-976-aes-rsa2048": id_frodokem_976_aes_rsa2048,
+    "composite-kem-frodokem-976-aes-rsa3072": id_frodokem_976_aes_rsa3072,
+    "composite-kem-frodokem-976-aes-rsa4096": id_frodokem_976_aes_rsa4096,
+    "composite-kem-frodokem-976-aes-x25519": id_frodokem_976_aes_x25519,
+    "composite-kem-frodokem-976-aes-ecdh-secp384r1": id_frodokem_976_aes_ecdh_p384,
+    "composite-kem-frodokem-976-aes-ecdh-brainpoolP256r1": id_frodokem_976_aes_brainpoolP256r1,
+    "composite-kem-frodokem-976-shake-rsa2048": id_frodokem_976_shake_rsa2048,
+    "composite-kem-frodokem-976-shake-rsa3072": id_frodokem_976_shake_rsa3072,
+    "composite-kem-frodokem-976-shake-rsa4096": id_frodokem_976_shake_rsa4096,
+    "composite-kem-frodokem-976-shake-x25519": id_frodokem_976_shake_x25519,
+    "composite-kem-frodokem-976-shake-ecdh-secp384r1": id_frodokem_976_shake_ecdh_p384,
+    "composite-kem-frodokem-976-shake-ecdh-brainpoolP256r1": id_frodokem_976_shake_brainpoolP256r1,
+    "composite-kem-frodokem-1344-aes-ecdh-secp384r1": id_frodokem_1344_aes_ecdh_p384,
+    "composite-kem-frodokem-1344-aes-ecdh-brainpoolP384r1": id_frodokem_1344_aes_ecdh_brainpoolP384r1,
+    "composite-kem-frodokem-1344-aes-x448": id_frodokem_1344_aes_x448,
+    "composite-kem-frodokem-1344-shake-ecdh-secp384r1": id_frodokem_1344_shake_ecdh_p384,
+    "composite-kem-frodokem-1344-shake-ecdh-brainpoolP384r1": id_frodokem_1344_shake_ecdh_brainpoolP384r1,
+    "composite-kem-frodokem-1344-shake-x448": id_frodokem_1344_shake_x448,
 }
 COMPOSITE_KEM_NAME_2_OID = {}
 COMPOSITE_KEM_NAME_2_OID.update(COMPOSITE_MLKEM_NAME_2_OID)

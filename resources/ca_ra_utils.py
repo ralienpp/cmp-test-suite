@@ -518,6 +518,37 @@ def get_public_key_from_cert_req_msg(cert_req_msg: rfc4211.CertReqMsg) -> Public
     return keyutils.load_public_key_from_spki(old_spki)
 
 
+
+def _get_kga_key_from_cert_template(cert_template: rfc4211.CertTemplate) -> PrivateKey:
+    """Get the key for the key generation action.
+
+    :param cert_template: The certificate template to get the key from.
+    :return: The generated key.
+    :raises BadCertTemplate: If the key OID is not recognized or if the public key value is set,
+    but not the OID.
+    """
+    alg_name = "rsa"
+
+    oid = cert_template["publicKey"]["algorithm"]["algorithm"]
+
+    if cert_template["publicKey"].isValue:
+        if not cert_template["publicKey"]["algorithm"].isValue:
+            raise BadCertTemplate("Public key algorithm is missing in the certificate template.")
+        if not cert_template["publicKey"]["subjectPublicKey"].isValue:
+            raise BadCertTemplate("Public key value is missing in the certificate template.")
+        if cert_template["publicKey"]["subjectPublicKey"].asOctets() != b"":
+            raise BadCertTemplate("Public key value is not empty in the certificate template,for `KGA`.")
+
+        tmp = may_return_oid_to_name(oid)
+
+        if "." in tmp:
+            raise BadCertTemplate(f"Unknown Public key OID: {tmp}", failinfo="badAlg, badCertTemplate")
+
+        alg_name = tmp.replace("Chempat", "chempat")
+
+    return CombinedKeyFactory.generate_key_from_name(alg_name)
+
+
 def _verify_pop_signature(
     pki_message: rfc9480.PKIMessage,
 ) -> None:

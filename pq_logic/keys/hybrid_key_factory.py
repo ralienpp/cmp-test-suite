@@ -4,14 +4,19 @@
 
 """Factory for creating hybrid keys based on pq and traditional components."""
 
-from typing import Dict, List, Optional
+import logging
+from typing import Dict, List, Optional, Union
 
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa, x448, x25519
-from resources.exceptions import InvalidKeyCombination
-from resources.oidutils import ALL_COMPOSITE_SIG_COMBINATIONS
+from pyasn1.codec.der import decoder
+from pyasn1_alt_modules import rfc5958
+from resources.exceptions import BadAlg, InvalidKeyCombination
+from resources.oid_mapping import may_return_oid_to_name
+from resources.oidutils import ALL_COMPOSITE_SIG_COMBINATIONS, XWING_OID_STR
 from resources.typingutils import Strint
 
-from pq_logic.chempatkem import ChempatPrivateKey
+from pq_logic.chempatkem import ChempatPrivateKey, ChempatPublicKey
+from pq_logic.keys.abstract_wrapper_keys import HybridPrivateKey
 from pq_logic.keys.composite_kem import (
     CompositeDHKEMRFC9180PrivateKey,
     CompositeKEMPrivateKey,
@@ -20,6 +25,7 @@ from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.trad_key_factory import generate_ec_key, generate_trad_key
 from pq_logic.keys.xwing import XWingPrivateKey
+from pq_logic.tmp_oids import CHEMPAT_OID_2_NAME
 
 ALL_CHEMPAT_COMBINATIONS = [
     {"pq_name": "sntrup761", "trad_name": "x25519", "curve": None},
@@ -454,6 +460,50 @@ class HybridKeyFactory:
             trad_key = generate_ec_key(algorithm=trad_name, curve=curve)
 
         return ChempatPrivateKey.parse_keys(pq_key, trad_key)
+
+    @staticmethod
+    def from_one_asym_key(one_asym_key: Union[rfc5958.OneAsymmetricKey, bytes]) -> "HybridPrivateKey":
+        """Create a new key from a `OneAsymmetricKey` structure.
+
+        :param one_asym_key: The `OneAsymmetricKey` structure or its DER-encoded representation.
+        :return: The created key.
+        :raises ValueError: If the key is not invalid.
+        :raises BadAlg: If the algorithm is not supported.
+        """
+        if isinstance(one_asym_key, bytes):
+            one_asym_key = decoder.decode(one_asym_key, asn1Spec=rfc5958.OneAsymmetricKey())[0]
+
+        oid = one_asym_key["privateKeyAlgorithm"]["algorithm"]
+        alg_oid = str(oid)
+        private_bytes = one_asym_key["privateKey"].asOctets()
+        public_bytes = one_asym_key["publicKey"].asOctets() if one_asym_key["publicKey"].isValue else None
+
+        if alg_oid == XWING_OID_STR:
+            private_key = XWingPrivateKey.from_private_bytes(private_bytes)
+            if len(one_asym_key["privateKey"].asOctets()) not in [32, 96]:
+                logging.info("The XWing key size is not 32 or 96 bytes.")
+
+            if public_bytes is not None:
+                pub = private_key.public_key().from_public_bytes(public_bytes)
+
+                if pub.public_bytes_raw() != private_key.public_key().public_bytes_raw():
+                    raise ValueError("The public key does not match the private key.")
+
+        elif oid in CHEMPAT_OID_2_NAME:
+            name = CHEMPAT_OID_2_NAME[oid]
+            private_key = ChempatPrivateKey.from_private_bytes(data=private_bytes, name=name)
+            if public_bytes is not None:
+                public_key = ChempatPublicKey.from_public_bytes(data=public_bytes, name=name)
+                private_key.pq_key._public_key_bytes = public_key._public_key_bytes
+
+                if public_key.public_bytes_raw() != private_key.public_key().public_bytes_raw():
+                    raise ValueError("The public key does not match the private key.")
+
+        else:
+            _name = may_return_oid_to_name(oid)
+            raise BadAlg(f"Can not load the private. Unsupported algorithm: {_name}")
+
+        return private_key
 
 
 def get_valid_comp_sig_combination(

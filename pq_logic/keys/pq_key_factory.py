@@ -18,6 +18,7 @@ from pq_logic.keys.kem_keys import (
     MLKEMPrivateKey,
     MLKEMPublicKey,
     Sntrup761PrivateKey,
+    Sntrup761PublicKey,
 )
 from pq_logic.keys.sig_keys import (
     FalconPrivateKey,
@@ -73,26 +74,26 @@ class PQKeyFactory:
         algorithm = algorithm.lower()
 
         if algorithm in ["ml-kem-512", "ml-kem-768", "ml-kem-1024"]:
-            return MLKEMPrivateKey(kem_alg=algorithm)
+            return MLKEMPrivateKey(alg_name=algorithm)
 
         if algorithm in ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]:
-            return MLDSAPrivateKey(sig_alg=algorithm.upper())
+            return MLDSAPrivateKey(alg_name=algorithm.upper())
 
         if algorithm == "slh-dsa" or algorithm in resources.oidutils.SLH_DSA_NAME_2_OID:
             algorithm = "slh-dsa-sha2-256s" if algorithm == "slh-dsa" else algorithm
-            return SLHDSAPrivateKey(sig_alg=algorithm)
+            return SLHDSAPrivateKey(alg_name=algorithm)
 
         if algorithm == "sntrup761":
-            return Sntrup761PrivateKey(kem_alg="sntrup761")
+            return Sntrup761PrivateKey(alg_name="sntrup761")
 
         if algorithm.startswith("mceliece"):
-            return McEliecePrivateKey(kem_alg=algorithm)
+            return McEliecePrivateKey(alg_name=algorithm)
 
         if algorithm.startswith("falcon"):
-            return FalconPrivateKey(sig_alg=algorithm)
+            return FalconPrivateKey(alg_name=algorithm)
 
         if algorithm.startswith("frodokem"):
-            return FrodoKEMPrivateKey(kem_alg=algorithm)
+            return FrodoKEMPrivateKey(alg_name=algorithm)
 
         raise ValueError(f"Invalid algorithm name provided: '{algorithm}'.")
 
@@ -112,7 +113,7 @@ class PQKeyFactory:
         """Return the full name of the post-quantum algorithm.
 
         :param algorithm: The algorithm name to check.
-        :return: The full name of the post-quantum algorithm (e.g. 'ml-dsa-44').
+        :return: The full name of the post-quantum algorithm.
         :raises ValueError: If the algorithm name is not recognized.
         """
         for x in PQ_NAME_2_OID:
@@ -141,19 +142,19 @@ class PQKeyFactory:
             raise KeyError(f"Unrecognized algorithm identifier: {oid}") from err
 
         if name.startswith("ml-dsa-"):
-            key = MLDSAPrivateKey(sig_alg=name, private_bytes=private_bytes, public_key=public_bytes)
+            key = MLDSAPrivateKey(alg_name=name, private_bytes=private_bytes, public_key=public_bytes)
 
         elif name.startswith("slh-dsa"):
-            key = SLHDSAPrivateKey(sig_alg=name, private_bytes=private_bytes, public_key=public_bytes)
+            key = SLHDSAPrivateKey(alg_name=name, private_bytes=private_bytes, public_key=public_bytes)
 
         elif name.startswith("falcon"):
-            key = FalconPrivateKey(sig_alg=name, private_bytes=private_bytes, public_key=public_bytes)
+            key = FalconPrivateKey(alg_name=name, private_bytes=private_bytes, public_key=public_bytes)
 
         elif name == "sntrup761":
-            key = Sntrup761PrivateKey(kem_alg=name, private_bytes=private_bytes, public_key=public_bytes)
+            key = Sntrup761PrivateKey(alg_name=name, private_bytes=private_bytes, public_key=public_bytes)
 
         elif name.startswith("ml-kem-"):
-            key = MLKEMPrivateKey(kem_alg=name, private_bytes=private_bytes, public_key=public_bytes)
+            key = MLKEMPrivateKey(alg_name=name, private_bytes=private_bytes, public_key=public_bytes)
 
         else:
             raise NotImplementedError(f"Unimplemented algorithm: {name}")
@@ -182,26 +183,29 @@ class PQKeyFactory:
             if hash_alg is not None:
                 name = name.replace("-" + name.split("-")[-1], "")
 
-            public_key = MLDSAPublicKey(public_key=public_bytes, sig_alg=name.upper().replace("-SHA512", ""))
+            public_key = MLDSAPublicKey(public_key=public_bytes, alg_name=name.upper().replace("-SHA512", ""))
 
         elif name.startswith("slh-dsa"):
             hash_alg = PQ_SIG_PRE_HASH_OID_2_NAME.get(oid)
             if hash_alg is not None:
                 name = name.replace("-" + name.split("-")[-1], "")
 
-            public_key = SLHDSAPublicKey(public_key=public_bytes, sig_alg=name)
+            public_key = SLHDSAPublicKey(public_key=public_bytes, alg_name=name)
 
         elif name.startswith("ml-kem-"):
-            public_key = MLKEMPublicKey(public_key=public_bytes, kem_alg=name.upper())
+            public_key = MLKEMPublicKey(public_key=public_bytes, alg_name=name.upper())
 
         elif name.startswith("falcon"):
-            public_key = FalconPublicKey(sig_alg=name, public_key=public_bytes)
+            public_key = FalconPublicKey(alg_name=name, public_key=public_bytes)
 
         elif name.startswith("mceliece"):
-            public_key = McEliecePublicKey(kem_alg=name, public_key=public_bytes)
+            public_key = McEliecePublicKey(alg_name=name, public_key=public_bytes)
 
         elif name.startswith("frodokem"):
-            public_key = FrodoKEMPublicKey(kem_alg=name, public_key=public_bytes)
+            public_key = FrodoKEMPublicKey(alg_name=name, public_key=public_bytes)
+
+        elif name == "sntrup761":
+            public_key = Sntrup761PublicKey(alg_name=name, public_key=public_bytes)
 
         else:
             raise NotImplementedError(f"Unimplemented algorithm identifier: {name}")

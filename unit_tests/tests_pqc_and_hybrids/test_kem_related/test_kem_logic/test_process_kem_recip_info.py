@@ -61,8 +61,12 @@ class TestProcessKEMInfo(unittest.TestCase):
             hash_alg="sha256",
         )
         kem_recip_info["kemct"] = univ.OctetString(b"invalid_kem_ct")
-        with self.assertRaises(InvalidUnwrap):
+
+        with self.assertRaises(Exception) as context:
             process_kem_recip_info(kem_recip_info, self.server_cert, self.server_key)
+
+        # Note: The exception raised may vary depending on whether liboqs or Python is in use.
+        self.assertIsInstance(context.exception, (InvalidUnwrap, ValueError))
 
     def test_process_kem_info_invalid_encrypted_key(self):
         """

@@ -1097,6 +1097,40 @@ def build_env_data_for_exchange(
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
+def _handle_kem_encapsulation(
+    public_key_recip: Optional[KEMPublicKey],
+    recip_cert: Optional[rfc9480.CMPCertificate],
+    hybrid_key_recip: Optional[ECDHPrivateKey],
+    kem_recip_info: rfc9629.KEMRecipientInfo,
+    kem_oid: Optional[univ.ObjectIdentifier] = None,
+):
+    """Preform the KEM encapsulation."""
+    if public_key_recip:
+        kem_pub_key = public_key_recip
+    elif recip_cert is not None:
+        kem_pub_key = keyutils.load_public_key_from_spki(recip_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+    else:
+        raise ValueError("No valid KEM public key or certificate provided.")
+
+    if not is_kem_public_key(kem_pub_key):
+        raise ValueError(f"Expected KEMPublicKey, got {type(kem_pub_key).__name__}.")
+
+    if hybrid_key_recip is None:
+        shared_secret, kemct = kem_pub_key.encaps()
+    elif isinstance(kem_pub_key, HybridKEMPublicKey):
+        shared_secret, kemct = kem_pub_key.encaps(hybrid_key_recip)
+    else:
+        shared_secret, kemct = kem_pub_key.encaps()
+
+    if not kem_recip_info["kemct"].isValue:
+        kem_recip_info["kemct"] = univ.OctetString(kemct)
+
+    if kem_oid is None:
+        kem_recip_info["kem"]["algorithm"] = get_kem_oid_from_key(kem_pub_key)
+
+    return shared_secret, kemct, kem_recip_info
+
+
 @keyword(name="Prepare KEMRecipientInfo")
 def prepare_kem_recip_info(  # noqa D417 undocumented-param
     version: int = 0,
@@ -1111,7 +1145,7 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
     encrypted_key: Optional[bytes] = None,
     kek_length: Optional[int] = None,
     kemct: Optional[bytes] = None,
-    hybrid_key_recip: Optional[HybridKEMPrivateKey] = None,
+    hybrid_key_recip: Optional[ECDHPrivateKey] = None,
     shared_secret: Optional[bytes] = None,
     kem_oid: Optional[univ.ObjectIdentifier] = None,
     **kwargs,
@@ -1150,7 +1184,9 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - ValueError: If neither kemct nor (ee_private_key and server_cert) are provided.
+        - `ValueError`: If neither kemct nor public_key_recip and recip_cert are provided.
+        - `ValueError`: If neither `encrypted_key` nor `shared_secret` is provided.
+        - `ValueError`: If the public key is not a KEMPublicKey.
 
     Examples:
     --------
@@ -1188,42 +1224,17 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
     if kemct is not None and (shared_secret is not None or encrypted_key is not None):
         pass
 
-    elif public_key_recip is None and recip_cert is not None:
-        server_pub_key = keyutils.load_public_key_from_spki(recip_cert["tbsCertificate"]["subjectPublicKeyInfo"])
-        if not is_kem_public_key(server_pub_key):
-            raise ValueError(f"The server's public key is not a `KEMPublicKey`. Got: {type(server_pub_key).__name__}.")
-
-        if kem_oid is None:
-            kem_recip_info["kem"]["algorithm"] = get_kem_oid_from_key(server_pub_key)
-
-        if hybrid_key_recip is None:
-            shared_secret, kemct = server_pub_key.encaps()
-        else:
-            shared_secret, kemct = hybrid_key_recip.encaps(server_pub_key)
-
-        if not kem_recip_info["kemct"].isValue:
-            kem_recip_info["kemct"] = univ.OctetString(kemct)
-
-    elif public_key_recip:
-        if not is_kem_public_key(public_key_recip):
-            raise ValueError(
-                f"The server's public key is not a `KEMPublicKey`. Got: {type(public_key_recip).__name__}."
-            )
-
-        if kem_oid is None:
-            kem_recip_info["kem"]["algorithm"] = get_kem_oid_from_key(public_key_recip)
-
-        if hybrid_key_recip is None:
-            shared_secret, kemct = public_key_recip.encaps()
-        else:
-            shared_secret, kemct = hybrid_key_recip.encaps(public_key_recip)  # type: ignore
-
-        logging.debug("Computed Shared secret %s", shared_secret.hex())
-        if kemct is not None:
-            kem_recip_info["kemct"] = univ.OctetString(kemct)
-
     else:
-        raise ValueError("Either `kemct` or `server_cert` or the `public_key` must be provided.")
+        shared_secret, ct, kem_recip_info = _handle_kem_encapsulation(
+            public_key_recip=public_key_recip,
+            recip_cert=recip_cert,
+            hybrid_key_recip=hybrid_key_recip,
+            kem_recip_info=kem_recip_info,
+            kem_oid=kem_oid,
+        )
+
+    if kemct is None and recip_cert is None and public_key_recip is None:
+        raise ValueError("Either `kemct` or `recip_cert` or the `public_key` must be provided.")
 
     kem_recip_info["kdf"] = prepare_kdf(kdf_name=kdf_name, hash_alg=hash_alg)
     if shared_secret is not None:
@@ -1233,6 +1244,9 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
             ukm=der_ukm,
             length=kek_length,
         )
+
+    if encrypted_key is None and shared_secret is None:
+        raise ValueError("Either `encrypted_key` or `shared_secret` must be provided.")
 
     if encrypted_key is None:
         encrypted_key = keywrap.aes_key_wrap(wrapping_key=key_enc_key, key_to_wrap=cek)

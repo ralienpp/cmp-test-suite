@@ -497,12 +497,15 @@ def compute_ansi_x9_63_kdf(
 
 
 @not_keyword
-def compute_hkdf(hash_alg: str, key_material: bytes, ukm: Optional[bytes] = None, length: int = 32) -> bytes:
+def compute_hkdf(
+    hash_alg: str, key_material: bytes, ukm: Optional[bytes] = None, salt: Optional[bytes] = None, length: int = 32
+) -> bytes:
     """Compute the HKDF output for the given hash algorithm, key material, and optional user key material (UKM).
 
     :param hash_alg: The hash algorithm name to use for HKDF (e.g.,"sha256").
     :param key_material: The input key material (IKM) used for key derivation.
     :param ukm: Optional user key material (salt) for HKDF. Defaults to None.
+    :param salt: Optional salt value for HKDF. Defaults to None.
     :param length: The desired length of the output key in bytes. Defaults to 32 bytes.
     :return: The derived key as bytes.
     """
@@ -510,8 +513,8 @@ def compute_hkdf(hash_alg: str, key_material: bytes, ukm: Optional[bytes] = None
     hkdf = HKDF(
         algorithm=hash_instance,
         length=length,
-        salt=ukm,
-        info=None,  # as specified.
+        salt=salt,
+        info=ukm,  # as specified.
     )
     return hkdf.derive(key_material)
 

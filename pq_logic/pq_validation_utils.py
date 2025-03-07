@@ -9,6 +9,7 @@ import logging
 from pyasn1_alt_modules import rfc9480
 from resources import asn1utils, certextractutils, certutils
 from resources.exceptions import UnknownOID
+from resources.oid_mapping import may_return_oid_to_name
 from resources.oidutils import HYBRID_NAME_2_OID, HYBRID_OID_2_NAME, PQ_NAME_2_OID, PQ_OID_2_NAME
 from robot.api.deco import keyword
 
@@ -106,6 +107,7 @@ def validate_migration_certificate_key_usage(  # noqa: D417 Missing argument des
         raise ValueError(f"Unsupported public key type: {type(public_key)}")
 
 
+@keyword(name="Validate Migration OID In Certificate")
 def validate_migration_oid_in_certificate(  # noqa: D417 Missing argument descriptions in the docstring
     cert: rfc9480.CMPCertificate, name: str
 ) -> None:
@@ -138,10 +140,20 @@ def validate_migration_oid_in_certificate(  # noqa: D417 Missing argument descri
 
     if PQ_NAME_2_OID.get(name) is not None:
         if str(pub_oid) != str(PQ_NAME_2_OID[name]):
-            raise ValueError(f"The OID {pub_oid} does not match the name {name}.")
+            _add = may_return_oid_to_name(pub_oid)
+            if "." not in _add:
+                _add = f" ({_add})"
+            else:
+                _add = ""
+            raise ValueError(f"The OID {pub_oid}{_add} does not match the name {name}.")
 
     elif HYBRID_NAME_2_OID.get(name) is not None:
         if str(pub_oid) != str(HYBRID_NAME_2_OID[name]):
-            raise ValueError(f"The OID {pub_oid} does not match the name {name}.")
+            _add = may_return_oid_to_name(pub_oid)
+            if "." not in _add:
+                _add = f" ({_add})"
+            else:
+                _add = ""
+            raise ValueError(f"The OID {pub_oid}{_add} does not match the name {name}.")
     else:
         raise UnknownOID(pub_oid)

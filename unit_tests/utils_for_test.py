@@ -447,6 +447,35 @@ def convert_to_crypto_lib_cert(cert: Union[rfc9480.CMPCertificate, x509.Certific
 
     raise ValueError(f"Expected the type of the input to be CertObject not: {type(cert)}")
 
+def _prepare_ca_extensions(
+      ca_key: PrivateKey,
+) -> rfc9480.Extensions:
+    """Prepare the extensions for a CA certificate."""
+
+    basic_constraints = _prepare_basic_constraints_extension(
+        ca=True,
+        critical=True,
+    )
+
+    ski = _prepare_ski_extension(
+        key=ca_key.public_key(),
+        critical=False,
+    )
+
+    aia = _prepare_authority_key_identifier_extension(
+        ca_key=ca_key.public_key(),
+        critical=False,
+    )
+
+    key_usage = prepare_extensions(
+        key_usage="keyCertSign,cRLSign",
+        critical=True,
+    )
+
+    key_usage.extend([basic_constraints, ski, aia])
+    return key_usage
+
+
 
 def _build_certs_root_ca_key_update_content():
     """Generate and save a set of certificates for Root CA key updates.

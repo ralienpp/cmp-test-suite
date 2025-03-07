@@ -213,8 +213,13 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
 
         elif self._public_key_bytes is None and self._private_key_bytes is not None:
             self._public_key_bytes = self._derive_public_key(sk=self._private_key_bytes)
+
+        elif self._public_key_bytes is not None and self._private_key_bytes is not None:
+            pass
         else:
-            raise ValueError("Invalid key initialization")
+            raise ValueError(
+                "Invalid key initialization for ML-DSA.Either provide a private key or a seed to generate a new key."
+            )
 
         if oqs is not None:
             self._sig_method = oqs.Signature(self._other_name, secret_key=self._private_key_bytes)
@@ -475,6 +480,13 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
             self._public_key_bytes = pub_key
             self._seed = seed
 
+        if self._private_key_bytes is not None and self._public_key_bytes is None:
+            self._public_key_bytes = self._derive_public_key(private_key=self._private_key_bytes)
+
+    def _export_private_key(self) -> bytes:
+        """Export the private key."""
+        return self._seed or self._private_key_bytes
+
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"SLH-DSA"
@@ -547,11 +559,10 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
             s_key = cls.from_seed(alg_name=name, seed=data)
 
         elif _n * 4 != len(data):
-            raise ValueError(f"Invalid private key size. Expected: {3 * _n}, got: {len(data)}")
+            raise ValueError(f"Invalid private key size. Expected: {4 * _n}, got: {len(data)}")
 
         else:
-            pub_key = obj._derive_public_key(private_key=data)
-            s_key = SLHDSAPrivateKey(alg_name=name, private_bytes=data, public_key=pub_key)
+            s_key = SLHDSAPrivateKey(alg_name=name, private_bytes=data)
 
         return s_key
 

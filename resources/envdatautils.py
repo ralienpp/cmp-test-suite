@@ -8,11 +8,12 @@ import logging
 import os
 from typing import List, Optional, Union
 
+import pyasn1
 from cryptography import x509
 from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
-from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey
-from pq_logic.migration_typing import HybridKEMPrivateKey, KEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, HybridKEMPublicKey
+from pq_logic.migration_typing import KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
@@ -35,6 +36,7 @@ from robot.api.deco import keyword, not_keyword
 from resources import certbuildutils, certextractutils, cryptoutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.copyasn1utils import copy_name
+from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_alg_name_to_oid
 from resources.oidutils import KEY_WRAP_NAME_2_OID
 from resources.prepareutils import prepare_name
@@ -604,6 +606,12 @@ def prepare_one_asymmetric_key(
         public_key_bytes = private_key.public_key().public_bytes(
             encoding=serialization.Encoding.X962, format=serialization.PublicFormat.UncompressedPoint
         )
+
+    elif isinstance(private_key, AbstractCompositePrivateKey):
+        public_key_bytes = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.DER, format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
     else:
         public_key_bytes = private_key.public_key().public_bytes_raw()
 
@@ -1029,7 +1037,7 @@ def build_env_data_for_exchange(
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     use_rsa_oaep: bool = True,
     enc_oid: Optional[univ.ObjectIdentifier] = None,
-    hybrid_key_recip: Optional[AbstractHybridRawPublicKey] = None,
+    hybrid_key_recip: Optional[ECDHPrivateKey] = None,
 ) -> rfc9480.EnvelopedData:
     """Build an EnvelopedData structure for the provided public key and data.
 

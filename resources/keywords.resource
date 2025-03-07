@@ -522,7 +522,7 @@ Generate Default MAC Protected PKIMessage
     ...                - `mac_alg`: The protection algorithm to use. Defaults to the algorithm specified in the config. If `False`
     ...                is parsed, an unprotected message is returned.
     ...
-    [Arguments]    ${mac_alg}=${DEFAULT_MAC_ALGORITHM}
+    [Arguments]    ${mac_alg}=${DEFAULT_MAC_ALGORITHM}   ${allow_implicit_confirm}=${ALLOW_IMPLICIT_CONFIRM}
     VAR    ${for_mac}    ${SUPPORT_DIRECTORY_CHOICE_FOR_MAC_PROTECTION}
     IF    ${ALLOW_IR_MAC_BASED}
         # Generate the necessary certificate template and key for IR protection
@@ -532,7 +532,7 @@ Generate Default MAC Protected PKIMessage
         ...                cert_template=${cert_template}
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
-        ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
+        ...                implicit_confirm=${allow_implicit_confirm}
         ...                for_mac=${for_mac}
     ELSE IF    ${ALLOW_CR_MAC_BASED}
         ${cert_template}    ${key}=    Generate CertTemplate For Testing
@@ -541,7 +541,7 @@ Generate Default MAC Protected PKIMessage
         ...                cert_template=${cert_template}
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
-        ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
+        ...                implicit_confirm=${allow_implicit_confirm}
         ...                for_mac=${for_mac}
     ELSE
         ${csr}    ${key}=    Generate CSR For Testing
@@ -549,7 +549,7 @@ Generate Default MAC Protected PKIMessage
         ...                ${csr}
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
-        ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
+        ...                implicit_confirm=${allow_implicit_confirm}
         ...                for_mac=${for_mac}
     END
     IF   '${mac_alg}' != 'None'

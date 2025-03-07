@@ -8,42 +8,15 @@ import base64
 import os
 from typing import Optional, Union
 
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import padding as aes_padding
 from cryptography.hazmat.primitives.asymmetric import ed448, ed25519, x448, x25519
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from pyasn1.codec.der import decoder, encoder
-from pyasn1.type import univ
-from pyasn1_alt_modules import rfc5280, rfc5958, rfc9481
-from resources.oid_mapping import may_return_oid_to_name
-from resources.oidutils import (
-    CMS_COMPOSITE_OID_2_NAME,
-    ML_DSA_OID_2_NAME,
-    ML_KEM_OID_2_NAME,
-    PQ_NAME_2_OID,
-    PQ_OID_2_NAME,
-    SLH_DSA_OID_2_NAME,
-    TRAD_STR_OID_TO_KEY_NAME,
-    XWING_OID_STR,
-)
 from robot.api.deco import not_keyword
 
-from pq_logic.chempatkem import ChempatPrivateKey
-from pq_logic.hybrid_structures import CompositeSignaturePrivateKeyAsn1
-from pq_logic.keys.abstract_pq import PQPrivateKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
-from pq_logic.keys.kem_keys import FrodoKEMPrivateKey, McEliecePrivateKey, MLKEMPrivateKey, Sntrup761PrivateKey
-from pq_logic.keys.sig_keys import MLDSAPrivateKey, SLHDSAPrivateKey
-from pq_logic.keys.trad_keys import RSADecapKey
+from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey
 from pq_logic.keys.xwing import XWingPrivateKey
-from pq_logic.tmp_oids import (
-    CHEMPAT_OID_2_NAME,
-    FRODOKEM_OID_2_NAME,
-    MCELIECE_OID_2_NAME,
-    id_rsa_kem_spki,
-    id_sntrup761_str,
-)
 
 RawKeyType = Union[
     ed25519.Ed25519PrivateKey,
@@ -87,27 +60,6 @@ def compute_aes_cbc(key: bytes, data: bytes, iv: bytes, decrypt: bool = True) ->
     return encryptor.update(padded_data) + encryptor.finalize()
 
 
-# alternative approach.
-def _prepare_enc_key(password: str, one_asym_key: bytes) -> rfc5958.EncryptedPrivateKeyInfo:
-    """Prepare an `EncryptedPrivateKeyInfo` structure.
-
-    :param password: Password for encryption.
-    :param one_asym_key: Key to encrypt as DER-encoded `OneAsymmetricKey`.
-    :return: The populated `EncryptedPrivateKeyInfo`.
-    """
-    iv = os.urandom(16)
-    enc_algo = rfc5280.AlgorithmIdentifier()
-    enc_algo["algorithm"] = rfc9481.id_aes256_CBC
-    enc_algo["parameters"] = univ.OctetString(iv)
-
-    enc_data = derive_and_encrypt_key(password=password, iv=iv, decrypt=False, data=one_asym_key)
-
-    enc_key_info = rfc5958.EncryptedPrivateKeyInfo()
-    enc_key_info["encryptionAlgorithm"] = enc_algo
-    enc_key_info["encryptedData"] = univ.OctetString(enc_data)
-    return enc_key_info
-
-
 supported_keys = [
     b"X25519",
     b"X448",
@@ -123,42 +75,18 @@ CUSTOM_KEY_TYPES = [
     b"SLH-DSA",
     b"COMPOSITE-SIG",
     b"COMPOSITE-KEM",
+    b"COMPOSITE-DHKEM",
     b"FrodoKEM",
     b"XWING",
     b"ML-DSA",
     b"ML-KEM",
     b"RSA-KEM",
     b"CHEMPAT",
+    b"BASE",
+    b"PQ",
 ]
 
-
 supported_keys += CUSTOM_KEY_TYPES
-
-
-def _get_pem_header(key) -> bytes:
-    """Get the name of the key type as an uppercase string using the class name.
-
-    :param key: A private key instance.
-    :return: The uppercase string identifier for the key type.
-
-    """
-    key_name = type(key).__name__
-    key_map = {
-        "RSAPrivateKey": "RSA",
-        "EllipticCurvePrivateKey": "EC",
-        "Ed25519PrivateKey": "ED25519",
-        "Ed448PrivateKey": "ED448",
-        "X25519PrivateKey": "X25519",
-        "X448PrivateKey": "X448",
-        "XWingPrivateKey": "XWING",
-        "MLKEMPrivateKey": "ML-KEM",
-        "MLDSAPrivateKey": "ML-DSA",
-        "McEliecePrivateKey": "McEliece",
-        "Sntrup761PrivateKey": "SNTRUP761",
-    }
-    if key_name in key_map:
-        return key_map[key_name].encode("utf-8")
-    raise ValueError(f"Unsupported key type: {key_name}")
 
 
 @not_keyword
@@ -169,147 +97,49 @@ def load_enc_key(password: str, data: bytes) -> bytes:
     :param data: PEM encoded encrypted key.
     :return: The decrypted_key in DER-encoded `OneAsymmetricKey` bytes.
     """
-    lines = data.split(b"\n")
-    key_name_line = lines[0]
-    if not key_name_line.startswith(b"-----BEGIN") or not key_name_line.endswith(b"PRIVATE KEY-----"):
-        raise ValueError(f"Invalid PEM format found: {key_name_line}")
+    lines = data.splitlines()
 
-    key_name = key_name_line.replace(b"-----BEGIN ", b"").replace(b" PRIVATE KEY-----", b"").strip()
+    # 1. Check the BEGIN line
+    begin_line = lines[0].rstrip()
+    if not (begin_line.startswith(b"-----BEGIN ") and begin_line.endswith(b" PRIVATE KEY-----")):
+        raise ValueError(f"Invalid PEM format found in first line: {begin_line}")
 
-    if key_name not in supported_keys:
-        raise ValueError(f"Unsupported key type: {key_name.decode('utf-8')}")
+    # 2. Skip a line if "Proc-Type:" is present
+    idx = 1
+    if lines[idx].startswith(b"Proc-Type:"):
+        idx += 1  # if you want, also parse it to confirm "4,ENCRYPTED"
 
-    dek_info_line = lines[2]
-    if not dek_info_line.startswith(b"DEK-Info:"):
+    # 3. Check the DEK-Info line
+    if not lines[idx].startswith(b"DEK-Info:"):
         raise ValueError("Missing DEK-Info header")
+    dek_info_line = lines[idx]
+    idx += 1
 
+    # Parse the DEK-Info line
     _, dek_info = dek_info_line.split(b": ", 1)
     algo, iv_hex = dek_info.split(b",")
-    if algo not in [b"AES-256-CBC", b"AES-196-CBC", b"AES-128-CBC"]:
-        raise ValueError("Unsupported encryption algorithm")
-
+    if algo not in [b"AES-256-CBC", b"AES-192-CBC", b"AES-128-CBC"]:
+        raise ValueError(f"Unsupported encryption algorithm: {algo}")
     iv = bytes.fromhex(iv_hex.decode("utf-8"))
     if len(iv) != 16:
         raise ValueError("IV must be 16 bytes long")
-    enc_data = base64.b64decode(b"".join(lines[4:-2]))
+
+    if idx < len(lines) and lines[idx].strip() == b"":
+        idx += 1
+
+    base64_lines = []
+    while idx < len(lines):
+        line = lines[idx]
+        if line.startswith(b"-----END "):
+            break
+        base64_lines.append(line)
+        idx += 1
+
+    enc_data = base64.b64decode(b"".join(base64_lines))
+
+    # 6. Decrypt with your derive_and_encrypt_key (which does both encryption/decryption)
     key_data, _ = derive_and_encrypt_key(password=password, data=enc_data, decrypt=True, iv=iv)
-
     return key_data
-
-
-# TODO fix for all keys.
-# missing are Chempat, sntrup761, McEliece, old-CompositeSig, CompositeKEM
-
-
-@not_keyword
-def parse_key_from_one_asym_key(data: bytes):
-    """Parse and load a private key from its OneAsymmetricKey encoding.
-
-    :param data: The OneAsymmetricKey encoded key data.
-    :return: The parsed private key object.
-    """
-    obj, rest = decoder.decode(data, rfc5958.OneAsymmetricKey())
-    if rest:
-        raise ValueError("Found remainder after decoding `OneAsymmetricKey`.")
-
-    alg_oid = str(obj["privateKeyAlgorithm"]["algorithm"])
-
-    univ_oid = univ.ObjectIdentifier(alg_oid)
-
-    public_bytes = obj["publicKey"].asOctets() if obj["publicKey"].isValue else None
-
-    if univ_oid in CMS_COMPOSITE_OID_2_NAME:
-        name = CMS_COMPOSITE_OID_2_NAME[univ_oid]
-        obj, rest = decoder.decode(obj["privateKey"].asOctets(), asn1Spec=CompositeSignaturePrivateKeyAsn1())
-        if rest:
-            raise ValueError("Found remainder after decoding `CompositeSignaturePrivateKeyAsn1`.")
-
-        # TODO fix if other algorithms are used for CompositeSig.
-
-        pq_name = "-".join(name.split("-")[0:3])
-        if public_bytes is not None:
-            obj, rest = decoder.decode(public_bytes, asn1Spec=CompositeSignaturePrivateKeyAsn1())
-            if rest:
-                raise ValueError("Found remainder after decoding `CompositeSignaturePublicKey`.")
-
-        obj[0]["privateKeyAlgorithm"]["algorithm"] = PQ_NAME_2_OID[pq_name]
-        pq_key = parse_key_from_one_asym_key(data=encoder.encode(obj[0]))
-        trad_key = serialization.load_der_private_key(encoder.encode(obj[1]), password=None)
-        return CompositeSigCMSPrivateKey(pq_key=pq_key, trad_key=trad_key)
-
-    if alg_oid in TRAD_STR_OID_TO_KEY_NAME:
-        return serialization.load_der_private_key(data=data, password=None)
-
-    if alg_oid == XWING_OID_STR:
-        private_key = XWingPrivateKey.from_private_bytes(obj["privateKey"].asOctets())
-
-    elif univ_oid in ML_DSA_OID_2_NAME:
-        name = PQ_OID_2_NAME[univ_oid]
-        private_key = MLDSAPrivateKey.from_private_bytes(data=obj["privateKey"].asOctets(), name=name)
-        if private_key._public_key is None:
-            if private_key._public_key is not None and public_bytes is not None:
-                raise ValueError("ML-DSA Public key does not match the private key.")
-            else:
-                private_key._public_key = public_bytes
-
-        elif public_bytes is not None:
-            if not private_key.public_key().public_bytes_raw() == public_bytes:
-                raise ValueError("ML-DSA Public key does not match the private key.")
-
-    elif univ_oid in ML_KEM_OID_2_NAME:
-        name = PQ_OID_2_NAME[univ_oid]
-
-        private_key = MLKEMPrivateKey.from_private_bytes(data=obj["privateKey"].asOctets(), name=name)
-
-        if private_key._public_key_bytes is None:
-            if private_key._public_key_bytes is not None and public_bytes is not None:
-                raise ValueError("ML-KEM Public key does not match the private key.")
-            else:
-                private_key._public_key_bytes = public_bytes
-
-        elif public_bytes is not None:
-            if not private_key.public_key().public_bytes_raw() == public_bytes:
-                raise ValueError("ML-KEM Public key does not match the private key.")
-
-    elif alg_oid in MCELIECE_OID_2_NAME:
-        name = PQ_OID_2_NAME[alg_oid]
-        private_key = McEliecePrivateKey(
-            kem_alg=name,
-            private_bytes=obj["privateKey"].asOctets(),
-            public_key=public_bytes,
-        )
-
-    elif univ_oid in SLH_DSA_OID_2_NAME:
-        name = SLH_DSA_OID_2_NAME[univ_oid]
-        private_key = SLHDSAPrivateKey(
-            sig_alg=name, private_bytes=obj["privateKey"].asOctets(), public_key=public_bytes
-        )
-
-    elif alg_oid in FRODOKEM_OID_2_NAME:
-        name = PQ_OID_2_NAME[alg_oid]
-        private_key = FrodoKEMPrivateKey(
-            kem_alg=name,
-            private_bytes=obj["privateKey"].asOctets(),
-            public_key=public_bytes,
-        )
-    elif alg_oid in id_sntrup761_str:
-        private_key = Sntrup761PrivateKey(
-            kem_alg="sntrup761", private_bytes=obj["privateKey"].asOctets(), public_key=public_bytes
-        )
-
-    elif alg_oid == str(id_rsa_kem_spki):
-        private_key = RSADecapKey.from_pkcs8(data)
-
-    elif univ_oid in CHEMPAT_OID_2_NAME:
-        name = CHEMPAT_OID_2_NAME[univ_oid]
-        private_key = ChempatPrivateKey.from_private_bytes(data=obj["privateKey"].asOctets(), name=name)
-
-    else:
-        oid = obj["privateKeyAlgorithm"]["algorithm"]
-
-        raise NotImplementedError(f"Parsing for this key type is not implemented: {may_return_oid_to_name(oid=oid)}.")
-
-    return private_key
 
 
 @not_keyword
@@ -325,7 +155,7 @@ def derive_and_encrypt_key(password: str, data: bytes, decrypt: bool, iv: Option
     if iv is None and decrypt:
         raise ValueError("For decryption must a `iv` be parsed.")
 
-    elif iv is None:
+    if iv is None:
         iv = os.urandom(16)
 
     kdf = PBKDF2HMAC(

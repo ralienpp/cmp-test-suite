@@ -249,7 +249,8 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
     if oid in CMS_COMPOSITE_OID_2_NAME:
         name: str = CMS_COMPOSITE_OID_2_NAME[oid]
         use_pss = name.endswith("-pss")
-        pre_hash = name.startswith("hash-")
+        logging.debug(name)
+        pre_hash = True if "hash-" in name else False
         public_key: CompositeSigCMSPublicKey
         public_key.verify(data=data, signature=signature, use_pss=use_pss, pre_hash=pre_hash)
 
@@ -262,7 +263,7 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
         hash_alg = get_hash_from_oid(oid, only_hash=True)
         cryptoutils.verify_signature(public_key=public_key, signature=signature, data=data, hash_alg=hash_alg)
     else:
-        raise ValueError(f"Unsupported public key type: {type(public_key).__name__}.")
+        raise BadAlg(f"Unsupported public key type: {type(public_key).__name__}.")
 
 
 def _prepare_catalyst_info_vals(

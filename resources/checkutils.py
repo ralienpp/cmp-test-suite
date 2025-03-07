@@ -32,7 +32,7 @@ from resources import (
     protectionutils,
     utils,
 )
-from resources.exceptions import BadMessageCheck, BadAlg, BadRequest
+from resources.exceptions import BadMessageCheck, BadAlg, BadRequest, BadRecipientNonce, BadSenderNonce
 from resources.oid_mapping import (
     get_hash_from_oid,
 )
@@ -1117,7 +1117,7 @@ def check_message_time_field(
 
 
 def validate_sender_and_recipient_nonce(  # noqa D417 undocumented-param
-    response: rfc9480.PKIMessage, request: rfc9480.PKIMessage, nonce_sec: Strint = 128
+        response: rfc9480.PKIMessage, request: rfc9480.PKIMessage, nonce_sec: Strint = 128
 ) -> None:
     """Check the sender and recipient nonce in the response and request messages.
 
@@ -1134,8 +1134,11 @@ def validate_sender_and_recipient_nonce(  # noqa D417 undocumented-param
 
     Raises:
     ------
-         - `ValueError`: If the `senderNonce` in the request does not match the `recipNonce` in the response.
-         - `ValueError`: if the `senderNonce` in the response does not meet the minimum security length.
+         - `BadRecipientNonce`: If the `recipNonce` is not set inside the response message.
+         - `BadSenderNonce`: If the `senderNonce` is not set inside the request message.
+         - `BadRecipientNonce`: If the `senderNonce` in the request does not match the `recipNonce` in the response.
+         - `BadSenderNonce`: if the `senderNonce` in the response does not meet the minimum security length.
+         - `BadRecipientNonce`: If the `recipNonce` in the response is shorter than the required security level.
 
     Examples:
     --------
@@ -1144,17 +1147,26 @@ def validate_sender_and_recipient_nonce(  # noqa D417 undocumented-param
 
     """
     if not response["header"]["recipNonce"].isValue:
-        raise ValueError("The `recipNonce` was not set inside the response message.")
+        raise BadRecipientNonce("The `recipNonce` was not set inside the response message.")
+
+    if not response["header"]["senderNonce"].isValue:
+        raise BadSenderNonce("The `senderNonce` was not set inside the request message.")
+
+    recip_nonce = response["header"]["recipNonce"].asOctets()
+    nonce_sec = max(128, convertutils.str_to_int(nonce_sec))
+    if len(bytearray(recip_nonce)) < (nonce_sec // 8):
+        raise BadRecipientNonce(f"The `recipNonce` in the response is shorter than the required {nonce_sec} bits.")
 
     sender_nonce = request["header"]["senderNonce"].asOctets()
     if sender_nonce != response["header"]["recipNonce"].asOctets():
-        raise ValueError("The senderNonce in the request does not match the recipNonce in the response.")
+        raise BadRecipientNonce("The `senderNonce` in the request does not match the `recipNonce` in the response.")
 
     recip_nonce = response["header"]["senderNonce"].asOctets()
 
     nonce_sec = max(128, convertutils.str_to_int(nonce_sec))
     if len(bytearray(recip_nonce)) < (nonce_sec // 8):
-        raise ValueError(f"The senderNonce in the response is shorter than the required {nonce_sec} bits.")
+        raise BadSenderNonce(f"The `senderNonce` in the response is shorter than the required {nonce_sec} bits.")
+
 
 
 @keyword(name="Validate transactionID")
@@ -1174,8 +1186,8 @@ def validate_transaction_id(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - `ValueError`: If the `transactionID` in the first message is not 128 bits long.
-        - `ValueError`: If the `transactionID` does not match the one from the previous message.
+        - `BadRequest`: If the `transactionID` in the first message is not 128 bits long.
+        - `BadRequest`: If the `transactionID` does not match the one from the previous message.
 
     Examples:
     --------
@@ -1184,17 +1196,17 @@ def validate_transaction_id(  # noqa D417 undocumented-param
 
     """
     if not response["header"]["transactionID"].isValue:
-        raise ValueError("The `transactionID` was not set!")
+        raise BadRequest("The `transactionID` was not set!")
 
     transaction_id = response["header"]["transactionID"].asOctets()
 
     if len(transaction_id) != 16:
-        raise ValueError("The `transactionID` must be 128 bits long.")
+        raise BadRequest("The `transactionID` must be 128 bits long.")
 
     if request is not None:
         our_id = request["header"]["transactionID"].asOctets()
         if our_id != transaction_id:
-            raise ValueError(
+            raise BadRequest(
                 f"The response `transactionID` was: {transaction_id.hex()} != previous ID was: {our_id.hex()}"
             )
 

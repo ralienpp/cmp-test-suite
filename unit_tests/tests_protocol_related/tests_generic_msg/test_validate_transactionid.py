@@ -6,6 +6,7 @@ import unittest
 
 from resources.checkutils import validate_transaction_id
 from resources.cmputils import patch_transaction_id
+from resources.exceptions import BadRequest
 from resources.utils import manipulate_first_byte
 
 from unit_tests.utils_for_test import build_pkimessage
@@ -33,7 +34,7 @@ class TestValidateTransactionID(unittest.TestCase):
         request_pki_message = build_pkimessage()
         response_pki_message = build_pkimessage(omit_fields="transactionID")
         response_pki_message = patch_transaction_id(response_pki_message, b"A" * 10)
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(BadRequest) as context:
             validate_transaction_id(response_pki_message, request_pki_message)
         self.assertIn("The `transactionID` must be 128 bits long", str(context.exception))
 
@@ -50,7 +51,7 @@ class TestValidateTransactionID(unittest.TestCase):
 
         response_pki_message = patch_transaction_id(response_pki_message, modified)
         request_pki_message = patch_transaction_id(request_pki_message, trans_id)
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(BadRequest) as context:
             validate_transaction_id(response_pki_message, request_pki_message)
         self.assertIn("`transactionID`", str(context.exception))
 
@@ -71,7 +72,7 @@ class TestValidateTransactionID(unittest.TestCase):
         """
         response_pki_message = build_pkimessage(omit_fields="transactionID")
         response_pki_message = patch_transaction_id(response_pki_message, b"A" * 10)
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(BadRequest) as context:
             validate_transaction_id(response_pki_message)
         self.assertIn("The `transactionID` must be 128 bits long", str(context.exception))
 

@@ -186,8 +186,12 @@ def _get_hash(param: Union[str, int]) -> hashes.HashAlgorithm:
 class CompositeSigCMSPublicKey(AbstractCompositePublicKey):
     """Composite signature public key."""
 
-    pq_key: MLDSAPublicKey
-    trad_key: Union[rsa.RSAPublicKey, ed448.Ed448PublicKey, ed25519.Ed25519PublicKey, ec.EllipticCurvePublicKey]
+    _pq_key: MLDSAPublicKey
+    _trad_key: Union[rsa.RSAPublicKey, ed448.Ed448PublicKey, ed25519.Ed25519PublicKey, ec.EllipticCurvePublicKey]
+
+    def _get_header_name(self) -> bytes:
+        """Return the algorithm name."""
+        return b"COMPOSITE-SIG"
 
     def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Return the Object Identifier for the composite signature."""
@@ -345,7 +349,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositePrivateKey):
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
-        return b"COMPOSITE SIGNATURE"
+        return b"COMPOSITE-SIG"
 
     @staticmethod
     def validate_oid(oid: univ.ObjectIdentifier, key: Union[CompositeSigCMSPublicKey, "CompositeSigCMSPrivateKey"]):

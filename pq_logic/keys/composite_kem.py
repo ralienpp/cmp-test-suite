@@ -190,6 +190,10 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
     _pq_key: PQKEMPrivateKey
     _alternative_hash: bool = False
 
+    def _get_header_name(self) -> bytes:
+        """Return the algorithm name."""
+        return b"COMPOSITE-KEM"
+
     def __init__(self, pq_key: PQKEMPrivateKey, trad_key: Union[TradKEMPrivateKey, ECDHPrivateKey, RSAPrivateKey]):
         """Initialize the composite KEM private key.
 
@@ -324,7 +328,7 @@ class CompositeDHKEMRFC9180PrivateKey(CompositeKEMPrivateKey):
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
-        return b"COMPOSITE DHKEMRFC9180"
+        return b"COMPOSITE-DHKEM"
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the composite KEM."""

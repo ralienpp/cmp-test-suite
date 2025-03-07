@@ -1778,15 +1778,37 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
     )
 
 
+def _validate_cert_status(
+        status: rfc9480.PKIStatusInfo,
+) -> None:
+    """Validate the certificate status.
+
+    :param status: The certificate status to validate.
+    :raises BadRequest: If the certificate status is not `accepted` or `rejection`.
+    :raises BadRequest: If the certificate status is `accepted`, but a `failInfo` is present.
+    """
+    if not status.isValue:
+        return
+
+    if str(status["status"]) not in {"accepted", "rejection"}:
+        raise BadRequest(
+            "Invalid certificate status in CertConf message."
+            f"Expected 'accepted' or 'rejection', got {status['status'].getName()}"
+        )
+
+    if str(status["status"]) == "accepted" and status["failInfo"].isValue:
+        raise BadRequest("Certificate status is accepted, but a fail info is present.")
+
+
 @keyword(name="Build pkiconf from CertConf")
 def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions in the docstring
-    request: rfc9480.PKIMessage,
-    issued_certs: List[rfc9480.CMPCertificate],
-    exclude_fields: Optional[str] = None,
-    enforce_lwcmp: bool = True,
-    set_header_fields: bool = True,
-    **kwargs,
-) -> rfc9480.PKIMessage:
+        request: PKIMessageTMP,
+        issued_certs: List[rfc9480.CMPCertificate],
+        exclude_fields: Optional[str] = None,
+        enforce_lwcmp: bool = True,
+        set_header_fields: bool = True,
+        **kwargs,
+) -> PKIMessageTMP:
     """Build a PKI Confirmation message from a Certification Confirmation message.
 
     Ensures that the client correly received the certificates.
@@ -1836,16 +1858,11 @@ def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions i
         if not entry["certHash"].isValue:
             raise BadPOP("Certificate hash is missing in CertConf message.")
 
+        _validate_cert_status(entry["statusInfo"])
         if entry["statusInfo"].isValue:
-            if str(entry["status"]) == "rejection":
+            if str(entry["statusInfo"]["status"]) == "rejection":
                 logging.debug("Certificate status was rejection.")
                 continue
-
-            elif str(entry["status"]) != "accepted":
-                raise BadRequest(
-                    "Invalid certificate status in CertConf message."
-                    f"Expected 'accepted' or 'rejection', got {entry['status'].getName()}"
-                )
 
         if entry["hashAlg"].isValue:
             logging.warning(entry["hashAlg"])

@@ -344,7 +344,7 @@ class HybridKeyFactory:
                 pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
             )
 
-            return CompositeDHKEMRFC9180PrivateKey(pq_key=keys.pq_key, trad_key=keys.trad_key._private_key)
+            return CompositeDHKEMRFC9180PrivateKey(pq_key=keys.pq_key, trad_key=keys.trad_key)
 
         if algorithm == "chempat":
             return HybridKeyFactory.generate_chempat(pq_name=pq_name, trad_name=trad_name, curve=curve)

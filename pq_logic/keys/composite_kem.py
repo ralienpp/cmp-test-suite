@@ -224,7 +224,7 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the composite KEM."""
         if isinstance(self.trad_key, RSADecapKey):
-            size = self._get_rsa_size(self.trad_key._private_key.key_size)
+            size = self._get_rsa_size(self.trad_key._private_key.key_size) # pylint: disable=protected-access
             trad_name = f"rsa{size}"
         else:
             trad_name = self.trad_key.get_trad_name
@@ -321,7 +321,7 @@ class CompositeDHKEMRFC9180PublicKey(CompositeKEMPublicKey):
 class CompositeDHKEMRFC9180PrivateKey(CompositeKEMPrivateKey):
     """Composite DHKEMRFC9180 private key."""
 
-    def __init__(self, pq_key: PQKEMPrivateKey, trad_key: ECDHPrivateKey):
+    def __init__(self, pq_key: PQKEMPrivateKey, trad_key: Union[TradKEMPrivateKey, ECDHPrivateKey]):
         """Initialize the composite KEM private key."""
         super().__init__(pq_key, trad_key)
         self._trad_key = DHKEMPrivateKey(trad_key, use_rfc9180=True)

@@ -14,8 +14,8 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from pq_logic import pq_compute_utils, py_verify_logic
+from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.keys.abstract_pq import PQKEMPublicKey
-from pq_logic.keys.key_pyasn1_utils import parse_key_from_one_asym_key
 from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import CA_RESPONSE, ECDHPrivateKey, ECDHPublicKey
@@ -1325,7 +1325,7 @@ def _verify_encrypted_key_popo(
 
     data = encoder.encode(enc_key["privateKeyInfo"])
 
-    private_key = parse_key_from_one_asym_key(data)
+    private_key = CombinedKeyFactory.load_key_from_one_asym_key(data, must_be_version_2=False)
 
     if private_key.public_key() != client_public_key:
         raise ValueError("The decrypted key does not match the public key in the certificate request.")

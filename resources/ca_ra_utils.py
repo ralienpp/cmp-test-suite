@@ -638,6 +638,64 @@ def _prepare_private_key_for_kga(
     return enveloped_data
 
 
+@not_keyword
+def prepare_cert_and_private_key_for_kga(
+    cert_template: rfc4211.CertTemplate,
+    request: rfc9480.PKIMessage,
+    ca_cert: rfc9480.CMPCertificate,
+    ca_key: PrivateKeySig,
+    kga_cert_chain: Optional[List[rfc9480.CMPCertificate]],
+    kga_key: Optional[PrivateKeySig],
+    password: Optional[Union[bytes, str]] = None,
+    ec_priv_key: Optional[ECDHPrivateKey] = None,
+    cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
+    **kwargs,
+) -> Tuple[rfc9480.CMPCertificate, rfc9480.EnvelopedData]:
+    """Prepare a certified key pair for the key generation action.
+
+    :param cert_template: The certificate template to get the key from.
+    :param request: The PKIMessage to prepare the private key for.
+    :param ca_cert: The CA certificate to matching the private key.
+    :param ca_key:  The CA key to sign the certificate with.
+    :param password: The password to use for encrypting the private key. Defaults to `None`.
+    :param kga_cert_chain: The KGA certificate chain to use. Defaults to `None`.
+    :param kga_key: The key generation authority key to sign the signed data with. Defaults to `None`.
+    :param ec_priv_key: The ECDH private key to use for `KARI`. Defaults to `None`.
+    :param cmp_protection_cert: The CMP protection certificate to use for `KARI`, `KTRI`
+    or the recipient cert for `KEMRI`. Defaults to `None`.
+    :return: The populated `CertifiedKeyPair` structure.
+    """
+    private_key = _get_kga_key_from_cert_template(cert_template)
+    spki = subjectPublicKeyInfo_from_pubkey(private_key.public_key())
+    cert_template["publicKey"]["subjectPublicKey"] = spki["subjectPublicKey"]
+    if not cert_template["publicKey"]["algorithm"].isValue:
+        cert_template["publicKey"]["algorithm"] = spki["algorithm"]
+
+    cert = certbuildutils.build_cert_from_cert_template(
+        cert_template=cert_template,
+        ca_cert=ca_cert,
+        ca_key=ca_key,
+        extensions=kwargs.get("extensions"),
+        hash_alg=kwargs.get("hash_alg", "sha256"),
+        use_rsa_pss=kwargs.get("use_rsa_pss", False),
+    )
+
+    if is_kem_public_key(private_key.public_key()):
+        cmp_protection_cert = cert
+
+    enveloped_data = _prepare_private_key_for_kga(
+        new_private_key=private_key,
+        pki_message=request,
+        password=password,
+        kga_cert_chain=kga_cert_chain,
+        hash_alg=kwargs.get("hash_alg", "sha256"),
+        kga_key=kga_key,
+        ec_priv_key=ec_priv_key,
+        cert=cmp_protection_cert,
+    )
+    return cert, enveloped_data
+
+
 def _verify_pop_signature(
     pki_message: rfc9480.PKIMessage,
 ) -> None:

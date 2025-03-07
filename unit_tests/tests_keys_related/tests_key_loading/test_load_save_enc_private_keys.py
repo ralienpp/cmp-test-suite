@@ -7,7 +7,7 @@ import unittest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa, x448, x25519
 from pq_logic.combined_factory import CombinedKeyFactory
-from pq_logic.keys.key_pyasn1_utils import load_enc_key, parse_key_from_one_asym_key
+from pq_logic.keys.key_pyasn1_utils import load_enc_key
 from pq_logic.keys.serialize_utils import prepare_enc_key_pem
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 
@@ -67,7 +67,7 @@ class TestEncryptedKeys(unittest.TestCase):
                 pem_data = prepare_enc_key_pem(self.password, one_asym_key, key_name.encode("utf-8"))
                 decrypted_key = load_enc_key(password=self.password, data=pem_data)
                 self.assertEqual(decrypted_key, one_asym_key)
-                loaded_key = parse_key_from_one_asym_key(decrypted_key)
+                loaded_key = CombinedKeyFactory.load_key_from_one_asym_key(decrypted_key)
                 self.assertEqual(loaded_key.public_key(), private_key.public_key())
 
 
@@ -100,7 +100,7 @@ class TestEncryptedKeys(unittest.TestCase):
                 pem_data = prepare_enc_key_pem(self.password, one_asym_key, key_name.encode("utf-8"))
                 decrypted_key = load_enc_key(password=self.password, data=pem_data)
                 self.assertEqual(decrypted_key, one_asym_key)
-                loaded_key = parse_key_from_one_asym_key(decrypted_key)
+                loaded_key = CombinedKeyFactory.load_key_from_one_asym_key(decrypted_key)
                 self.assertEqual(loaded_key.public_key(), private_key.public_key())
 
 

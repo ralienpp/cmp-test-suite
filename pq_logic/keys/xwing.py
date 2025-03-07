@@ -160,7 +160,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         if len(data) == 32:
             return cls.expand(data)
 
-        if len(data) != 2400 + 32:
+        if len(data) != 2432:
             raise ValueError("The private key must be 2400 bytes for ML-KEM and 32 bytes for X25519.")
 
         trad_key = x25519.X25519PrivateKey.from_private_bytes(data[2400:])
@@ -227,6 +227,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
     @staticmethod
     def _from_seed(seed: bytes) -> Tuple[MLKEMPrivateKey, x25519.X25519PrivateKey, bytes]:
         """Create a new key from the given seed."""
+        seed_before = seed
         if len(seed) == 32:
             shake = hashes.SHAKE256(digest_size=96)
             hasher = hashes.Hash(shake)
@@ -238,7 +239,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
 
         ml_kem_key = MLKEMPrivateKey.from_private_bytes(name="ml-kem-768", data=seed[:64])
         x25519_key = x25519.X25519PrivateKey.from_private_bytes(seed[64:96])
-        return ml_kem_key, x25519_key, seed
+        return ml_kem_key, x25519_key, seed_before
 
     @classmethod
     def from_seed(cls, seed: bytes) -> "XWingPrivateKey":

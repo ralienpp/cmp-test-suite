@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2024 Siemens AG
 #
 # SPDX-License-Identifier: Apache-2.0
-
+# pylint: disable=invalid-name
 """XWing key classes."""
 
 import logging
@@ -142,7 +142,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         self._trad_key = trad_key
         self._seed = seed
 
-    def get_oid(self, **kwargs) -> univ.ObjectIdentifier:
+    def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the key."""
         return univ.ObjectIdentifier(_XWING_OID_STR)
 

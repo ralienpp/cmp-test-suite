@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2024 Siemens AG
 #
 # SPDX-License-Identifier: Apache-2.0
-
+# pylint: disable=redefined-builtin
 
 """Traditional key encapsulation mechanism classes for RSA and DHKEM."""
 
@@ -251,7 +251,10 @@ class DHKEMPublicKey(TradKEMPublicKey):
         :return: A tuple of (shared secret, encapsulated public key).
         """
         private_key = DHKEMPrivateKey(private_key)
-        kem = DHKEMRFC9180(private_key._private_key) if self.use_rfc9180 else ECDHKEM(private_key._private_key)
+        if self.use_rfc9180:
+            kem = DHKEMRFC9180(private_key._private_key)  # pylint: disable=protected-access
+        else:
+            kem = ECDHKEM(private_key._private_key) # pylint: disable=protected-access
         return kem.encaps(self._public_key)
 
     @property
@@ -282,7 +285,9 @@ class DHKEMPublicKey(TradKEMPublicKey):
             return self._public_key.public_numbers()
         raise ValueError("Public numbers are not available for this key type.")
 
-    def public_bytes(self, encoding: Encoding, format: PublicFormat) -> bytes:
+    def public_bytes(self,
+                     encoding: Encoding = Encoding.Raw,
+                     format: PublicFormat = PublicFormat.SubjectPublicKeyInfo) -> bytes:
         """Return the public key as bytes."""
         return self._public_key.public_bytes(encoding, format)
 
@@ -298,7 +303,7 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
 
     def __init__(
         self,
-        private_key: Union[ec.EllipticCurvePrivateKey, x25519.X25519PrivateKey, x448.X448PrivateKey],
+        private_key: Union["DHKEMPrivateKey", ec.EllipticCurvePrivateKey, x25519.X25519PrivateKey, x448.X448PrivateKey],
         use_rfc9180: bool = True,
     ):
         """Initialize the DHKEM private key.

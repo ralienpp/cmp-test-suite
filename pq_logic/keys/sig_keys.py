@@ -41,10 +41,10 @@ from pq_logic.fips.fips205 import SLH_DSA, integer_to_bytes
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 
 if importlib.util.find_spec("oqs") is not None:
-    import oqs
+    import oqs # pylint: disable=import-error
 else:
     logging.warning("oqs module is not installed. Some functionalities may be disabled.")
-    oqs = None
+    oqs = None  # pylint: disable=invalid-name
 
 FALCON_NAMES = ["falcon-512", "falcon-1024", "falcon-padded-512", "falcon-padded-1024"]
 ML_DSA_NAMES = ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]
@@ -122,6 +122,8 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         if not sig:
             raise InvalidSignature()
 
+        return None
+
     def check_hash_alg(self, hash_alg: Optional[str], allow_failure: bool = True) -> Optional[str]:
         """Check if the hash algorithm is valid.
 
@@ -188,7 +190,7 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         :return: The corresponding public key as bytes.
         """
         # Decode the secret key to retrieve its components.
-        rho, kk, tr, s1, s2, t0 = self.ml_class.sk_decode(sk)
+        rho, _, _, s1, s2, _ = self.ml_class.sk_decode(sk)
         # Compute the matrix a from rho.
         ah = self.ml_class.expand_a(rho)
         # Compute the NTT of each s1 vector.

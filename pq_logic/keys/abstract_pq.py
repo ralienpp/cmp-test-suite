@@ -9,18 +9,16 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, Union
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 
 from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
 
 if importlib.util.find_spec("oqs") is not None:
-    import oqs
+    import oqs # pylint: disable=import-error
 else:
     logging.warning("oqs module is not installed. Some functionalities may be disabled.")
-    oqs = None
-
-
-from cryptography.exceptions import InvalidSignature
+    oqs = None # pylint: disable=invalid-name
 
 
 class PQSignaturePublicKey(PQPublicKey, ABC):

@@ -114,7 +114,7 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
             self._public_key_bytes, self._private_key_bytes = self.ml_class.keygen_internal(d=d, z=z)
 
         if oqs is not None:
-            self._kem_method = oqs.KeyEncapsulation(self._other_name)
+            self._kem_method = oqs.KeyEncapsulation(self._other_name, secret_key=self._private_key_bytes)
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""

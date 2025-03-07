@@ -212,12 +212,12 @@ class PQKEMPrivateKey(PQPrivateKey, ABC):
     _kem_method: Optional["oqs.KeyEncapsulation"]
 
     def _initialize_key(self):
-        self.kem_method = oqs.KeyEncapsulation(self._other_name, secret_key=self._private_key_bytes)
+        self._kem_method = oqs.KeyEncapsulation(self._other_name, secret_key=self._private_key_bytes)
         if self._private_key_bytes is None:
-            self._public_key_bytes = self.kem_method.generate_keypair()
+            self._public_key_bytes = self._kem_method.generate_keypair()
 
         # MUST first generate a keypair, before the secret key can be exported.
-        self._private_key_bytes = self._private_key_bytes or self.kem_method.export_secret_key()
+        self._private_key_bytes = self._private_key_bytes or self._kem_method.export_secret_key()
 
     def decaps(self, ct: bytes) -> bytes:
         """Perform decapsulation to retrieve a shared secret.
@@ -227,17 +227,17 @@ class PQKEMPrivateKey(PQPrivateKey, ABC):
         :param ct: The ciphertext generated during encapsulation.
         :return: The shared secret as bytes.
         """
-        return self.kem_method.decap_secret(ct)
+        return self._kem_method.decap_secret(ct)
 
     @property
     def ct_length(self) -> int:
         """Return the size of the ciphertext."""
-        return self.kem_method.details["length_ciphertext"]
+        return self._kem_method.details["length_ciphertext"]
 
     @property
     def key_size(self) -> int:
         """Return the size of the public key."""
-        return self.kem_method.details["length_secret_key"]
+        return self._kem_method.details["length_secret_key"]
 
     @classmethod
     def from_private_bytes(cls, data: bytes, name: str):

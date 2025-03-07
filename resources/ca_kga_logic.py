@@ -1602,7 +1602,7 @@ def perform_rsa_kemri(
         private_key = RSADecapKey(private_key)
 
     return private_key.decaps(
-        ciphertext=ct,
+        ct=ct,
         hash_alg="sha256",
         use_oaep=False,
         ss_length=key_length,

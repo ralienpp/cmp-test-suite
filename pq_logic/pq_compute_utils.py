@@ -503,3 +503,43 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
     pki_message["protection"] = protectionutils.prepare_pki_protection_field(signature)
 
     return pki_message
+def compute_decapsulation(  # noqa: D417 Missing argument descriptions in the docstring
+    key: KEMPrivateKey,
+    ciphertext: Union[bytes, KemCiphertextInfoAsn1],
+    key_length: int = 32,
+) -> bytes:
+    """Compute decapsulation with a given ciphertext and private key.
+
+    Arguments:
+    ---------
+        - `key`: The private key to use for decapsulation.
+        - `ciphertext`: The ciphertext to decapsulate or a `KemCiphertextInfoAsn1` object.
+        - `key_length`: The length of the key in bytes. (only used for RSA to align with RFC9690.) Defaults to `32`.
+        (uses `KDF3` with `SHA-256`).
+
+    Returns:
+    -------
+        - The shared secret.
+
+    Raises:
+    ------
+        - `ValueError`: If the key type is invalid.
+
+    Examples:
+    --------
+    | ${shared_secret} = | Compute Decapsulation | ${key} | ${ciphertext} |
+    | ${shared_secret} = | Compute Decapsulation | ${key} | ${ciphertext} | 32 |
+
+    """
+    if isinstance(ciphertext, KemCiphertextInfoAsn1):
+        ciphertext = ciphertext["ciphertext"].asOctets()
+
+    if isinstance(key, RSAPrivateKey):
+        key = RSADecapKey(key)
+    if isinstance(key, RSADecapKey):
+        return key.decaps(
+            ciphertext,
+            use_oaep=False,
+            ss_length=key_length,
+        )
+    return key.decaps(ciphertext)

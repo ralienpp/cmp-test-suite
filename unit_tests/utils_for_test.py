@@ -947,6 +947,65 @@ def _save_migration_csrs():
     _save_csr(csr, "data/csrs/hybrid_csr_composite_sig_rsa2048_ml_dsa_44.pem", save_as_pem=True, add_pretty_print=True)
 
 
+def _update_ed_x_trad_keys():
+    path = "data/keys/private-key-x25519.pem"
+    key = x25519.X25519PrivateKey.generate()
+    save_key(key, path)
+    loaded_key = load_private_key_from_file(path)
+
+    if not isinstance(loaded_key, x25519.X25519PrivateKey):
+        raise ValueError(f"The loaded key is not of the correct type. "
+                         f"Expected: {type(key)}\n"
+                         f"Got: {type(loaded_key)}")
+
+    if key.public_key() != loaded_key.public_key():
+        raise ValueError("The public keys of the loaded and the generated key are the same.")
+
+    path = "data/keys/client-key-x25519.pem"
+    key = x25519.X25519PrivateKey.generate()
+    save_key(key, path)
+    loaded_key = load_private_key_from_file(path)
+
+    if not isinstance(loaded_key, x25519.X25519PrivateKey):
+        raise ValueError(f"The loaded key is not of the correct type. "
+                         f"Expected: {type(key)}\n"
+                         f"Got: {type(loaded_key)}")
+
+    if key.public_key() != loaded_key.public_key():
+        raise ValueError("The public keys of the loaded and the generated key are the same.")
+
+
+    path = "data/keys/private-key-x448.pem"
+    key = x448.X448PrivateKey.generate()
+    save_key(key, path)
+    loaded_key = load_private_key_from_file(path)
+    if key.public_key() != loaded_key.public_key():
+        raise ValueError("The public keys of the loaded and the generated key are the same.")
+
+
+    path = "data/keys/client-x448-key.pem"
+    key = x448.X448PrivateKey.generate()
+    save_key(key, path)
+    loaded_key = load_private_key_from_file(path)
+    if key.public_key() != loaded_key.public_key():
+        raise ValueError("The public keys of the loaded and the generated key are the same.")
+
+    path = "data/keys/private-key-ed448.pem"
+    key = ed448.Ed448PrivateKey.generate()
+    save_key(key, path)
+    loaded_key = load_private_key_from_file(path)
+    if key.public_key() != loaded_key.public_key():
+        raise ValueError("The public keys of the loaded and the generated key are the same.")
+
+    path = "data/keys/private-key-ed25519.pem"
+    key = ed25519.Ed25519PrivateKey.generate()
+    save_key(key, path)
+    loaded_key = load_private_key_from_file(path)
+    if key.public_key() != loaded_key.public_key():
+        raise ValueError("The public keys of the loaded and the generated key are the same.")
+
+
+
 def update_cert_and_keys():
     """Generate new PQ and Hybrid keys and certificates.
 

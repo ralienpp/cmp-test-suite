@@ -15,15 +15,36 @@ from datetime import datetime
 import cryptography
 import pyasn1
 from cryptography.exceptions import InvalidSignature
+from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig.catalyst_logic import verify_catalyst_signature
+from pq_logic.hybrid_sig.chameleon_logic import build_delta_cert_from_paired_cert
+from pq_logic.keys.abstract_wrapper_keys import PQPublicKey, PQPrivateKey
 from pq_logic.keys.composite_sig import CompositeSigCMSPublicKey
 from pyasn1.codec.der import encoder
 from pyasn1_alt_modules import rfc9480
 from resources.certutils import parse_certificate
-from resources.cryptoutils import verify_signature
+from resources.exceptions import BadAlg
 from resources.keyutils import load_public_key_from_spki
-from resources.oid_mapping import get_hash_from_oid
-from resources.oidutils import CMS_COMPOSITE_OID_2_NAME, PQ_KEM_OID_2_NAME, PQ_OID_2_NAME
+from resources.oid_mapping import KEY_CLASS_MAPPING
+from resources.oidutils import CMS_COMPOSITE_OID_2_NAME, PQ_KEM_OID_2_NAME
+from unit_tests.utils_for_test import print_chain_subject_and_issuer
+
+
+def get_key_name(key) -> str:
+    """Return the name of the key."""
+    if isinstance(key, (PQPublicKey, PQPrivateKey)):
+        return key.name
+    else:
+        return str(KEY_CLASS_MAPPING.get(type(key).__name__, key))
+
+
+def _load_chameleon_cert(pem_file: str):
+    """Load a chameleon certificate."""
+    with open(pem_file, "rb") as file:
+        cert = parse_certificate(file.read())
+        print_chain_subject_and_issuer([cert])
+        delta_cert = build_delta_cert_from_paired_cert(cert)
+        print_chain_subject_and_issuer([delta_cert])
 
 
 def main():
@@ -109,20 +130,17 @@ def verify_signature_with_alg_id(
     if verify_catalyst:
         verify_catalyst_signature(cert)
 
-    elif oid in CMS_COMPOSITE_OID_2_NAME:
-        name: str = CMS_COMPOSITE_OID_2_NAME[oid]
-        use_pss = name.endswith("-pss")
-        pre_hash = name.startswith("hash-")
-        public_key: CompositeSigCMSPublicKey
-        public_key.verify(data=data, signature=signature, use_pss=use_pss, pre_hash=pre_hash)
-        return public_key.get_name(use_pss=use_pss, pre_hash=pre_hash)
-
-    elif oid in PQ_OID_2_NAME:
-        hash_alg = get_hash_from_oid(oid, only_hash=True)
-        verify_signature(public_key, signature=signature, data=data, hash_alg=hash_alg)
-        return public_key.name
     else:
-        raise ValueError(f"Unsupported public key type: {type(public_key).__name__}.")
+        pq_compute_utils.verify_signature_with_alg_id(
+            public_key=public_key, alg_id=alg_id, signature=signature, data=data
+        )
+        if isinstance(public_key, CompositeSigCMSPublicKey):
+            name: str = CMS_COMPOSITE_OID_2_NAME[oid]
+            use_pss = name.endswith("-pss")
+            pre_hash = True if "hash-" in name else False
+            return public_key.get_name(use_pss=use_pss, pre_hash=pre_hash)
+        else:
+            return get_key_name(public_key)
 
 
 if __name__ == "__main__":
@@ -162,6 +180,12 @@ if __name__ == "__main__":
                 continue
 
             try:
+
+                if "chameleon" in pem:
+                    _load_chameleon_cert(pem)
+                    f.write(f"VALID CHAMELEON CERT\t{pem}\n")
+
+
                 data = open(pem, "rb").read()
                 cert = parse_certificate(data)
                 name = verify_cert_sig(cert, verify_catalyst=True if "catalyst" in pem else False)
@@ -174,7 +198,7 @@ if __name__ == "__main__":
                 f.write(f"ValueError\t{pem}\t{e}\n")
             except pyasn1.error.PyAsn1Error as e:
                 f.write(f"PARSING ERROR\t{pem}\t{e}\n")
-            except cryptography.exceptions.UnsupportedAlgorithm as e:
+            except (cryptography.exceptions.UnsupportedAlgorithm, BadAlg) as e:
                 f.write(f"UNSUPPORTED ALGORITHM\t{pem}\tUnable to decode.{e}\n")
 
         f.close()

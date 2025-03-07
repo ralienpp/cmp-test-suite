@@ -151,7 +151,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         return b"XWING"
 
     @classmethod
-    def from_private_bytes(cls, data: bytes):
+    def from_private_bytes(cls, data: bytes) -> "XWingPrivateKey":
         """Create a private key from the given byte string.
 
         :param data: The byte string to create the private key from.

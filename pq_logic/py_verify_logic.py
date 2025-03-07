@@ -35,21 +35,17 @@ from robot.api.deco import keyword
 import pq_logic
 from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
-from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
+from pq_logic.keys.abstract_pq import PQSignaturePublicKey
 from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.migration_typing import CertOrCerts
-
-# TODO fix to include CRL-Verification
-# currently only works for PQ and traditional signatures.
-# But in the next update will be Completely support CRL-Verification.
 
 
 def verify_cert_hybrid_signature(  # noqa D417 undocumented-param
     ee_cert: rfc9480.CMPCertificate,
     issuer_cert: rfc9480.CMPCertificate,
     other_cert: rfc9480.CMPCertificate,
-    catalyst_key: PQSignaturePrivateKey = None,
+    catalyst_key: PQSignaturePublicKey = None,
 ) -> None:
     """Verify the hybrid signature of an end-entity (EE) certificate using the appropriate composite method.
 
@@ -193,7 +189,7 @@ def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
         _verify_signature_with_other_cert(cert, sig_alg, data, signature, other_certs=other_certs)
         return
 
-    elif cert_sig_alg in PQ_OID_2_NAME:
+    if cert_sig_alg in PQ_OID_2_NAME:
         raise ValueError(
             "The certificate contains a post-quantum signature algorithm."
             "please use traditional signature algorithm"
@@ -201,9 +197,9 @@ def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
             "having the certificate with traditional signature algorithm."
         )
 
-    elif cert_sig_alg in CMS_COMPOSITE_OID_2_NAME or str(cert_sig_alg) in CMS_COMPOSITE_OID_2_NAME:
+    if cert_sig_alg in CMS_COMPOSITE_OID_2_NAME or str(cert_sig_alg) in CMS_COMPOSITE_OID_2_NAME:
         logging.info("The certificate contains a composite signature algorithm.")
-        public_key = CompositeSigCMSPublicKey.from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        public_key = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
         CompositeSigCMSPublicKey.validate_oid(cert_sig_alg, public_key)
         pq_compute_utils.verify_signature_with_alg_id(public_key, sig_alg, data, signature)
 

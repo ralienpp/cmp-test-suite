@@ -533,7 +533,6 @@ class HybridKEMPublicKey(HybridPublicKey, ABC):
         """
 
     @property
-    @abstractmethod
     def ct_length(self) -> int:
         """Return the length of the ciphertext."""
         return len(self.encaps()[1])

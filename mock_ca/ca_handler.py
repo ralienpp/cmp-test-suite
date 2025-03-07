@@ -33,11 +33,11 @@ from pq_logic.pq_compute_utils import protect_hybrid_pkimessage
 from pq_logic.py_verify_logic import verify_hybrid_pkimessage_protection
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
+from resources.asn1_structures import PKIMessageTMP
 from resources.ca_ra_utils import (
     build_cp_cmp_message,
     build_cp_from_p10cr,
     build_ip_cmp_message,
-    build_pki_conf_from_cert_conf,
     build_rp_from_rr,
 )
 from resources.certbuildutils import (
@@ -70,6 +70,7 @@ from resources.protectionutils import (
 from resources.typingutils import PrivateKey, PublicKey
 from resources.utils import load_and_decode_pem_file
 
+from mock_ca.cert_conf_handler import CertConfHandler
 from mock_ca.mock_fun import CertRevStateDB, build_key_update_response_error
 
 
@@ -260,6 +261,9 @@ class CAHandler:
             self.xwing_cert = parse_certificate(load_and_decode_pem_file("data/unittest/hybrid_cert_xwing.pem"))
             self.xwing_key = load_private_key_from_file("data/keys/private-key-xwing.pem")
 
+        # Handler classes
+        self.cert_conf_handler = CertConfHandler(self.state)
+
     def sign_response(
         self,
         response: rfc9480.PKIMessage,
@@ -339,6 +343,7 @@ class CAHandler:
                 CMPTestSuiteError(f"An error occurred: {str(e)}", failinfo="systemFailure")
             )
 
+        self.cert_conf_handler.add_request(pki_message)
         return self.sign_response(response=response, request_msg=pki_message)
 
     def process_genm(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
@@ -391,19 +396,13 @@ class CAHandler:
             pki_message, text="The Key Update Response logic, is not yet supported, but the protection was valid."
         )
 
-    def process_cert_conf(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+    def process_cert_conf(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Process the CertConf message.
 
         :param pki_message: The CertConf message.
         :return: The PKIMessage containing the response.
         """
-        issued_certs = self.state.get_issued_certs(pki_message=pki_message)
-        pki_message = build_pki_conf_from_cert_conf(
-            request=pki_message,
-            issued_certs=issued_certs,
-        )
-        self.state.add_certs(certs=issued_certs)
-        return pki_message
+        return self.cert_conf_handler.process_cert_conf(pki_message)
 
     def _check_for_compromised_key(self, pki_message: rfc9480.PKIMessage) -> None:
         """Check the request for a compromised key.
@@ -453,9 +452,18 @@ class CAHandler:
             pki_message=pki_message,
             certs=certs,
         )
-        return pki_message
 
-    def process_ir(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+        self.cert_conf_handler.add_response(
+            pki_message=response,
+            certs=certs,
+        )
+        self.cert_conf_handler.add_request(
+            pki_message=pki_message,
+        )
+
+        return response
+
+    def process_ir(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Process the IR message.
 
         :param pki_message: The IR message.
@@ -474,6 +482,10 @@ class CAHandler:
             ca_key=self.ca_key,
             implicit_confirm=confirm_,
             extensions=[self.ocsp_extn, self.crl_extn],
+        )
+        self.cert_conf_handler.add_response(
+            pki_message=response,
+            certs=certs,
         )
 
         logging.debug("RESPONSE: %s", pki_message.prettyPrint())

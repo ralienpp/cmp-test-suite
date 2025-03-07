@@ -50,12 +50,22 @@ FALCON_NAMES = ["falcon-512", "falcon-1024", "falcon-padded-512", "falcon-padded
 ML_DSA_NAMES = ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]
 
 
+def _extract_minor_patch() -> bool:
+    version = oqs.oqs_python_version()
+    parts = version.split(".")
+    minor = int(parts[1])  # Middle number
+    patch = int(parts[2])  # Last number
+    return float(f"{minor}.{patch}") == 12.0
+
+
 class MLDSAPublicKey(PQSignaturePublicKey):
     """Represent an ML-DSA public key."""
 
     def _initialize_key(self) -> None:
         """Initialize the ML-DSA public key."""
         self.ml_class = ML_DSA(self.name)
+        if oqs is not None:
+            self._sig_method = oqs.Signature(self._other_name)
 
     @property
     def sig_size(self) -> int:
@@ -91,6 +101,11 @@ class MLDSAPublicKey(PQSignaturePublicKey):
             raise ValueError(f"The context length is longer than 255 bytes. Got: {len(ctx)}")
 
         hash_alg = self.check_hash_alg(hash_alg=hash_alg, allow_failure=False)
+
+        if hash_alg is None and not is_prehashed and oqs is not None:
+            if _extract_minor_patch():
+                return super().verify(signature=signature, data=data, ctx=ctx)
+
         ml_ = fips204.ML_DSA(self.name)
         if hash_alg is None:
             sig = ml_.verify(pk=self.public_bytes_raw(), sig=signature, m=data, ctx=ctx)
@@ -201,6 +216,9 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         else:
             raise ValueError("Invalid key initialization")
 
+        if oqs is not None:
+            self._sig_method = oqs.Signature(self._other_name, secret_key=self._private_key_bytes)
+
     @staticmethod
     def _from_seed(alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, bytes]:
         """Generate a ML-DSA private key from the seed."""
@@ -295,6 +313,12 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
 
         if len(ctx) > 255:
             raise ValueError(f"The context length is longer then 255 bytes.Got: {len(ctx)}")
+
+        hash_alg = self.check_hash_alg(hash_alg)
+
+        if hash_alg is None and not is_prehashed and oqs is not None:
+            if _extract_minor_patch():
+                return super().sign(data=data, hash_alg=hash_alg, ctx=ctx)
 
         if hash_alg is None:
             ml_ = fips204.ML_DSA(self.name)

@@ -122,6 +122,17 @@ class PQKeyFactory:
         raise ValueError(f"Invalid algorithm name provided: '{algorithm}'.")
 
     @staticmethod
+    def from_public_bytes(name: str, data: bytes):
+        """Load a PQ public key from the given public key bytes.
+
+        :param name: The name of the algorithm.
+        :param data: The public key bytes.
+        :return: The public key instance.
+        """
+        key = PQKeyFactory.generate_pq_key(name)
+        return key.public_key().from_public_bytes(data, name)
+
+    @staticmethod
     def from_one_asym_key(one_asy_key: rfc5958.OneAsymmetricKey):
         """Create a post-quantum private key from an `rfc5958.OneAsymmetricKey` object.
 

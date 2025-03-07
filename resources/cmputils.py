@@ -1224,6 +1224,8 @@ def build_key_update_request(  # noqa D417 undocumented-param
         - `cert_template` (rfc4211.CertTemplate): Custom certificate template.
         - `popo_structure` (rfc4211.ProofOfPossession): Custom Proof of Possession structure.
         - The `PKIHeader` fields can also be set.
+        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     Returns:
     -------
@@ -1289,6 +1291,7 @@ def build_key_update_request(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=int(params.get("pvno", 2)),
+        for_mac=params.get("for_mac", False),
     )
 
     pki_message["body"] = pki_body
@@ -1335,6 +1338,8 @@ def build_ir_from_key(  # noqa D417 undocumented-param
         - `cert_template` (rfc4211.CertTemplate): Custom certificate template.
         - `popo_structure` (rfc4211.ProofOfPossession): Custom Proof of Possession structure.
         - The `PKIHeader` fields can also be set.
+        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     Returns:
     -------
@@ -1389,6 +1394,7 @@ def build_ir_from_key(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=pvno,
+        for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
     return pki_message
@@ -1430,6 +1436,8 @@ def build_cr_from_key(  # noqa D417 undocumented-param
         - `cert_template` (rfc4211.CertTemplate): Custom certificate template.
         - `popo_structure` (rfc4211.ProofOfPossession): Custom Proof of Possession structure.
         - The `PKIHeader` fields can also be set.
+        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     Returns:
     -------
@@ -1476,6 +1484,7 @@ def build_cr_from_key(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=int(params.get("pvno", 2)),
+        for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
     return pki_message
@@ -1519,6 +1528,8 @@ def build_crr_from_key(  # noqa D417 undocumented-param
         - `cert_template` (rfc4211.CertTemplate): Custom certificate template.
         - `popo_structure` (rfc4211.ProofOfPossession): Custom Proof of Possession structure.
         - The `PKIHeader` fields can also be set.
+        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     Returns:
     -------
@@ -1572,6 +1583,7 @@ def build_crr_from_key(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=pvno,
+        for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
     return pki_message
@@ -1611,6 +1623,8 @@ def build_ir_from_csr(  # noqa D417 undocumented-param
         - `for_kga` (bool): Indicates if the request is for key generation authentication.
         - `popo_structure` (rfc4211.ProofOfPossession): Custom Proof of Possession structure.
         - The `PKIHeader` fields can also be set.
+        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     Returns:
     -------
@@ -1658,6 +1672,7 @@ def build_ir_from_csr(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=int(params.get("pvno", 2)),
+        for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
 
@@ -1698,6 +1713,8 @@ def build_cr_from_csr(  # noqa D417 undocumented-param
         - `for_kga` (bool): Indicates if the request is for key generation authentication.
         - `popo_structure` (rfc4211.ProofOfPossession): Custom Proof of Possession structure.
         - The `PKIHeader` fields can also be set.
+        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     Returns:
     -------
@@ -1745,6 +1762,7 @@ def build_cr_from_csr(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=int(params.get("pvno", 2)),
+        for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
 
@@ -1785,6 +1803,8 @@ def build_crr_from_csr(  # noqa D417 undocumented-param
         - `for_kga` (bool): Indicates if the request is for key generation authentication.
         - `popo_structure` (rfc4211.ProofOfPossession): Custom Proof of Possession structure.
         - The `PKIHeader` fields can also be set.
+        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     Returns:
     -------
@@ -1832,6 +1852,7 @@ def build_crr_from_csr(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=int(params.get("pvno", 2)),
+        for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
 
@@ -2254,6 +2275,7 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=int(params.get("pvno", 2 if hash_alg is None else 3)),
+        for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
     return pki_message
@@ -2301,7 +2323,9 @@ def build_cert_conf(  # noqa D417 undocumented-param
         - `sender_kid` (bytes): The sender's key identifier.
         - `pvno` (int, str): The protocol version number. Defaults to `2`.
         - `cert_req_id` (int, str): The certificate request ID. Defaults to `0`.
-
+        - `for_mac` (bool): Flag indicating if the message is MAC protected. Defaults to `False`.
+        ( set the sender inside the directoryName choice of the GeneralName structure)
+        .
     Returns:
     -------
         - The populated `PKIMessage` with the `certConf` `PKIBody`.
@@ -2348,6 +2372,7 @@ def build_cert_conf(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=int(params.get("pvno", 2)),
+        for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
 

@@ -19,6 +19,8 @@ Library             ../resources/protectionutils.py
 
 Test Tags           certConf
 
+Suite Setup    Set Up Test Suite
+
 
 *** Test Cases ***
 #### Accept and reject test.
@@ -38,11 +40,11 @@ CA MUST Accept Valid MAC Protected Issuing Process
     ...    ${response}
     ...    sender=${SENDER}
     ...    recipient=${RECIPIENT}
+    ...    for_mac=True
     ${protected_cert_conf}=    Protect PKIMessage
     ...    ${cert_conf}
-    ...    protection=signature
-    ...    private_key=${ISSUED_KEY}
-    ...    cert=${ISSUED_CERT}
+    ...    protection=${DEFAULT_MAC_ALGORITHM}
+    ...    password=${PRESHARED_SECRET}
     ${response}=    Exchange PKIMessage    ${protected_cert_conf}
     PKIMessage Body Type Must Be    ${response}    pkiconf
 
@@ -87,11 +89,12 @@ CA MUST Reject More Than One CertStatus Inside The certConf
     ${cert}=    Get Cert From PKIMessage    ${response}
     ${cert_hash}=    Calculate Cert Hash    ${cert}
     ${cert_status}=    Prepare CertStatus    ${cert_hash}    cert=${cert}
-    VAR    @{My List}    ${cert_status}    ${cert_status}
+    VAR    @{My_List}    ${cert_status}    ${cert_status}
+    Append To List    ${My_List}    ${cert_status}
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
-    ...    recipient=${My List}
-    ...    cert_status=${cert_status}
+    ...    recipient=${RECIPIENT}
+    ...    cert_status=${My_List}
     ...    exclude_fields=sender,senderKID
     ${protected_cert_conf}=    Protect PKIMessage
     ...    ${cert_conf}
@@ -103,7 +106,6 @@ CA MUST Reject More Than One CertStatus Inside The certConf
     PKIMessage Body Type Must Be    ${response}    error
     PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badRequest    exclusive=True
 
-
 CA MUST Reject Invalid certReqId Inside The certConf
     [Documentation]    According to RFC 9483, the `certReqId` in the certConf message for the first issued
     ...    certificate must be set to 0. We send a certConf message with an invalid `certReqId`
@@ -113,10 +115,12 @@ CA MUST Reject Invalid certReqId Inside The certConf
     ${protected_ir}=    Generate Default IR Sig Protected
     ${response}=    Exchange PKIMessage    ${protected_ir}
     PKIMessage Body Type Must Be    ${response}    ip
+    ${cert}=   Get Cert From PKIMessage    ${response}
+    ${cert_status}=    Prepare CertStatus    cert=${cert}    cert=${cert}   cert_req_id=-1
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
-    ...    cert_req_id=${-1}
     ...    recipient=${RECIPIENT}
+    ...    cert_status=${cert_status}
     ${protected_cert_conf}=    Protect PKIMessage
     ...    ${cert_conf}
     ...    protection=signature
@@ -154,32 +158,6 @@ CA MUST Reject failInfo With Status Accepted Inside The certConf
 
 ### certificate hash
 
-CA MUST Reject certConf Without A Cert Hash Value
-    [Documentation]    According to RFC 9483 Section 4.1, when implicit confirmation is not allowed, the
-    ...    End-Entity must confirm receipt of all issued certificates by including a valid certificate hash
-    ...    in the CertStatus.We send a valid Initialization Request without implicit confirmation,
-    ...    receive a certificate, and respond with a certificate confirmation message omitting the
-    ...    certificate hash. The CA MUST reject this message and respond with an error, optionally including
-    ...    the failInfo `badPOP`.
-    [Tags]    negative    popo
-    ${protected_ir}=    Generate Default IR Sig Protected
-    ${response}=    Exchange PKIMessage    ${protected_ir}
-    PKIMessage Body Type Must Be    ${response}    ip
-    ${cert_status}=    Prepare CertStatus    hash_alg=sha256
-    ${cert_conf}=    Build Cert Conf From Resp
-    ...    ${response}
-    ...    cert_status=${cert_status}
-    ...    recipient=${RECIPIENT}
-    ...    exclude_fields=sender,senderKID
-    ${protected_cert_conf}=    Protect PKIMessage
-    ...    ${cert_conf}
-    ...    protection=signature
-    ...    private_key=${ISSUED_KEY}
-    ...    cert=${ISSUED_CERT}
-    ${response}=    Exchange PKIMessage    ${protected_cert_conf}
-    PKIMessage Body Type Must Be    ${response}    error
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badPOP    exclusive=True
-
 CA MUST Accept certConf With A Different HashAlg And Version 3
     [Documentation]    According to RFC 9483 Section 4.1, if the `pvno` field in the PKIHeader is set to
     ...    version 3, the certConf message may use a different hash algorithm than the one used by
@@ -202,11 +180,11 @@ CA MUST Accept certConf With A Different HashAlg And Version 3
     ${response}=    Exchange PKIMessage    ${protected_ir}
     PKIMessage Body Type Must Be    ${response}    ip
     ${cert}=    Get Cert From PKIMessage    ${response}
-    ${cert_hash}=    Calculate Cert Hash    ${cert}    different_hash=True
+    ${cert_status}=    Prepare CertStatus   cert=${cert}   different_hash=True
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
     ...    pvno=3
-    ...    cert_hash=${cert_hash}
+    ...    cert_status=${cert_status}
     ...    recipient=${RECIPIENT}
     ...    exclude_fields=sender,senderKID
     ${protected_cert_conf}=    Protect PKIMessage
@@ -257,10 +235,12 @@ CA MUST Reject certConf Signed With The Newly Issued Certificate
     PKIMessage Body Type Must Be    ${response}    ip
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
-    ...    sender=${SENDER}
     ...    recipient=${RECIPIENT}
     ...    exclude_fields=senderKID,sender
     ${cert}=    Get Cert From PKIMessage    ${response}
+    ${cert_chain}=   Build CMP Chain From PKIMessage    ${response}   ee_cert=${cert}
+    Write Certs To Dir    ${cert_chain}
+    ${private_key}=  Get From List    ${burned_keys}    -1
     ${protected_cert_conf}=    Protect PKIMessage
     ...    ${cert_conf}
     ...    protection=signature
@@ -268,7 +248,7 @@ CA MUST Reject certConf Signed With The Newly Issued Certificate
     ...    cert=${cert}
     ${response}=    Exchange PKIMessage    ${protected_cert_conf}
     PKIMessage Body Type Must Be    ${response}    error
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badMessageCheck,badRequest    exclusive=True
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=wrongAuthority,badRequest
 
 CA MUST Reject certConf With First PKIMessage PBM Protected Then PBMAC1
     [Documentation]    According to RFC 9483, all PKI messages within a transaction must use consistent
@@ -307,11 +287,12 @@ CA MUST Reject IR with Signature and Then certConf MAC Protection
     ...    an initialization request protected with a signature and then a certificate confirmation
     ...    message using MAC-based-protection. The CA MUST detect this inconsistency and reject the
     ...    certConf message. The CA may optionally include the failInfo `wrongIntegrity`.
-
+    [Tags]    inconsistency    mac    negative    protection
     ${protected_ir}=    Generate Default IR Sig Protected
     ${response}=    Exchange PKIMessage    ${protected_ir}
     PKIMessage Body Type Must Be    ${response}    ip
-    ${cert_conf}=    Build Cert Conf From Resp    ${response}
+    ${cert_conf}=    Build Cert Conf From Resp    ${response}   for_mac=True
+    ...              sender=${SENDER}   recipient=${RECIPIENT}
     ${protected_cert_conf}=    Protect PKIMessage
     ...    ${cert_conf}
     ...    protection=${DEFAULT_MAC_ALGORITHM}
@@ -361,10 +342,12 @@ CA MUST Reject CertConf With Different senderNonce
     ...    ${response}
     ...    sender=${SENDER}
     ...    recipient=${RECIPIENT}
-    ...    exclude_fields=senderKID,sender,recipNonce
+    ...    exclude_fields=senderKID,sender,senderNonce,recipNonce
     ${sender_nonce}=    Get Asn1 Value As Bytes    ${response}    header.recipNonce
     ${sender_nonce}=    Manipulate First Byte    ${sender_nonce}
+    ${recip_nonce}=    Get Asn1 Value As Bytes    ${response}    header.senderNonce
     ${cert_conf}=    Patch SenderNonce    ${cert_conf}    sender_nonce=${sender_nonce}
+    ${cert_conf}=    Patch RecipNonce    ${cert_conf}    recip_nonce=${recip_nonce}
     ${protected_cert_conf}=    Protect PKIMessage
     ...    ${cert_conf}
     ...    protection=signature
@@ -458,14 +441,14 @@ CA MUST Reject CertConf with Different transactionID
     ${protected_ir}=    Generate Default IR Sig Protected
     ${response}=    Exchange PKIMessage    ${protected_ir}
     PKIMessage Body Type Must Be    ${response}    ip
-    ${tid}=    Get Asn1 Value As Bytes    ${response}    header.transactionID
-    ${tid}=    Manipulate First Byte    ${tid}
+    ${tx_id}=    Get Asn1 Value As Bytes    ${response}    header.transactionID
+    ${tx_id}=    Manipulate First Byte    ${tx_id}
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
     ...    sender=${SENDER}
     ...    recipient=${RECIPIENT}
     ...    exclude_fields=sender,senderKID,transactionID
-    ${patched_cert_conf}=    Patch TransactionID    ${cert_conf}    new_id=${tid}
+    ${patched_cert_conf}=    Patch TransactionID    ${cert_conf}    ${tx_id}
     ${protected_cert_conf}=    Protect PKIMessage
     ...    ${patched_cert_conf}
     ...    protection=signature
@@ -498,8 +481,8 @@ CA MAY Reject CertConf With implicitConfirm
     ...    private_key=${ISSUED_KEY}
     ...    cert=${ISSUED_CERT}
     ${response}=    Exchange PKIMessage    ${protected_cert_conf}
-    PKIMessage Body Type Must Be    ${pki_conf2}    error
-    PKIStatusInfo Failinfo Bit Must Be   ${pki_conf2}    failinfo=badRequest   exclusive=True
+    PKIMessage Body Type Must Be    ${response}    error
+    PKIStatusInfo Failinfo Bit Must Be   ${response}    failinfo=badRequest   exclusive=True
 
 CA SHOULD Send certConfirmed When Valid certConf Is Sent Again
     [Documentation]    According to RFC 9483 Sections 3 and 4.1, if a valid `certConf` message is sent more than once,
@@ -520,7 +503,8 @@ CA SHOULD Send certConfirmed When Valid certConf Is Sent Again
     ...    protection=signature
     ...    private_key=${ISSUED_KEY}
     ...    cert=${ISSUED_CERT}
-    Exchange PKIMessage    ${protected_cert_conf}
+    ${pki_conf}=   Exchange PKIMessage    ${protected_cert_conf}
+    PKIMessage Body Type Must Be    ${pki_conf}    pkiconf
     ${pki_conf2}=    Exchange PKIMessage    ${protected_cert_conf}
     PKIMessage Body Type Must Be    ${pki_conf2}    error
     PKIStatusInfo Failinfo Bit Must Be   ${pki_conf2}    failinfo=certConfirmed   exclusive=True

@@ -487,23 +487,32 @@ def _build_certs_root_ca_key_update_content():
     - Old Root CA certificate signed by the new Root CA
     Contains extension to be able to be verified by `pkilint`.
     """
+
+    rsa_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
+    new_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
+
+    new_extn = _prepare_ca_extensions(new_key)
+    old_extn = _prepare_ca_extensions(rsa_key)
+
     old_cert, old_key = build_certificate(
-        common_name="CN=OldRootCA", is_ca=True, key_usage="digitalSignature,keyCertSign", ski=True
+        common_name="CN=OldRootCA", extensions=old_extn,
     )
     new_with_new_cert, new_key = build_certificate(
-        common_name="CN=NewRootCA", is_ca=True, key_usage="digitalSignature,keyCertSign", ski=True
+        common_name="CN=NewRootCA", extensions=new_extn,
     )
     new_with_old_cert, _ = build_certificate(
         private_key=new_key,
         common_name="CN=NewRootCA_with_Old",
         issuer_cert=old_cert,
         signing_key=old_key,
+        ski=False,
     )
     old_with_new_cert, _ = build_certificate(
         private_key=old_key,
         common_name="CN=OldRootCA",
         issuer_cert=new_with_new_cert,
         signing_key=new_key,
+        ski=False,
     )
 
     write_cmp_certificate_to_pem(old_cert, "data/unittest/old_root_ca.pem")

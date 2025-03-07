@@ -397,13 +397,13 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
             return ChempatSntrup761PrivateKey.from_private_bytes(data, name=name)
 
         if "mceliece" in name:
-            return ChempatMcEliecePrivateKey.from_private_bytes(data, name=name)
+            return ChempatMcEliecePrivateKey._from_private_bytes(data, name=name)
 
         if "ml-kem" in name:
-            return ChempatMLKEMPrivateKey.from_private_bytes(data, name=name)
+            return ChempatMLKEMPrivateKey.from_private_bytes(data, name=name)  # pylint: disable=protected-access
 
         if "frodokem" in name:
-            return ChempatFrodoKEMPrivateKey.from_private_bytes(data, name=name)
+            return ChempatFrodoKEMPrivateKey._from_private_bytes(data, name=name)
 
         raise ValueError(f"Unsupported key type for Chempat. Got: {name}")
 
@@ -680,6 +680,18 @@ class ChempatMLKEMPrivateKey(ChempatPrivateKey):
         key = MLKEMPrivateKey.from_private_bytes(data=data[:key_size], name=pq_name)
         return key, data[key_size:]
 
+    @classmethod
+    def from_private_bytes(cls, data: bytes, name: str) -> "ChempatMLKEMPrivateKey":
+        """Load a ChempatPrivateKey instance from the provided private bytes.
+
+        :param data: The private key bytes, which are the pq-part and the trad-part concatenated.
+        :param name: The pq-algorithm name.
+        :return: The created `ChempatMLKEMPrivateKey` instance.
+        """
+        ml_kem, rest = cls._load_pq_key(data, name)
+        trad_key = _load_trad_private_key(rest, name)
+        return cls(ml_kem, trad_key)
+
 
 def _get_may_name(name: str, options: List[str]) -> Optional[str]:
     """Return the first option from the list that is in the name."""
@@ -700,7 +712,7 @@ def _ec_key_from_der(der_data: bytes, curve: ec.EllipticCurve) -> ec.EllipticCur
     return ec.derive_private_key(private_value, curve)
 
 
-def _load_private_key(data: bytes, name: str) -> ECDHPrivateKey:
+def _load_trad_private_key(data: bytes, name: str) -> ECDHPrivateKey:
     """Load an ECDH private key from the given data.
 
     :param data: The private key data.

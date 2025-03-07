@@ -49,7 +49,11 @@ from resources import (
 )
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, perform_ecdh
-from resources.envdatautils import get_aes_keywrap_length, prepare_cmsori_for_kem_other_info
+from resources.envdatautils import (
+    get_aes_keywrap_length,
+    is_cmsori_kem_other_info_decode_able,
+    prepare_cmsori_for_kem_other_info,
+)
 from resources.exceptions import BadAlg, BadAsn1Data
 from resources.oid_mapping import (
     compute_hash,
@@ -1613,7 +1617,7 @@ def perform_rsa_kemri(
 def process_kem_recip_info(
     kem_recip_info: rfc9629.KEMRecipientInfo,
     server_cert: Optional[rfc9480.CMPCertificate],
-    private_key: PQKEMPrivateKey,
+    private_key: KEMPrivateKey,
     for_pop: bool = False,
 ) -> bytes:
     """Process a `KEMRecipientInfo` structure to derive the content encryption key (CEK).
@@ -1640,23 +1644,22 @@ def process_kem_recip_info(
 
     if not isinstance(private_key, (RSAPrivateKey, RSADecapKey)):
         shared_secret = private_key.decaps(validated_info["kemct"])
-        logging.info("Shared secret: %s", shared_secret.hex())
     else:
-        # shared_secret = private_key.decaps(ct=validated_info["kemct"], key_length=validated_info["length"])
         shared_secret = perform_rsa_kemri(
             private_key=private_key,
             ct=validated_info["kemct"],
             key_length=validated_info["length"],
         )
-
+    logging.info("Shared secret: %s", shared_secret.hex())
     if validated_info["ukm"] is None:
+        logging.info("UKM is not set.")
         ukm_der = prepare_cmsori_for_kem_other_info(
             wrap_algorithm=validated_info["wrap"],
             kek_length=validated_info["length"],
             ukm=validated_info["ukm"],
         )
     else:
-        ukm_der = validated_info["ukm"]
+        ukm_der = is_cmsori_kem_other_info_decode_able(validated_info["ukm"])
 
     key_enc_key = compute_kdf_from_alg_id(
         kdf_alg_id=validated_info["kdf_algorithm"],

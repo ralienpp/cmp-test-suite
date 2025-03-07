@@ -1693,3 +1693,22 @@ def prepare_cmsori_for_kem_other_info(
         )
 
     return encoder.encode(obj)
+
+
+@not_keyword
+def is_cmsori_kem_other_info_decode_able(ukm_der: bytes) -> bytes:
+    """Check if the provided `CMSORIforKEMOtherInfo` is decode-able.
+
+    :param ukm_der: The DER-encoded `CMSORIforKEMOtherInfo` structure.
+    :return: The decoded `CMSORIforKEMOtherInfo` structure as bytes.
+    :raises BadAsn1Data: If the provided data is not decode-able or had a remainder.
+    """
+    try:
+        try_decode, rest = decoder.decode(ukm_der, rfc9629.CMSORIforKEMOtherInfo())
+    except pyasn1.error.PyAsn1Error:
+        raise BadAsn1Data("`CMSORIforKEMOtherInfo` is not decode able", overwrite=True)
+
+    if rest:
+        raise BadAsn1Data("CMSORIforKEMOtherInfo")
+
+    return encoder.encode(try_decode)

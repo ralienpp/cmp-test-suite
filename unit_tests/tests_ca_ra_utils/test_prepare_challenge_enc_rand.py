@@ -4,7 +4,7 @@
 
 import unittest
 
-from pyasn1.codec.der import decoder, encoder
+from pyasn1.codec.der import encoder
 from resources.asn1_structures import ChallengeASN1
 from resources.ca_ra_utils import prepare_challenge_enc_rand
 from resources.certutils import parse_certificate

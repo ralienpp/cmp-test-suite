@@ -37,11 +37,11 @@ from resources import (
 )
 from resources.asn1_structures import CAKeyUpdContent, CertResponseTMP, ChallengeASN1, PKIMessageTMP
 from resources.certextractutils import get_extension, get_field_from_certificate
-from resources.convertutils import copy_asn1_certificate, str_to_bytes
+from resources.convertutils import copy_asn1_certificate, str_to_bytes, subjectPublicKeyInfo_from_pubkey
 from resources.cryptoutils import compute_aes_cbc, perform_ecdh
-from resources.exceptions import BadAsn1Data, BadPOP, BadRequest, InvalidAltSignature, NotAuthorized
+from resources.exceptions import BadAsn1Data, BadCertTemplate, BadPOP, BadRequest, InvalidAltSignature, NotAuthorized
 from resources.extra_issuing_logic import is_null_dn
-from resources.oid_mapping import compute_hash, get_hash_from_oid, sha_alg_name_to_oid
+from resources.oid_mapping import compute_hash, get_hash_from_oid, may_return_oid_to_name, sha_alg_name_to_oid
 from resources.prepareutils import prepare_name
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
 
@@ -517,6 +517,44 @@ def get_public_key_from_cert_req_msg(cert_req_msg: rfc4211.CertReqMsg) -> Public
 
     return keyutils.load_public_key_from_spki(old_spki)
 
+
+def _prepare_recip_info_for_kga(
+    cek: bytes,
+    password: Optional[Union[bytes, str]] = None,
+    public_key: Optional[PublicKey] = None,
+    cert: Optional[rfc9480.CMPCertificate] = None,
+    ec_priv_key: Optional[ECDHPrivateKey] = None,
+) -> rfc5652.RecipientInfo:
+    """Prepare the recipient info for the key generation action.
+
+    :param cek: The content encryption key to use.
+    :param password: The password to use for encrypting the private key. Defaults to `None`.
+    :param public_key: The public key to use for encrypting the private key. Defaults to `None`.
+    :param cert: The CMP protection certificate to use for `KARI`, `KTRI`
+    or the recipient cert for `KEMRI`. Defaults to `None`.
+    :param ec_priv_key: The ECDH private key to use for `KARI`. Defaults to `None`.
+    :return: The public key of the newly generated private key and the enveloped data containing the private key.
+    :raises ValueError: If neither `password` nor `public_key` is provided or
+    if the public key type is invalid.
+    """
+    if password is None and public_key is None:
+        raise ValueError("Either `password` or `public_key` must be provided.")
+
+    if public_key is not None:
+        if isinstance(public_key, RSAPublicKey):
+            recip_info = envdatautils.prepare_ktri(ee_key=public_key, cek=cek, cmp_protection_cert=cert)
+        elif isinstance(public_key, ECDHPublicKey):
+            recip_info = envdatautils.prepare_kari(
+                public_key=public_key, recip_private_key=ec_priv_key, cek=cek, recip_cert=cert
+            )
+        elif is_kem_public_key(public_key):
+            recip_info = envdatautils.prepare_kem_recip_info(public_key_recip=public_key, cek=cek, recip_cert=cert)
+        else:
+            raise ValueError(f"Invalid public key type: {type(public_key).__name__}")
+    else:
+        recip_info = envdatautils.prepare_password_recipient_info(password=password, cek=cek)
+
+    return recip_info  # type: ignore
 
 
 def _get_kga_key_from_cert_template(cert_template: rfc4211.CertTemplate) -> PrivateKey:

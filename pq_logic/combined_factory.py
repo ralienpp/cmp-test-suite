@@ -4,7 +4,7 @@
 
 """Key factory to create all supported keys."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, x448, x25519
@@ -13,24 +13,35 @@ from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc5958
 from resources.exceptions import BadAlg, BadAsn1Data
 from resources.oid_mapping import get_curve_instance
-from resources.oidutils import CMS_COMPOSITE_OID_2_NAME, PQ_OID_2_NAME, XWING_OID_STR
+from resources.oidutils import (
+    CMS_COMPOSITE_OID_2_NAME,
+    PQ_NAME_2_OID,
+    PQ_OID_2_NAME,
+    TRAD_STR_OID_TO_KEY_NAME,
+    XWING_OID_STR,
+)
+from resources.typingutils import PrivateKey
 
 from pq_logic.chempatkem import ChempatPublicKey
 from pq_logic.hybrid_structures import (
+    CompositeSignaturePrivateKeyAsn1,
     CompositeSignaturePublicKeyAsn1,
 )
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePublicKey
 from pq_logic.keys.composite_kem import (
+    CompositeDHKEMRFC9180PrivateKey,
     CompositeDHKEMRFC9180PublicKey,
+    CompositeKEMPrivateKey,
     CompositeKEMPublicKey,
 )
 from pq_logic.keys.composite_sig import (
+    CompositeSigCMSPrivateKey,
     CompositeSigCMSPublicKey,
 )
 from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.keys.kem_keys import FrodoKEMPublicKey, MLKEMPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
-from pq_logic.keys.trad_key_factory import generate_trad_key
+from pq_logic.keys.trad_key_factory import generate_trad_key, parse_trad_key_from_one_asym_key
 from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
 from pq_logic.keys.xwing import XWingPublicKey
 from pq_logic.tmp_oids import CHEMPAT_OID_2_NAME, COMPOSITE_KEM_OID_2_NAME, id_rsa_kem_spki
@@ -329,22 +340,10 @@ class CombinedKeyFactory:
 
         :return: List of supported key types.
         """
-        trad_names = ["rsa", "ecdsa", "ed25519", "ed448", "bad-rsa-key", "x25519", "x448"]
+        trad_names = ["rsa", "ecdsa", "ed25519", "ed448", "bad-rsa-key", "x25519", "x448", "rsa-kem"]
         hybrid_names = HybridKeyFactory.supported_algorithms()
         pq_names = PQKeyFactory.supported_algorithms()
         return trad_names + pq_names + hybrid_names
-
-    @staticmethod
-    def load_key_from_one_asym_key(one_asym_key: rfc5958.OneAsymmetricKey):
-        """Load a private key from a OneAsymmetricKey structure.
-
-        :param one_asym_key: The OneAsymmetricKey structure.
-        :return: The loaded private key.
-        """
-        from pq_logic.keys.key_pyasn1_utils import parse_key_from_one_asym_key
-
-        der_data = encoder.encode(one_asym_key)
-        return parse_key_from_one_asym_key(der_data)
 
     @staticmethod
     def load_chempat_key(spki: rfc5280.SubjectPublicKeyInfo):
@@ -361,3 +360,91 @@ class CombinedKeyFactory:
             raise KeyError(f"Invalid Chempat key OID: {oid}")
         raw_bytes = spki["subjectPublicKey"].asOctets()
         return ChempatPublicKey.from_public_bytes(data=raw_bytes, name=alg_name)
+
+    @staticmethod
+    def _decode_keys_for_composite(name: str, private_key: bytes, public_key: Optional[bytes] = None):
+        """Decode a composite key from the provided bytes.
+
+        :return: The decoded composite key.
+        """
+        prefix = _any_string_in_string(name, ["dhkem", "kem", "sig-hash", "sig"])
+        name = name.replace(f"composite-{prefix}-", "", 1)
+        pq_name = PQKeyFactory.get_pq_alg_name(algorithm=name)
+        rest = name.replace(f"{pq_name}-", "", 1)
+        trad_name = _any_string_in_string(rest, ["rsa", "ecdsa", "ecdh", "ec", "ed25519", "x25519", "x448", "ed448"])
+
+        obj, rest = decoder.decode(private_key, asn1Spec=CompositeSignaturePrivateKeyAsn1())
+        if rest:
+            raise BadAsn1Data("CompositeSignaturePrivateKey")
+
+        if public_key is not None:
+            obj, rest = decoder.decode(public_key, asn1Spec=CompositeSignaturePrivateKeyAsn1())
+            if rest:
+                raise ValueError("Found remainder after decoding `CompositeSignaturePublicKey`.")
+
+        obj[0]["privateKeyAlgorithm"]["algorithm"] = PQ_NAME_2_OID[pq_name]
+        pq_key = PQKeyFactory.from_one_asym_key(obj[0])
+        if trad_name == "rsa" and prefix == "kem":
+            trad_key = RSADecapKey.from_pkcs8(obj[1])
+            return CompositeKEMPrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
+
+        trad_key = serialization.load_der_private_key(encoder.encode(obj[1]), password=None)
+
+        if prefix == "kem":
+            return CompositeKEMPrivateKey(pq_key=pq_key, trad_key=trad_key)
+
+        if prefix == "dhkem":
+            return CompositeDHKEMRFC9180PrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
+
+        return CompositeSigCMSPrivateKey(pq_key=pq_key, trad_key=trad_key)
+
+    @staticmethod
+    def load_key_from_one_asym_key(data: Union[bytes, rfc5958.OneAsymmetricKey], must_be_version_2: bool = False):
+        """Parse a key from a OneAsymmetricKey structure.
+
+        :param data: The OneAsymmetricKey structure or DER encoded data.
+        :param must_be_version_2: If True, the key must be version 2 (include the public key). Defaults to `False`.
+        :return: The loaded private key.
+        :raises ValueError: If the key type is invalid.
+        :raises BadAlg: If the algorithm is not supported.
+        """
+        if isinstance(data, bytes):
+            one_asym_key, _ = decoder.decode(data, asn1Spec=rfc5958.OneAsymmetricKey())
+        else:
+            one_asym_key = data
+
+        oid = one_asym_key["privateKeyAlgorithm"]["algorithm"]
+        alg_oid = str(one_asym_key["privateKeyAlgorithm"]["algorithm"])
+        private_bytes = one_asym_key["privateKey"].asOctets()
+        public_bytes = one_asym_key["publicKey"].asOctets() if one_asym_key["publicKey"].isValue else None
+
+        if oid in COMPOSITE_KEM_OID_2_NAME or str(oid) in COMPOSITE_KEM_OID_2_NAME:
+            _name = COMPOSITE_KEM_OID_2_NAME[str(oid)]
+            return CombinedKeyFactory._decode_keys_for_composite(_name, private_bytes, public_bytes)
+
+        if oid in CMS_COMPOSITE_OID_2_NAME:
+            name = CMS_COMPOSITE_OID_2_NAME[oid]
+            return CombinedKeyFactory._decode_keys_for_composite(name, private_bytes, public_bytes)
+
+        if alg_oid == str(id_rsa_kem_spki):
+            return RSADecapKey.from_pkcs8(data)
+
+        if oid in TRAD_STR_OID_TO_KEY_NAME:
+            return parse_trad_key_from_one_asym_key(one_asym_key=one_asym_key, must_be_version_2=must_be_version_2)
+
+        if oid in PQ_OID_2_NAME or str(oid) in PQ_OID_2_NAME:
+            return PQKeyFactory.from_one_asym_key(one_asym_key)
+
+        return HybridKeyFactory.from_one_asym_key(one_asym_key)
+
+    @staticmethod
+    def private_key_to_pkcs8(private_key: PrivateKey, use_version_2: bool = False) -> bytes:
+        """Convert a private key to a DER encoded PKCS8 structure."""
+        if not use_version_2:
+            return private_key.private_bytes(
+                encoding=serialization.Encoding.DER,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
+
+        raise NotImplementedError("Private key to PKCS8 not implemented.")

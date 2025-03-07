@@ -343,14 +343,6 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         logging.info("Chempat: ss: %s, ct: %s", ss.hex(), ct.hex())
         return ss, ct
 
-    def kem_combiner(self, **kwargs) -> bytes:
-        """Generate a hybrid shared secret using traditional-KEM and PQ-KEM."""
-        raise NotImplementedError("The kem_combiner is directly implemented in the ChempatKEM class.")
-
-    def _export_public_key(self) -> bytes:
-        """Export the public key as bytes."""
-        return self.public_bytes_raw()
-
 
 class ChempatPrivateKey(AbstractHybridRawPrivateKey):
     """Chempat private key class."""
@@ -385,8 +377,8 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         :param name: The pq-algorithm name.
         :return: The created `ChempatPrivateKey` instance.
         """
-        pq_key, rest = cls._load_pq_key(data, name)
-        trad_key = _load_private_key(rest, name)
+        pq_key, rest = cls._load_pq_key(data=data, name=name)
+        trad_key = _load_trad_private_key(data=rest, name=name)
         return cls(pq_key, trad_key)
 
     @classmethod
@@ -419,17 +411,9 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         """Return the PEM header name."""
         return b"CHEMPAT"
 
-    def kem_combiner(self, **kwargs) -> bytes:
-        """Generate a hybrid shared secret using traditional-KEM and PQ-KEM."""
-        raise NotImplementedError("The kem_combiner is directly implemented in the ChempatKEM class.")
-
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID for the Chempat key."""
         return get_oid_for_chemnpat(self.pq_key, self.trad_key)
-
-    def _export_private_key(self) -> bytes:
-        """Export the private key as bytes."""
-        return self.private_bytes_raw()
 
     @staticmethod
     def parse_keys(pq_key, trad_key) -> "ChempatPrivateKey":

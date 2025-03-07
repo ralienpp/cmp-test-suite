@@ -8,6 +8,7 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480
 from resources import checkutils
 from resources.cmputils import patch_generalinfo
+from resources.exceptions import BadRequest
 
 from unit_tests.utils_for_test import build_pkimessage, de_and_encode_pkimessage
 
@@ -62,7 +63,7 @@ class TestGeneralInfoField(unittest.TestCase):
 
         pki_message = de_and_encode_pkimessage(pki_message)
 
-        with self.assertRaises(ValueError, msg="`confirmWaitTime` and `implicitConfirm` cannot coexist."):
+        with self.assertRaises(BadRequest, msg="`confirmWaitTime` and `implicitConfirm` cannot coexist."):
             checkutils.check_generalinfo_field(pki_message)
 
     def test_confirm_wait_time_absent(self):

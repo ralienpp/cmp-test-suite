@@ -32,7 +32,7 @@ from resources import (
     protectionutils,
     utils,
 )
-from resources.exceptions import BadMessageCheck, BadAlg
+from resources.exceptions import BadMessageCheck, BadAlg, BadRequest
 from resources.oid_mapping import (
     get_hash_from_oid,
 )
@@ -944,11 +944,11 @@ def check_implicitconfirm_in_generalinfo(pki_message: rfc9480.PKIMessage) -> Non
     if msg_type in {"ip", "cp", "kup"} or msg_type in {"ir", "cr", "kur", "p10cr"}:
         pass
     else:
-        raise ValueError(f"'implicitConfirm' is not allowed to be set for PKIBody type: {msg_type}")
+        raise BadRequest(f"'implicitConfirm' is not allowed to be set for PKIBody type: {msg_type}")
 
     if implicit_confirm != encoder.encode(univ.Null("")):
         logging.warning("implicit_confirm value is: %s", implicit_confirm.prettyPrint())
-        raise ValueError("The 'implicitConfirm' value must be NULL!")
+        raise BadRequest("The 'implicitConfirm' value must be NULL!")
 
 
 @keyword(name="Check confirmWaitTime In generalInfo")
@@ -964,7 +964,7 @@ def check_confirmwaittime_in_generalinfo(pki_message: rfc9480.PKIMessage) -> Non
 
     Raises:
     ------
-        - `ValueError`: If `confirmWaitTime` is present when `implicitConfirm` is also present,
+        - `BadRequest`: If `confirmWaitTime` is present when `implicitConfirm` is also present,
         - `ValueError`: If the `confirmWaitTime` value is invalid or absent when required.
 
 
@@ -1005,7 +1005,7 @@ def check_confirmwaittime_in_generalinfo(pki_message: rfc9480.PKIMessage) -> Non
                 logging.info("The `confirmWaitTime` InfoTypeAndValue structure is recommended.")
 
         else:
-            raise ValueError(
+            raise BadRequest(
                 "The `confirmWaitTime` structure must not be present when `implicitConfirm` is present."
                 "See [RFC4210], Section 5.1.1.2."
             )
@@ -1039,7 +1039,7 @@ def check_certprofile_in_generalinfo(pki_message: rfc9480.PKIMessage) -> None:  
 
     if cert_req_template:
         if msg_type not in {"ir", "cr", "kur", "p10cr", "genm"}:
-            raise ValueError("`certProfile` should not be present!")
+            raise BadRequest("`certProfile` should not be present!")
 
     # other checks are not relevant.
 
@@ -1056,7 +1056,8 @@ def check_generalinfo_field(pki_message: rfc9480.PKIMessage) -> None:  # noqa D4
 
     Raises:
     ------
-    - `ValueError`: If `certProfile`, `confirmWaitTime`, `implicitConfirm` are incorrectly set.
+    - `BadRequest`: If `certProfile`, `confirmWaitTime`, `implicitConfirm` are incorrectly present.
+    - `ValueError`: If the values are incorrectly set.
 
     Examples:
     --------

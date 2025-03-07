@@ -136,7 +136,7 @@ def generate_trad_key(algorithm="rsa", **params) -> PrivateKey:  # noqa: D417 fo
         private_key = rust_openssl.rsa.generate_private_key(65537, 512)
 
     elif algorithm == "rsa":
-        length = int(params.get("length", 2048))
+        length = int(params.get("length") or 2048)
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=length)
 
     elif algorithm == "dsa":

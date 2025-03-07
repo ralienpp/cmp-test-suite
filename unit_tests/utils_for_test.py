@@ -1097,6 +1097,10 @@ def build_crl_crypto_lib(ca_key: Union[rsa.RSAPrivateKey, ec.EllipticCurvePrivat
         revoked_cert.serial_number).revocation_date(
         datetime.now()).build()
     builder = builder.add_revoked_certificate(revoked_cert_entry)
+    builder.add_extension(
+        AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()),
+        critical=False,
+    )
 
     crl = builder.sign(private_key=ca_key, algorithm=hashes.SHA256())
     return crl.public_bytes(encoding=Encoding.DER)

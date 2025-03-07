@@ -523,10 +523,7 @@ Generate Default MAC Protected PKIMessage
     ...                is parsed, an unprotected message is returned.
     ...
     [Arguments]    ${mac_alg}=${DEFAULT_MAC_ALGORITHM}
-    VAR    ${omit_fields}    ${None}
-    IF    ${SUPPORT_DIRECTORY_CHOICE_FOR_MAC_PROTECTION}
-        VAR    ${omit_fields}    sender
-    END
+    VAR    ${for_mac}    ${SUPPORT_DIRECTORY_CHOICE_FOR_MAC_PROTECTION}
     IF    ${ALLOW_IR_MAC_BASED}
         # Generate the necessary certificate template and key for IR protection
         ${cert_template}    ${key}=    Generate CertTemplate For Testing
@@ -536,7 +533,7 @@ Generate Default MAC Protected PKIMessage
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
         ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-        ...                exclude_fields=${omit_fields}
+        ...                for_mac=${for_mac}
     ELSE IF    ${ALLOW_CR_MAC_BASED}
         ${cert_template}    ${key}=    Generate CertTemplate For Testing
         ${pki_message}=    Build Cr From Key
@@ -545,7 +542,7 @@ Generate Default MAC Protected PKIMessage
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
         ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-        ...                exclude_fields=${omit_fields}
+        ...                for_mac=${for_mac}
     ELSE
         ${csr}    ${key}=    Generate CSR For Testing
         ${pki_message}=    Build P10cr From CSR
@@ -553,7 +550,7 @@ Generate Default MAC Protected PKIMessage
         ...                sender=${SENDER}
         ...                recipient=${RECIPIENT}
         ...                implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-        ...                exclude_fields=${omit_fields}
+        ...                for_mac=${for_mac}
     END
     IF   '${mac_alg}' != 'None'
         ${pki_message}=    Protect PKIMessage

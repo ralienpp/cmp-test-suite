@@ -265,16 +265,24 @@ def _prepare_password_based_mac_parameters(
 
 
 @not_keyword
-def prepare_sha_alg_id(hash_alg: str) -> rfc9480.AlgorithmIdentifier:
+def prepare_sha_alg_id(
+        hash_alg: str,
+        add_params_rand_val: bool = False,
+) -> rfc9480.AlgorithmIdentifier:
     """Prepare an `AlgorithmIdentifier` for the specified SHA hash algorithm.
 
     :param hash_alg: The name of the SHA hash algorithm (e.g., 'sha256', 'sha512').
+    :param add_params_rand_val: If True, adds a random value to the `parameters` field. Defaults to `False`.
+    (**MUST** be absent)
     :return: An `AlgorithmIdentifier` object for the given SHA-family hash algorithm.
     :raises ValueError: If the provided `hash_alg` is invalid.
     """
     hash_alg_oid = sha_alg_name_to_oid(hash_alg)
     alg_id = rfc9480.AlgorithmIdentifier()
     alg_id["algorithm"] = hash_alg_oid
+
+    if add_params_rand_val:
+        alg_id["parameters"] = univ.OctetString(os.urandom(16))
     return alg_id
 
 
@@ -891,30 +899,37 @@ def _prepare_signature_prot_alg_id(
 
 
 @not_keyword
-def prepare_rsa_pss_alg_id(hash_alg: str, salt_length: Optional[int] = None) -> rfc9480.AlgorithmIdentifier:
+def prepare_rsa_pss_alg_id(
+        hash_alg: str,
+        salt_length: Optional[int] = None,
+        add_params_rand_val: bool = False,
+) -> rfc9480.AlgorithmIdentifier:
     """Prepare the `AlgorithmIdentifier` for RSASSA-PSS with the specified hash algorithm.
 
     :param hash_alg: A string representing the hash name (e.g., 'sha256', 'shake128').
     :param salt_length: The length of the salt.
+    :param add_params_rand_val: If True, adds a random value to the `AlgorithmIdentifier` parameters.
     :return: A populated `AlgorithmIdentifier` instance.
     :raises ValueError: If the algorithm name is not supported.
     """
     alg_id = rfc9480.AlgorithmIdentifier()
 
-    if hash_alg == "shake128":
-        oid = rfc9481.id_RSASSA_PSS_SHAKE128
-        alg_id["algorithm"] = oid
+    if hash_alg in ["shake128", "shake256"]:
         # `parameters` must be absent
-        return alg_id
-    if hash_alg == "shake256":
-        oid = rfc9481.id_RSASSA_PSS_SHAKE256
-        # `parameters` must be absent
+        if add_params_rand_val:
+            alg_id["parameters"] = univ.OctetString(os.urandom(16))
+
+        if hash_alg == "shake128":
+            oid = rfc9481.id_RSASSA_PSS_SHAKE128
+        else:
+            oid = rfc9481.id_RSASSA_PSS_SHAKE256
+
         alg_id["algorithm"] = oid
         return alg_id
 
     oid = rfc9481.id_RSASSA_PSS
 
-    hash_algorithm = prepare_sha_alg_id(hash_alg)
+    hash_algorithm = prepare_sha_alg_id(hash_alg, add_params_rand_val=add_params_rand_val)
 
     hash_inst = hash_name_to_instance(hash_alg)
 

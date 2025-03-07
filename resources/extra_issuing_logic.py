@@ -150,7 +150,7 @@ def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
     enc_key_sender: str = "CN=CMP-Test-Suite",
     cek: Optional[Union[bytes, str]] = None,
     key_encipherment: bool = True,
-    hybrid_key_recip: Optional[HybridKEMPrivateKey] = None,
+    hybrid_key_recip: Optional[ECDHPrivateKey] = None,
 ) -> rfc4211.ProofOfPossession:
     """Prepare a `ProofOfPossession` structure with a CA KEM certificate.
 

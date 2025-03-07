@@ -77,7 +77,7 @@ class TestValidateEnvDataPOP(unittest.TestCase):
             cert_req_id=0,
             enc_key_sender=self.enc_key_sender,
             key_encipherment=True,
-            hybrid_key_recip=self.xwing_key_other,
+            hybrid_key_recip=self.xwing_key_other.trad_key,
         )
 
         # To simulate, send over the wire, because ori uses ASN.1 Any.

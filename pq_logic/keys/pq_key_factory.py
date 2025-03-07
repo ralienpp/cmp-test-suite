@@ -42,9 +42,9 @@ class PQKeyFactory:
     def get_all_kem_algs() -> List[str]:
         """Return a list of all supported post-quantum KEM algorithms."""
         return (
-                ["ml-kem-512", "ml-kem-768", "ml-kem-1024", "sntrup761"]
-                + list(MCELIECE_NAME_2_OID.keys())
-                + list(FRODOKEM_NAME_2_OID.keys())
+            ["ml-kem-512", "ml-kem-768", "ml-kem-1024", "sntrup761"]
+            + list(MCELIECE_NAME_2_OID.keys())
+            + list(FRODOKEM_NAME_2_OID.keys())
         )
 
     @staticmethod

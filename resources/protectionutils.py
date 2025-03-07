@@ -266,8 +266,8 @@ def _prepare_password_based_mac_parameters(
 
 @not_keyword
 def prepare_sha_alg_id(
-        hash_alg: str,
-        add_params_rand_val: bool = False,
+    hash_alg: str,
+    add_params_rand_val: bool = False,
 ) -> rfc9480.AlgorithmIdentifier:
     """Prepare an `AlgorithmIdentifier` for the specified SHA hash algorithm.
 
@@ -900,9 +900,9 @@ def _prepare_signature_prot_alg_id(
 
 @not_keyword
 def prepare_rsa_pss_alg_id(
-        hash_alg: str,
-        salt_length: Optional[int] = None,
-        add_params_rand_val: bool = False,
+    hash_alg: str,
+    salt_length: Optional[int] = None,
+    add_params_rand_val: bool = False,
 ) -> rfc9480.AlgorithmIdentifier:
     """Prepare the `AlgorithmIdentifier` for RSASSA-PSS with the specified hash algorithm.
 

@@ -175,7 +175,7 @@ class MockCAState:
         return self.cert_state_db.check_request_for_compromised_key(request)
 
 
-def _build_error_from_exception(e: CMPTestSuiteError) -> rfc9480.PKIMessage:
+def _build_error_from_exception(e: CMPTestSuiteError) -> PKIMessageTMP:
     """Build an error response from an exception.
 
     :param e: The exception.
@@ -303,7 +303,7 @@ class CAHandler:
             protected["extraCerts"].extend(self.cert_chain[1:])
         return protected
 
-    def process_normal_request(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+    def process_normal_request(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Process the normal request.
 
         :return: The PKI message containing the response.
@@ -332,7 +332,7 @@ class CAHandler:
                     f"Method not implemented, to handle the provided message: {pki_message['body'].getName()}."
                 )
         except CMPTestSuiteError as e:
-            logging.info(f"An error occurred: {str(e)}")
+            logging.info(f"An error occurred: {str(e.message)}")
             return _build_error_from_exception(e)
         except Exception as e:
             logging.info(f"An error occurred: {str(e)}")
@@ -435,7 +435,7 @@ class CAHandler:
         )
         return response
 
-    def process_cr(self, pki_message: rfc9480.PKIMessage) -> rfc9480.PKIMessage:
+    def process_cr(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Process the CR message.
 
         :param pki_message: The client request.

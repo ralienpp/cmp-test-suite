@@ -189,36 +189,37 @@ ${DEFAULT_PQ_SIG_ALG}   ml-dsa-44
 
 # Hybrid Endpoints
 
-${INIT_SUFFIX}=   issuing
-${URI_MULTIPLE_AUTH}=   ${None}
-${ISSUING_SUFFIX}=   issuing
-${COMPOSITE_URL_PREFIX}=   issuing
-${CATALYST_ISSUING}=  catalyst-issuing
-${CATALYST_SIGNATURE}=   catalyst-sig
-${SUN_HYBRID_SUFFIX}=   sun-hybrid
-${CHAMELEON_SUFFIX}=   chameleon
-${RELATED_CERT_SUFFIX}=   related-Cert
-${MULTI_AUTH_SUFFIX}=   multi-auth
-${CERT_DISCOVERY_SUFFIX}=   cert-discovery
+${INIT_SUFFIX}   issuing
+${PQ_ISSUING_SUFFIX}   issuing
+${URI_MULTIPLE_AUTH}   ${None}
+${ISSUING_SUFFIX}   issuing
+${COMPOSITE_URL_PREFIX}   issuing
+${CATALYST_ISSUING}  catalyst-issuing
+${CATALYST_SIGNATURE}   catalyst-sig
+${SUN_HYBRID_SUFFIX}   sun-hybrid
+${CHAMELEON_SUFFIX}   chameleon
+${RELATED_CERT_SUFFIX}   related-Cert
+${MULTI_AUTH_SUFFIX}   multi-auth
+${CERT_DISCOVERY_SUFFIX}   cert-discovery
 
 
 # Hybrid Certificates and Keys
-${ISSUED_KEY}=   ${None}
-${ISSUED_CERT}=   ${None}
-${COMPOSITE_KEM_KEY}=   ${None}
-${COMPOSITE_KEM_CERT}=   ${None}
-${REVOKED_COMP_KEM_KEY}=   ${None}
-${REVOKED_COMP_KEM_CERT}=   ${None}
-${COMPOSITE_KEY}=   ${None}
-${COMPOSITE_CERT}=   ${None}
-${REVOKED_COMP_KEY}=   ${None}
-${REVOKED_COMP_CERT}=   ${None}
-${UPDATED_COMP_KEY}=   ${None}
-${UPDATED_COMP_CERT}=   ${None}
-${CHAM_KEY1}=   ${None}
-${CHAM_KEY2}=   ${None}
-${CHAMELEON_CERT}=   ${None}
-${RELATED_CERT}=   ${None}
-${RELATED_KEY}=   ${None}
-${RELATED_CERT_SEC}=   ${None}
-${RELATED_KEY_SEC}=   ${None}
+${ISSUED_KEY}   ${None}
+${ISSUED_CERT}   ${None}
+${COMPOSITE_KEM_KEY}   ${None}
+${COMPOSITE_KEM_CERT}   ${None}
+${REVOKED_COMP_KEM_KEY}   ${None}
+${REVOKED_COMP_KEM_CERT}   ${None}
+${COMPOSITE_KEY}   ${None}
+${COMPOSITE_CERT}   ${None}
+${REVOKED_COMP_KEY}   ${None}
+${REVOKED_COMP_CERT}   ${None}
+${UPDATED_COMP_KEY}   ${None}
+${UPDATED_COMP_CERT}   ${None}
+${CHAM_KEY1}   ${None}
+${CHAM_KEY2}   ${None}
+${CHAMELEON_CERT}   ${None}
+${RELATED_CERT}   ${None}
+${RELATED_KEY}   ${None}
+${RELATED_CERT_SEC}   ${None}
+${RELATED_KEY_SEC}   ${None}

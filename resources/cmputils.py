@@ -185,6 +185,9 @@ def prepare_pki_message(
     pki_message = PKIMessageTMP()
     pki_message["header"] = pki_header
 
+    if kwargs.get("for_mac", False):
+        pki_message = patch_sender(pki_message, sender_name=sender)
+
     return pki_message
 
 
@@ -1308,6 +1311,7 @@ def build_ir_from_key(  # noqa D417 undocumented-param
     cert_req_msg: Optional[Union[List[rfc4211.CertReqMsg], rfc4211.CertReqMsg]] = None,
     bad_pop: bool = False,
     spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
+    for_mac: bool = False,
     **params,
 ):
     """Create an `ir` (Initialization Request) PKIMessage using a signing key and specified parameters.
@@ -1327,6 +1331,8 @@ def build_ir_from_key(  # noqa D417 undocumented-param
         - `cert_req_msg`: A list of or single `CertReqMsg` object to be appended.
         - `bad_pop`: If `True`, the Proof of Possession (POPO) will be manipulated to create an invalid signature.
         - `spki`: The `SubjectPublicKeyInfo` structure to use for the certificate request. Defaults to `None`.
+        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
+       ( set the sender inside the directoryName choice of the GeneralName structure)
 
     `**params`: Additional optional parameters for customization:
         - `cert_req_id` (int): ID for the certificate request. Defaults to `0`.
@@ -1338,8 +1344,7 @@ def build_ir_from_key(  # noqa D417 undocumented-param
         - `cert_template` (rfc4211.CertTemplate): Custom certificate template.
         - `popo_structure` (rfc4211.ProofOfPossession): Custom Proof of Possession structure.
         - The `PKIHeader` fields can also be set.
-        - `for_mac` (bool): Flag indicating if the message is for MAC. Defaults to `False`.
-       ( set the sender inside the directoryName choice of the GeneralName structure)
+
 
     Returns:
     -------
@@ -1394,7 +1399,7 @@ def build_ir_from_key(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=pvno,
-        for_mac=params.get("for_mac", False),
+        for_mac=for_mac,
     )
     pki_message["body"] = pki_body
     return pki_message

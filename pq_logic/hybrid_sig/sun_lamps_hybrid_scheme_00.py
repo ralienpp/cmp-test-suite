@@ -376,7 +376,11 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
     | ${cert_form4}= | Sun CSR To Cert | csr=${csr} | issuer_private_key=${key} | alt_private_key=${alt_key} |
 
     """
-    public_key = CompositeSigCMSPublicKey.from_spki(csr["certificationRequestInfo"]["subjectPublicKeyInfo"])
+    public_key = keyutils.load_public_key_from_spki(csr["certificationRequestInfo"]["subjectPublicKeyInfo"])
+
+    if not isinstance(public_key, CompositeSigCMSPublicKey):
+        raise ValueError("The public key must be a CompositeSigCMSPublicKey.")
+
     oid = csr["signatureAlgorithm"]["algorithm"]
     data: dict = _extract_sun_hybrid_attrs_from_csr(csr)
 

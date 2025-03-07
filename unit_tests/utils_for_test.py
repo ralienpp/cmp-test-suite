@@ -14,9 +14,10 @@ from typing import List, Optional, Tuple, Union
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa, x25519, x448, ed448
 from cryptography.hazmat.primitives.serialization import Encoding
-from cryptography.x509.extensions import ExtensionOID
+from cryptography.x509 import AuthorityKeyIdentifier
+from cryptography.x509.extensions import ExtensionOID, SubjectKeyIdentifier
 from pyasn1.type.base import Asn1Type
 
 from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
@@ -26,7 +27,8 @@ from pyasn1.type.tag import Tag, tagClassContext, tagFormatSimple
 from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402, rfc8018, rfc9481
 from resources import certutils, cmputils, utils
 from resources.asn1_structures import PKIMessageTMP
-from resources.certbuildutils import build_certificate, build_csr
+from resources.certbuildutils import build_certificate, build_csr, prepare_extensions, \
+    _prepare_basic_constraints_extension, _prepare_ski_extension, _prepare_authority_key_identifier_extension
 from resources.certutils import parse_certificate
 from resources.cmputils import parse_csr
 from resources.convertutils import str_to_bytes
@@ -647,6 +649,7 @@ def compare_cert_chain(chain1: List[rfc9480.CMPCertificate], chain2: List[rfc948
 
 def setup_test_data():
     """Prepare test data by generating or loading certificate chains and dependent resources."""
+    _generate_pq_certs()
     load_or_generate_cert_chain()
     _build_time_independent_certs()
 
@@ -746,6 +749,7 @@ def _generate_pq_certs():
 
 def _save_composite_sig():
     """Generate a self-signed Composite signature Key."""
+    
     key = generate_key("composite-sig", trad_name="rsa", length="2048", pq_name="ml-dsa-44")
     save_key(key, "data/keys/private-key-composite-sig-rsa2048-ml-dsa-44.pem")
     cert, _ = build_certificate(private_key=key, common_name="CN=Hybrid Root CompositeSig RSA2048 ML-DSA-44")
@@ -1020,9 +1024,7 @@ def update_cert_and_keys():
 
     Update the certificates/CRS and keys used for testing with new ones.
     """
-    _save_composite_sig()
-    _save_xwing()
-    _save_composite_kem()
+    _generate_pq_certs()
     _save_migration_csrs()
 
 

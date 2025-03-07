@@ -530,6 +530,57 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
     pki_message["protection"] = protectionutils.prepare_pki_protection_field(signature)
 
     return pki_message
+
+
+def compute_encapsulation(  # noqa: D417 Missing argument descriptions in the docstring
+    key: KEMPublicKey,
+    other_key: Optional[ECDHPrivateKey] = None,
+    key_length: int = 32,
+) -> Tuple[bytes, bytes]:
+    """Compute encapsulation for a key.
+
+    Arguments:
+    ---------
+        - `key`: The key to encapsulate.
+        - `other_key`: The other key to use for encapsulation. Defaults to `None`.
+        - `key_length`: The length of the key in bytes. Defaults to `32`. (only used for RSA to align with RFC9690.)
+        (uses `KDF3` with `SHA-256`).
+
+    Returns:
+    -------
+        - The shared secret.
+        - The ciphertext.
+
+    Raises:
+    ------
+        - `InvalidKeyCombination`: If the composite key is RSA and the other key is not `None`.
+        - `ValueError`: If the key type is unsupported.
+
+    Examples:
+    --------
+    | ${shared_secret} ${ciphertext}= | Compute Encapsulation | ${key} |
+    | ${shared_secret} | ${ciphertext}= | Compute Encapsulation | ${key} | ${other_key} |
+
+    """
+    if isinstance(key, RSAPublicKey):
+        key = RSAEncapKey(key)
+
+    if isinstance(key, RSAEncapKey):
+        return key.encaps(
+            use_oaep=False,
+            ss_length=key_length,
+        )
+    if isinstance(key, AbstractHybridRawPublicKey):
+        return key.encaps(private_key=other_key)
+    if isinstance(key, CompositeKEMPublicKey):
+        if isinstance(key.trad_key, RSAEncapKey) and other_key is not None:
+            raise InvalidKeyCombination("Composite-KEM RSA can not be encapsulated with ECDH.")
+        if isinstance(key.trad_key, RSAEncapKey):
+            return key.encaps()
+        return key.encaps(private_key=other_key)
+    raise ValueError(f"Unsupported key type: {type(key).__name__}.")
+
+
 def compute_decapsulation(  # noqa: D417 Missing argument descriptions in the docstring
     key: KEMPrivateKey,
     ciphertext: Union[bytes, KemCiphertextInfoAsn1],

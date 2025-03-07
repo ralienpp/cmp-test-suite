@@ -31,10 +31,10 @@ from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
 from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
 
 if importlib.util.find_spec("oqs") is not None:
-    import oqs # pylint: disable=import-error
+    import oqs  # pylint: disable=import-error
 else:
     logging.warning("oqs module is not installed. Some functionalities may be disabled.")
-    oqs = None # pylint: disable=invalid-name
+    oqs = None  # pylint: disable=invalid-name
 
 
 VALID_MCELIECE_OPTIONS = {

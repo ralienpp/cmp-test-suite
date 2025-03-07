@@ -41,7 +41,7 @@ from pq_logic.fips.fips205 import SLH_DSA, integer_to_bytes
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 
 if importlib.util.find_spec("oqs") is not None:
-    import oqs # pylint: disable=import-error
+    import oqs  # pylint: disable=import-error
 else:
     logging.warning("oqs module is not installed. Some functionalities may be disabled.")
     oqs = None  # pylint: disable=invalid-name

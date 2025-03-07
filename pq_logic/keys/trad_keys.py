@@ -254,7 +254,7 @@ class DHKEMPublicKey(TradKEMPublicKey):
         if self.use_rfc9180:
             kem = DHKEMRFC9180(private_key._private_key)  # pylint: disable=protected-access
         else:
-            kem = ECDHKEM(private_key._private_key) # pylint: disable=protected-access
+            kem = ECDHKEM(private_key._private_key)  # pylint: disable=protected-access
         return kem.encaps(self._public_key)
 
     @property
@@ -285,9 +285,9 @@ class DHKEMPublicKey(TradKEMPublicKey):
             return self._public_key.public_numbers()
         raise ValueError("Public numbers are not available for this key type.")
 
-    def public_bytes(self,
-                     encoding: Encoding = Encoding.Raw,
-                     format: PublicFormat = PublicFormat.SubjectPublicKeyInfo) -> bytes:
+    def public_bytes(
+        self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
+    ) -> bytes:
         """Return the public key as bytes."""
         return self._public_key.public_bytes(encoding, format)
 

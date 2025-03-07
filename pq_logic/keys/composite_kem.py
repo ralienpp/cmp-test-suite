@@ -224,7 +224,7 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the composite KEM."""
         if isinstance(self.trad_key, RSADecapKey):
-            size = self._get_rsa_size(self.trad_key._private_key.key_size) # pylint: disable=protected-access
+            size = self._get_rsa_size(self.trad_key._private_key.key_size)  # pylint: disable=protected-access
             trad_name = f"rsa{size}"
         else:
             trad_name = self.trad_key.get_trad_name

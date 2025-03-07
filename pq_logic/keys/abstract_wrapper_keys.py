@@ -30,7 +30,6 @@ and private keys as raw bytes.
 
 """
 
-
 import base64
 import textwrap
 from abc import ABC, abstractmethod

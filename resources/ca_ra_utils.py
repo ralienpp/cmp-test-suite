@@ -1779,7 +1779,7 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
 
 
 def _validate_cert_status(
-        status: rfc9480.PKIStatusInfo,
+    status: rfc9480.PKIStatusInfo,
 ) -> None:
     """Validate the certificate status.
 
@@ -1802,12 +1802,12 @@ def _validate_cert_status(
 
 @keyword(name="Build pkiconf from CertConf")
 def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions in the docstring
-        request: PKIMessageTMP,
-        issued_certs: List[rfc9480.CMPCertificate],
-        exclude_fields: Optional[str] = None,
-        enforce_lwcmp: bool = True,
-        set_header_fields: bool = True,
-        **kwargs,
+    request: PKIMessageTMP,
+    issued_certs: List[rfc9480.CMPCertificate],
+    exclude_fields: Optional[str] = None,
+    enforce_lwcmp: bool = True,
+    set_header_fields: bool = True,
+    **kwargs,
 ) -> PKIMessageTMP:
     """Build a PKI Confirmation message from a Certification Confirmation message.
 

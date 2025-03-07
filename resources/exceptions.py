@@ -22,7 +22,7 @@ class CMPTestSuiteError(Exception, ABC):
     bit_num: int = 26
 
     def __init__(
-            self, message: str, error_details: Optional[Union[List[str], str]] = None, failinfo: Optional[str] = None
+        self, message: str, error_details: Optional[Union[List[str], str]] = None, failinfo: Optional[str] = None
     ):
         """Initialize the exception with the message.
 
@@ -158,11 +158,11 @@ class BadAsn1Data(CMPTestSuiteError):
     bit_num = 5
 
     def __init__(
-            self,
-            message: str,
-            remainder: Optional[bytes] = None,
-            overwrite: bool = False,
-            error_details: Optional[Union[List[str], str]] = None,
+        self,
+        message: str,
+        remainder: Optional[bytes] = None,
+        overwrite: bool = False,
+        error_details: Optional[Union[List[str], str]] = None,
     ):
         """Initialize the exception with the message.
 

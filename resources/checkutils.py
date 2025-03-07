@@ -32,7 +32,7 @@ from resources import (
     protectionutils,
     utils,
 )
-from resources.exceptions import BadMessageCheck, BadAlg, BadRequest, BadRecipientNonce, BadSenderNonce
+from resources.exceptions import BadAlg, BadMessageCheck, BadRecipientNonce, BadRequest, BadSenderNonce
 from resources.oid_mapping import (
     get_hash_from_oid,
 )
@@ -250,7 +250,8 @@ def check_is_protection_present(  # noqa D417 undocumented-param
     Raises:
     ------
         - `BadMessageCheck`: If protection is required but missing.
-        - `BadMessageCheck`: If only one of the fields (`protectionAlg` or `protection`) is set, causing an inconsistency.
+        - `BadMessageCheck`: If only one of the fields (`protectionAlg` or `protection`) is set,\
+         causing an inconsistency.
 
     Examples:
     --------
@@ -298,7 +299,8 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - `BadMessageCheck`: If the sender name does not match the CMP certificate subject DN in signature-based protection.
+        - `BadMessageCheck`: If the sender name does not match the CMP certificate subject DN \
+        in signature-based protection.
         - `BadMessageCheck`: If the sender type is invalid for MAC-based protection.
         - `BadMessageCheck`: If the `directoryName` choice does not contain a common name.
 
@@ -591,7 +593,9 @@ def validate_senderkid_for_cmp_protection(  # noqa D417 undocumented-param
 
         if subject_ski != sender_kid:
             logging.info("senderKID: %s, CMP certificate ski: %s", sender_kid.hex(), subject_ski.hex())
-            raise BadMessageCheck("The SubjectKeyIdentifier of the CMP-protection certificate differs from the senderKID.")
+            raise BadMessageCheck(
+                "The SubjectKeyIdentifier of the CMP-protection certificate differs from the senderKID."
+            )
     else:
         _verify_senderkid_for_mac(pki_message=pki_message, allow_mac_failure=allow_mac_failure)
 
@@ -1117,7 +1121,7 @@ def check_message_time_field(
 
 
 def validate_sender_and_recipient_nonce(  # noqa D417 undocumented-param
-        response: rfc9480.PKIMessage, request: rfc9480.PKIMessage, nonce_sec: Strint = 128
+    response: rfc9480.PKIMessage, request: rfc9480.PKIMessage, nonce_sec: Strint = 128
 ) -> None:
     """Check the sender and recipient nonce in the response and request messages.
 
@@ -1166,7 +1170,6 @@ def validate_sender_and_recipient_nonce(  # noqa D417 undocumented-param
     nonce_sec = max(128, convertutils.str_to_int(nonce_sec))
     if len(bytearray(recip_nonce)) < (nonce_sec // 8):
         raise BadSenderNonce(f"The `senderNonce` in the response is shorter than the required {nonce_sec} bits.")
-
 
 
 @keyword(name="Validate transactionID")

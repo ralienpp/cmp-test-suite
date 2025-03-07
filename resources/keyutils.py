@@ -9,7 +9,6 @@ Designed to facilitate key management by offering simple methods to create new k
 store them and retrieve them when needed.
 """
 
-import base64
 import re
 import textwrap
 from typing import List, Optional, Union
@@ -43,20 +42,7 @@ from resources.oidutils import (
 )
 from resources.typingutils import PrivateKey, PublicKey
 
-
-def _add_armour(raw: str) -> str:
-    """Add PEM armour for private keys.
-
-    :param raw: str, unarmoured input data
-    :returns: str, armoured data with PEM headers and footers "-----BEGIN PRIVATE KEY-----"
-    """
-    pem_header = "-----BEGIN PRIVATE KEY-----\n"
-    pem_footer = "\n-----END PRIVATE KEY-----"
-    pem_data = pem_header + raw + pem_footer
-    return pem_data
-
-
-def save_key(key: PrivateKey, path: str, passphrase: Union[None, str] = "11111"):  # noqa: D417 for RF docs
+def save_key(key: PrivateKey, path: str, password: Union[None, str] = "11111"):  # noqa: D417 for RF docs
     """Save a private key to a file, optionally encrypting it with a passphrase.
 
     Arguments:
@@ -81,29 +67,11 @@ def save_key(key: PrivateKey, path: str, passphrase: Union[None, str] = "11111")
     """
     encoding_ = serialization.Encoding.PEM
     format_ = serialization.PrivateFormat.PKCS8
-    passphrase = passphrase.encode("utf-8") if passphrase else None  # type: ignore
+    password = password.encode("utf-8") if password else None  # type: ignore
+    encrypt_algo = serialization.NoEncryption()
 
-    if passphrase is None:
-        encrypt_algo = serialization.NoEncryption()
-    else:
-        encrypt_algo = serialization.BestAvailableEncryption(passphrase)  # type: ignore
-
-    if isinstance(
-        key, (x448.X448PrivateKey, x25519.X25519PrivateKey, ed25519.Ed25519PrivateKey, ed448.Ed448PrivateKey)
-    ):
-        data = key.private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-
-        base64_encoded = base64.b64encode(data).decode("utf-8")
-        data = _add_armour(base64_encoded)
-
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(data)
-
-        return
+    if password is not None:
+        encrypt_algo = serialization.BestAvailableEncryption(password)
 
     data = key.private_bytes(
         encoding=encoding_,
@@ -385,23 +353,17 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
     | ${x25519_key}= | Load Private Key From File | /path/to/ed25519_key.pem | key_type=ed25519 |
 
     """
-    if key_type in ["x448", "x25519", "ed448", "ed25519"]:
-        pem_data = utils.load_and_decode_pem_file(filepath)
-    else:
-        with open(filepath, "rb") as pem_file:
-            pem_data = pem_file.read()
+    pem_data = utils.load_and_decode_pem_file(filepath)
 
-    if key_type == "x448":
-        return x448.X448PrivateKey.from_private_bytes(data=pem_data)
-    if key_type == "x25519":
-        return x25519.X25519PrivateKey.from_private_bytes(data=pem_data)
+    try:
+        # try to load the key with the password.
+        _pem_data = _clean_data(pem_data)
+        password = password.encode("utf-8") if password else None  # type: ignore
+        return serialization.load_der_private_key(data=_pem_data, password=password)
+    except ValueError:
+        pass
 
-    if key_type == "ed448":
-        return ed448.Ed448PrivateKey.from_private_bytes(data=pem_data)
-    if key_type == "ed25519":
-        return ed25519.Ed25519PrivateKey.from_private_bytes(data=pem_data)
-
-    from pq_logic.keys.key_pyasn1_utils import CUSTOM_KEY_TYPES, parse_key_from_one_asym_key
+    from pq_logic.keys.key_pyasn1_utils import CUSTOM_KEY_TYPES
 
     try:
         if b"SPDX-License-Identifier:" in pem_data:
@@ -421,7 +383,8 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
         # pem_data = pem_data.replace(b"\r", b"\n")
         if password is not None:
             pem_data = load_enc_key(password=password, data=pem_data2)
-        return parse_key_from_one_asym_key(pem_data)
+
+        return CombinedKeyFactory.load_key_from_one_asym_key(data=pem_data, password=password)
 
     password = password if not password else password.encode("utf-8")  # type: ignore
 

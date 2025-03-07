@@ -357,6 +357,26 @@ def _verbose_get_protected_part(pki_message: rfc9480.PKIMessage) -> bytes:
     return py_verify_logic.prepare_protected_part(pki_message)
 
 
+def _patch_extra_certs(
+    pki_message: PKIMessageTMP,
+    cert: Optional[rfc9480.CMPCertificate],
+    certs_path: str,
+    exclude_certs: bool,
+) -> PKIMessageTMP:
+    """Patch the `extraCerts` field of the PKIMessage.
+
+    :param pki_message: The PKIMessage.
+    :param certs_path: The directory path to the certificate chain.
+    :param exclude_certs: Whether to exclude the certificates from the message.
+    :return: The may patched PKIMessage.
+    """
+    if cert and not exclude_certs:
+        certs = load_certificates_from_dir(certs_path)
+        if certs:
+            certs = py_verify_logic.build_migration_cert_chain(cert=cert, certs=certs, allow_self_signed=True)
+            logging.info("Loaded %d certificates from the directory.", len(certs))
+            pki_message["extraCerts"].extend(certs)
+    return pki_message
 
 
 @keyword(name="Protect Hybrid PKIMessage")

@@ -1112,7 +1112,7 @@ def _handle_kem_encapsulation(
     kem_recip_info: rfc9629.KEMRecipientInfo,
     kem_oid: Optional[univ.ObjectIdentifier] = None,
 ):
-    """Preform the KEM encapsulation."""
+    """Perform the KEM encapsulation."""
     if public_key_recip:
         kem_pub_key = public_key_recip
     elif recip_cert is not None:

@@ -47,7 +47,7 @@ Set Up Test Suite
     [Documentation]    This keyword is used to set up the test suite. It is called at the beginning of the test suite.
     ...                Or a test file to ensure that all prerequisites are met. As an example a first certificate is issued,
     ...                and the key is generated to be used for the tests. This ensure that a trusted certificate is present,
-    ...                which will be used to issue further certificates. This methode was chosen to allow to set a certificate,
+    ...                which will be used to issue further certificates. This method was chosen to allow to set a certificate,
     ...                which is not firstly configured, but generated with the test suite. If `MAC` protection is allowed, the
     ...                shared secret will be used to issue the first certificate `ISSUED_KEY` and `ISSUED_CERT`.
     ...                This ensure that the test suite can be run without the modification of the database.
@@ -352,7 +352,7 @@ Confirm Certificate If Needed
     ...                If the CA's response is the `PKIMessage` `pkiconf`, then is the certificate confirmed.
     ...                Arguments:
     ...                ---------
-    ...                 - `response`: The reponse message from the CA.
+    ...                 - `response`: The response message from the CA.
     ...                 - `params`: key=value pair to set variables for the protection.
     ...
     ...                Returns:

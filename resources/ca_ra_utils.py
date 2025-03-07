@@ -1309,7 +1309,7 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
         - `cert_req_id`: The certificate request ID. Defaults to `0`, if cert is provided.
         (else parsed from the request)
         - `extensions`: The extensions to include in the certificate. Defaults to `None`.
-        (as an eample for OCSP, CRL, etc.)
+        (as an example for OCSP, CRL, etc.)
 
     Returns:
     -------

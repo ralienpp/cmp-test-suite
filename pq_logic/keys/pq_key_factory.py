@@ -41,22 +41,10 @@ class PQKeyFactory:
     def get_all_kem_algs() -> List[str]:
         """Return a list of all supported post-quantum KEM algorithms."""
         return (
-            ["ml-kem-512", "ml-kem-768", "ml-kem-1024", "sntrup761"]
-            + list(MCELIECE_NAME_2_OID.keys())
-            + list(FRODOKEM_NAME_2_OID.keys())
+                ["ml-kem-512", "ml-kem-768", "ml-kem-1024", "sntrup761"]
+                + list(MCELIECE_NAME_2_OID.keys())
+                + list(FRODOKEM_NAME_2_OID.keys())
         )
-
-    @staticmethod
-    def supported_algorithms() -> List[str]:
-        """Return a list of supported post-quantum algorithms."""
-        return [
-            "slh-dsa",
-            "sntrup761",
-            "mceliece",
-            "falcon",
-            "frodokemml-kem",
-            "ml-dsa",
-        ]
 
     @staticmethod
     def get_all_callable_algs() -> List[str]:
@@ -65,6 +53,11 @@ class PQKeyFactory:
         Which the Test-Suite currently can generate and operate with.
         """
         return list(PQ_NAME_2_OID.keys())
+
+    @staticmethod
+    def supported_algorithms() -> List[str]:
+        """Return a list of supported post-quantum algorithms."""
+        return ["slh-dsa"] + PQKeyFactory.get_all_callable_algs()
 
     @staticmethod
     def generate_pq_key(algorithm: str):

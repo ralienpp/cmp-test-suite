@@ -95,8 +95,8 @@ dryrun:
 	robot --dryrun --pythonpath=./ --variable environment:$(env) tests_untested
 
 check-sigs:
-	python test_load_pqc.py
-	python vis_pqc_verify.py
+	python ./scripts/test_load_pqc.py
+	python ./scripts/vis_pqc_verify.py
 
 start-mock-ca:
 	python ./mock_ca/ca_handler.py

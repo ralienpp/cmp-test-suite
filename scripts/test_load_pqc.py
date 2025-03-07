@@ -9,8 +9,11 @@ import glob
 import os
 import shutil
 import subprocess
+import sys
 import zipfile
 from datetime import datetime
+
+sys.path.append(".")
 
 import cryptography
 import pyasn1
@@ -18,7 +21,7 @@ from cryptography.exceptions import InvalidSignature
 from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig.catalyst_logic import verify_catalyst_signature
 from pq_logic.hybrid_sig.chameleon_logic import build_delta_cert_from_paired_cert
-from pq_logic.keys.abstract_wrapper_keys import PQPublicKey, PQPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
 from pq_logic.keys.composite_sig import CompositeSigCMSPublicKey
 from pyasn1.codec.der import encoder
 from pyasn1_alt_modules import rfc9480
@@ -50,7 +53,7 @@ def _load_chameleon_cert(pem_file: str):
 def main():
     """Run the script."""
     repo_url = "https://github.com/IETF-Hackathon/pqc-certificates"
-    data_dir = "./data"
+    data_dir = "../data"
     providers_dir = os.path.join(data_dir, "pqc-certificates", "providers")
     pem_files = []
 
@@ -154,10 +157,10 @@ if __name__ == "__main__":
 
     if args.overwrite:
         print("Overwriting existing files.")
-        shutil.rmtree("./data/pqc-certificates")
+        shutil.rmtree("../data/pqc-certificates")
         main()
 
-    elif not os.path.isdir("./data/pqc-certificates"):
+    elif not os.path.isdir("../data/pqc-certificates"):
         main()
     else:
         # for file in glob.iglob(f"{dir_path}/**/*.crl", recursive=True):
@@ -165,7 +168,7 @@ if __name__ == "__main__":
             if file.endswith(".der"):
                 pem_files.append(file)
 
-        f = open("validation_pem_files.txt", "w", encoding="utf-8")
+        f = open("../validation_pem_files.txt", "w", encoding="utf-8")
         f.write("Validation of PQC Certificates\n")
         f.write("# SPDX-FileCopyrightText: Copyright 2024 Siemens AG\n# # SPDX-License-Identifier: Apache-2.0\n")
         f.write(f"Last Time Verified: {datetime.now()}\n")
@@ -180,11 +183,9 @@ if __name__ == "__main__":
                 continue
 
             try:
-
                 if "chameleon" in pem:
                     _load_chameleon_cert(pem)
                     f.write(f"VALID CHAMELEON CERT\t{pem}\n")
-
 
                 data = open(pem, "rb").read()
                 cert = parse_certificate(data)

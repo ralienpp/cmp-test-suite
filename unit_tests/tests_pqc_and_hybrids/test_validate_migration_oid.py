@@ -29,7 +29,7 @@ class TestValidateMigrationOidInCert(unittest.TestCase):
         )
         validate_migration_oid_in_certificate(
             cert=cert,
-            name="ml-dsa-44-rsa2048-pkcs15",
+            name="composite-sig-ml-dsa-44-rsa2048",
         )
 
     def test_composite_oid_wrong(self):
@@ -46,5 +46,5 @@ class TestValidateMigrationOidInCert(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_migration_oid_in_certificate(
                 cert=cert,
-                name="ml-dsa-44-rsa2048-pss",
+                name="composite-sig-ml-dsa-44-rsa2048-pss",
             )

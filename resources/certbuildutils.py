@@ -418,14 +418,14 @@ def _prepare_extended_key_usage(oids: List[univ.ObjectIdentifier], critical: boo
 
 
 def _prepare_ski_extension(
-    key: Union[typingutils.PrivateKey, typingutils.PublicKey], critical: bool = True
+    key: Union[typingutils.PrivateKey, typingutils.PublicKey], critical: bool = False
 ) -> rfc5280.Extension:
     """Prepare a SubjectKeyIdentifier (SKI) extension.
 
     Used to ask for this extension by the server, or for negative testing, by sending the ski of another key.
 
     :param key: The public or private key to prepare the extension for.
-    :param critical: Whether the extension should be marked as critical. Defaults to `True`.
+    :param critical: Whether the extension should be marked as critical. Defaults to `False`.
     :return: The populated `Extension` structure.
     """
     if isinstance(key, typingutils.PrivateKey):
@@ -455,7 +455,8 @@ def _prepare_authority_key_identifier_extension(
         ca_key = keyutils.load_public_key_from_spki(ca_key)
 
     authority_key_identifier = rfc5280.AuthorityKeyIdentifier()
-    authority_key_identifier["keyIdentifier"] = x509.AuthorityKeyIdentifier.from_public_key(ca_key).key_identifier  # type: ignore
+    key_id = x509.AuthorityKeyIdentifier.from_issuer_public_key(public_key=ca_key).key_identifier  # type: ignore
+    authority_key_identifier["keyIdentifier"] = key_id
     extension = rfc5280.Extension()
     extension["extnID"] = rfc5280.id_ce_authorityKeyIdentifier
     extension["critical"] = critical

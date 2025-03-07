@@ -243,18 +243,6 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
     --------
     | Verify Signature With Alg ID | ${public_key} | ${alg_id} | ${data} | ${signature} |
 
-
-    :param public_key: The public key object used to verify the signature.
-    :param alg_id: An `AlgorithmIdentifier` specifying the algorithm and any
-                   associated parameters for signature verification.
-    :param data: The original message or data whose signature needs verification,
-                 as a byte string.
-    :param signature: The digital signature to verify, as a byte string.
-
-    :raises ValueError: If the algorithm identifier is unsupported or invalid.
-    :raises InvalidSignature: If the signature does not match the provided data
-                              under the given algorithm and public key.
-
     """
     oid = alg_id["algorithm"]
 

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Necessary dataclasses and functions for the mock CA to operate."""
 
 from dataclasses import dataclass, field

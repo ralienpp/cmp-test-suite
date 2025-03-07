@@ -532,6 +532,11 @@ class HybridKEMPublicKey(HybridPublicKey, ABC):
         :return: The shared secret and the ciphertext.
         """
 
+    @property
+    @abstractmethod
+    def ct_length(self) -> int:
+        """Return the length of the ciphertext."""
+
 
 class HybridKEMPrivateKey(HybridPrivateKey, ABC):
     """Abstract class for KEM private keys."""
@@ -547,6 +552,11 @@ class HybridKEMPrivateKey(HybridPrivateKey, ABC):
     @abstractmethod
     def public_key(self) -> HybridKEMPublicKey:
         """Derive the public key from the private key."""
+
+    @property
+    def ct_length(self) -> int:
+        """Return the length of the ciphertext."""
+        return self.public_key().ct_length
 
 
 class AbstractCompositePublicKey(HybridPublicKey, ABC):

@@ -42,6 +42,7 @@ from resources.oidutils import (
 )
 from resources.typingutils import PrivateKey, PublicKey
 
+
 def save_key(key: PrivateKey, path: str, password: Union[None, str] = "11111"):  # noqa: D417 for RF docs
     """Save a private key to a file, optionally encrypting it with a passphrase.
 
@@ -325,8 +326,28 @@ def _clean_data(data: bytes) -> bytes:
     return out
 
 
+def _extract_pem_private_key_block(data: bytes) -> bytes:
+    """Extract the full PEM block (BEGIN ... PRIVATE KEY ... END) from raw byte data.
+
+    :param data: The bytes content that may contain one or more PEM blocks.
+    :return: The matched PEM block, or an empty bytes object if not found.
+    """
+    pem_pattern = re.compile(
+        rb"-----BEGIN ([A-Za-z0-9-]+) PRIVATE KEY-----"
+        rb".*?"
+        rb"-----END \1 PRIVATE KEY-----",
+        re.DOTALL,
+    )
+
+    match = pem_pattern.search(data)
+    if match:
+        return match.group(0)
+
+    return b""
+
+
 def load_private_key_from_file(  # noqa: D417 for RF docs
-    filepath: str, password: Union[None, str] = "11111", key_type: Optional[str] = None
+    filepath: str, password: Optional[str] = "11111", key_type: Optional[str] = None
 ) -> PrivateKey:
     """Load a private key from a file.
 
@@ -353,6 +374,22 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
     | ${x25519_key}= | Load Private Key From File | /path/to/ed25519_key.pem | key_type=ed25519 |
 
     """
+    with open(filepath, "rb") as key_file:
+        data = key_file.read()
+
+    out = _extract_pem_private_key_block(data)
+    from pq_logic.keys.key_pyasn1_utils import CUSTOM_KEY_TYPES
+
+    if out != b"":
+        is_custom = any((b"-----BEGIN " + key + b" PRIVATE KEY-----") in out for key in CUSTOM_KEY_TYPES)
+        if is_custom:
+            if password is not None:
+                out = load_enc_key(password=password, data=out)
+            else:
+                out = utils.decode_pem_string(out)
+
+            return CombinedKeyFactory.load_key_from_one_asym_key(data=out)
+
     pem_data = utils.load_and_decode_pem_file(filepath)
 
     try:
@@ -363,8 +400,6 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
     except ValueError:
         pass
 
-    from pq_logic.keys.key_pyasn1_utils import CUSTOM_KEY_TYPES
-
     try:
         if b"SPDX-License-Identifier:" in pem_data:
             pem_data2 = _extract_and_format_key(filepath)
@@ -374,17 +409,16 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
         pem_data2 = pem_data
 
     is_custom = False
-    for key in CUSTOM_KEY_TYPES:
-        if pem_data2.startswith(b"-----BEGIN " + key + b" PRIVATE KEY-----"):
-            is_custom = True
-            break
 
-    if key_type in ["custom"] or is_custom:
-        # pem_data = pem_data.replace(b"\r", b"\n")
+    print("is_custom:", is_custom)
+    is_custom = any((b"-----BEGIN " + key + b" PRIVATE KEY-----") in pem_data2 for key in CUSTOM_KEY_TYPES)
+    print("is_custom:", is_custom)
+    if is_custom:
+        pem_data = pem_data.replace(b"\r", b"\n")
         if password is not None:
             pem_data = load_enc_key(password=password, data=pem_data2)
 
-        return CombinedKeyFactory.load_key_from_one_asym_key(data=pem_data, password=password)
+        return CombinedKeyFactory.load_key_from_one_asym_key(data=pem_data)
 
     password = password if not password else password.encode("utf-8")  # type: ignore
 

@@ -18,6 +18,7 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import constraint, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import certutils, compareutils, keyutils
+from resources.asn1_structures import ProtectedPartTMP
 from resources.exceptions import BadAsn1Data, BadMessageCheck, InvalidAltSignature, UnknownOID
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import (
@@ -405,12 +406,14 @@ def verify_sun_hybrid_cert(  # noqa D417 undocumented-param
 
 def _get_catalyst_info_vals(
     general_info: Sequence[rfc9480.InfoTypeAndValue],
+    must_be_catalyst_signed: bool = False,
 ) -> Tuple[
     rfc9480.AlgorithmIdentifier, Optional[rfc5280.SubjectPublicKeyInfo], bytes, Sequence[rfc9480.InfoTypeAndValue]
 ]:
     """Extract the catalyst protection mechanism values from the `generalInfo` field.
 
     :param general_info: The general info field.
+    :param must_be_catalyst_signed: If set, the message must be signed with an alternative key.
     :return: The protection algorithm identifier, the optional public key, and the alternative signature.
     and the other fields to overwrite the generalInfo field.
     """
@@ -437,6 +440,12 @@ def _get_catalyst_info_vals(
         else:
             other_fields.append(info)
 
+    if prot_alg_id is None and alt_sig is None and must_be_catalyst_signed:
+        raise ValueError("The message was not signed by the an alternative key.")
+
+    if prot_alg_id is None and alt_sig is None and not must_be_catalyst_signed:
+        return None, None, None, None
+
     if alt_sig is None:
         raise ValueError("No alternative signature found in the message.")
 
@@ -449,10 +458,31 @@ def _get_catalyst_info_vals(
     return prot_alg_id, public_key_info, alt_sig, other_fields
 
 
+def prepare_protected_part(  # noqa D417 undocumented-param
+    pki_message: rfc9480.PKIMessage,
+) -> bytes:
+    """Prepare the parts of the PKIMessage for verification.
+
+    Arguments:
+    ---------
+       - `pki_message`: The PKIMessage to prepare the protected part for.
+
+    Returns:
+    -------
+       - The data to verify.
+
+    """
+    prot_part = ProtectedPartTMP()
+    prot_part["header"] = pki_message["header"]
+    prot_part["body"] = pki_message["body"]
+    return encoder.encode(prot_part)
+
+
 @keyword(name="Verify Hybrid PKIMessage Protection")
 def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
     pki_message: rfc9480.PKIMessage,
     public_key: Optional[PublicKeySig] = None,
+    must_be_catalyst_signed: bool = False,
 ) -> None:
     """Verify the protection of a PKIMessage with a hybrid protection scheme.
 
@@ -464,6 +494,8 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
         - `pki_message`: The PKIMessage to verify.
         - `public_key`: The public key to use for verification.
         (allowed in case of self-signed certificates.)
+        - `must_be_catalyst_signed`: If set, the message must be signed with an alternative key.
+        Defaults to `False`.
 
     Raises:
     ------
@@ -484,10 +516,10 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
 
     if not pki_message["extraCerts"].isValue and public_key is None:
         raise BadMessageCheck(
-            "The `PKIMessage` does not contain any certificatesand no public key was provided for verification."
+            "The `PKIMessage` does not contain any certificates and no public key was provided for verification."
         )
 
-    data = encoder.encode(pki_message["header"]) + encoder.encode(pki_message["body"])
+    data = prepare_protected_part(pki_message)
 
     oid = prot_alg_id["algorithm"]
     if isinstance(public_key, CompositeSigCMSPublicKey) and oid in CMS_COMPOSITE_OID_2_NAME:
@@ -524,15 +556,20 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
         )
 
         sig_alg_id, public_key_info, alt_sig, other_fields = _get_catalyst_info_vals(
-            pki_message["header"]["generalInfo"]
+            pki_message["header"]["generalInfo"],
+            must_be_catalyst_signed=must_be_catalyst_signed,
         )
+
+        if sig_alg_id is None:
+            return
+
         if public_key_info is not None:
             other_key = keyutils.load_public_key_from_spki(public_key_info)
         else:
             other_key = pq_compute_utils.may_extract_alt_key_from_cert(cert=cert, other_certs=other_certs)
 
         pki_message["header"]["generalInfo"] = other_fields
-        data = encoder.encode(pki_message["header"]) + encoder.encode(pki_message["body"])
+        data = prepare_protected_part(pki_message)
 
         pq_compute_utils.verify_signature_with_alg_id(
             public_key=other_key,

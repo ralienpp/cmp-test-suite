@@ -354,7 +354,7 @@ def _verbose_get_protected_part(pki_message: rfc9480.PKIMessage) -> bytes:
 
 @keyword(name="Protect Hybrid PKIMessage")
 def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in the docstring
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     private_key: SignKey,
     protection: str = "signature",
     do_patch: bool = True,
@@ -415,14 +415,12 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
     if protection not in ["signature", "composite", "catalyst"]:
         raise ValueError("Only 'signature', 'composite', and 'catalyst' protection types are supported.")
 
-    if params.get("cert") and not params.get("exclude_certs", False):
-        certs = load_certificates_from_dir(params.get("certs_path", "data/cert_logs/"))
-        if certs:
-            certs = py_verify_logic.build_migration_cert_chain(
-                cert=params.get("cert"), certs=certs, allow_self_signed=True
-            )
-            logging.info(f"Loaded {len(certs)} certificates from the directory.")
-            pki_message["extraCerts"].extend(certs)
+    pki_message = _patch_extra_certs(
+        pki_message=pki_message,
+        cert=params.get("cert"),
+        certs_path=params.get("certs_path", "data/cert_logs/"),
+        exclude_certs=params.get("exclude_certs", False),
+    )
 
     if protection == "signature":
         return _compute_protection(
@@ -453,56 +451,55 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
             bad_message_check=bad_message_check,
         )
 
-    else:
-        alt_prot_alg_id = certbuildutils.prepare_sig_alg_id(
-            signing_key=alt_signing_key,
-            hash_alg=params.get("hash_alg", "sha256"),
-            use_rsa_pss=params.get("use_rsa_pss", True),
-            use_pre_hash=params.get("use_pre_hash", False),
-        )
-        prot_alg_id = certbuildutils.prepare_sig_alg_id(
-            signing_key=private_key,
-            hash_alg=params.get("hash_alg", "sha256"),
-            use_rsa_pss=params.get("use_rsa_pss", True),
-            use_pre_hash=params.get("use_pre_hash", False),
-        )
+    alt_prot_alg_id = certbuildutils.prepare_sig_alg_id(
+        signing_key=alt_signing_key,
+        hash_alg=params.get("hash_alg", "sha256"),
+        use_rsa_pss=params.get("use_rsa_pss", True),
+        use_pre_hash=params.get("use_pre_hash", False),
+    )
+    prot_alg_id = certbuildutils.prepare_sig_alg_id(
+        signing_key=private_key,
+        hash_alg=params.get("hash_alg", "sha256"),
+        use_rsa_pss=params.get("use_rsa_pss", True),
+        use_pre_hash=params.get("use_pre_hash", False),
+    )
 
-        prot_alg_id = prot_alg_id.subtype(
-            explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1), cloneValueFlag=True
-        )
-        pki_message["header"]["protectionAlg"] = prot_alg_id
+    prot_alg_id = prot_alg_id.subtype(
+        explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1), cloneValueFlag=True
+    )
+    pki_message["header"]["protectionAlg"] = prot_alg_id
 
-        info_val_type, info_val_type_pub_key = _prepare_catalyst_info_vals(
-            prot_alg_id=alt_prot_alg_id,
-            public_key=alt_signing_key.public_key() if include_alt_pub_key else None,
-        )
-        pki_message["header"]["generalInfo"].append(info_val_type)
-        if info_val_type_pub_key is not None:
-            pki_message["header"]["generalInfo"].append(info_val_type_pub_key)
+    info_val_type, info_val_type_pub_key = _prepare_catalyst_info_vals(
+        prot_alg_id=alt_prot_alg_id,
+        public_key=alt_signing_key.public_key() if include_alt_pub_key else None,
+    )
+    pki_message["header"]["generalInfo"].append(info_val_type)
+    if info_val_type_pub_key is not None:
+        pki_message["header"]["generalInfo"].append(info_val_type_pub_key)
 
-        der_data = _verbose_get_protected_part(pki_message)
+    der_data = _verbose_get_protected_part(pki_message)
 
-        signature = sign_data_with_alg_id(
-            alg_id=alt_prot_alg_id,
-            data=der_data,
-            key=alt_signing_key,
-        )
+    signature = sign_data_with_alg_id(
+        alg_id=alt_prot_alg_id,
+        data=der_data,
+        key=alt_signing_key,
+    )
 
-        if bad_message_check:
-            signature = utils.manipulate_first_byte(signature)
+    if bad_message_check:
+        signature = utils.manipulate_first_byte(signature)
 
-        info_val_type_sig = rfc9480.InfoTypeAndValue()
-        info_val_type_sig["infoType"] = id_ce_altSignatureValue
-        info_val_type_sig["infoValue"] = encoder.encode(univ.BitString.fromOctetString(signature))
-        pki_message["header"]["generalInfo"].append(info_val_type_sig)
+    info_val_type_sig = rfc9480.InfoTypeAndValue()
+    info_val_type_sig["infoType"] = id_ce_altSignatureValue
+    info_val_type_sig["infoValue"] = encoder.encode(univ.BitString.fromOctetString(signature))
+    pki_message["header"]["generalInfo"].append(info_val_type_sig)
 
-        der_data = _verbose_get_protected_part(pki_message)
+    der_data = _verbose_get_protected_part(pki_message)
 
-        signature = sign_data_with_alg_id(
-            alg_id=prot_alg_id,
-            data=der_data,
-            key=private_key,
-        )
-        pki_message["protection"] = protectionutils.prepare_pki_protection_field(signature)
+    signature = sign_data_with_alg_id(
+        alg_id=prot_alg_id,
+        data=der_data,
+        key=private_key,
+    )
+    pki_message["protection"] = protectionutils.prepare_pki_protection_field(signature)
 
     return pki_message

@@ -8,14 +8,16 @@ import logging
 from typing import List, Optional, Tuple, Union
 
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc6402, rfc9480
 from resources import certbuildutils, cryptoutils, keyutils, protectionutils, utils
+from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP
 from resources.certextractutils import get_extension
 from resources.certutils import load_certificates_from_dir
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
-from resources.exceptions import BadAsn1Data, BadPOP
+from resources.exceptions import BadAlg, BadAsn1Data, BadPOP, InvalidKeyCombination
 from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
 from resources.oidutils import (
     CMS_COMPOSITE_OID_2_NAME,
@@ -34,9 +36,13 @@ from pq_logic import py_verify_logic
 from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, chameleon_logic
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey
+from pq_logic.keys.composite_kem import CompositeKEMPublicKey
 from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
-from pq_logic.migration_typing import SignKey, VerifyKey
+from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
+from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey, SignKey, VerifyKey
 from pq_logic.tmp_oids import id_altSubPubKeyExt, id_ce_deltaCertificateDescriptor, id_relatedCert
+from pq_logic.trad_typing import ECDHPrivateKey
 
 
 @keyword(name="Sign Data With Alg ID")
@@ -69,15 +75,14 @@ def sign_data_with_alg_id(  # noqa: D417 Missing argument descriptions in the do
     if isinstance(key, CompositeSigCMSPrivateKey):
         name: str = CMS_COMPOSITE_OID_2_NAME[oid]
         use_pss = name.endswith("-pss")
-        pre_hash = name.startswith("hash-")
+        pre_hash = True if "hash-" in name else False
         key: CompositeSigCMSPrivateKey
         return key.sign(data=data, use_pss=use_pss, pre_hash=pre_hash)
-    elif oid in PQ_OID_2_NAME or oid in MSG_SIG_ALG or oid in RSASSA_PSS_OID_2_NAME or str(oid) in PQ_OID_2_NAME:
+    if oid in PQ_OID_2_NAME or oid in MSG_SIG_ALG or oid in RSASSA_PSS_OID_2_NAME or str(oid) in PQ_OID_2_NAME:
         hash_alg = get_hash_from_oid(oid, only_hash=True)
         use_pss = oid in RSASSA_PSS_OID_2_NAME
         return cryptoutils.sign_data(key=key, data=data, hash_alg=hash_alg, use_rsa_pss=use_pss)
-    else:
-        raise ValueError(f"Unsupported private key type: {type(key).__name__} oid:{may_return_oid_to_name(oid)}")
+    raise ValueError(f"Unsupported private key type: {type(key).__name__} oid:{may_return_oid_to_name(oid)}")
 
 
 @keyword(name="Verify CSR Signature")
@@ -105,7 +110,7 @@ def verify_csr_signature(  # noqa: D417 Missing argument descriptions in the doc
     spki = csr["certificationRequestInfo"]["subjectPublicKeyInfo"]
 
     if alg_id["algorithm"] in CMS_COMPOSITE_OID_2_NAME:
-        public_key = CompositeSigCMSPublicKey.from_spki(spki)
+        public_key = keyutils.load_public_key_from_spki(spki)
         CompositeSigCMSPublicKey.validate_oid(alg_id["algorithm"], public_key)
     else:
         public_key = keyutils.load_public_key_from_spki(spki)
@@ -211,7 +216,7 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
         return keyutils.load_public_key_from_spki(spki)
 
     if oid in CMS_COMPOSITE_OID_2_NAME:
-        public_key = CompositeSigCMSPublicKey.from_spki(spki)
+        public_key = keyutils.load_public_key_from_spki(spki)
         CompositeSigCMSPublicKey.validate_oid(oid, public_key)
         return public_key.pq_key
 
@@ -342,14 +347,16 @@ def _verbose_get_protected_part(pki_message: rfc9480.PKIMessage) -> bytes:
     :param pki_message: The PKIMessage.
     :return: The protected part.
     """
-    for x in {"sender", "pvno", "recipient"}:
+    for x in ["sender", "pvno", "recipient"]:
         if x not in pki_message["header"]:
             raise ValueError(f"The `{x}` field has no value, can not protect the `PKIMessage`.")
 
     if not pki_message["body"].isValue:
         raise ValueError("The `body` field has no value, can not protect the `PKIMessage`.")
 
-    return encoder.encode(pki_message["header"]) + encoder.encode(pki_message["body"])
+    return py_verify_logic.prepare_protected_part(pki_message)
+
+
 
 
 @keyword(name="Protect Hybrid PKIMessage")

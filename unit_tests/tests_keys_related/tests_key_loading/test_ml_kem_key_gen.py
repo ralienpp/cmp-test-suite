@@ -3,7 +3,8 @@ import unittest
 from cryptography.hazmat.primitives import serialization
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc5958
-from pq_logic.keys.key_pyasn1_utils import parse_key_from_one_asym_key
+
+from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.keys.kem_keys import MLKEMPrivateKey, MLKEMPublicKey
 
 
@@ -93,5 +94,5 @@ class TestMLKEMKeyGen(unittest.TestCase):
         pub_key = MLKEMPublicKey.from_public_bytes(data=out, name="ml-kem-512")
         self.assertEqual(pub_key.public_bytes_raw(), private_key.public_key().public_bytes_raw())
 
-        key2 = parse_key_from_one_asym_key(private_bytes)
+        key2 = CombinedKeyFactory.load_key_from_one_asym_key(private_bytes)
         self.assertEqual(key2._export_private_key().hex(), seed.hex())

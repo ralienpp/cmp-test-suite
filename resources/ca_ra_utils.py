@@ -1537,11 +1537,15 @@ def prepare_encr_cert_for_request(  # noqa: D417 Missing argument descriptions i
         - `ValueError`: If the POP type is not `subsequentMessage` with `encrCert`.
         - `ValueError`: If arguments are invalid or missing.
 
+    Examples:
+    --------
+    | ${enc_cert} | Prepare Encr Cert For Request | ${cert_req_msg} | ${signing_key} | ${hash_alg} | ${ca_cert} |
+
     """
     new_ee_cert = new_ee_cert or certbuildutils.build_cert_from_cert_template(
         cert_template=cert_req_msg["certReq"]["certTemplate"],
-        issuer=ca_cert["tbsCertificate"]["subject"],
         ca_key=signing_key,
+        ca_cert=ca_cert,
         hash_alg=hash_alg,
     )
 

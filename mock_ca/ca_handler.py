@@ -266,10 +266,10 @@ class CAHandler:
 
     def sign_response(
         self,
-        response: rfc9480.PKIMessage,
-        request_msg: rfc9480.PKIMessage,
+        response: PKIMessageTMP,
+        request_msg: PKIMessageTMP,
         secondary_cert: Optional[rfc9480.CMPCertificate] = None,
-    ) -> rfc9480.PKIMessage:
+    ) -> PKIMessageTMP:
         """Sign the response.
 
         :param response: The PKI message to sign.
@@ -277,16 +277,21 @@ class CAHandler:
         :param secondary_cert: An optional secondary certificate to include in the response. Defaults to `None`.
         :return: The signed PKI message.
         """
-        if get_protection_type_from_pkimessage(request_msg) == "mac":
-            pki_message = protect_pkimessage(
-                pki_message=response,
-                password=self.shared_secrets,
-                protection="password_based_mac",
-            )
-            if secondary_cert:
-                pki_message["extraCerts"].append(secondary_cert)
-            pki_message["extraCerts"].extend(self.cert_chain)
-            return pki_message
+        if response["body"].getName() == "genp":
+            # quick fix for KEMBasedMAC.
+            return response
+
+        if response["header"]["protectionAlg"].isValue:
+            if get_protection_type_from_pkimessage(request_msg) == "mac":
+                pki_message = protect_pkimessage(
+                    pki_message=response,
+                    password=self.shared_secrets,
+                    protection="password_based_mac",
+                )
+                if secondary_cert:
+                    pki_message["extraCerts"].append(secondary_cert)
+                pki_message["extraCerts"].extend(self.cert_chain)
+                return pki_message
 
         protected = protect_hybrid_pkimessage(
             pki_message=response,

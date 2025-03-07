@@ -19,6 +19,8 @@ ${PRESHARED_SECRET}    SiemensIT
 ${SENDER}              CN=CloudCA-Integration-Test-User
 ${RECIPIENT}           CN=CloudPKI-Integration-Test
 ${DEFAULT_X509NAME}    CN=CloudCA-Integration-Test-User
+# either signature or an MAC algorithm.
+${DEFAULT_PROTECTION}   signature
 
 ##### About Issuing:
 
@@ -42,7 +44,7 @@ ${ALLOW_IR_SAME_KEY}       ${False}
 ${IRELEVANT_messageTime}    ${FALSE}
 # Currently does not support strict validation on it.
 # MUST be used but if not a strict setting could be ignored.
-${SUPPORT_DIRECTORY_CHOICE_FOR_MAC_PROTECTION}   ${False}
+${SUPPORT_DIRECTORY_CHOICE_FOR_MAC_PROTECTION}   ${True}
 
 ##### Security
 # If only enc keys are allowed:
@@ -68,7 +70,7 @@ ${EXTENDED_KEY_USAGE_STRICTNESS}   LAX
 # As defined by Rfc9383 Section 1.2
 ${KEY_USAGE_STRICTNESS}   LAX
 # Configuration for strict mode.
-${STRICT}   ${False}
+${STRICT}   ${True}
 # Test the LWCMP version.
 ${LWCMP}   ${True}
 
@@ -94,7 +96,7 @@ ${ALLOW_CMP_EKU_EXTENSION}  ${True}
 
 ##### Section 3
 #Indicating if the PKIFailInfo must be set correctly.
-${FAILINFO_MUST_BE_CORRECT}=   ${True}
+${FAILINFO_MUST_BE_CORRECT}   ${True}
 # For messageTime check.
 ${MAX_ALLOW_TIME_INTERVAL_RECEIVED}  ${-500}
 
@@ -103,8 +105,8 @@ ${MAX_ALLOW_TIME_INTERVAL_RECEIVED}  ${-500}
 # using P10CR because Header checks are body-independent and are only done
 # with either CR or P10CR.
 ${ALLOW_P10CR_MAC_BASED}   ${True}
-${ALLOW_CR_MAC_BASED}   ${False}
-${ALLOW_IR_MAC_BASED}   ${False}
+${ALLOW_CR_MAC_BASED}   ${True}
+${ALLOW_IR_MAC_BASED}   ${True}
 ${ALLOW_KUR_SAME_KEY}    ${False}
 ${ALLOW_IR_SAME_KEY}   ${True}
 ${LARGE_KEY_SIZE}    ${False}
@@ -182,6 +184,9 @@ ${DEFAULT_SLH_DSA_PRE_HASH_ALG}    sha256
 #### Issuing
 
 ${KEM_CERT_PATH}    ${None}
+# Allowed freshness for the BinaryTime in seconds.
+# Used to indicate the maximum time difference between the BinaryTime and the current time.
+${ALLOWED_FRESHNESS}   500
 
 # Hybrid Variables
 ${DEFAULT_TRAD_ALG}    rsa

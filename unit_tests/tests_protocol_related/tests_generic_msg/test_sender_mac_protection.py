@@ -8,6 +8,7 @@ from resources.checkutils import check_sender_cmp_protection
 from resources.cmputils import (
     prepare_general_name,
 )
+from resources.exceptions import BadMessageCheck
 from resources.protectionutils import protect_pkimessage
 
 from unit_tests.utils_for_test import build_pkimessage, de_and_encode_pkimessage
@@ -52,5 +53,5 @@ class TestSenderFieldForMacProtection(unittest.TestCase):
         )
         protected_msg = de_and_encode_pkimessage(protected_msg)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadMessageCheck):
             check_sender_cmp_protection(pki_message=protected_msg, allow_failure=False)

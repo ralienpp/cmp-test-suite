@@ -5,6 +5,7 @@
 import unittest
 
 from resources.checkutils import check_protection_alg_field
+from resources.exceptions import BadMessageCheck
 from resources.keyutils import generate_key, load_private_key_from_file
 from resources.protectionutils import patch_protectionalg, protect_pkimessage
 
@@ -84,10 +85,10 @@ class TestCheckProtectionAlgField(unittest.TestCase):
         WHEN check_protectionAlg_field is called with must_be_present=True
         THEN the check should raise an exceptions.
         """
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadMessageCheck):
             check_protection_alg_field(pki_message=self.unprotected_pki_message, expected_type="sig")
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(BadMessageCheck):
             check_protection_alg_field(pki_message=self.unprotected_pki_message, expected_type="mac")
 
     def test_inconsistent_protectionAlg_and_subjectPublicKeyInfo(self):

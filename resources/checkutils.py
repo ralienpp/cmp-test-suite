@@ -32,6 +32,7 @@ from resources import (
     protectionutils,
     utils,
 )
+from resources.exceptions import BadMessageCheck
 from resources.oid_mapping import (
     get_hash_from_oid,
 )
@@ -248,8 +249,8 @@ def check_is_protection_present(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - `ValueError`: If protection is required but missing.
-        - `ValueError`: If only one of the fields (`protectionAlg` or `protection`) is set, causing an inconsistency.
+        - `BadMessageCheck`: If protection is required but missing.
+        - `BadMessageCheck`: If only one of the fields (`protectionAlg` or `protection`) is set, causing an inconsistency.
 
     Examples:
     --------
@@ -260,14 +261,14 @@ def check_is_protection_present(  # noqa D417 undocumented-param
     if not pki_message["protection"].isValue and not pki_message["header"]["protectionAlg"].isValue:
         # Protection is recommended but not required, according to RFC 9480 section 3.1.
         if must_be_protected:
-            raise ValueError("PKIMessage is not protected!")
+            raise BadMessageCheck("PKIMessage is not protected!")
         return False
 
     if pki_message["protection"].isValue and not pki_message["header"]["protectionAlg"].isValue:
-        raise ValueError("The PKIMessage has a protection value but no OID for the protectionAlg field.")
+        raise BadMessageCheck("The PKIMessage has a protection value but no OID for the protectionAlg field.")
 
     if not pki_message["protection"].isValue and pki_message["header"]["protectionAlg"].isValue:
-        raise ValueError("The PKIMessage has an OID for the protectionAlg field but no protection value.")
+        raise BadMessageCheck("The PKIMessage has an OID for the protectionAlg field but no protection value.")
 
     if lwcmp:
         protectionutils.get_protection_type_from_pkimessage(pki_message, lwcmp)
@@ -297,9 +298,9 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - `ValueError`: If the sender name does not match the CMP certificate subject DN in signature-based protection.
-        - `ValueError`: If the sender type is invalid for MAC-based protection.
-        - `ValueError`: If the `directoryName` choice does not contain a common name.
+        - `BadMessageCheck`: If the sender name does not match the CMP certificate subject DN in signature-based protection.
+        - `BadMessageCheck`: If the sender type is invalid for MAC-based protection.
+        - `BadMessageCheck`: If the `directoryName` choice does not contain a common name.
 
     Examples:
     --------
@@ -327,7 +328,7 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
             else:
                 n = sender_name.getName()
                 sender_name = f"{n}: {str(sender_name[n])}"  # type: ignore
-                raise ValueError(
+                raise BadMessageCheck(
                     f"The subjectDN should be the same as the sender Name. sender: {sender_name}, "
                     f"certificate: {cert_name.prettyPrint()}"
                 )
@@ -338,7 +339,7 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
                 logging.info("For MAC protection the sender is supposed to be of type `directoryName`")
                 return
 
-            raise ValueError(
+            raise BadMessageCheck(
                 " For MAC-based protection, the CA "
                 "MUST use an identifier in the commonName field of the directoryName choice."
             )
@@ -347,7 +348,7 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
 
         if not allow_failure:
             if cm_name is None:
-                raise ValueError(
+                raise BadMessageCheck(
                     " For MAC-based protection, the CA "
                     "MUST use an identifier in the commonName field of the directoryName choice."
                 )

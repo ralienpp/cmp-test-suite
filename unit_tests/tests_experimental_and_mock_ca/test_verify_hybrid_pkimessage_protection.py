@@ -178,7 +178,3 @@ class TestVerifyHybridPkimessageProtection(unittest.TestCase):
         protected_p10cr["extraCerts"].append(generate_certificate(private_key=self.comp_key.trad_key))
 
         verify_hybrid_pkimessage_protection(protected_p10cr)
-
-
-
-

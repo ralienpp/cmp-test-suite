@@ -19,24 +19,24 @@ class CMPTestSuiteError(Exception, ABC):
 
     failinfo: str = "systemFailure"
     error_details: List[str]
-    bit_num: int = -1
+    bit_num: int = 26
 
     def __init__(
-        self, message: str, extra_details: Optional[Union[List[str], str]] = None, failinfo: Optional[str] = None
+            self, message: str, error_details: Optional[Union[List[str], str]] = None, failinfo: Optional[str] = None
     ):
         """Initialize the exception with the message.
 
         :param message: The message to display.
-        :param extra_details: Additional details about the error.
+        :param error_details: Additional details about the error.
         """
         self.message = message
         self.failinfo = failinfo or self.failinfo
 
-        if extra_details is not None:
-            if isinstance(extra_details, str):
-                self.error_details = [extra_details]
+        if error_details is not None:
+            if isinstance(error_details, str):
+                self.error_details = [error_details]
 
-        self.error_details = extra_details or []
+        self.error_details = error_details or []
         super().__init__(message)
 
     @classmethod
@@ -44,10 +44,10 @@ class CMPTestSuiteError(Exception, ABC):
         """Return the failinfo."""
         return cls.failinfo
 
-    @classmethod
-    def get_error_details(cls) -> List[str]:
+    @property
+    def get_error_details(self) -> List[str]:
         """Return the error details."""
-        return cls.error_details
+        return self.error_details
 
 
 #########################
@@ -128,6 +128,13 @@ class BadRequest(CMPTestSuiteError):
     bit_num = 2
 
 
+class BadCertId(CMPTestSuiteError):
+    """Raised when the certificate is not known."""
+
+    failinfo = "badCertId"
+    bit_num = 4
+
+
 class BadDataFormat(CMPTestSuiteError):
     """Raised when the ASN.1 data cannot be decoded."""
 
@@ -150,7 +157,13 @@ class BadAsn1Data(CMPTestSuiteError):
     failinfo = "badDataFormat"
     bit_num = 5
 
-    def __init__(self, message: str, remainder: Optional[bytes] = None, overwrite: bool = False):
+    def __init__(
+            self,
+            message: str,
+            remainder: Optional[bytes] = None,
+            overwrite: bool = False,
+            error_details: Optional[Union[List[str], str]] = None,
+    ):
         """Initialize the exception with the message.
 
         :param message: The message to display or just the structure name.
@@ -160,10 +173,17 @@ class BadAsn1Data(CMPTestSuiteError):
         self.message = message
 
         if overwrite:
-            super().__init__(message=message)
+            super().__init__(message=message, error_details=error_details)
         else:
             r = "" if remainder is None else remainder.hex()
-            super().__init__(f"Decoding the `{message}` structure had a remainder: {r}.")
+            super().__init__(f"Decoding the `{message}` structure had a remainder: {r}.", error_details=error_details)
+
+
+class WrongAuthority(CMPTestSuiteError):
+    """Raised when the authority indicated in the request is different from the one creating the response token"""
+
+    failinfo = "wrongAuthority"
+    bit_num = 6
 
 
 class BadPOP(CMPTestSuiteError):
@@ -203,6 +223,13 @@ class CertRevoked(CMPTestSuiteError):
     bit_num = 10
 
 
+class CertConfirmed(CMPTestSuiteError):
+    """Raised when the certificate is already confirmed."""
+
+    failinfo = "certConfirmed"
+    bit_num = 11
+
+
 class WrongIntegrity(CMPTestSuiteError):
     """Raised when the integrity of the message is wrong.
 
@@ -213,6 +240,13 @@ class WrongIntegrity(CMPTestSuiteError):
     bit_num = 12
 
 
+class BadRecipientNonce(CMPTestSuiteError):
+    """Raised when the recipient nonce is invalid, missing or wrong value."""
+
+    failinfo = "badRecipientNonce"
+    bit_num = 13
+
+
 class AddInfoNotAvailable(CMPTestSuiteError):
     """Raised when the additional information is needed to perform the action."""
 
@@ -220,11 +254,25 @@ class AddInfoNotAvailable(CMPTestSuiteError):
     bit_num = 17
 
 
+class BadSenderNonce(CMPTestSuiteError):
+    """Raised when the sender nonce is invalid, missing or wrong value."""
+
+    failinfo = "badSenderNonce"
+    bit_num = 18
+
+
 class BadCertTemplate(CMPTestSuiteError):
     """Raised when the certificate template is invalid."""
 
     failinfo = "badCertTemplate"
     bit_num = 19
+
+
+class SignerNotTrusted(CMPTestSuiteError):
+    """Raised when the signer is unknown or not trusted."""
+
+    failinfo = "signerNotTrusted"
+    bit_num = 20
 
 
 class TransactionIdInUse(CMPTestSuiteError):

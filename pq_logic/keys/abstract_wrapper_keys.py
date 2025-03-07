@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# pylint: disable=redefined-builtin
 """Abstract classes for public and private keys.
 
 These classes define the abstract methods that must be implemented by the concrete
@@ -25,6 +30,7 @@ and private keys as raw bytes.
 
 """
 
+
 import base64
 import textwrap
 from abc import ABC, abstractmethod
@@ -41,8 +47,6 @@ from resources.oidutils import PQ_NAME_2_OID
 from pq_logic.hybrid_structures import CompositeSignaturePrivateKeyAsn1, CompositeSignaturePublicKeyAsn1
 from pq_logic.keys.serialize_utils import prepare_enc_key_pem
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
-
-# TODO fix and add into the Test-Suite.
 
 HybridTradPubComp = Union["TradKEMPublicKey", ECDHPublicKey, rsa.RSAPublicKey]
 HybridTradPrivComp = Union["TradKEMPrivateKey", ECDHPrivateKey, rsa.RSAPrivateKey]
@@ -122,7 +126,7 @@ class WrapperPublicKey(BaseKey):
 
     def public_bytes(
         self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
-    ) -> Union[bytes, str]:
+    ) -> bytes:
         """Get the serialized public key in bytes format.
 
         Serialize the public key into the specified encoding (`Raw`, `DER`, or `PEM`) and
@@ -149,14 +153,11 @@ class WrapperPublicKey(BaseKey):
             else:
                 raise ValueError(f"Unsupported format for PEM encoding: {format}")
 
-            b64_encoded = base64.b64encode(data).decode("utf-8")
+            b64_encoded = base64.b64encode(data).decode("ascii")
             b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
-            pem = (
-                f"-----BEGIN {self._get_header_name()} PUBLIC KEY-----\n"
-                + b64_encoded
-                + f"\n-----END {self._get_header_name()} PUBLIC KEY-----\n"
-            )
-            return pem
+            _name = self._get_header_name()
+            pem = f"-----BEGIN {_name} PUBLIC KEY-----\n" + b64_encoded + f"\n-----END {_name} PUBLIC KEY-----\n"
+            return pem.encode("ascii")
 
         raise ValueError(f"Unsupported encoding: {encoding}")
 
@@ -208,18 +209,20 @@ class WrapperPrivateKey(BaseKey):
 
         if encoding == encoding.PEM and isinstance(encryption_algorithm, serialization.BestAvailableEncryption):
             password = encryption_algorithm.password.decode("utf-8")
-            return prepare_enc_key_pem(password, self._to_one_asym_key(), self._get_header_name())
+            return prepare_enc_key_pem(password, self._to_one_asym_key(), key_name=self._get_header_name())
 
         if encoding == Encoding.PEM:
             data = self._to_one_asym_key()
-            b64_encoded = base64.b64encode(data).decode("utf-8")
+            header_name = self._get_header_name()
+            if isinstance(header_name, bytes):
+                header_name = header_name.decode("ascii")
+
+            b64_encoded = base64.b64encode(data).decode("ascii")
             b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
-            pem = (
-                f"-----BEGIN {self._get_header_name()} PRIVATE KEY-----\n"
-                + b64_encoded
-                + f"\n-----END {self._get_header_name()} PRIVATE KEY-----\n"
+            pem_str = (
+                f"-----BEGIN {header_name} PRIVATE KEY-----\n{b64_encoded}\n-----END {header_name} PRIVATE KEY-----\n"
             )
-            return pem.encode("utf-8")
+            return pem_str.encode("ascii")
 
         raise NotImplementedError(f"The encoding is not supported. Encoding: {encoding} .Format: {format}.")
 
@@ -742,6 +745,10 @@ class AbstractHybridRawPublicKey(HybridKEMPublicKey, ABC):
         Will be included in the SubjectPublicKeyInfo structure,
         MUST not include the BIT STRING encoding.
         """
+        return self.public_bytes_raw()
+
+    def _export_public_key(self) -> bytes:
+        """Export the public key to be stored inside a `SubjectPublicKeyInfo` structure."""
         return self.public_bytes_raw()
 
 

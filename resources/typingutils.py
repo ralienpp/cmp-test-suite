@@ -21,47 +21,34 @@ from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey, X448P
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from pq_logic.keys.abstract_pq import (
     PQKEMPublicKey,
-    PQPrivateKey,
-    PQPublicKey,
     PQSignaturePrivateKey,
     PQSignaturePublicKey,
 )
-from pq_logic.keys.abstract_wrapper_keys import HybridPrivateKey, HybridPublicKey
+from pq_logic.keys.abstract_wrapper_keys import WrapperPrivateKey, WrapperPublicKey
 from pyasn1_alt_modules import rfc9480
 
 TradSigPrivKey = Union[
     RSAPrivateKey,
     EllipticCurvePrivateKey,
     DSAPrivateKey,
-    DHPrivateKey,
     Ed25519PrivateKey,
     Ed448PrivateKey,
 ]
 
-# Type alias for supported private key types
-PrivateKey = Union[
-    TradSigPrivKey,
-    DHPrivateKey,
-    X25519PrivateKey,
-    X448PrivateKey,
-    PQPrivateKey,
-    HybridPrivateKey,
-]
-
-
-# Type alias for supported public key types
-PublicKey = Union[
+TradSigPubKey = Union[
     RSAPublicKey,
     EllipticCurvePublicKey,
     DSAPublicKey,
-    DHPublicKey,
     Ed25519PublicKey,
     Ed448PublicKey,
-    X25519PublicKey,
-    X448PublicKey,
-    PQPublicKey,
-    HybridPublicKey,
 ]
+
+# Type alias for supported private key types
+PrivateKey = Union[TradSigPrivKey, DHPrivateKey, X25519PrivateKey, X448PrivateKey, WrapperPrivateKey]
+
+
+# Type alias for supported public key types
+PublicKey = Union[TradSigPubKey, DHPublicKey, X25519PublicKey, X448PublicKey, WrapperPublicKey]
 
 
 # Keys which can be used for signing and verification of a signature.

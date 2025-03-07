@@ -154,7 +154,7 @@ def decode_pem_string(data: Union[bytes, str]) -> bytes:
 
 
 @keyword("Load And Decode PEM File")
-def load_and_decode_pem_file(path: str):
+def load_and_decode_pem_file(path: str) -> bytes:
     """Load a base64-encoded PEM file, with or without a header, ignore comments, and return the decoded data.
 
     This is an augmented version of the PEM format, which allows one to add comments to the file, by starting the

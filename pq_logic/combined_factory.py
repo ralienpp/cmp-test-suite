@@ -294,12 +294,12 @@ class CombinedKeyFactory:
         if pq_name.startswith("ml"):
             pq_pub = MLKEMPublicKey(
                 public_key=pq_pub_bytes,
-                kem_alg=pq_name.upper(),
+                alg_name=pq_name.upper(),
             )
         else:
             pq_pub = FrodoKEMPublicKey(
                 public_key=pq_pub_bytes,
-                kem_alg=pq_name,
+                alg_name=pq_name,
             )
 
         trad_name = _any_string_in_string(alg_name, ["rsa", "ecdh", "ed25519", "ed448", "x25519", "x448"])

@@ -1540,7 +1540,8 @@ def _default_validity(
             not_after = not_before + timedelta(days=days)
         return prepare_validity(not_before, not_after)
 
-    not_before = datetime.now()
+    # otherwise will OpenSSL say: "certificate is not yet valid"
+    not_before = datetime.now() - timedelta(days=1)
     not_after = not_before + timedelta(days=days)
     return prepare_validity(not_before, not_after)
 

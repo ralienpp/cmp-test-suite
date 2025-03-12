@@ -3407,6 +3407,65 @@ def patch_generalinfo(  # noqa D417 undocumented-param
     return msg_to_patch
 
 
+@keyword(name="Add generalInfo Values")
+def add_general_info_values(  # noqa D417 undocumented-param
+    pki_message: PKIMessageTMP,
+    info_vals: Optional[Union[List[rfc9480.InfoTypeAndValue], rfc9480.InfoTypeAndValue]] = None,
+    implicit_confirm: bool = False,
+    cert_profile: Optional[str] = None,
+    confirm_wait_time: Optional[Strint] = None,
+    orig_pki_message: Optional[PKIMessageTMP] = None,
+) -> PKIMessageTMP:
+    """Add generalInfo to the PKIMessage header.
+
+    Arguments:
+    ---------
+       - `pki_message`: The PKIMessage object to be updated.
+       - `info_vals`: A list of InfoTypeAndValue objects to add to the generalInfo field. Defaults to `None`.
+       - `implicit_confirm`: A flag indicating whether implicit confirmation is needed. Defaults to `False`.
+       - `cert_profile`: An optional certificate profile name to add to generalInfo. Defaults to `None`.
+       - `confirm_wait_time`: The confirmation wait time in seconds. Defaults to `None`.
+
+    Returns:
+    -------
+         - The PKIMessage object with the updated generalInfo field.
+
+    Examples:
+    --------
+    | ${updated_message}= | Add generalInfo Values | ${pki_message} | implicit_confirm=True |
+    | ${updated_message}= | Add generalInfo Values | ${pki_message} | confirm_wait_time=300 |
+    | ${updated_message}= | Add generalInfo Values | ${pki_message} | ${info_vals} |
+    """
+
+    if info_vals is None:
+        info_vals = []
+
+    if isinstance(info_vals, rfc9480.InfoTypeAndValue):
+        info_vals = [info_vals]
+
+    if orig_pki_message is not None:
+        info_vals.append(prepare_orig_pki_message(orig_pki_message))
+
+    gen_infos = _prepare_generalinfo(
+        implicit_confirm=implicit_confirm,
+        confirm_wait_time=confirm_wait_time,
+        cert_profile=cert_profile,
+    )
+
+    if not pki_message["header"]["generalInfo"].isValue:
+        pki_message["header"]["generalInfo"] = gen_infos
+        for entry in info_vals:
+            pki_message["header"]["generalInfo"].append(entry)
+        return pki_message
+
+    else:
+        for x in gen_infos:
+            info_vals.append(x)
+
+    pki_message["header"]["generalInfo"].extend(info_vals)
+    return pki_message
+
+
 ########################
 # Revocation and Revive
 ########################

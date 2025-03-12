@@ -733,10 +733,12 @@ def check_if_request_is_for_kga(pki_message: rfc9480.PKIMessage, index: int = 0)
 
 def _verify_pop_signature(
     pki_message: rfc9480.PKIMessage,
+    request_index: int = 0,
 ) -> None:
     """Verify the POP signature in the PKIMessage.
 
     :param pki_message: The PKIMessage to verify the POP signature for.
+    :param request_index: The index of the certificate request to verify the POP for. Defaults to `0`.
     :raises BadAsn1Data: If the CertRequest encoding fails.
     :raises BadPOP: If the POP verification fails.
     :raises InvalidSignature: If the signature verification fails.
@@ -744,13 +746,14 @@ def _verify_pop_signature(
     body_name = pki_message["body"].getName()
 
     try:
-        cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message)
+        cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message, index=request_index)
         popo: rfc4211.ProofOfPossession = cert_req_msg["popo"]
         if not popo["signature"].isValue:
-            raise ValueError("POP signature is missing in the PKIMessage.")
+            raise BadPOP("POP signature is missing in the PKIMessage.")
 
         popo_sig = popo["signature"]
         public_key = get_public_key_from_cert_req_msg(cert_req_msg)
+
         pq_compute_utils.verify_signature_with_alg_id(
             public_key=public_key,
             alg_id=popo_sig["algorithmIdentifier"],
@@ -765,7 +768,7 @@ def _verify_pop_signature(
         raise BadAsn1Data("Failed to encode the CertRequest.", overwrite=True) from err
 
     except InvalidSignature as err:
-        raise BadPOP(f"POP verification for `{body_name}` failed.") from err
+        raise BadPOP(f"Signature POP verification for `{body_name}` failed.") from err
 
 
 def _verify_ra_verified(

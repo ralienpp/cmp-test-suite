@@ -12,7 +12,7 @@ such as `caPubs`, based on the response body requirements.
 
 import datetime
 import logging
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Type
 
 import pyasn1.error
 from cryptography.exceptions import InvalidSignature
@@ -32,7 +32,17 @@ from resources import (
     protectionutils,
     utils,
 )
-from resources.exceptions import BadAlg, BadMessageCheck, BadRecipientNonce, BadRequest, BadSenderNonce
+from resources.asn1_structures import PKIMessageTMP
+from resources.exceptions import (
+    BadAlg,
+    BadMessageCheck,
+    BadRecipientNonce,
+    BadRequest,
+    BadSenderNonce,
+    BadDataFormat,
+    BadAsn1Data, BadTime,
+)
+from resources.exceptions import CMPTestSuiteError
 from resources.oid_mapping import (
     get_hash_from_oid,
 )
@@ -310,12 +320,10 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
 
     """
     sender_name: rfc9480.GeneralName = asn1utils.get_asn1_value(pki_message, query="header.sender")
-
     check_is_protection_present(pki_message=pki_message, must_be_protected=must_be_protected)
 
     if protectionutils.get_protection_type_from_pkimessage(pki_message) == "sig":
         cert_name: rfc9480.Name = asn1utils.get_asn1_value(pki_message["extraCerts"][0], query="tbsCertificate.subject")
-
         are_same_names = compareutils.compare_general_name_and_name(general_name=sender_name, name=cert_name)
 
         if not are_same_names:
@@ -991,10 +999,13 @@ def check_confirmwaittime_in_generalinfo(pki_message: rfc9480.PKIMessage) -> Non
     )
 
     if confirm_wait_time is not None:
-        confirm_wait_time, rest = decoder.decode(confirm_wait_time, useful.GeneralizedTime())
+        try:
+            confirm_wait_time, rest = decoder.decode(confirm_wait_time, useful.GeneralizedTime())
+        except pyasn1.error.PyAsn1Error:
+            raise BadDataFormat(f"Can not correctly decode the confirmWaitTime.")  # pylint: disable=raise-missing-from
 
         if rest != b"":
-            raise ValueError("While decoding the confirmWaitTime was a remainder!")
+            raise BadAsn1Data("confirmWaitTime")
 
         time_obj = confirm_wait_time.asDateTime
         time_now = datetime.datetime.now(datetime.timezone.utc)
@@ -1090,7 +1101,7 @@ def check_message_time_field(
                             and the `request_time` or current time. If `None`, the time difference check is skipped.
     :param request_time: The original request time to compare against the `messageTime`. If not provided, the current
                         UTC time is used. Defaults to `None`.
-    :raises ValueError: If the `messageTime` field is required but missing, or if the time difference exceeds
+    :raises BadTime: If the `messageTime` field is required but missing, or if the time difference exceeds
                        the allowed interval.
     """
     # PKI management entity: A non-EE PKI entity, i.e., an RA or a CA.
@@ -1101,7 +1112,7 @@ def check_message_time_field(
 
         if confirm_wait_time is not None:
             if not pki_message["header"]["messageTime"].isValue:
-                raise ValueError()
+                raise BadTime("The `messageTime` field must be present if `confirmWaitTime` is set!")
 
     if allowed_interval is not None:
         msg_time: useful.GeneralizedTime = asn1utils.get_asn1_value(pki_message, query="header.messageTime")
@@ -1111,13 +1122,13 @@ def check_message_time_field(
             time_diff = time_obj - request_time
             logging.info("time difference between request and response: %s", str(time_diff.seconds))
             if time_diff.seconds > allowed_interval:
-                raise ValueError(f"The request time difference is greater then: {allowed_interval} seconds.")
+                raise BadTime(f"The request time difference is greater then: {allowed_interval} seconds.")
         else:
             time_now = datetime.datetime.now(datetime.timezone.utc)
             time_dif = (time_now - time_obj).seconds
 
             if time_dif > allowed_interval:
-                raise ValueError(f"Response time difference is greater than: {allowed_interval} seconds.")
+                raise BadTime(f"Response time difference is greater than: {allowed_interval} seconds.")
 
 
 def validate_sender_and_recipient_nonce(  # noqa D417 undocumented-param
@@ -1199,7 +1210,7 @@ def validate_transaction_id(  # noqa D417 undocumented-param
 
     """
     if not response["header"]["transactionID"].isValue:
-        raise BadRequest("The `transactionID` was not set!")
+        raise BadDataFormat("The `transactionID` was not set!")
 
     transaction_id = response["header"]["transactionID"].asOctets()
 

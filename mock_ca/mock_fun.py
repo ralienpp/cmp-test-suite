@@ -36,6 +36,10 @@ class RevokedEntryList:
 
     entries: List[RevokedEntry] = field(default_factory=list)
 
+    def __len__(self) -> int:
+        """Return the number of entries."""
+        return len(self.entries)
+
     def __post_init__(self):
         """Convert the entries to RevokedEntry instances."""
         data = []
@@ -64,6 +68,20 @@ class RevokedEntryList:
         """Return the certificates."""
         return [entry.cert for entry in self.entries]
 
+    def remove(self, entry: RevokedEntry) -> None:
+        """Remove an entry from the list."""
+        found = None
+        for x in self.entries:
+            if compare_pyasn1_objects(
+                entry.cert,
+                x.cert,
+            ):
+                found = x
+                break
+
+        if found is not None:
+            self.entries.remove(found)
+
     def add_entry(self, entry: Union[RevokedEntry, dict, List[dict]]) -> None:
         """Add a revoked entry to the list."""
         if isinstance(entry, dict):
@@ -73,7 +91,11 @@ class RevokedEntryList:
         else:
             entry = [entry]
 
-        self.entries.extend(entry)
+        for item in entry:
+            if item.reason == "removeFromCRL":
+                self.remove(item)
+            else:
+                self.entries.append(item)
 
     @property
     def compromised_keys(self) -> List[PublicKey]:
@@ -136,6 +158,14 @@ class RevokedEntryList:
                 return True
         return False
 
+    def is_revoked_by_serial_number(self, serial_number: int) -> bool:
+        """Check if the certificate with the given serial number is revoked.
+
+        :param serial_number: The serial number of the certificate.
+        :return: Whether the certificate is revoked.
+        """
+        return serial_number in self.serial_numbers
+
 
 @dataclass
 class CertRevStateDB:
@@ -144,6 +174,16 @@ class CertRevStateDB:
     rev_entry_list: RevokedEntryList = field(default_factory=RevokedEntryList)
     update_entry_list: RevokedEntryList = field(default_factory=RevokedEntryList)
     _update_eq_rev: bool = True
+
+    @property
+    def revoked_certs(self) -> List[rfc9480.CMPCertificate]:
+        """Return the revoked certificates."""
+        return self.rev_entry_list.certs
+
+    @property
+    def len_revoked_certs(self) -> int:
+        """Return the number of revoked certificates."""
+        return len(self.rev_entry_list)
 
     def get_ocsp_response(
         self,
@@ -241,6 +281,16 @@ class CertRevStateDB:
         """
         return self.rev_entry_list.is_revoked(cert) or self.update_entry_list.is_revoked(cert)
 
+    def is_revoked_by_serial_number(self, serial_number: int) -> bool:
+        """Check if the certificate with the given serial number is revoked.
+
+        :param serial_number: The serial number of the certificate.
+        :return: Whether the certificate is revoked.
+        """
+        return self.rev_entry_list.is_revoked_by_serial_number(
+            serial_number
+        ) or self.update_entry_list.is_revoked_by_serial_number(serial_number)
+
 
 @not_keyword
 def build_key_update_response_error(
@@ -254,6 +304,7 @@ def build_key_update_response_error(
     This function is not yet implemented.
 
     :param request: The PKIMessage containing the request.
+    :param text: The error message.
     :param set_header_fields: The PKIMessage containing the request.
     :param kwargs: additional key-value pairs to set in the header.
     :return: The built PKIMessage for the key update response.
@@ -269,3 +320,11 @@ def build_key_update_response_error(
         set_header_fields=set_header_fields,
         **kwargs,
     )
+
+
+@dataclass
+class CAOperationState:
+    ca_key: PrivateKeySig
+    ca_cert: rfc9480.CMPCertificate
+    pre_shared_secret: bytes
+    extensions: Optional[rfc9480.Extensions]

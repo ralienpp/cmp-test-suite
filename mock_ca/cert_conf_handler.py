@@ -21,6 +21,7 @@ from resources.exceptions import (
     CertConfirmed,
     WrongAuthority,
     WrongIntegrity,
+    BadDataFormat,
 )
 from resources.protectionutils import get_protection_type_from_pkimessage
 
@@ -33,6 +34,10 @@ class CertConfState:
     ca_responses: Dict[bytes, PKIMessageTMP] = field(default_factory=dict)
     requests: Dict[bytes, PKIMessageTMP] = field(default_factory=dict)
     already_confirmed_certs: List[bytes] = field(default_factory=list)
+
+    def contains_tx_id(self, tx_id: bytes) -> bool:
+        """Check if the transaction ID is already in the state."""
+        return tx_id in self.requests
 
     def remove_request(self, pki_message: PKIMessageTMP):
         """Remove the request from the state."""
@@ -96,7 +101,7 @@ class CertConfState:
     def get_request(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Get the request for the transaction ID."""
         if not pki_message["header"]["transactionID"].isValue:
-            raise BadRequest("The transaction ID is not set.")
+            raise BadDataFormat("The transaction ID is not set.")
 
         tx_id = pki_message["header"]["transactionID"].asOctets()
         return self.requests[tx_id]
@@ -104,7 +109,7 @@ class CertConfState:
     def validate_tx_id(self, cert_conf: PKIMessageTMP) -> None:
         """Validate the transaction ID."""
         if not cert_conf["header"]["transactionID"].isValue:
-            raise BadRequest("The transaction ID is not set.")
+            raise BadDataFormat("The transaction ID is not set.")
 
         tx_id = cert_conf["header"]["transactionID"].asOctets()
         if tx_id not in self.requests:

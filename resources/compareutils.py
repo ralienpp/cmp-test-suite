@@ -17,7 +17,7 @@ from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
 from robot.api.deco import keyword, not_keyword
 
 from resources import certutils, cmputils, convertutils, copyasn1utils, suiteenums, utils
-from resources.certextractutils import extract_extension_from_csr
+from resources import certextractutils
 from resources.oid_mapping import may_return_oid_to_name
 
 
@@ -389,7 +389,7 @@ def compare_csr_and_cert(  # noqa D417 undocumented-param
         if len(csr["certificationRequestInfo"]["attributes"]) > 1:
             raise NotImplementedError("Attributes are not yet supported.")
 
-        csr_extensions = extract_extension_from_csr(csr)
+        csr_extensions = certextractutils.extract_extension_from_csr(csr)
 
         if csr_extensions is None:
             raise NotImplementedError("Attributes are not yet supported.")

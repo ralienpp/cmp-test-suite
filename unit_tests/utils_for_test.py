@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa, x25519, x448, ed448
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import AuthorityKeyIdentifier
-from cryptography.x509.extensions import ExtensionOID, SubjectKeyIdentifier
+from cryptography.x509.extensions import ExtensionOID
 from pyasn1.type.base import Asn1Type
 
 from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
@@ -25,12 +25,14 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, tag, univ
 from pyasn1.type.tag import Tag, tagClassContext, tagFormatSimple
 from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402, rfc8018, rfc9481
+
 from resources import certutils, cmputils, utils
 from resources.asn1_structures import PKIMessageTMP
 from resources.certbuildutils import build_certificate, build_csr, prepare_extensions, \
     _prepare_basic_constraints_extension, _prepare_ski_extension, _prepare_authority_key_identifier_extension
-from resources.certutils import parse_certificate
-from resources.cmputils import parse_csr
+from resources.certutils import parse_certificate, build_cert_chain_from_dir, \
+    load_public_key_from_cert
+from resources.cmputils import parse_csr, parse_pkimessage
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import verify_signature
 from resources.envdatautils import (
@@ -94,14 +96,20 @@ def try_encode_pyasn1(data, exclude_pretty_print: bool = False) -> bytes:
         data = data.prettyPrint() if not exclude_pretty_print else str(type(data))
         raise BadAsn1Data(f"Error encoding data: {data}", overwrite=True)
 
-def try_decode_pyasn1(data, asn1_spec: Asn1Type) -> Tuple[Asn1Type, bytes]:
+@not_keyword
+def try_decode_pyasn1(data: bytes, asn1_spec: Asn1Type, for_nested: bool = False) -> Tuple[Asn1Type, bytes]:
     """Try to decode a DER-encoded data using the provided ASN.1 specification.
 
     :param data: The DER-encoded data to decode.
     :param asn1_spec: The PyASN1 specification to use for decoding.
+    :param for_nested: If True, the function will return the decoded data and not the rest of the data.
     :return: The decoded PyASN1 object.
     """
     try:
+        if for_nested:
+            out = parse_pkimessage(data)
+            _, rest = decoder.decode(data, PKIMessageTMP())
+            return out, rest
         return decoder.decode(data, asn1_spec)
     except Exception:
         raise BadAsn1Data(f"Error decoding data for {type(asn1_spec)}", overwrite=True)
@@ -279,11 +287,11 @@ def _generate_crl()-> None:
     builder = builder.issuer_name(ca_cert.subject)
 
 
-    builder = builder.last_update(datetime.datetime.now())
-    builder = builder.next_update(datetime.datetime.now() + datetime.timedelta(days=30))
+    builder = builder.last_update(datetime.now())
+    builder = builder.next_update(datetime.now() + timedelta(days=30))
 
     revoked_cert = x509.RevokedCertificateBuilder().serial_number(1234567890).revocation_date(
-        datetime.datetime.now()
+        datetime.now()
     ).build()
 
     builder = builder.add_revoked_certificate(revoked_cert)
@@ -1221,4 +1229,8 @@ def _generate_other_trusted_pki_certs():
     )
     if len(cert_chain) != 2:
         raise ValueError("Failed to create the certificate chain for the CMC RA certificate.")
+
+
+
+
 

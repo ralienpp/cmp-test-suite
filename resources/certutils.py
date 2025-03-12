@@ -1398,7 +1398,7 @@ def build_ocsp_response(
     ca_cert: rfc9480.CMPCertificate,
     responder_key: PrivateKeySig,
     status: str,
-    hash_alg: str = "sha256",
+    hash_alg: Optional[str] = "sha256",
     revocation_reason: Optional[str] = None,
     responder_cert: rfc9480.CMPCertificate = None,
     responder_hash_alg: str = "sha256",
@@ -1425,7 +1425,8 @@ def build_ocsp_response(
     """
     ca_cert = _convert_to_crypto_lib_cert(ca_cert)
     builder = ocsp.OCSPResponseBuilder()
-    hash_instance = oid_mapping.hash_name_to_instance(hash_alg)
+    if responder_hash_alg is not None:
+        responder_hash_alg = oid_mapping.hash_name_to_instance(responder_hash_alg)
 
     cert = _convert_to_crypto_lib_cert(cert)
     cert_status = _get_cert_status(status)
@@ -1438,7 +1439,7 @@ def build_ocsp_response(
     builder = builder.add_response(
         cert=cert,
         issuer=ca_cert,
-        algorithm=hash_instance,
+        algorithm=responder_hash_alg,
         cert_status=cert_status,
         revocation_reason=reason,
         this_update=datetime.now(),
@@ -1465,8 +1466,10 @@ def build_ocsp_response(
 
     builder = builder.add_extension(x509.OCSPNonce(nonce), critical=False)
 
-    hash_instance = oid_mapping.hash_name_to_instance(responder_hash_alg)
-    return builder.sign(responder_key, hash_instance)
+    if hash_alg is not None:
+        hash_alg = oid_mapping.hash_name_to_instance(hash_alg)
+
+    return builder.sign(responder_key, hash_alg)
 
 
 # TODO remove to pyasn1 function.

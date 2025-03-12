@@ -23,12 +23,13 @@ from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1.type.base import Asn1Type
-from pyasn1_alt_modules import rfc4211, rfc5280, rfc5652, rfc6955, rfc9480, rfc9629
+from pyasn1_alt_modules import rfc4211, rfc5652, rfc6955, rfc9480, rfc9629
 from robot.api.deco import keyword, not_keyword
 
 from resources import asn1utils, ca_kga_logic, cmputils, compareutils, envdatautils, keyutils, utils
 from resources.asn1_structures import ChallengeASN1, PKIMessageTMP
 from resources.certutils import load_public_key_from_cert
+from resources.compareutils import is_null_dn
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_aes_cbc, compute_hmac, perform_ecdh
 from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
@@ -226,12 +227,6 @@ def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
     popo_structure = rfc4211.ProofOfPossession()
     popo_structure[option] = popo_priv_key
     return popo_structure
-
-
-@not_keyword
-def is_null_dn(name: rfc5280.Name) -> bool:
-    """Check if the given Name is a NULL-DN, meaning it has no RDNs."""
-    return encoder.encode(name) == b"\x30\x00"
 
 
 # TODO verify with Alex, if this functions does too much,

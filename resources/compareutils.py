@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pyasn1.codec.der import encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
-from robot.api.deco import keyword
+from robot.api.deco import keyword, not_keyword
 
 from resources import certutils, cmputils, convertutils, copyasn1utils, suiteenums, utils
 from resources.certextractutils import extract_extension_from_csr
@@ -479,3 +479,11 @@ def compare_general_name_and_name(  # noqa D417 # undocumented-param
         f"GeneralName type '{general_name.getName()}' is not supported. Supported types are: "
         "'directoryName' and 'rfc822Name'."
     )
+
+
+@not_keyword
+def is_null_dn(name: rfc5280.Name) -> bool:
+    """Check if the given Name is a NULL-DN, meaning it has no RDNs."""
+    copy_name = rfc5280.Name()
+    copy_name["rdnSequence"] = name["rdnSequence"]
+    return encoder.encode(copy_name) == b"\x30\x00"

@@ -12,6 +12,8 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import pyasn1.error
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.dh import DHPublicKey
+from cryptography.hazmat.primitives.asymmetric.dsa import DSAPublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from pq_logic import pq_compute_utils, py_verify_logic
 from pq_logic.combined_factory import CombinedKeyFactory
@@ -37,13 +39,29 @@ from resources import (
 )
 from resources.asn1_structures import CAKeyUpdContent, CertResponseTMP, ChallengeASN1, PKIMessageTMP
 from resources.certextractutils import get_extension, get_field_from_certificate
+from resources.cmputils import prepare_pkistatusinfo
 from resources.convertutils import copy_asn1_certificate, str_to_bytes, subjectPublicKeyInfo_from_pubkey
 from resources.cryptoutils import compute_aes_cbc, perform_ecdh
-from resources.exceptions import BadAsn1Data, BadCertTemplate, BadPOP, BadRequest, InvalidAltSignature, NotAuthorized
-from resources.extra_issuing_logic import is_null_dn
+from resources.exceptions import (
+    BadAsn1Data,
+    BadCertTemplate,
+    BadPOP,
+    BadRequest,
+    CMPTestSuiteError,
+    InvalidAltSignature,
+    NotAuthorized,
+    BadCertId,
+    CertRevoked,
+    AddInfoNotAvailable,
+    BadMessageCheck,
+    SignerNotTrusted,
+)
+from resources.compareutils import is_null_dn
 from resources.oid_mapping import compute_hash, get_hash_from_oid, may_return_oid_to_name, sha_alg_name_to_oid
 from resources.prepareutils import prepare_name
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
+from resources.utils import get_openssl_name_notation
+from unit_tests.utils_for_test import try_decode_pyasn1
 
 
 def _prepare_issuer_and_ser_num_for_challenge(cert_req_id: int) -> rfc5652.IssuerAndSerialNumber:

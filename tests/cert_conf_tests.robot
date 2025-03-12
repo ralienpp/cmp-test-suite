@@ -191,7 +191,7 @@ CA MUST Reject certConf With A Different HashAlg But Version 2
     [Documentation]    According to RFC 9483 Section 4.1, the certificate hash in the CertStatus must use the same
     ...    hash algorithm as the one used by the CA to sign the certificate. If the hash algorithm
     ...    differs and the `pvno` in the PKIHeader is set to 2, the CA MUST detect the mismatch and
-    ...    respond with an error, optionally including the failInfo `badPOP` or `badRequest`.
+    ...    respond with an error, optionally including the failInfo `badCertId`.
     [Tags]    negative    popo
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert}=    Get Cert From PKIMessage    ${response}
@@ -209,7 +209,7 @@ CA MUST Reject certConf With A Different HashAlg But Version 2
     ...    cert=${ISSUED_CERT}
     ${response}=    Exchange PKIMessage    ${protected_cert_conf}
     PKIMessage Body Type Must Be    ${response}    error
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badPOP,badRequest    exclusive=True
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badCertId    exclusive=True
 
 ### protection
 

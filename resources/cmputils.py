@@ -46,7 +46,7 @@ from resources import (
     protectionutils,
     utils,
 )
-from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP
+from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP, PKIMessagesTMP, InfoTypeAndValueAsn1
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.exceptions import BadAsn1Data
 from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKey, Strint
@@ -368,6 +368,7 @@ def build_p10cr_from_csr(  # noqa D417 undocumented-param
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
         pvno=int(params.get("pvno", 2)),
+        for_mac=params.get("for_mac", False),
     )
 
     # Prepare PKIBody of type p10cr
@@ -1270,7 +1271,7 @@ def build_key_update_request(  # noqa D417 undocumented-param
         logging.info("%s", controls.prettyPrint())
 
     controls = controls or params.get("controls")
-    cert_request_msg = prepare_cert_req_msg(
+    cert_req_msg = cert_req_msg or prepare_cert_req_msg(
         private_key=signing_key,
         common_name=common_name,
         cert_req_id=params.get("cert_req_id", 0),
@@ -1284,7 +1285,6 @@ def build_key_update_request(  # noqa D417 undocumented-param
     )
 
     pki_body = _prepare_cert_req_msg_body("kur")
-    pki_body["kur"].append(cert_request_msg)
     pki_body["kur"].extend(utils.ensure_list(cert_req_msg))
 
     pki_message = prepare_pki_message(
@@ -3083,6 +3083,8 @@ def patch_messageTime(  # noqa D417 undocumented-param pylint: disable=invalid-n
     if new_time is not None:
         if isinstance(new_time, str):
             new_time = DateTime.convert_date(new_time)
+        if isinstance(new_time, str):
+           new_time = datetime.fromisoformat(new_time)
 
     new_time = new_time or datetime.now(timezone.utc)
     message_time = useful.GeneralizedTime().fromDateTime(new_time)
@@ -3167,8 +3169,11 @@ def patch_senderkid(  # noqa D417 undocumented-param
         if sender_kid is None:
             raise ValueError("The certificate did not contain the SubjectKeyIdentifier extension!")
 
-    elif sender_kid is not None:
+    if sender_kid is not None:
         sender_kid = convertutils.str_to_bytes(sender_kid)
+        if negative:
+            sender_kid = utils.manipulate_first_byte(sender_kid)
+
     elif for_mac:
         sender_kid = _patch_senderkid_for_mac(pki_message["header"]["sender"], negative=negative)
 
@@ -3418,7 +3423,7 @@ def build_cmp_revoke_request(  # noqa D417 undocumented-param
     crl_entry_details: Optional[rfc9480.Extensions] = None,
     cert_template: Optional[rfc9480.CertTemplate] = None,
     exclude_cert_temp_vals: str = "extensions,validity,publicKey,subject",
-    exclude_cert_template: bool = False,
+    exclude_crl_entry: bool = False,
     **params,
 ) -> PKIMessageTMP:
     """Build a CMP revocation request (`rr`) as defined in RFC 9483 Section 4.2.
@@ -3439,8 +3444,7 @@ def build_cmp_revoke_request(  # noqa D417 undocumented-param
         excludes certain fields.
         - `exclude_cert_temp_vals`: A comma-separated string of certificate template fields to exclude, such as \
         "extensions,validity,publicKey,subject".
-        - `exclude_cert_template`: If `True`, excludes the CertTemplate from the revocation request. \
-        Defaults to `False`.
+        - `exclude_crl_entry`: Whether to exclude the CRL entry from the `RevDetails`. Defaults to `False`.
         - The `PKIHeader` fields can also be set.
 
     Returns:
@@ -3471,7 +3475,7 @@ def build_cmp_revoke_request(  # noqa D417 undocumented-param
         serial_number=serial_number,
         crl_entry_details=crl_entry_details,
         cert_template=cert_template,
-        exclude_cert_template=exclude_cert_template,
+        exclude_crl_entry=exclude_crl_entry,
         exclude_cert_temp_vals=exclude_cert_temp_vals,
     )
 

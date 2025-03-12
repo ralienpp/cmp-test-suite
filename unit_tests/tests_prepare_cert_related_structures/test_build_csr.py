@@ -54,7 +54,7 @@ class TestBuildCSR(unittest.TestCase):
         self.assertEqual(csr_out.tbs_certrequest_bytes,
                          encoder.encode(pyasn1_csr["certificationRequestInfo"]))
 
-
+        pyasn1_csr["signatureAlgorithm"]["parameters"] = univ.Null("")
         der_data_pyasn1 = encoder.encode(pyasn1_csr)
         # if the test case fails in the future, the reason might be,
         # because rsaEncryption removed the univ.NUll("").
@@ -78,6 +78,9 @@ class TestBuildCSR(unittest.TestCase):
                                signing_key=self.private_key_rsa,
                                extensions=extensions, hash_alg="sha256")
 
+        # The `cryptography` library does use the deprecated univ.Null for the
+        # signature algorithm.
+        pyasn1_csr["signatureAlgorithm"]["parameters"] = univ.Null("")
 
         der_data_pyasn1 = encoder.encode(pyasn1_csr)
         self.assertEqual(der_data_crypto_lib.hex(), der_data_pyasn1.hex())

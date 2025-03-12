@@ -539,3 +539,40 @@ def generate_key_based_on_alg_id(alg_id: rfc5280.AlgorithmIdentifier) -> Private
         raise NotImplementedError("Composite keys are not supported yet.")
 
     raise UnknownOID(oid=oid, extra_info="For generating a private key.")
+
+
+@keyword(name="Get PublicKey From CertTemplate")
+def load_public_key_from_cert_template(  # noqa: D417 undocumented param
+    cert_template: rfc4211.CertTemplate, must_be_present: bool = True
+) -> Optional[PublicKey]:
+    """Extract and load the public key inside a `CertTemplate`structure.
+
+    Arguments:
+    ---------
+        - `cert_template`: The `CertTemplate`structure to extract the key from.
+        - `must_be_present`: Whether the public key must be present. Defaults to `True`.
+
+    Returns:
+    -------
+        - The loaded public key.
+
+    Raises:
+    ------
+       - `BadCertTemplate`: If the `CertTemplate`structure is invalid.
+
+    Examples:
+    --------
+    | ${pub_key}= | Get PublicKey From CertTemplate | ${cert_template} |
+    | ${pub_key}= | Get PublicKey From CertTemplate | ${cert_template} | False
+
+    """
+    if not cert_template["publicKey"].isValue and must_be_present:
+        raise BadCertTemplate("The expected public key was not inside the certificate template.")
+    if not cert_template["publicKey"].isValue:
+        return None
+
+    spki = cert_template["publicKey"]
+    old_spki = rfc5280.SubjectPublicKeyInfo()
+    old_spki["algorithm"] = spki["algorithm"]
+    old_spki["subjectPublicKey"] = spki["subjectPublicKey"]
+    return load_public_key_from_spki(old_spki)

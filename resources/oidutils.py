@@ -592,8 +592,12 @@ id_ce_altSignatureValue = rfc5280.id_ce + (74,)
 
 EXTENSION_NAME_2_OID = {
     "ski": rfc5280.id_ce_subjectKeyIdentifier,
+    "aia": rfc5280.id_pe_authorityInfoAccess,
     "key_usage": rfc5280.id_ce_keyUsage,
     "eku": rfc5280.id_ce_extKeyUsage,
+    "basic_constraints": rfc5280.id_ce_basicConstraints,
+    "aki": rfc5280.id_ce_authorityKeyIdentifier,
+    "san": rfc5280.id_ce_subjectAltName,
     "dcd": id_ce_deltaCertificateDescriptor,
     "alt_sig_alg": id_ce_altSignatureAlgorithm,
     "alt_sig_val": id_ce_altSignatureValue,
@@ -607,3 +611,4 @@ EXTENSION_NAME_2_OID = {
 EXTENSION_OID_2_NAME = {y: x for x, y in EXTENSION_NAME_2_OID.items()}
 
 ALL_KNOWN_PROTECTION_OIDS.update(EXTENSION_OID_2_NAME)
+ALL_KNOWN_NAME_2_OID = {y: x for x, y in ALL_KNOWN_PROTECTION_OIDS.items()}

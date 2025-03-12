@@ -300,7 +300,7 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
                 raise BadAlg("The public key was not of the same type as the,"
                              "algorithm identifier implied.")
             else:
-                _check_trad_alg_id(public_key, str(oid))
+                _check_trad_alg_id(public_key, str(oid), hash_alg=hash_alg)
 
 
         cryptoutils.verify_signature(public_key=public_key, signature=signature, data=data, hash_alg=hash_alg)

@@ -12,7 +12,8 @@ from resources.certbuildutils import build_certificate
 from resources.certutils import parse_certificate
 from resources.cmputils import build_ir_from_key, get_cert_from_pkimessage, get_cert_response_from_pkimessage
 from resources.keyutils import generate_key
-from unit_tests.utils_for_test import compare_pyasn1_objects, try_decode_pyasn1, try_encode_pyasn1
+from unit_tests.utils_for_test import compare_pyasn1_objects, try_encode_pyasn1
+from resources.asn1utils import try_decode_pyasn1
 
 
 class TestBuildSunHybridCertFromRequest(unittest.TestCase):

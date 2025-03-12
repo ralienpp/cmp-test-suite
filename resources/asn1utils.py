@@ -54,13 +54,17 @@ A few points to make it easier to navigate through PyASN1's own stringified nota
 
 import logging
 from datetime import datetime
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, univ
+from pyasn1.type.base import Asn1Type
 from pyasn1.type.univ import BitString
 from robot.api.deco import not_keyword
 
+from resources.asn1_structures import PKIMessageTMP
+from resources.cmputils import parse_pkimessage
+from resources.exceptions import BadAsn1Data
 from resources.typingutils import Strint
 
 
@@ -619,3 +623,22 @@ def encode_to_der(  # noqa D417 undocumented-param
 
     """
     return encoder.encode(asn1_structure)
+
+
+@not_keyword
+def try_decode_pyasn1(data: bytes, asn1_spec: Asn1Type, for_nested: bool = False) -> Tuple[Asn1Type, bytes]:
+    """Try to decode a DER-encoded data using the provided ASN.1 specification.
+
+    :param data: The DER-encoded data to decode.
+    :param asn1_spec: The PyASN1 specification to use for decoding.
+    :param for_nested: If True, the function will return the decoded data and not the rest of the data.
+    :return: The decoded PyASN1 object.
+    """
+    try:
+        if for_nested:
+            out = parse_pkimessage(data)
+            _, rest = decoder.decode(data, PKIMessageTMP())
+            return out, rest
+        return decoder.decode(data, asn1_spec)
+    except Exception:
+        raise BadAsn1Data(f"Error decoding data for {type(asn1_spec)}", overwrite=True)

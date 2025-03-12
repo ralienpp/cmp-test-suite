@@ -18,7 +18,8 @@ from resources.certutils import parse_certificate
 from resources.cmputils import prepare_cert_req_msg
 from resources.keyutils import load_private_key_from_file, generate_key
 from resources.utils import load_and_decode_pem_file
-from unit_tests.utils_for_test import compare_pyasn1_objects, try_encode_pyasn1, try_decode_pyasn1
+from unit_tests.utils_for_test import compare_pyasn1_objects, try_encode_pyasn1
+from resources.asn1utils import try_decode_pyasn1
 
 
 class TestPrepareEncrCertForRequest(unittest.TestCase):

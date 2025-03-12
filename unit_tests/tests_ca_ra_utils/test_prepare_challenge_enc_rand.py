@@ -10,7 +10,8 @@ from resources.ca_ra_utils import prepare_challenge_enc_rand
 from resources.certutils import parse_certificate
 from resources.keyutils import load_private_key_from_file
 from resources.utils import load_and_decode_pem_file
-from unit_tests.utils_for_test import try_encode_pyasn1, try_decode_pyasn1
+from unit_tests.utils_for_test import try_encode_pyasn1
+from resources.asn1utils import try_decode_pyasn1
 
 
 class TestPrepareChallengeEncRand(unittest.TestCase):

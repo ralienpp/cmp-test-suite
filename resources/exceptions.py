@@ -4,7 +4,6 @@
 
 """Contains Custom Exceptions for pq_logic."""
 
-from abc import ABC
 from typing import List, Optional, Union
 
 from cryptography.exceptions import InvalidSignature
@@ -14,7 +13,7 @@ from pyasn1_alt_modules import rfc9480
 from resources.oid_mapping import may_return_oid_to_name
 
 
-class CMPTestSuiteError(Exception, ABC):
+class CMPTestSuiteError(Exception):
     """Base class for CMP Test Suite errors."""
 
     failinfo: str = "systemFailure"
@@ -31,12 +30,12 @@ class CMPTestSuiteError(Exception, ABC):
         """
         self.message = message
         self.failinfo = failinfo or self.failinfo
-
+        self.error_details = []
         if error_details is not None:
             if isinstance(error_details, str):
                 self.error_details = [error_details]
 
-        self.error_details = error_details or []
+        self.error_details += error_details if error_details is not None else []
         super().__init__(message)
 
     @classmethod
@@ -44,9 +43,12 @@ class CMPTestSuiteError(Exception, ABC):
         """Return the failinfo."""
         return cls.failinfo
 
-    @property
     def get_error_details(self) -> List[str]:
         """Return the error details."""
+
+        if isinstance(self.error_details, str):
+            return [self.error_details]
+
         return self.error_details
 
 
@@ -127,9 +129,22 @@ class BadRequest(CMPTestSuiteError):
     failinfo = "badRequest"
     bit_num = 2
 
+class BadTime(CMPTestSuiteError):
+    """Raised when the time is invalid.
+
+    RFC9483 Section 3.6.4: "messageTime was not sufficiently close to the system time,
+    as defined by local policy."
+    """
+
+    failinfo = "badTime"
+    bit_num = 3
+
 
 class BadCertId(CMPTestSuiteError):
-    """Raised when the certificate is not known."""
+    """Raised when the certificate is not known.
+
+    RFC9483 Section 3.6.4: "A kur, certConf, or rr message references an unknown certificate."
+    """
 
     failinfo = "badCertId"
     bit_num = 4
@@ -187,18 +202,13 @@ class WrongAuthority(CMPTestSuiteError):
 
 
 class BadPOP(CMPTestSuiteError):
-    """Raised when the Proof-of-Possession is invalid."""
+    """Raised when the Proof-of-Possession is invalid.
+
+    RFC9483 Section 3.6.4: "An ir/cr/kur/p10cr contains an invalid proof-of-possession."
+    """
 
     failinfo = "badPOP"
     bit_num = 9
-
-    def __init__(self, message: str):
-        """Initialize the exception with the message.
-
-        :param message: The message to display.
-        """
-        self.message = message
-        super().__init__(message)
 
 
 class BadAltPOP(CMPTestSuiteError):
@@ -206,14 +216,6 @@ class BadAltPOP(CMPTestSuiteError):
 
     failinfo = "badPOP"
     bit_num = 9
-
-    def __init__(self, message: str):
-        """Initialize the exception with the message.
-
-        :param message: The message to display.
-        """
-        self.message = message
-        super().__init__(message)
 
 
 class CertRevoked(CMPTestSuiteError):
@@ -282,20 +284,18 @@ class TransactionIdInUse(CMPTestSuiteError):
     bit_num = 21
 
 
+class UnsupportedVersion(CMPTestSuiteError):
+    """Raised when the version is not supported."""
+
+    failinfo = "unsupportedVersion"
+    bit_num = 22
+
+
 class NotAuthorized(CMPTestSuiteError):
     """Raised when the user is not authorized to perform the action."""
 
     failinfo = "notAuthorized"
     bit_num = 23
-
-    def __init__(self, message: str):
-        """Initialize the exception with the message.
-
-        :param message: The message to display.
-        """
-        self.message = message
-        super().__init__(message)
-
 
 def get_pki_error_message_from_exception(pki_message: rfc9480.PKIMessage, exception: CMPTestSuiteError):
     """Return a PKI Error message from the exception.

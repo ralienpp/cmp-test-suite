@@ -186,7 +186,11 @@ def prepare_pki_message(
     pki_message["header"] = pki_header
 
     if kwargs.get("for_mac", False):
-        pki_message = patch_sender(pki_message, sender_name=sender)
+        if "sender" not in exclude_fields:
+            pki_message = patch_sender(pki_message, sender_name=sender)
+
+        if "sender_kid" not in exclude_fields:
+            pki_message = patch_senderkid(pki_message, for_mac=True)
 
     return pki_message
 

@@ -7,7 +7,7 @@
 Will be removed as soon as the draft becomes an RFC.
 """
 
-from pyasn1.type import constraint, namedtype, tag, univ
+from pyasn1.type import constraint, namedtype, namedval, tag, univ, useful
 from pyasn1_alt_modules import rfc5280, rfc9480
 
 
@@ -277,8 +277,7 @@ class PKIBodyTMP(univ.Choice):
         ),
         namedtype.NamedType(
             "ckuann",
-            rfc9480.CAKeyUpdAnnContent().subtype(
-                explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 15)
+            CAKeyUpdContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 15)
             ),
         ),
         namedtype.NamedType(

@@ -354,56 +354,19 @@ def validate_oob_cert_hash(  # noqa: D417 Missing argument descriptions in the d
     certutils.validate_certificate_pkilint(ca_cert)
 
 
-def _prepare_cert_with_cert(
-    cert: rfc9480.CMPCertificate,
-    signing_key: PrivateKeySig,
-    use_rsa_pss: bool = True,
-    hash_alg: str = "sha256",
-    issuer: Optional[rfc9480.Name] = None,
-) -> rfc9480.CMPCertificate:
-    """Prepare a `CMPCertificate` with a `CMPCertificate`
-
-    :param cert: The `CMPCertificate` to create the new one from and sign.
-    :param signing_key: The key to sign the certificate with.
-    :param use_rsa_pss: Whether to use RSA-PSS or not. Defaults to True.
-    :param hash_alg: The hash algorithm to use (e.g. "sha256").
-    :param issuer: The certificate issuer to sign the certificate with.
-    :return: The populated `CMPCertificate` structure.
-    :raises ValueError: If the signing key is not allowed to be used for signing.
-    """
-    cert_with_cert = rfc9480.CMPCertificate()
-    cert = copy_asn1_certificate(cert, cert_with_cert)
-
-    if issuer is not None:
-        cert["tbsCertificate"]["issuer"] = issuer
-
-    sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=signing_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
-
-    cert["tbsCertificate"]["signature"] = sig_alg
-    cert_with_cert["tbsCertificate"] = cert["tbsCertificate"]
-
-    cert_with_cert["signature"] = certbuildutils.sign_cert(
-        signing_key, cert=cert, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss
-    )
-    return cert_with_cert
-
-
-# New structure as of RFC4210bis-15.
-
-
 @not_keyword
-def build_ckuann(
-    new_cert: rfc9480.CMPCertificate,
-    old_cert: rfc9480.CMPCertificate,
-    new_key,
-    old_key,
+def build_cmp_ckuann(
+    root_ca_key_update: Optional[rfc9480.RootCaKeyUpdateValue] = None,
+    new_cert: Optional[rfc9480.CMPCertificate] = None,
+    old_cert: Optional[rfc9480.CMPCertificate] = None,
+    new_key: Optional[PrivateKey] = None,
+    old_key: Optional[PrivateKey] = None,
     use_new: bool = False,
-    use_root_ca_key_update: bool = False,
     sender: str = "",
     recipient: str = "",
     pvno: int = 3,
     **kwargs,
-):
+) -> PKIMessageTMP:
     """Build a `CAKeyUpdAnnContent` PKIMessage.
 
     :param new_cert: The new CA certificate to be installed as trust anchor.
@@ -411,43 +374,38 @@ def build_ckuann(
     :param new_key: The private key corresponding to the new CA certificate.
     :param old_key: The private key corresponding to the old CA certificate.
     :param use_new: Whether to use the new structure or the old one.
-    :param use_root_ca_key_update: Whether to use the root CA key update or not.
     :param sender: The sender of the message.
     :param recipient: The recipient of the message.
     :param pvno: The version of the message.
+    :param root_ca_key_update: The root CA key update value. Defaults to `None`.
     :return: The populated `PKIMessage` structure.
     """
-    body = rfc9480.PKIBody()
+    body = PKIBodyTMP()
 
-    # if ckuann, the pvno cmp2021 (3) MUST be used.
-    # for RootCaKeyUpdateContent else pvno 2
-    body_content = rfc9480.CAKeyUpdAnnContent().subtype(
-        explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 15)
-    )
+    if root_ca_key_update is None and not (new_cert and old_cert and new_key and old_key):
+        raise ValueError(
+            "Either `root_ca_key_update` or `new_cert`, `old_cert`, `new_key`, and `old_key` must be provided."
+        )
 
-    body["ckuann"] = body_content
+    if root_ca_key_update is None:
+        root_ca_key_update = prepare_new_root_ca_certificate(
+            new_cert=new_cert,
+            old_cert=old_cert,
+            new_priv_key=new_key,
+            old_priv_key=old_key,
+            hash_alg=kwargs.get("hash_alg", "sha256"),
+            use_rsa_pss=kwargs.get("use_rsa_pss", True),
+            use_pre_hash=kwargs.get("use_pre_hash", False),
+        )
 
-    if not certutils.check_is_cert_signer(new_cert, new_cert):
-        new_with_new = _prepare_cert_with_cert(new_cert, signing_key=new_key)
+    if use_new:
+        body["ckuann"]["cAKeyUpdAnnV3"]["newWithNew"] = root_ca_key_update["newWithNew"]
+        body["ckuann"]["cAKeyUpdAnnV3"]["oldWithNew"] = root_ca_key_update["oldWithNew"]
+        body["ckuann"]["cAKeyUpdAnnV3"]["newWithOld"] = root_ca_key_update["newWithOld"]
     else:
-        new_with_new = new_cert
-
-    old_with_new = _prepare_cert_with_cert(old_cert, signing_key=new_key, issuer=new_cert["tbsCertificate"]["issuer"])
-    new_with_old = _prepare_cert_with_cert(new_cert, issuer=old_cert["tbsCertificate"]["issuer"], signing_key=old_key)
-
-    if not use_new:
-        body_content["newWithNew"] = new_with_new
-        body_content["oldWithNew"] = old_with_new
-        body_content["newWithOld"] = new_with_old
-
-    else:
-        body_content = CAKeyUpdContent().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 15))
-
-        body_name = "cAKeyUpdAnnV3" if use_root_ca_key_update else "cAKeyUpdAnnV2"
-
-        body_content[body_name]["newWithNew"] = new_with_new
-        body_content[body_name]["oldWithNew"] = old_with_new
-        body_content[body_name]["newWithOld"] = new_with_old
+        body["ckuann"]["cAKeyUpdAnnV2"]["newWithNew"] = root_ca_key_update["newWithNew"]
+        body["ckuann"]["cAKeyUpdAnnV2"]["oldWithNew"] = copy_asn1_certificate(root_ca_key_update["oldWithNew"])
+        body["ckuann"]["cAKeyUpdAnnV2"]["newWithOld"] = copy_asn1_certificate(root_ca_key_update["newWithOld"])
 
     pki_message = cmputils.prepare_pki_message(pvno=pvno, sender=sender, recipient=recipient, **kwargs)
     pki_message["body"] = body
@@ -2261,3 +2219,264 @@ def get_popo_from_pkimessage(request: rfc9480.PKIMessage, index: int = 0) -> rfc
         raise ValueError(f"The PKIMessage was not a certification request. Got body name: {body_name}")
 
     return request["body"][body_name][index]["popo"]
+
+
+@keyword(name="Prepare New CA Certificate")
+def prepare_new_ca_certificate(
+    old_cert: rfc9480.CMPCertificate,
+    new_priv_key: PrivateKeySig,
+    hash_alg: Optional[str] = "sha256",
+    use_rsa_pss: bool = True,
+    use_pre_hash: bool = False,
+    bad_sig: bool = False,
+) -> rfc9480.CMPCertificate:
+    """Prepare a new CA certificate.
+
+    Arguments:
+    ---------
+        - `old_cert`: The old CA certificate.
+        - `new_priv_key`: The private key of the new CA certificate.
+        - `hash_alg`: The hash algorithm to use for the signature. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for the signature. Defaults to `True`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite signature key. \
+        Defaults to `False`.
+        - `bad_sig`: Whether to generate a bad signature. Defaults to `False`.
+
+    Returns:
+    -------
+        - The new CA certificate.
+
+    Raises:
+    ------
+        - ValueError: If the private key cannot be used for signing.
+
+    Examples:
+    --------
+    | ${new_ca_cert} | Prepare New CA Certificate | ${old_ca_cert} | ${new_priv_key} |
+    | ${new_ca_cert} | Prepare New CA Certificate | ${old_ca_cert} | ${new_priv_key} | sha256 |
+
+    """
+    new_cert = rfc9480.CMPCertificate()
+
+    new_cert = copy_asn1_certificate(old_cert, new_cert)
+
+    # Prepare the new certificate
+    new_cert["tbsCertificate"]["validity"] = certbuildutils.default_validity()
+    new_cert["tbsCertificate"]["serialNumber"] = x509.random_serial_number()
+    new_cert["tbsCertificate"]["extensions"] = rfc9480.Extensions().subtype(
+        explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 3)
+    )
+
+    extn = certbuildutils.prepare_extensions(
+        key=new_priv_key.public_key(),
+        ca_key=new_priv_key.public_key(),
+        critical=False,
+    )
+    new_cert["tbsCertificate"]["extensions"].extend(extn)
+
+    new_cert["tbsCertificate"]["subjectPublicKeyInfo"] = subjectPublicKeyInfo_from_pubkey(new_priv_key.public_key())
+
+    sig_alg = certbuildutils.prepare_sig_alg_id(
+        new_priv_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss, use_pre_hash=use_pre_hash
+    )
+
+    new_cert["tbsCertificate"]["signature"] = sig_alg
+    new_cert["signatureAlgorithm"] = sig_alg
+    der_data = encoder.encode(new_cert["tbsCertificate"])
+
+    sig = sign_data_with_alg_id(
+        data=der_data,
+        key=new_priv_key,
+        alg_id=sig_alg,
+    )
+    if bad_sig:
+        sig = utils.manipulate_bytes_based_on_key(sig, key=new_priv_key)
+
+    new_cert["signature"] = univ.BitString.fromOctetString(sig)
+
+    return new_cert
+
+
+def prepare_old_with_new_cert(
+    old_cert: rfc9480.CMPCertificate,
+    new_cert: rfc9480.CMPCertificate,
+    new_priv_key: PrivateKeySig,
+    hash_alg: str = "sha256",
+    use_rsa_pss: bool = True,
+    use_pre_hash: bool = True,
+    bad_sig: bool = False,
+) -> rfc9480.CMPCertificate:
+    """Prepare the old certificate signed by the new one.
+
+    Sign the old certificate with the new private key.
+
+    Arguments:
+    ---------
+        - `old_cert`: The old certificate.
+        - `new_cert`: The new certificate.
+        - `new_priv_key`: The private key of the new certificate.
+        - `hash_alg`: The hash algorithm to use for the signature. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for the signature. Defaults to `True`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite signature key. \
+        Defaults to `False`.
+        - `bad_sig`: Whether to generate a bad signature. Defaults to `False`.
+
+    Returns:
+    -------
+        - The old certificate signed by the new one.
+
+    Examples:
+    --------
+    | ${old_with_new_cert} | Prepare Old With New Cert | ${old_cert} | ${new_cert} | ${new_priv_key} |
+    | ${old_with_new_cert} | Prepare Old With New Cert | ${old_cert} | ${new_cert} | ${new_priv_key} | sha256 |
+
+    """
+    old_with_new_cert = copy_asn1_certificate(old_cert, rfc9480.CMPCertificate())
+    old_with_new_cert["tbsCertificate"]["issuer"] = new_cert["tbsCertificate"]["subject"]
+    return certbuildutils.sign_cert(
+        cert=old_with_new_cert,
+        signing_key=new_priv_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        use_pre_hash=use_pre_hash,
+        bad_sig=bad_sig,
+    )
+
+
+def prepare_new_root_ca_certificate(
+    old_cert: rfc9480.CMPCertificate,
+    old_priv_key: PrivateKeySig,
+    new_priv_key: PrivateKeySig,
+    hash_alg: str = "sha256",
+    use_rsa_pss: bool = True,
+    use_pre_hash: bool = True,
+    bad_sig: bool = False,
+    bad_sig_old: bool = False,
+    bad_sig_new: bool = False,
+    new_cert: Optional[rfc9480.CMPCertificate] = None,
+    include_old_with_new: bool = True,
+) -> rfc9480.RootCaKeyUpdateValue:
+    """Prepare a new `RootCaKeyUpdateValue` structure containing the new root CA certificate.
+
+    Used to simulate a root CA key update message.
+
+    Arguments:
+    ---------
+        - `old_cert`: The old root CA certificate.
+        - `old_priv_key`: The private key of the old root CA certificate.
+        - `new_priv_key`: The private key of the new root CA certificate.
+        - `hash_alg`: The hash algorithm to use for the signature. Defaults to "sha256".
+        - `use_rsa_pss`: Whether to use RSA-PSS for the signature. Defaults to `True`.
+        - `use_pre_hash`: Whether to use the pre-hash version for a composite signature key. \
+        Defaults to `False`.
+        - `bad_sig`: Whether to generate a bad signature for the new CA certificate. Defaults to `False`.
+        - `bad_sig_old`: Whether to generate a bad signature for the old certificate signed by the new one. \
+        Defaults to `False`.
+        - `bad_sig_new`: Whether to generate a bad signature for the new certificate signed by the old one. \
+        Defaults to `False`.
+        - `new_cert`: The new root CA certificate. Defaults to `None`.
+        - `include_old_with_new`: Whether to include the old certificate signed by the new one. Defaults to `True`.
+
+    Returns:
+    -------
+        - The populated `RootCaKeyUpdateValue` structure.
+
+    Raises:
+    ------
+        - ValueError: If the signature algorithm is not supported or the private key is not supported.
+
+    Examples:
+    --------
+    | ${root_ca}= | Prepare New Root CA Certificate | ${old_cert} | ${old_priv_key} | ${new_priv_key} |
+    | ${root_ca}= | Prepare New Root CA Certificate | ${old_cert} | ${old_priv_key} | ${new_priv_key} | sha256 | \
+    use_rsa_pss=True |
+    | ${root_ca}= | Prepare New Root CA Certificate | ${old_cert} | ${old_priv_key} | ${new_priv_key} | \
+    new_cert=${new_cert} |
+
+    """
+    new_cert = new_cert or prepare_new_ca_certificate(
+        old_cert=old_cert,
+        new_priv_key=new_priv_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        use_pre_hash=use_pre_hash,
+        bad_sig=bad_sig,
+    )
+
+    new_with_old_cert = prepare_old_with_new_cert(
+        old_cert=new_cert,
+        new_cert=old_cert,
+        new_priv_key=old_priv_key,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        use_pre_hash=use_pre_hash,
+        bad_sig=bad_sig_new,
+    )
+    old_with_new_cert = None
+    if include_old_with_new:
+        old_with_new_cert = prepare_old_with_new_cert(
+            old_cert=old_cert,
+            new_cert=new_cert,
+            new_priv_key=new_priv_key,
+            hash_alg=hash_alg,
+            use_rsa_pss=use_rsa_pss,
+            use_pre_hash=use_pre_hash,
+            bad_sig=bad_sig_old,
+        )
+
+    return prepare_root_ca_key_update(
+        new_with_new_cert=new_cert,
+        new_with_old_cert=new_with_old_cert,
+        old_with_new_cert=old_with_new_cert,
+    )
+
+
+@keyword(name="Prepare RootCAKeyUpdateValue")
+def prepare_root_ca_key_update(
+    new_with_new_cert: Optional[rfc9480.CMPCertificate] = None,
+    new_with_old_cert: Optional[rfc9480.CMPCertificate] = None,
+    old_with_new_cert: Optional[rfc9480.CMPCertificate] = None,
+) -> rfc9480.RootCaKeyUpdateValue:
+    """Build and return a `RootCaKeyUpdateContent` structure containing the provided certificates.
+
+    Arguments:
+    ---------
+       - `new_with_new_cert`: The new Root certificate.
+       - `new_with_old_cert`: The new CA certificate signed by the old one.
+       - `old_with_new_cert`: The old CA certificate signed by the new one.
+
+    Returns:
+    -------
+        - The populated `RootCaKeyUpdateContent` structure.
+
+    Raises:
+    ------
+        - `ValueError`: If the provided certificates are not valid.
+
+    Examples:
+    --------
+    | ${root_ca}= | Build Root CA Key Update Content | ${new_with_new_cert} | ${new_with_old_cert} | ${old_with_new_cert} |
+
+    """
+    root_ca_update = rfc9480.RootCaKeyUpdateValue()
+
+    if new_with_new_cert is not None:
+        root_ca_update.setComponentByName("newWithNew", new_with_new_cert)
+
+    if new_with_old_cert is not None:
+        new_with_old = rfc9480.CMPCertificate().subtype(
+            explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)
+        )
+
+        new_with_old_cert = copy_asn1_certificate(new_with_old_cert, new_with_old)
+        root_ca_update.setComponentByName("newWithOld", new_with_old_cert)
+
+    if old_with_new_cert is not None:
+        old_with_new = rfc9480.CMPCertificate().subtype(
+            explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1)
+        )
+
+        old_with_new = copy_asn1_certificate(old_with_new_cert, old_with_new)
+        root_ca_update.setComponentByName("oldWithNew", old_with_new)
+
+    return root_ca_update

@@ -24,7 +24,7 @@ from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, tag, univ
 from pyasn1.type.tag import Tag, tagClassContext, tagFormatSimple
-from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402, rfc8018, rfc9481
+from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402, rfc8018, rfc9481, rfc9629
 
 from resources import certutils, cmputils, utils
 from resources.asn1_structures import PKIMessageTMP
@@ -41,6 +41,7 @@ from resources.envdatautils import (
 )
 from resources.exceptions import BadAsn1Data
 from resources.keyutils import generate_key, load_private_key_from_file, save_key
+from resources.oid_mapping import may_return_oid_to_name
 from resources.protectionutils import prepare_pbkdf2_alg_id
 from resources.typingutils import PrivateKey, PrivateKeySig
 from resources.utils import (
@@ -1231,6 +1232,49 @@ def _generate_other_trusted_pki_certs():
         raise ValueError("Failed to create the certificate chain for the CMC RA certificate.")
 
 
+def parse_cms_env_data(der_data: bytes) -> rfc5652.EnvelopedData:
+    """Parse a CMS EnvelopedData structure."""
+    content_info, _ = decoder.decode(der_data, asn1Spec=rfc5652.ContentInfo())
 
+    if content_info["contentType"] != rfc5652.id_envelopedData:
+        raise ValueError(f"ContentInfo not of type EnvelopedData. Got: {content_info['contentType']}")
+
+    env_data, _ = decoder.decode(content_info["content"], asn1Spec=rfc5652.EnvelopedData())
+    return env_data
+
+def parse_cms_kemri(der_data: bytes) -> Tuple[rfc9629.KEMRecipientInfo, bytes, rfc9480.AlgorithmIdentifier]:
+    """Parse a CMS EnvelopedData structure with a KEMRecipientInfo recipient.
+
+    :param der_data: The (DER) data corresponding to the CMS EnvelopedData.
+    :return: The parsed KEMRecipientInfo structure, the encrypted content, and the content encryption algorithm.
+    """
+    env_data = parse_cms_env_data(der_data)
+
+    enc_content = env_data["encryptedContentInfo"]["encryptedContent"].asOctets()
+    cek_alg_id = env_data["encryptedContentInfo"]["contentEncryptionAlgorithm"]
+
+    _name = env_data["recipientInfos"][0].getName()
+    if _name != "ori":
+        print(env_data["recipientInfos"][0].prettyPrint())
+        raise ValueError(f"RecipientInfo not of type KEM. Got: {_name}")
+
+    recip_info = env_data["recipientInfos"][0]["ori"]
+    if recip_info["oriType"] != rfc9629.id_ori_kem:
+        raise ValueError("RecipientInfo not of type KEM")
+
+    kem_recip_info, _ = decoder.decode(recip_info["oriValue"], asn1Spec=rfc9629.KEMRecipientInfo())
+
+    return kem_recip_info, enc_content, cek_alg_id
+
+
+def print_alg_id(
+        alg_id: rfc9480.AlgorithmIdentifier
+) -> None:
+    """Print the details of an algorithm identifier."""
+    _name = may_return_oid_to_name(alg_id["algorithm"])
+    print("Algorithm Identifier:"
+          "\n  Algorithm: ", _name)
+    if alg_id["parameters"].isValue:
+        print("  Parameters: ", alg_id["parameters"].prettyPrint())
 
 

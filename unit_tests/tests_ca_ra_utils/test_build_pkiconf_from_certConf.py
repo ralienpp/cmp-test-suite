@@ -7,7 +7,7 @@ import unittest
 from resources.ca_ra_utils import build_cp_cmp_message, build_pki_conf_from_cert_conf
 from resources.certutils import parse_certificate
 from resources.cmputils import build_cr_from_key, build_cert_conf_from_resp, prepare_certstatus
-from resources.exceptions import BadRequest, BadPOP
+from resources.exceptions import BadRequest, BadCertId
 from resources.keyutils import load_private_key_from_file
 from resources.utils import load_and_decode_pem_file
 
@@ -98,7 +98,7 @@ class TestBuildPkiConfFromCertConf(unittest.TestCase):
         """
         GIVEN a certificate confirmation with an invalid hash of the certificate.
         WHEN building a pkiConf from the certificate confirmation,
-        THEN a BadPOP exception is raised.
+        THEN a BadCertId exception is raised.
         """
 
         cert_status1 = prepare_certstatus(
@@ -116,7 +116,7 @@ class TestBuildPkiConfFromCertConf(unittest.TestCase):
             hash_alg="sha1",
             cert_status=cert_status1
         )
-        with self.assertRaises(BadPOP):
+        with self.assertRaises(BadCertId):
             _ = build_pki_conf_from_cert_conf(
                 request=cert_conf,
                 issued_certs=self.certs,

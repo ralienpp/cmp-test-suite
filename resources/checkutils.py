@@ -1800,15 +1800,95 @@ def validate_nested_message_unique_nonces_and_ids(  # noqa D417 undocumented-par
         ids.append(msg["header"]["transactionID"].asOctets())
         sender_nonces.append(msg["header"]["senderNonce"].asOctets())
         recip_nonces.append(msg["header"]["recipNonce"].asOctets())
+def validate_add_protection_tx_id_and_nonces(  # noqa D417 undocumented-param
+    request: PKIMessageTMP, check_length: bool = True
+) -> None:
+    """Validate if the transactionID and nonces are correctly set for the added protection request.
 
-    if check_transaction_id and id_ in ids:
-        raise ValueError("The `transactionID` is not unique.")
+    The inner `PKIMessage` must contain the same `transactionID` and `senderNonce` as the outer request.
 
-    if check_sender_nonce and sender_nonce in sender_nonces:
-        raise ValueError("The `senderNonce` is not unique.")
+    Arguments:
+    ----------
+        - `request`: The `PKIMessage` to validate.
+        - `check_length`: Whether to check the length of the nonces and transactionID. Defaults to `True`.
 
-    if check_recip_nonce and recip_nonce in recip_nonces:
-        raise ValueError("The `recipNonce` is not unique.")
+    Returns:
+    --------
+        - `PKIMessage`: The validated `PKIMessage`.
+
+    Raises:
+    ------
+        - `ValueError`: If the `nested` body is not set, or does not contain exactly one element.
+        - `BadSenderNonce`: If the `senderNonce` is not set or not 16 bytes long.
+        - `BadDataFormat`: If the `transactionID` is not set.
+        - `BadRequest`: If the `transactionID` is not 16 bytes long.
+        - `BadRequest`: If the inner `transactionID` does not match the outer request.
+        - `BadSenderNonce`: If the inner `senderNonce` does not match the outer request.
+        - `BadRecipientNonce`: If the `recipNonce` is set for the added protection request.
+        - `BadRecipientNonce`: If the `recipNonce` is not set for the `certConf` body.
+
+    Examples:
+    --------
+    | Validate Add Protection Tx ID and Nonces | ${request} |
+    | Validate Add Protection Tx ID and Nonces | ${request} | True |
+
+    """
+    nested = request["body"]["nested"]
+    if not nested.isValue:
+        raise ValueError("The `nested` body is not set.")
+    if len(nested) != 1:
+        raise ValueError("The `nested` body should contain exactly one element.")
+    inner_body = nested[0]
+
+    header = request["header"]
+    if not header["senderNonce"].isValue:
+        raise BadSenderNonce("The `senderNonce` is not set for the outer request.")
+
+    if not header["transactionID"].isValue:
+        raise BadDataFormat("The `transactionID` is not set for the outer request.")
+
+    outer_tx_id = header["transactionID"].asOctets()
+    inner_tx_id = inner_body["header"]["transactionID"].asOctets()
+    if inner_tx_id != outer_tx_id:
+        raise BadRequest("The `transactionID` does not match the inner request")
+
+    outer_sender_nonce = header["senderNonce"].asOctets()
+    inner_sender_nonce = inner_body["header"]["senderNonce"].asOctets()
+    if inner_sender_nonce != outer_sender_nonce:
+        raise BadSenderNonce("The `senderNonce` does not match the inner request")
+
+    inner_body_name = inner_body["body"].getName()
+    outer_recip_set = header["recipNonce"].isValue
+    inner_recip_set = inner_body["header"]["recipNonce"].isValue
+
+    if inner_body_name == "certConf":
+        if not outer_recip_set:
+            raise BadRecipientNonce("The `recipNonce` is not set for the outer `certConf` request.")
+        if not inner_recip_set:
+            raise BadRecipientNonce("The `recipNonce` is not set for the inner `certConf` body.")
+
+        outer_recip = header["recipNonce"].asOctets()
+        inner_recip = inner_body["header"]["recipNonce"].asOctets()
+        if inner_recip != outer_recip:
+            raise BadRecipientNonce("The `recipNonce` does not match the inner request")
+        recip_nonce = outer_recip
+    else:
+        recip_nonce = None
+        if inner_recip_set:
+            raise BadRecipientNonce(f"The `recipNonce` is set for the inner {inner_body_name} body")
+        if outer_recip_set:
+            raise BadRecipientNonce("The `recipNonce` is set for the outer body")
+
+    def _ensure_length(value: bytes, field_name: str, exc: Type[CMPTestSuiteError]):
+        """Check if the value is 128 bits long."""
+        if value is not None and len(value) != 16:
+            raise exc(f"The inner `{field_name}` value is not 128 bits long.")
+
+    if check_length:
+        _ensure_length(inner_tx_id, "transactionID", BadRequest)
+        _ensure_length(outer_sender_nonce, "senderNonce", BadSenderNonce)
+        if recip_nonce is not None:
+            _ensure_length(recip_nonce, "recipNonce", BadRecipientNonce)
 
 
 def validate_cross_certification_response(crp: rfc9480.PKIMessage, request: Optional[rfc9480.PKIMessage] = None):

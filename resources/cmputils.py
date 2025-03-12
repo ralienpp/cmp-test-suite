@@ -2892,17 +2892,15 @@ def prepare_orig_pki_message(  # noqa D417 undocumented-param
     | ${info_val}= | Prepare Orig PKIMessage | ${pki_message} |
 
     """
-    info_val = rfc9480.InfoTypeAndValue()
-    info_val["infoType"] = rfc9480.id_it_origPKIMessage
-
     # OrigPKIMessageValue
-    obj = rfc9480.OrigPKIMessageValue()
+    obj = PKIMessagesTMP()
 
     if isinstance(pki_messages, PKIMessageTMP):
         pki_messages = [pki_messages]
 
     obj.extend(pki_messages)
-    return prepare_info_value(rfc9480.id_it_origPKIMessage, value=obj)
+    der_data = encoder.encode(obj)
+    return prepare_info_value(rfc9480.id_it_origPKIMessage, value=der_data)
 
 
 @not_keyword

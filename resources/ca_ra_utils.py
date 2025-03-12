@@ -2229,3 +2229,14 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
     tmp["body"]["popdecc"].append(challenge)
 
     return tmp, rand_int  # type: ignore
+def get_popo_from_pkimessage(request: rfc9480.PKIMessage, index: int = 0) -> rfc4211.ProofOfPossession:
+    """Extract the POPO from a PKIMessage.
+
+    :param request: The PKIMessage to extract the Proof-of-Possession from.
+    :param index: The `CertMsgReq` index to extract the Proof-of-Possession from.
+    """
+    body_name = request["body"].getName()
+    if body_name not in ["ir", "cr", "kur", "crr"]:
+        raise ValueError(f"The PKIMessage was not a certification request. Got body name: {body_name}")
+
+    return request["body"][body_name][index]["popo"]

@@ -4,10 +4,10 @@
 
 import unittest
 
-from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc9480, rfc5280, rfc4211
 
 from pq_logic.tmp_oids import COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID, id_chempat_x25519_sntrup761, id_mlkem768_rsa2048
+from resources.ca_ra_utils import get_popo_from_pkimessage
 from resources.cmputils import build_ir_from_key
 from resources.keyutils import generate_key, load_public_key_from_spki
 from resources.oidutils import XWING_OID_STR, id_ml_kem_768_oid, PQ_NAME_2_OID
@@ -28,18 +28,6 @@ def get_cert_template_from_pkimessage(request: rfc9480.PKIMessage, index: int = 
 
     body_name = request["body"].getName()
     return request["body"][body_name][index]["certReq"]["certTemplate"]
-
-def get_popo_from_pkimessage(request: rfc9480.PKIMessage, index: int = 0) -> rfc4211.ProofOfPossession:
-    """Extract the POPO from a PKIMessage.
-
-    :param request: The PKIMessage to extract the Proof-of-Possession from.
-    :param index: The `CertMsgReq` index to extract the Proof-of-Possession from.
-    """
-    body_name = request["body"].getName()
-    if body_name not in ["ir", "cr", "kur", "crr"]:
-        raise ValueError(f"The PKIMessage was not a certification request. Got body name: {body_name}")
-
-    return request["body"][body_name][index]["popo"]
 
 
 class TestBuildPKIMessageNonSigKeys(unittest.TestCase):

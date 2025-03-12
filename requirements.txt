@@ -5,7 +5,9 @@
 cryptography==44.0.2
 pyasn1==0.5.1
 pyasn1-alt-modules==0.4.5
-robotframework==7.1.1
+robotframework==7.2.2
 pkilint==0.12.6
 pycryptodome==3.21.0
 robotframework-requests==0.9.7
+# releveant for the Mock-CA.
+Flask==3.1.0

@@ -1756,11 +1756,17 @@ def validate_ids_and_nonces_for_nested_response(  # noqa D417 undocumented-param
             )
 
 
+def _is_unique(lst: List[bytes]) -> bool:
+    """Return True if all elements in lst are unique."""
+    return len(lst) == len(set(lst))
+
+
 def validate_nested_message_unique_nonces_and_ids(  # noqa D417 undocumented-param
     pki_message: rfc9480.PKIMessage,
     check_transaction_id: bool = True,
     check_sender_nonce: bool = True,
     check_recip_nonce: bool = True,
+    check_length: bool = False,
 ) -> None:
     """
     Validate that the nested message has unique nonces and IDs based on specified checks.
@@ -1784,33 +1790,55 @@ def validate_nested_message_unique_nonces_and_ids(  # noqa D417 undocumented-par
     asn1utils.asn1_must_have_values_set(pki_message, "header.senderNonce, header.transactionID")
     sender_nonce = pki_message["header"]["senderNonce"].asOctets()
     id_ = pki_message["header"]["transactionID"].asOctets()
+    nested_recip_nonces = []
     if not check_recip_nonce:
         if not pki_message["header"]["recipNonce"].isValue:
             logging.info("The `recipNonce` was not set for the nested `PKIMessage`.")
-            recip_nonce = None
         else:
             recip_nonce = pki_message["header"]["recipNonce"].asOctets()
+            nested_recip_nonces.append(recip_nonce)
     else:
         asn1utils.asn1_must_have_values_set(pki_message, "header.recipNonce")
         recip_nonce = pki_message["header"]["recipNonce"].asOctets()
+        nested_recip_nonces.append(recip_nonce)
 
-    ids = []
-    sender_nonces = []
-    recip_nonces = []
+    ids = [id_]
+    nested_sender_nonces = [sender_nonce]
 
     for i, msg in enumerate(pki_message["body"]["nested"]):
         if not msg["header"]["transactionID"].isValue:
-            raise ValueError(f"Nested message at index: {i} does not have a transactionID set.")
+            raise BadRequest(f"Nested message at index: {i} does not have a transactionID set.")
 
         if not msg["header"]["senderNonce"].isValue:
-            raise ValueError(f"Nested message at index: {i} does not have a senderNonce set.")
+            raise BadSenderNonce(f"Nested message at index: {i} does not have a senderNonce set.")
 
-        if not msg["header"]["recipNonce"].isValue:
-            raise ValueError(f"Nested message at index: {i} does not have a recipNonce set.")
+        if not msg["header"]["recipNonce"].isValue and check_recip_nonce:
+            raise BadRecipientNonce(f"Nested message at index: {i} does not have a recipNonce set.")
 
         ids.append(msg["header"]["transactionID"].asOctets())
-        sender_nonces.append(msg["header"]["senderNonce"].asOctets())
-        recip_nonces.append(msg["header"]["recipNonce"].asOctets())
+        nested_sender_nonces.append(msg["header"]["senderNonce"].asOctets())
+        if check_recip_nonce:
+            nested_recip_nonces.append(msg["header"]["recipNonce"].asOctets())
+
+    if check_transaction_id and not _is_unique(ids):
+        raise BadRequest("The transactionIDs among nested messages are not unique.")
+    if check_sender_nonce and not _is_unique(nested_sender_nonces):
+        raise BadSenderNonce("The senderNonces among nested messages are not unique.")
+    if check_recip_nonce and not _is_unique(nested_recip_nonces):
+        raise BadRecipientNonce("The recipNonces among nested messages are not unique.")
+
+    def _ensure_length(value_list: List[bytes], field_name: str, exc: Type[CMPTestSuiteError]):
+        """Check if the length of the values in the list is 128 bits."""
+        for val in value_list:
+            if len(val) != 16:
+                raise exc(f"One of the {field_name} values is not 128 bits long.")
+
+    if check_length:
+        _ensure_length(ids, "transactionID", BadRequest)
+        _ensure_length(nested_sender_nonces, "senderNonce", BadSenderNonce)
+        _ensure_length(nested_recip_nonces, "recipNonce", BadRecipientNonce)
+
+
 def validate_add_protection_tx_id_and_nonces(  # noqa D417 undocumented-param
     request: PKIMessageTMP, check_length: bool = True
 ) -> None:

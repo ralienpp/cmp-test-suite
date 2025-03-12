@@ -185,13 +185,13 @@ def build_certificate_chain(
     tmp = [generate_key() for _ in range(length)]
     keys += tmp
 
+    # Is CA is needed for OpenSSL validation.
+    extensions = _prepare_root_ca_extensions(keys[0])
+
     root_cert, _ = build_certificate(
         private_key=keys[0],
         common_name="CN=Root CA",
-        is_ca=True,  # needed for OpenSSL validation
-        key_usage="digitalSignature,keyCertSign",  # not needed, but if a newer version makes it mandatory.
-        path_length=length - 2,
-        ski=True,
+        extensions=extensions,
     )
     certificates.append(root_cert)
     previous_cert = root_cert
@@ -200,17 +200,17 @@ def build_certificate_chain(
     for i in range(1, length):
         common_name = f"CN=Intermediate CA {i}" if i < length - 1 else "CN=End Entity"
         is_ca = i < length - 1
-        path_length = (length - i - 1) if is_ca else None
+        # path_length = (length - i - 1) if is_ca else None
+
+        extensions = _prepare_ca_ra_extensions(issuer_key=previous_key, key=keys[i], for_ca=True)
+
 
         cert, _ = build_certificate(
             private_key=keys[i],
             issuer_cert=previous_cert,
             signing_key=previous_key,
             common_name=common_name,
-            key_usage="digitalSignature,keyCertSign",
-            is_ca=is_ca,  # needed for OpenSSL validation
-            path_length=path_length,
-            ski=True,
+            extensions=extensions,
         )
 
         certificates.append(cert)
@@ -247,6 +247,7 @@ def _gen_new_certs() -> None:
     _build_kga_cert_signed_by_root()
     # needs to be valid during OpenSSL verification.
     _generate_crl()
+    _generate_other_trusted_pki_certs()
 
 
 def _generate_crl()-> None:
@@ -449,33 +450,72 @@ def convert_to_crypto_lib_cert(cert: Union[rfc9480.CMPCertificate, x509.Certific
 
     raise ValueError(f"Expected the type of the input to be CertObject not: {type(cert)}")
 
-def _prepare_ca_extensions(
-      ca_key: PrivateKey,
+
+
+def _prepare_ca_ra_extensions(
+    issuer_key: PrivateKey,
+    key: PrivateKey,
+    eku: Optional[str] = None,
+    eku_critical: bool = False,
+    for_ca: bool = True,
+    key_usage: Optional[str] = None,
 ) -> rfc9480.Extensions:
-    """Prepare the extensions for a CA certificate."""
+    """Prepare the extensions for a intermediate CA certificate.
+
+    :param issuer_key: The key of the issuer.
+    :param key: The key of the intermediate CA.
+    :param eku: The extended key usage for the intermediate CA certificate.
+    :param eku_critical: The critical flag for the extended key usage.
+    :param for_ca: Whether the certificate is for a CA or RA.
+    :param key_usage: The key usage for the intermediate CA certificate. Defaults to "keyCertSign,cRLSign" for CAs.
+    and "digitalSignature" for RAs.
+    :return: The extensions for the intermediate CA certificate.
+    """
 
     basic_constraints = _prepare_basic_constraints_extension(
         ca=True,
-        critical=True,
+        critical=for_ca,
     )
 
     ski = _prepare_ski_extension(
-        key=ca_key.public_key(),
+        key=key.public_key(),
         critical=False,
     )
 
     aia = _prepare_authority_key_identifier_extension(
-        ca_key=ca_key.public_key(),
+        ca_key=issuer_key.public_key(),
         critical=False,
     )
 
+    if key_usage is None:
+        key_usage = "digitalSignature" if not for_ca else "keyCertSign,cRLSign"
+
+
     key_usage = prepare_extensions(
-        key_usage="keyCertSign,cRLSign",
+        key_usage=key_usage,
         critical=True,
     )
 
     key_usage.extend([basic_constraints, ski, aia])
+    if eku is not None:
+        eku_ext = prepare_extensions(
+            eku=eku,
+            critical=eku_critical,
+        )
+        key_usage.extend(eku_ext)
     return key_usage
+
+
+
+def _prepare_root_ca_extensions(
+        ca_key: PrivateKey,
+) -> rfc9480.Extensions:
+    """Prepare the extensions for a Root-CA certificate."""
+    return _prepare_ca_ra_extensions(
+        issuer_key=ca_key,
+        key=ca_key,
+    )
+
 
 
 
@@ -493,8 +533,8 @@ def _build_certs_root_ca_key_update_content():
     rsa_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
     new_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
 
-    new_extn = _prepare_ca_extensions(new_key)
-    old_extn = _prepare_ca_extensions(rsa_key)
+    new_extn = _prepare_root_ca_extensions(new_key)
+    old_extn = _prepare_root_ca_extensions(rsa_key)
 
     old_cert, old_key = build_certificate(
         common_name="CN=OldRootCA", extensions=old_extn,
@@ -538,16 +578,21 @@ def _build_kga_cert_signed_by_root():
     ca1_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
     # This certificate is needed to unwrap the Content-encryption-key.
     # Does not need to be to issue a certificate, is just used for key agreement.
+
+    extensions = _prepare_ca_ra_extensions(
+        issuer_key=root_key,
+        key=ca1_key,
+        for_ca=True,
+        eku="cmKGA",
+        key_usage="keyAgreement,digitalSignature",
+    )
+
     kga_cert, _ = build_certificate(
         private_key=ca1_key,
         issuer_cert=root_cert,
         signing_key=root_key,
         common_name="CN=KGA EC KARI",
-        key_usage="keyAgreement,digitalSignature",  # as in the specification described.
-        is_ca=True,
-        ski=True,
-        path_length=None,
-        eku="cmKGA",
+        extensions=extensions,
     )
     # Remember, this certificate is only used to show that the Other Party is allowed to generate keys
     # for the client, because this certificate has a valid certificate chain, which was
@@ -1024,6 +1069,7 @@ def update_cert_and_keys():
 
     Update the certificates/CRS and keys used for testing with new ones.
     """
+    _gen_new_certs()
     _generate_pq_certs()
     _save_migration_csrs()
 
@@ -1115,3 +1161,64 @@ def build_crl_crypto_lib(ca_key: Union[rsa.RSAPrivateKey, ec.EllipticCurvePrivat
 
     crl = builder.sign(private_key=ca_key, algorithm=hashes.SHA256())
     return crl.public_bytes(encoding=Encoding.DER)
+
+def _generate_other_trusted_pki_certs():
+    """Generate and save certificates for other trusted PKIs."""
+    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
+    root_cert = parse_certificate(load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
+    kga_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
+
+    pub_key = load_public_key_from_cert(root_cert)
+    if pub_key != root_key.public_key():
+        raise ValueError("The public key extracted from the root certificate does not match the root key.")
+
+    extn = _prepare_ca_ra_extensions(
+        issuer_key=root_key,
+        key=kga_key,
+        eku="cmKGA",
+        eku_critical=False,
+    )
+
+    kga_ra_cert, _ = build_certificate(
+        private_key=kga_key,
+        common_name="CN=KGA RA",
+        issuer_cert=root_cert,
+        signing_key=root_key,
+        extensions=extn,
+        for_ca=False,
+    )
+
+    write_cmp_certificate_to_pem(kga_ra_cert, "data/unittest/ra_kga_cert_ecdsa.pem")
+    cert_chain = build_cert_chain_from_dir(
+        ee_cert=kga_ra_cert,
+        cert_chain_dir="data/unittest/",
+    )
+    if len(cert_chain) != 2:
+        raise ValueError("Failed to create the certificate chain for the KGA RA certificate.")
+
+    # TODO lookup if the RA is-allowed/must have the basic constraints extension.
+    extn = _prepare_ca_ra_extensions(
+        issuer_key=root_key,
+        key=kga_key,
+        eku="cmcRA",
+        eku_critical=False,
+        for_ca=False,
+    )
+
+    kga_ra_cert, _ = build_certificate(
+        private_key=kga_key,
+        common_name="CN=CMC RA",
+        issuer_cert=root_cert,
+        signing_key=root_key,
+        extensions=extn,
+    )
+    write_cmp_certificate_to_pem(kga_ra_cert, "data/trusted_ras/ra_cms_cert_ecdsa.pem")
+
+
+    cert_chain = build_cert_chain_from_dir(
+        ee_cert=kga_ra_cert,
+        cert_chain_dir="data/unittest/",
+    )
+    if len(cert_chain) != 2:
+        raise ValueError("Failed to create the certificate chain for the CMC RA certificate.")
+

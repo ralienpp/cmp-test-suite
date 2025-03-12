@@ -39,7 +39,7 @@ from resources import (
     typingutils,
     utils,
 )
-from resources.exceptions import BadAsn1Data, CertRevoked
+from resources.exceptions import BadAsn1Data, CertRevoked, SignerNotTrusted
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import CMP_EKU_OID_2_NAME, RSASSA_PSS_OID_2_NAME
 from resources.suiteenums import KeyUsageStrictness
@@ -682,10 +682,8 @@ def _verify_certificate_chain(command: List[str], cert_chain: List[rfc9480.CMPCe
                        The chain order should start with the end-entity certificate and end with the root certificate.
     :param timeout: Maximum time in seconds for the OpenSSL verification command to run. Defaults to 60 seconds.
 
-    :raises ValueError: If `cert_chain` is empty, or OpenSSL returns a non-zero exit code,
-    indicating a validation failure.
-    :raises subprocess.TimeoutExpired: If the verification process exceeds the specified timeout.
-
+    :raises SignerNotTrusted: If `cert_chain` is empty, or OpenSSL returns a non-zero exit code,
+    indicating a validation failure or if the verification process exceeds the specified timeout.
     """
     dir_fpath = "data/tmp_cert_checks"
     os.makedirs(dir_fpath, exist_ok=True)
@@ -700,18 +698,23 @@ def _verify_certificate_chain(command: List[str], cert_chain: List[rfc9480.CMPCe
     command += cmds
 
     try:
-        result = subprocess.run(command, capture_output=True, check=True, text=True, timeout=timeout)
-        if result.returncode != 0:
-            raise ValueError(f"Validation of the certificate failed! stdout:{result.stdout}\nerror: {result.stderr}")
-        return
-    except subprocess.TimeoutExpired:
-        logging.warning("Reached time out of for certificate validation. Seconds: %d", timeout)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        # Manually raise if the command failed.
+        result.check_returncode()
+    except subprocess.CalledProcessError as e:
+        # Log full error details from OpenSSL.
+        logging.error("OpenSSL verify failed. stdout: %s\nstderr: %s", e.stdout, e.stderr)
+        raise SignerNotTrusted(
+            f"Validation of the certificate failed!\nstdout: {e.stdout}\nstderr: {e.stderr}", error_details=str(e)
+        ) from e
+    except subprocess.TimeoutExpired as e:
+        logging.error("Reached timeout of %d seconds during certificate validation.", timeout)
+        raise SignerNotTrusted("Validation of the certificate failed! Timeout!") from e
     except Exception as err:
-        logging.warning(err)
+        logging.error("An unexpected error occurred during certificate validation: %s", err)
+        raise SignerNotTrusted(f"Validation of the certificate failed! Error: {err}") from err
     finally:
         shutil.rmtree(dir_fpath)
-
-    raise ValueError("Validation of the certificate failed!")
 
 
 @keyword(name="Verify Cert Chain OpenSSL")
@@ -736,8 +739,8 @@ def verify_cert_chain_openssl(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - `ValueError`: If the certificate validation fails, according to the OpenSSL `verify` command.
-        - `TimeoutExpired`: If the verification took to long.
+        - `SignerNotTrusted`: If the certificate validation fails, according to the OpenSSL `verify` command.
+        - `SignerNotTrusted`: If the verification took to long.
 
     Examples:
     --------

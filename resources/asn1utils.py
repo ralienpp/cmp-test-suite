@@ -63,7 +63,6 @@ from pyasn1.type.univ import BitString
 from robot.api.deco import not_keyword
 
 from resources.asn1_structures import PKIMessageTMP
-from resources.cmputils import parse_pkimessage
 from resources.exceptions import BadAsn1Data
 from resources.typingutils import Strint
 
@@ -634,6 +633,8 @@ def try_decode_pyasn1(data: bytes, asn1_spec: Asn1Type, for_nested: bool = False
     :param for_nested: If True, the function will return the decoded data and not the rest of the data.
     :return: The decoded PyASN1 object.
     """
+    from resources.cmputils import parse_pkimessage
+
     try:
         if for_nested:
             out = parse_pkimessage(data)

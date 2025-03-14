@@ -6,7 +6,7 @@ import unittest
 
 from resources.checkutils import validate_transaction_id
 from resources.cmputils import patch_transaction_id
-from resources.exceptions import BadRequest
+from resources.exceptions import BadRequest, BadDataFormat
 from resources.utils import manipulate_first_byte
 
 from unit_tests.utils_for_test import build_pkimessage
@@ -75,6 +75,16 @@ class TestValidateTransactionID(unittest.TestCase):
         with self.assertRaises(BadRequest) as context:
             validate_transaction_id(response_pki_message)
         self.assertIn("The `transactionID` must be 128 bits long", str(context.exception))
+
+    def test_absent_transaction_id(self):
+        """
+        GIVEN a response PKI message without an transaction ID.
+        WHEN validate_transaction_id is called.
+        THEN it should raise a BadDataFormat exception.
+        """
+        response_pki_message = build_pkimessage(exclude_fields="transactionID")
+        with self.assertRaises(BadDataFormat):
+            validate_transaction_id(response_pki_message)
 
 
 if __name__ == "__main__":

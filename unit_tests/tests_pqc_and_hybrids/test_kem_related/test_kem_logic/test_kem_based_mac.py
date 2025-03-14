@@ -19,7 +19,6 @@ from resources.protectionutils import (
     verify_kem_based_mac_protection,
 )
 
-
 class TestKEMBasedMac(unittest.TestCase):
 
     @classmethod
@@ -38,8 +37,6 @@ class TestKEMBasedMac(unittest.TestCase):
         self.assertIsNotNone(alg_id)
         decoded_alg_id, rest = decoder.decode(encoder.encode(alg_id), rfc9480.AlgorithmIdentifier())
         self.assertEqual(rest, b"")
-
-
 
     def test_compute_kem_based_mac(self):
         """

@@ -149,7 +149,7 @@ id_mldsa87_ecdsa_brainpool_p384r1 = univ.ObjectIdentifier(f"{id_CompSig}.32")
 id_mldsa87_ed448 = univ.ObjectIdentifier(f"{id_CompSig}.33")
 
 
-PURE_COMPOSITE_NAME_TO_OID = {
+PURE_COMPOSITE_SIG03_NAME_TO_OID = {
     "composite-sig-ml-dsa-44-rsa2048-pss": id_mldsa44_rsa2048_pss,
     "composite-sig-ml-dsa-44-rsa2048": id_mldsa44_rsa2048_pkcs15,
     "composite-sig-ml-dsa-44-ed25519": id_mldsa44_ed25519,
@@ -166,9 +166,9 @@ PURE_COMPOSITE_NAME_TO_OID = {
     "composite-sig-ml-dsa-87-ed448": id_mldsa87_ed448,
 }
 
-PURE_COMPOSITE_SIG_OID_TO_NAME = {y: x for x, y in PURE_COMPOSITE_NAME_TO_OID.items()}
+PURE_COMPOSITE_SIG03_OID_TO_NAME = {y: x for x, y in PURE_COMPOSITE_SIG03_NAME_TO_OID.items()}
 
-HASH_COMPOSITE_NAME_TO_OID = {
+HASH_COMPOSITE_SIG03_NAME_TO_OID = {
     "composite-sig-hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
     "composite-sig-hash-ml-dsa-44-rsa2048": id_hash_mldsa44_rsa2048_pkcs15_sha256,
     "composite-sig-hash-ml-dsa-44-ed25519": id_hash_mldsa44_ed25519_sha512,
@@ -184,7 +184,7 @@ HASH_COMPOSITE_NAME_TO_OID = {
     "composite-sig-hash-ml-dsa-87-ecdsa-brainpoolp384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
     "composite-sig-hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
 }
-HASH_COMPOSITE_SIG_OID_TO_NAME = {y: x for x, y in HASH_COMPOSITE_NAME_TO_OID.items()}
+HASH_COMPOSITE_SIG03_OID_TO_NAME = {y: x for x, y in HASH_COMPOSITE_SIG03_NAME_TO_OID.items()}
 
 id_rsa_kem_spki = univ.ObjectIdentifier("1.2.840.113549.1.9.16.3")
 
@@ -221,6 +221,43 @@ COMPOSITE_SIG_SIGNED_DATA_OID_HASH = {
     id_mldsa87_ecdsa_brainpool_p384r1: "sha512",
     id_mldsa87_ed448: "sha512",
 }
+
+
+id_sig04_mldsa44_rsa2048_pss = univ.ObjectIdentifier(f"{id_CompSig}.60")
+id_sig04_mldsa44_rsa2048_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.61")
+id_sig04_mldsa44_ed25519 = univ.ObjectIdentifier(f"{id_CompSig}.62")
+id_sig04_mldsa44_ecdsa_p256 = univ.ObjectIdentifier(f"{id_CompSig}.63")
+id_sig04_mldsa65_rsa3072_pss = univ.ObjectIdentifier(f"{id_CompSig}.64")
+id_sig04_mldsa65_rsa3072_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.65")
+id_sig04_mldsa65_rsa4096_pss = univ.ObjectIdentifier(f"{id_CompSig}.66")
+id_sig04_mldsa65_rsa4096_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.67")
+id_sig04_mldsa65_ecdsa_p256 = univ.ObjectIdentifier(f"{id_CompSig}.68")
+id_sig04_mldsa65_ecdsa_p384 = univ.ObjectIdentifier(f"{id_CompSig}.69")
+id_sig04_mldsa65_ecdsa_brainpool_p256r1 = univ.ObjectIdentifier(f"{id_CompSig}.70")
+id_sig04_mldsa65_ed25519 = univ.ObjectIdentifier(f"{id_CompSig}.71")
+id_sig04_mldsa87_ecdsa_p384 = univ.ObjectIdentifier(f"{id_CompSig}.72")
+id_sig04_mldsa87_ecdsa_brainpool_p384r1 = univ.ObjectIdentifier(f"{id_CompSig}.73")
+id_sig04_mldsa87_ed448 = univ.ObjectIdentifier(f"{id_CompSig}.74")
+id_sig04_mldsa87_rsa4096_pss = univ.ObjectIdentifier(f"{id_CompSig}.75")
+
+
+composite_sig04_hash_ml_dsa_44_rsa2048_pss = univ.ObjectIdentifier(f"{id_CompSig}.80")
+composite_sig04_hash_ml_dsa_44_rsa2048_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.81")
+composite_sig04_hash_ml_dsa_44_ed25519 = univ.ObjectIdentifier(f"{id_CompSig}.82")
+composite_sig04_hash_ml_dsa_44_ecdsa_p256 = univ.ObjectIdentifier(f"{id_CompSig}.83")
+composite_sig04_hash_ml_dsa_65_rsa3072_pss = univ.ObjectIdentifier(f"{id_CompSig}.84")
+composite_sig04_hash_ml_dsa_65_rsa3072_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.85")
+composite_sig04_hash_ml_dsa_65_rsa4096_pss = univ.ObjectIdentifier(f"{id_CompSig}.86")
+composite_sig04_hash_ml_dsa_65_rsa4096_pkcs15 = univ.ObjectIdentifier(f"{id_CompSig}.87")
+composite_sig04_hash_ml_dsa_65_ecdsa_p256 = univ.ObjectIdentifier(f"{id_CompSig}.88")
+composite_sig04_hash_ml_dsa_65_ecdsa_p384 = univ.ObjectIdentifier(f"{id_CompSig}.89")
+composite_sig04_hash_ml_dsa_65_ecdsa_brainpoolp256r1 = univ.ObjectIdentifier(f"{id_CompSig}.90")
+composite_sig04_hash_ml_dsa_65_ed25519 = univ.ObjectIdentifier(f"{id_CompSig}.91")
+composite_sig04_hash_ml_dsa_87_ecdsa_p384 = univ.ObjectIdentifier(f"{id_CompSig}.92")
+composite_sig04_hash_ml_dsa_87_ecdsa_brainpoolp384r1 = univ.ObjectIdentifier(f"{id_CompSig}.93")
+composite_sig04_hash_ml_dsa_87_ed448 = univ.ObjectIdentifier(f"{id_CompSig}.94")
+composite_sig04_hash_ml_dsa_87_rsa4096_pss = univ.ObjectIdentifier(f"{id_CompSig}.95")
+
 
 ######################
 # Composite KEM
@@ -511,7 +548,7 @@ COMPOSITE_KEM_NAME_2_OID.update(COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID)
 COMPOSITE_KEM_OID_2_NAME = {str(oid): name for name, oid in COMPOSITE_KEM_NAME_2_OID.items()}
 
 COMPOSITE_SIG_OID_2_NAME = {}
-COMPOSITE_SIG_OID_2_NAME.update(PURE_COMPOSITE_SIG_OID_TO_NAME)
-COMPOSITE_SIG_OID_2_NAME.update(HASH_COMPOSITE_SIG_OID_TO_NAME)
+COMPOSITE_SIG_OID_2_NAME.update(PURE_COMPOSITE_SIG03_OID_TO_NAME)
+COMPOSITE_SIG_OID_2_NAME.update(HASH_COMPOSITE_SIG03_OID_TO_NAME)
 
 COMPOSITE_SIG_NAME_2_OID = {name: str(oid) for oid, name in COMPOSITE_SIG_OID_2_NAME.items()}

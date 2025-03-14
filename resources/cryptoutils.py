@@ -29,6 +29,7 @@ from pyasn1_alt_modules import rfc8018, rfc9480, rfc9481
 from robot.api.deco import not_keyword
 
 from resources import convertutils, keyutils, oid_mapping
+from resources.exceptions import BadAlg
 from resources.oid_mapping import compute_hash, get_hash_from_oid, hash_name_to_instance
 from resources.typingutils import ECDHPrivKeyTypes, ECDHPubKeyTypes, PrivateKeySig, PublicKeySig
 
@@ -76,7 +77,7 @@ def sign_data(  # noqa D417 undocumented-param
         hash_alg = hash_name_to_instance(hash_alg)  # type: ignore
 
     if isinstance(key, CompositeSigCMSPrivateKey):
-        return key.sign(data=data, use_pss=use_rsa_pss, ctx=ctx, pre_hash=use_pre_hash)
+        return key.sign(data=data, use_pss=use_rsa_pss, ctx=ctx, pre_hash=use_pre_hash)  # type: ignore
 
     if isinstance(
         key,
@@ -563,7 +564,7 @@ def verify_signature(  # noqa D417 undocumented-param
     if isinstance(hash_alg, hashes.HashAlgorithm):
         pass
     elif hash_alg is not None:
-        hash_alg = oid_mapping.hash_name_to_instance(hash_alg)
+        hash_alg = oid_mapping.hash_name_to_instance(hash_alg)  # type: ignore
 
     # isinstance(ed448.Ed448PrivateKey.generate(), EllipticCurvePrivateKey) → False
     # so can check in this Order.
@@ -573,7 +574,7 @@ def verify_signature(  # noqa D417 undocumented-param
                 signature,
                 data,
                 padding.PSS(mgf=padding.MGF1(hash_alg), salt_length=salt_length or hash_alg.digest_size),
-                hash_alg,
+                hash_alg,  # type: ignore
             )
         else:
             public_key.verify(signature, data, padding=padding.PKCS1v15(), algorithm=hash_alg)  # type: ignore
@@ -597,4 +598,4 @@ def verify_signature(  # noqa D417 undocumented-param
         public_key.verify(data=data, hash_alg=hash_alg, signature=signature)
 
     else:
-        raise ValueError(f"Unsupported public key type: {type(public_key).__name__}.")
+        raise BadAlg(f"Unsupported public key type: {type(public_key).__name__}.")

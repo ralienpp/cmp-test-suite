@@ -1,3 +1,5 @@
+"""Linters for CRLs and OCSP responses using the pkilint tool."""
+
 import logging
 from typing import Union
 
@@ -11,8 +13,12 @@ from pkilint.validation import ValidationFindingSeverity
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc5280, rfc6960, rfc8954
 
+# TODO include other linters.
 
-def validate_crl_pkilint(data: Union[bytes, rfc5280.CertificateList]) -> None:
+
+def validate_crl_pkilint(  # noqa D417 undocumented-param
+    data: Union[bytes, rfc5280.CertificateList],
+) -> None:
     """Validate a CRL using the pkilint tool.
 
     Arguments:
@@ -43,6 +49,8 @@ def validate_crl_pkilint(data: Union[bytes, rfc5280.CertificateList]) -> None:
 
     loaded_crl = loader.load_der_crl(data, "dynamic-crl")
     results = doc_validator.validate(loaded_crl.root)
+
+    # should be `WARNING`, because empty CRL raises an error.
 
     findings_count = report.get_findings_count(results, ValidationFindingSeverity.WARNING)
     if findings_count > 0:
@@ -88,7 +96,9 @@ def _validate_ocsp_resp_nonce(der_data: bytes) -> None:
         raise ValueError("The OCSP response nonce is not in the allowed range of 1-32 bytes.According to RFC rfc8954.")
 
 
-def validate_ocsp_pkilint(data: Union[bytes, rfc8954.BasicOCSPResponse, OCSPResponse]) -> None:
+def validate_ocsp_pkilint(  # noqa D417 undocumented-param
+    data: Union[bytes, rfc8954.BasicOCSPResponse, OCSPResponse],
+) -> None:
     """Validate an OCSP response using the pkilint tool.
 
     Arguments:

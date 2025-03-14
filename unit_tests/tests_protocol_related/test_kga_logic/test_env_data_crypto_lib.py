@@ -35,8 +35,12 @@ class TestPKCS7Envelope(unittest.TestCase):
         env_data["recipientInfos"][0]["ktri"]["version"] = 2
 
         cert = convert_to_asn1cert(cert)
-        out = validate_enveloped_data(env_data, cmp_protection_cert=cert, ee_key=key, expected_raw_data=True)
-
+        out = validate_enveloped_data(env_data,
+                                      cmp_protection_cert=cert,
+                                      ee_key=key,
+                                      expected_raw_data=True,
+                                      allow_rsa_null=True,
+                                      )
         self.assertEqual(out, b"data to encrypt")
 
 if __name__ == '__main__':

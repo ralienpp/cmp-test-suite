@@ -25,6 +25,7 @@ from pyasn1_alt_modules.rfc5480 import id_dsa_with_sha256
 from robot.api.deco import not_keyword
 
 from resources.oidutils import (
+    ALL_KNOWN_NAME_2_OID,
     ALL_KNOWN_PROTECTION_OIDS,
     ALLOWED_HASH_TYPES,
     CURVE_NAMES_TO_INSTANCES,
@@ -166,7 +167,7 @@ def hash_name_to_instance(alg: str) -> hashes.HashAlgorithm:
 
 @not_keyword
 def get_alg_oid_from_key_hash(
-    key: PrivateKey, hash_alg: str, use_rsa_pss: bool = False, use_pre_hash: bool = False
+    key: PrivateKey, hash_alg: Optional[str], use_rsa_pss: bool = False, use_pre_hash: bool = False
 ) -> univ.ObjectIdentifier:
     """Find the pyasn1 oid given the hazmat key instance and a name of a hashing algorithm.
 
@@ -229,3 +230,16 @@ def may_return_oid_to_name(oid: univ.ObjectIdentifier) -> str:
     """
     oid = ALL_KNOWN_PROTECTION_OIDS.get(oid, str(oid))
     return str(ALL_KNOWN_PROTECTION_OIDS.get(oid, oid))
+
+
+@not_keyword
+def may_return_oid(name: str) -> univ.ObjectIdentifier:
+    """Check if the name is Known and then returns the OID, or the dotted string.
+
+    :param name: The name to perform the lookup for or a dotted string.
+    :return: The OID.
+    :raises KeyError: If the name is not found in the OID mapping.
+    """
+    if "." in name:
+        return univ.ObjectIdentifier(name)
+    return ALL_KNOWN_NAME_2_OID[name]

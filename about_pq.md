@@ -17,6 +17,17 @@ SPDX-License-Identifier: Apache-2.0
 
 ---
 
+## Installation & Usage
+
+To install OpenQuantumSafe on Linux:
+```sh
+  ./scripts/setup_pq.sh
+```
+Before or After run:
+```sh
+  pip install -r requirements.txt
+```
+
 ### Glossary
 
 - **OID**: Object Identifier, a standardized dot-notated string used to map objects such as algorithms.
@@ -52,10 +63,12 @@ The implementation of PQ keys follows a specific set of design principles. Below
 
 - **Falcon**: If someone wants to set it up in pure python:
 https://github.com/tprest/falcon.py (reason for not included: deprecated)
-- **ML-DSA**: Does not support signing with context.
-- **SLH-DSA**: Not yet supported, though OIDs are defined. Integration is planned for future versions.
+- **ML-DSA**: With and without signing with context.
+- **SLH-DSA**: With and without signing with context.
 - **FN-DSA**: Currently unstandardized and thus not considered. Updates will follow as the standard develops.
-- **FrodoKem**: Uses OIDs defined by OQS.
+- **FrodoKem**: Only OQS.
+- **sntrup761**: Only OQS.
+- **McEliece**: Only OQS.
 
 #### How to Add a Key
 
@@ -74,7 +87,7 @@ class FNDSAPublicKey(PQSignaturePublicKey):
         # Implement custom logic for verification
         pass
 
-class FNDSAPrivateKey(PQSignaturePublicKey):
+class FNDSAPrivateKey(PQSignaturePrivateKey):
     def sign(self, data: bytes, hash_alg: Optional[str] = None, ctx: Optional[bytes] = None):
         # Implement custom logic for signing 
         pass
@@ -88,6 +101,22 @@ class FNDSAPrivateKey(PQSignaturePublicKey):
 
 4. **Add `name` Property**:
    The `name` property should support different versions of the key type, avoiding the need for a new type for every version.
+
+### Add HybridKEM Key
+
+To add a new hybrid key, follow these steps:
+1. If a new algorithm creates a new dictionary mapping for it.
+2. Derive the key from `HybridKEMPublicKey` and `HybridKEMPrivateKey`.
+so that the key can be used in all KEM related functions.
+3. If RAW is supported for the new algorithm, then
+leave the default settings as they are. Else change the 
+`_export_*_key` functions to export the key in the desired format.
+4. `_get_subject_public_key` Must be changed to set the algorithm
+correctly inside an X.509 certificate.
+5. The key name must be added to the `HybridKeyFactory` and 
+should either use a already defined or copied logic or 
+a new logic, to load the key.
+
 
 ---
 
@@ -120,21 +149,16 @@ The following post-quantum combined mechanisms are supported:
 - **Chempat**: A hybrid cryptographic approach.
 - **XWing**: Combines post-quantum KEM with traditional methods.
 - **Composite KEM**: Merges traditional and PQ cryptography.
-- **Composite KEM KMAC**: A variant of Composite KEM (now expired).
 
 ---
 
+### Reliability
 
-### Planned Updates
-- Including FN-DSA, after the Standardization is finalized.
-- Transition to standardized OIDs as they become available.
-- Enhanced examples for integrating hybrid cryptography into existing workflows.
+The current implementation is reliable and stable, with the following considerations:
+1. Test-Vectors are taken from the relevant RFCs.
+2. The `pqc-certificate` repository is used for testing of certificates and extracting public keys.
 
 ---
-
-### Example Usage:
-
-Please look at the `SLHDSAPrivate`, which is entirely from a different implementation.
 
 
 

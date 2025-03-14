@@ -4,21 +4,22 @@
 
 """Necessary dataclasses and functions for the mock CA to operate."""
 
+import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Union
 
 from cryptography import x509
+from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.x509 import CertificateRevocationList, ocsp
 from pq_logic.migration_typing import HybridPublicKey
+from pyasn1.codec.der import encoder
 from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import ca_ra_utils, certutils, keyutils
 from resources.asn1_structures import PKIMessageTMP
-from resources.ca_ra_utils import build_ca_message, prepare_cert_response
 from resources.copyasn1utils import copy_subject_public_key_info
-from resources.oid_mapping import hash_name_to_instance
+from resources.oid_mapping import compute_hash, hash_name_to_instance
 from resources.typingutils import PrivateKeySig, PublicKey
-from robot.api.deco import not_keyword
 from unit_tests.utils_for_test import compare_pyasn1_objects, convert_to_crypto_lib_cert
 
 
@@ -28,6 +29,7 @@ class RevokedEntry:
 
     reason: str
     cert: rfc9480.CMPCertificate
+    hashed_cert: Optional[bytes] = None
 
 
 @dataclass
@@ -39,6 +41,33 @@ class RevokedEntryList:
     def __len__(self) -> int:
         """Return the number of entries."""
         return len(self.entries)
+
+    def contains_hash(self, hashed_cert: bytes) -> bool:
+        """Check if the list contains a certificate with the given hash."""
+        for entry in self.entries:
+            if entry.hashed_cert is not None:
+                tmp = compute_hash("sha1", encoder.encode(entry.cert))
+            else:
+                tmp = entry.hashed_cert
+
+            if tmp == hashed_cert:
+                return True
+        return False
+
+    def remove_by_hash(self, hashed_cert: bytes) -> Optional[RevokedEntry]:
+        """Remove a revoked certificate by its hash."""
+        found = None
+        for entry in self.entries:
+            if entry.hashed_cert is None:
+                entry.hashed_cert = compute_hash("sha1", encoder.encode(entry.cert))
+
+            if entry.hashed_cert == hashed_cert:
+                found = entry
+                break
+
+        if found is not None:
+            self.entries.remove(found)
+            logging.info("Removed revoked certificate")
 
     def __post_init__(self):
         """Convert the entries to RevokedEntry instances."""
@@ -158,14 +187,6 @@ class RevokedEntryList:
                 return True
         return False
 
-    def is_revoked_by_serial_number(self, serial_number: int) -> bool:
-        """Check if the certificate with the given serial number is revoked.
-
-        :param serial_number: The serial number of the certificate.
-        :return: Whether the certificate is revoked.
-        """
-        return serial_number in self.serial_numbers
-
 
 @dataclass
 class CertRevStateDB:
@@ -228,7 +249,13 @@ class CertRevStateDB:
         nums = nums if self._update_eq_rev else nums + self.update_entry_list.serial_numbers
 
         ca_cert = convert_to_crypto_lib_cert(ca_cert)
-        builder = x509.CertificateRevocationListBuilder(issuer_name=ca_cert.subject)
+        _now = datetime.now(timezone.utc)
+        _next_update = _now + timedelta(days=1)
+        builder = x509.CertificateRevocationListBuilder(
+            issuer_name=ca_cert.subject,
+            last_update=_now,
+            next_update=_next_update,
+        )
         for serial_number in nums:
             builder = builder.add_revoked_certificate(
                 x509.RevokedCertificateBuilder().serial_number(serial_number).revocation_date(datetime.now()).build()
@@ -237,7 +264,7 @@ class CertRevStateDB:
         hash_inst = None
         if hash_alg is not None:
             hash_inst = hash_name_to_instance(hash_alg)
-        return builder.sign(private_key=sign_key, algorithm=hash_inst)
+        return builder.sign(private_key=sign_key, algorithm=SHA256())
 
     def add_compromised_key(self, entry: Union[dict, RevokedEntry]) -> None:
         """Add a compromised key to the list."""
@@ -251,7 +278,7 @@ class CertRevStateDB:
         """Add an updated entry to the list."""
         self.update_entry_list.add_entry(entry)
 
-    def check_request_for_compromised_key(self, request: rfc9480.PKIMessage) -> bool:
+    def check_request_for_compromised_key(self, request: PKIMessageTMP) -> bool:
         """Check if the request contains a compromised key.
 
         :param request: The certificate request.
@@ -279,51 +306,36 @@ class CertRevStateDB:
         :param cert: The certificate to check.
         :return: Whether the certificate is revoked.
         """
-        return self.rev_entry_list.is_revoked(cert) or self.update_entry_list.is_revoked(cert)
+        hashed_cert = compute_hash("sha1", encoder.encode(cert))
+        return self.is_revoked_by_hash(hashed_cert) or self.is_updated_by_hash(hashed_cert)
 
-    def is_revoked_by_serial_number(self, serial_number: int) -> bool:
-        """Check if the certificate with the given serial number is revoked.
+    def is_revoked_by_hash(self, hashed_cert: bytes) -> bool:
+        """Check if the certificate with the given hash is revoked."""
+        return self.rev_entry_list.contains_hash(hashed_cert=hashed_cert)
 
-        :param serial_number: The serial number of the certificate.
-        :return: Whether the certificate is revoked.
-        """
-        return self.rev_entry_list.is_revoked_by_serial_number(
-            serial_number
-        ) or self.update_entry_list.is_revoked_by_serial_number(serial_number)
+    def is_updated_by_hash(self, hashed_cert: bytes) -> bool:
+        """Check if the certificate with the given hash is updated."""
+        return self.update_entry_list.contains_hash(hashed_cert=hashed_cert)
 
-
-@not_keyword
-def build_key_update_response_error(
-    request: rfc9480.PKIMessage,
-    text: str,
-    set_header_fields: bool = True,
-    **kwargs,
-) -> PKIMessageTMP:
-    """Build a PKIMessage for a key update response.
-
-    This function is not yet implemented.
-
-    :param request: The PKIMessage containing the request.
-    :param text: The error message.
-    :param set_header_fields: The PKIMessage containing the request.
-    :param kwargs: additional key-value pairs to set in the header.
-    :return: The built PKIMessage for the key update response.
-    """
-    return build_ca_message(
-        responses=prepare_cert_response(
-            cert_req_id=0,
-            status="rejection",
-            cert=None,
-            text=text,
-        ),
-        request=request,
-        set_header_fields=set_header_fields,
-        **kwargs,
-    )
+    def add_updated_cert(self, cert: rfc9480.CMPCertificate) -> None:
+        """Add an updated certificate to the list."""
+        hashed_cert = compute_hash("sha1", encoder.encode(cert))
+        self.update_entry_list.add_entry(RevokedEntry(reason="updated", cert=cert, hashed_cert=hashed_cert))
 
 
 @dataclass
 class CAOperationState:
+    """The state of the CA operation.
+
+    Attributes
+    ----------
+        - `ca_key`: The private key of the CA.
+        - `ca_cert`: The certificate of the CA.
+        - `pre_shared_secret`: The pre-shared secret.
+        - `extensions`: The extensions of the CA.
+
+    """
+
     ca_key: PrivateKeySig
     ca_cert: rfc9480.CMPCertificate
     pre_shared_secret: bytes

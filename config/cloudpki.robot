@@ -12,12 +12,15 @@ Documentation     An example resource file with configuration options that are m
 # qa - the stable version
 ${CA_CMP_URL}    https://broker.sdo-qa.siemens.cloud/.well-known/cmp
 #${CA_CMP_URL}    https://broker.sdo-dev.siemens.cloud/.well-known/cmp
+${CA_BASE_URL}   https://broker.sdo-qa.siemens.cloud/
+${INIT_SUFFIX}   .well-known/cmp
 
 ${PRESHARED_SECRET}    SiemensIT
 ${SENDER}              CN=CloudCA-Integration-Test-User
 ${RECIPIENT}           CN=CloudPKI-Integration-Test
 ${DEFAULT_X509NAME}    CN=CloudCA-Integration-Test-User
-
+${ISSUED_KEY}   ${None}
+${ISSUED_CERT}   ${None}
 ##### About Issuing:
 
 # Implicit confirmation allowed.
@@ -126,7 +129,7 @@ ${CRL_FILEPATH}    ${None}
 ${CRL_CERT_IDP}  ${False}
 
 
-${OLD_ROOT_CERT}   ${None}
+${OLD_ROOT_CERT}   data/unittest/root_cert_ed25519.pem
 ${CERT_PROFILE}    ${None}
 
 

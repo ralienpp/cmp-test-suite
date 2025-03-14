@@ -95,6 +95,11 @@ def extension_must_be_non_critical(  # noqa D417 undocumented-param
     ------
         - `ValueError`: If the extension is critical.
 
+    Examples:
+    --------
+    | Extension Must Be Non Critical | ${certificate} | key_usage |
+    | Extension Must Be Non Critical | ${extension} | 1.2.840.113549.1.9.14 |
+
     """
     if "." in name_or_oid:
         oid = univ.ObjectIdentifier(name_or_oid)
@@ -224,7 +229,7 @@ def _get_subject_alt_name(cert: rfc9480.CMPCertificate) -> Optional[rfc5280.Subj
 
 
 def get_field_from_certificate(  # noqa D417 undocumented-param
-        cert: rfc9480.CMPCertificate, query: Optional[str] = None, extension: Optional[str] = None
+    cert: rfc9480.CMPCertificate, query: Optional[str] = None, extension: Optional[str] = None
 ) -> Union[bytes, None, base.Asn1Type]:
     """Retrieve a value from a `pyasn1` CMPCertificate using a specified query or extension.
 

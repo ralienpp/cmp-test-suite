@@ -13,6 +13,7 @@ from pyasn1.codec.der import decoder, encoder
 sys.path.append(".")
 from resources import cmputils, keyutils
 from resources.asn1_structures import PKIMessageTMP
+from resources.cmputils import parse_pkimessage
 
 
 def send_request_to_static_cert1() -> None:
@@ -48,7 +49,7 @@ def send_pkimessage_to_mock_ca(pki_message: PKIMessageTMP, url: str) -> Optional
         if response.status_code == 200:
             print("Success:")
             der_data = response.content
-            response, _ = decoder.decode(der_data, asn1Spec=PKIMessageTMP())
+            response, _ = parse_pkimessage(der_data)
             return response
 
         print(f"Error: {response.status_code}")
@@ -57,6 +58,25 @@ def send_pkimessage_to_mock_ca(pki_message: PKIMessageTMP, url: str) -> Optional
         print(f"Request failed: {e}")
 
     return None
+
+
+def send_to_ejbca(pki_message: PKIMessageTMP, url: Optional[str] = None) -> None:
+    """Send an example request to the Mock CA."""
+    url = url or "http://mycahostname/ejbca/publicweb/cmp/cmpalias"
+
+    der_data = encoder.encode(pki_message)
+    try:
+        response = requests.post(url, data=der_data, timeout=60)
+        if response.status_code == 200:
+            print("Success:")
+            der_data = response.content
+            response, _ = parse_pkimessage(der_data)
+            print(response.prettyPrint())
+
+        print(f"Error: {response.status_code}")
+        print(response.text)
+    except requests.RequestException as e:
+        print(f"Request failed: {e}")
 
 
 if __name__ == "__main__":

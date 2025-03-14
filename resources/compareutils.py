@@ -16,8 +16,7 @@ from pyasn1.type import univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
 from robot.api.deco import keyword, not_keyword
 
-from resources import certutils, cmputils, convertutils, copyasn1utils, suiteenums, utils
-from resources import certextractutils
+from resources import certextractutils, certutils, cmputils, convertutils, copyasn1utils, suiteenums, utils
 from resources.oid_mapping import may_return_oid_to_name
 
 
@@ -481,9 +480,47 @@ def compare_general_name_and_name(  # noqa D417 # undocumented-param
     )
 
 
-@not_keyword
-def is_null_dn(name: rfc5280.Name) -> bool:
-    """Check if the given Name is a NULL-DN, meaning it has no RDNs."""
+@keyword(name="Is NULL DN")
+def is_null_dn(name: rfc5280.Name) -> bool:  # noqa D417 # undocumented-param
+    """Check if the given Name is a NULL-DN, meaning it has no RDNs.
+
+    Allows also tagged names to be checked (e.g., `CertTemplate` `subject`).
+
+    Arguments:
+    ---------
+        - `name`: The `Name` object to check.
+
+    Returns:
+    -------
+        - `True` if the `Name` is a NULL-DN, `False` otherwise.
+
+    Raises:
+    ------
+        - `pyasn1.error.PyAsn1Error`: If the `Name` object cannot be properly compared.
+
+    Examples:
+    --------
+    | ${result}= | Is NULL DN | ${name} |
+
+    """
     copy_name = rfc5280.Name()
     copy_name["rdnSequence"] = name["rdnSequence"]
     return encoder.encode(copy_name) == b"\x30\x00"
+
+
+@not_keyword
+def check_if_alg_id_parameters_is_absent(alg_id: rfc9480.AlgorithmIdentifier, allow_null: bool = False) -> bool:
+    """Check if the `parameters` field of the `AlgorithmIdentifier` is absent."""
+    params = alg_id["parameters"]
+
+    if not params.isValue:
+        return True
+
+    if allow_null and params == univ.Null(""):
+        return True
+
+    if isinstance(params, univ.Any):
+        if params.asOctets() == b"\x05\x00":
+            return True
+
+    return False

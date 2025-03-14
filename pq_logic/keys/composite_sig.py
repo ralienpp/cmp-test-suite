@@ -28,12 +28,16 @@ from robot.api.deco import not_keyword
 from pq_logic.hybrid_structures import CompositeSignatureValue
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, AbstractCompositePublicKey
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
-from pq_logic.tmp_oids import CMS_COMPOSITE_OID_2_HASH, HASH_COMPOSITE_NAME_TO_OID, PURE_COMPOSITE_NAME_TO_OID
+from pq_logic.tmp_oids import (
+    CMS_COMPOSITE_OID_2_HASH,
+    HASH_COMPOSITE_SIG03_NAME_TO_OID,
+    PURE_COMPOSITE_SIG03_NAME_TO_OID,
+)
 
 
 # to avoid import conflicts will be removed in the future.
 @not_keyword
-def compute_hash(alg_name: str, data: bytes) -> bytes:
+def _compute_hash(alg_name: str, data: bytes) -> bytes:
     """Calculate the hash of data using an algorithm given by its name.
 
     :param alg_name: The Name of algorithm, e.g., 'sha256', see HASH_NAME_OBJ_MAP.
@@ -65,11 +69,11 @@ def get_names_from_oid(oid: univ.ObjectIdentifier) -> Tuple[str, str]:
         key_type = "-".join(parts[3:])  # "rsa2048-pss", "ed25519", etc.
         return parameter_set, key_type
 
-    for name, registered_oid in PURE_COMPOSITE_NAME_TO_OID.items():
+    for name, registered_oid in PURE_COMPOSITE_SIG03_NAME_TO_OID.items():
         if oid == registered_oid:
             return split_name(name, prefix="composite-sig-")
 
-    for name, registered_oid in HASH_COMPOSITE_NAME_TO_OID.items():
+    for name, registered_oid in HASH_COMPOSITE_SIG03_NAME_TO_OID.items():
         if oid == registered_oid:
             return split_name(name, prefix="composite-sig-hash-")
 
@@ -277,7 +281,7 @@ class CompositeSigCMSPublicKey(AbstractCompositePublicKey):
         if pre_hash:
             hash_alg = CMS_COMPOSITE_OID_2_HASH[domain_oid]
             hash_oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
-            hashed_data = compute_hash(alg_name=hash_alg, data=data)
+            hashed_data = _compute_hash(alg_name=hash_alg, data=data)
             # Construct M' with pre-hashing
             # Compute M' = Domain || len(ctx) || ctx || HashOID || PH(M)
             m_prime = encoder.encode(domain_oid) + length_bytes + ctx + hash_oid + hashed_data
@@ -456,7 +460,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositePrivateKey):
         if pre_hash:
             hash_alg = CMS_COMPOSITE_OID_2_HASH[domain_oid]
             hash_oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
-            hashed_data = compute_hash(alg_name=hash_alg, data=data)
+            hashed_data = _compute_hash(alg_name=hash_alg, data=data)
             # Construct M' with pre-hashing
             # Compute M' = Domain || len(ctx) || ctx || HashOID || PH(M)
             m_prime = encoder.encode(domain_oid) + length_bytes + ctx + hash_oid + hashed_data

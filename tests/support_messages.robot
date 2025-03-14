@@ -38,10 +38,7 @@ CA MUST Reject MAC Protected Genm With Get CA Certs
     [Tags]    ca-certs    mac    positive
     Skip If    not ${ALLOW_MAC_PROTECTED_SUPPORT_MSG}    Skipped because MAC-protected support messages are disabled.
     ${genm}=    Build General Message    add_messages=get_ca_certs    recipient=${RECIPIENT}    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
     Validate Get Ca Certs    ${genp}
 
@@ -57,10 +54,7 @@ CA MUST Respond To MAC Protected Genm With Get CA Certs With Invalid InfoValue
     ...    negative=True
     ...    recipient=${RECIPIENT}
     ...    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
     PKIMessage Body Type Must Be    ${genp}    error
     PKIStatus Must Be    ${genp}    rejection
@@ -76,18 +70,15 @@ CA MUST Respond To MAC Protected Genm With Get Root CA Certificate Update
     ...    information in the response.
     [Tags]    general-message    get_root_ca_cert_update    mac    positive
     Skip If    not ${ALLOW_MAC_PROTECTED_SUPPORT_MSG}    Skipped because MAC-protected support messages are disabled.
-    Skip If    '${OLD_ROOT_CERT}' == 'None'    Skipped because the OLD_ROOT_CERT filepath is not set.
+    Skip If    '${OLD_ROOT_CERT}' == None    Skipped because the OLD_ROOT_CERT filepath is not set.
     ${genm}=    Build General Message
     ...    add_messages=get_root_ca_cert_update
     ...    ca_cert=${OLD_ROOT_CERT}
     ...    recipient=${RECIPIENT}
     ...    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
-    Validate Get Root Ca Cert Update    ${genp}    ca_cert=${OLD_ROOT_CERT}
+    Validate Get Root Ca Cert Update    ${genp}    ${OLD_ROOT_CERT}
 
 CA MUST Reject MAC Protected Genm With Get Root CA Cert Update Without OldRootCert
     [Documentation]    According to RFC 9483 Section 4.3.2, an End-Entity requesting a root CA certificate update
@@ -102,12 +93,9 @@ CA MUST Reject MAC Protected Genm With Get Root CA Cert Update Without OldRootCe
     ...    ca_cert=${None}
     ...    recipient=${RECIPIENT}
     ...    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
-    Validate Get Root Ca Cert Update    ${genp}    ca_cert=${OLD_ROOT_CERT}
+    Validate Get Root Ca Cert Update    ${genp}    ${OLD_ROOT_CERT}
 
 ## Section 4.3.3. Get Certificate Request Template
 
@@ -120,10 +108,7 @@ CA MUST Respond MAC Protected Genm With Get Certificate Request Template
     [Tags]    get_cert_template    mac    positive
     Skip If    not ${ALLOW_MAC_PROTECTED_SUPPORT_MSG}    Skipped because MAC-protected support messages are disabled.
     ${genm}=    Build General Message    add_messages=get_cert_template    recipient=${RECIPIENT}    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
     Validate Get Certificate Request Template    ${genp}
 
@@ -157,10 +142,7 @@ CA MUST Reject MAC Protected Genm With Get Cert Template With Invalid InfoValue
     ...    negative=True
     ...    recipient=${RECIPIENT}
     ...    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
     PKIMessage Body Type Must Be    ${genp}    error
     PKIStatus Must Be    ${genp}    status=rejection
@@ -176,10 +158,7 @@ CA MUST Respond To Valid MAC Protected CurrentCRL Request
     [Tags]    mac    positive
     Skip If    not ${ALLOW_MAC_PROTECTED_SUPPORT_MSG}    Skipped because MAC-protected support messages are disabled.
     ${genm}=    Build General Message    add_messages=current_crl    recipient=${RECIPIENT}    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
     Validate Current Crl    ${genp}
 
@@ -196,10 +175,7 @@ CA MUST Reject Invalid MAC Protected CurrentCRL Request
     ...    negative=True
     ...    recipient=${RECIPIENT}
     ...    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
     PKIMessage Body Type Must Be    ${genp}    error
     PKIStatus Must Be    ${genp}    status=rejection
@@ -220,10 +196,7 @@ CA MUST Respond To Valid MAC Protected CRL Update Retrieval
     ...    not ${CRL_CERT_IDP}
     ...    Skipped because no certificate with the issuing distribution point extension was provided.
     ${genm}=    Build General Message    add_messages=crl_update_ret    recipient=${RECIPIENT}    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
     Validate CRL Update Retrieval    ${genp}
 
@@ -239,9 +212,6 @@ CA MUST Respond To Valid MAC Protected CRL Update Retrieval With CRL File
     ...    crl_file=${CRL_FILEPATH}
     ...    recipient=${RECIPIENT}
     ...    sender=${SENDER}
-    ${protected_genm}=    Protect PKIMessage
-    ...    ${genm}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_genm}=    Default Protect With MAC    ${genm}
     ${genp}=    Exchange PKIMessage    ${protected_genm}
     Validate CRL Update Retrieval    ${genp}

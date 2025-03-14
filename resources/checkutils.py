@@ -12,7 +12,7 @@ such as `caPubs`, based on the response body requirements.
 
 import datetime
 import logging
-from typing import Dict, List, Optional, Tuple, Union, Type
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pyasn1.error
 from cryptography.exceptions import InvalidSignature
@@ -35,14 +35,15 @@ from resources import (
 from resources.asn1_structures import PKIMessageTMP
 from resources.exceptions import (
     BadAlg,
+    BadAsn1Data,
+    BadDataFormat,
     BadMessageCheck,
     BadRecipientNonce,
     BadRequest,
     BadSenderNonce,
-    BadDataFormat,
-    BadAsn1Data, BadTime,
+    BadTime,
+    CMPTestSuiteError,
 )
-from resources.exceptions import CMPTestSuiteError
 from resources.oid_mapping import (
     get_hash_from_oid,
 )
@@ -51,13 +52,14 @@ from resources.oidutils import (
     MSG_SIG_ALG,
     RSA_SHA_OID_2_NAME,
     RSASSA_PSS_OID_2_NAME,
+    id_KemBasedMac,
 )
 from resources.typingutils import Strint
 
 
 @keyword(name="Validate certifiedKeyPair Structure")
 def validate_certified_key_pair_structure(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, local_key_gen: bool = True, response_index: Strint = 0
+    pki_message: PKIMessageTMP, local_key_gen: bool = True, response_index: Strint = 0
 ):
     """Check the version field in the PKIMessage when the `certifiedKeyPair` and `EnvelopedData` structures are used.
 
@@ -97,13 +99,14 @@ def validate_certified_key_pair_structure(  # noqa D417 undocumented-param
         raise ValueError("The `privateKey` MUST be present")
 
     if not local_key_gen:
-        if cert_key_pair["privateKey"].getName() == "envelopedData":
-            if version != 3:
-                raise ValueError(
-                    f"The `EnvelopedData` data structure is used, but version != 3. Got Version: {version}"
-                )
-        else:
-            logging.info("Supposed to use the `EnvelopedData` data structure, for `privateKey`")
+        if cert_key_pair["privateKey"].isValue:
+            if cert_key_pair["privateKey"].getName() == "envelopedData":
+                if version != 3:
+                    raise ValueError(
+                        f"The `EnvelopedData` data structure is used, but version != 3. Got Version: {version}"
+                    )
+            else:
+                logging.info("Supposed to use the `EnvelopedData` data structure, for `privateKey`")
 
     if cert_key_pair["certOrEncCert"]["encryptedCert"].isValue:
         if cert_key_pair["certOrEncCert"]["encryptedCert"].getName() == "envelopedData":
@@ -117,7 +120,7 @@ def validate_certified_key_pair_structure(  # noqa D417 undocumented-param
 
 @keyword(name="Validate CA Message caPubs Field")
 def validate_ca_msg_ca_pubs_field(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     trustanchors: str = "data/trustanchors",
     verbose: bool = True,
     response_index: Strint = 0,
@@ -186,9 +189,7 @@ def validate_ca_msg_ca_pubs_field(  # noqa D417 undocumented-param
         # certificate REQUIRED
         # -- MUST be present when certifiedKeyPair is present
         # -- MUST contain the newly enrolled X.509 certificate. NOTE: oob! for this Test-Suite
-        asn1cert = asn1utils.get_asn1_value(certified_key_pair, "certOrEncCert")
-
-        if not asn1cert.isValue:
+        if not certified_key_pair["certOrEncCert"].isValue:
             raise ValueError("`certOrEncCert` must be present, if `certifiedKeyPair` field is present.")
 
         asn1cert = cmputils.get_cert_from_pkimessage(pki_message)
@@ -208,7 +209,6 @@ def validate_ca_msg_ca_pubs_field(  # noqa D417 undocumented-param
             # -- MAY be used if the certifiedKeyPair field is present
             # -- If used, it MUST contain only a trust anchor, e.g., root
             # -- certificate, of the certificate contained in certOrEncCert.
-
             ca_pubs = list(pki_body["caPubs"])
             certutils.certificates_are_trustanchors(
                 certs=ca_pubs, trustanchors=trustanchors, verbose=verbose, allow_os_store=allow_os_store
@@ -236,7 +236,7 @@ def validate_ca_msg_ca_pubs_field(  # noqa D417 undocumented-param
 
 
 def check_is_protection_present(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     must_be_protected: bool = False,
     lwcmp: bool = False,
 ) -> bool:
@@ -272,7 +272,7 @@ def check_is_protection_present(  # noqa D417 undocumented-param
     if not pki_message["protection"].isValue and not pki_message["header"]["protectionAlg"].isValue:
         # Protection is recommended but not required, according to RFC 9480 section 3.1.
         if must_be_protected:
-            raise BadMessageCheck("PKIMessage is not protected!")
+            raise BadMessageCheck("The `PKIMessage` is not protected!")
         return False
 
     if pki_message["protection"].isValue and not pki_message["header"]["protectionAlg"].isValue:
@@ -289,7 +289,7 @@ def check_is_protection_present(  # noqa D417 undocumented-param
 
 @keyword(name="Check Sender CMP Protection")
 def check_sender_cmp_protection(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, must_be_protected=True, allow_failure=True
+    pki_message: PKIMessageTMP, must_be_protected=True, allow_failure=True
 ):
     """Check the validity of the sender field in the PKIMessage as specified in RFC 9483, Section 3.1.
 
@@ -366,13 +366,13 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
         logging.info("sender for MAC-based protection is %s", cm_name)
 
 
-def _check_cmp_protection_for_extra_certs(pki_message: rfc9480.PKIMessage, allow_self_signed: bool) -> None:
+def _check_cmp_protection_for_extra_certs(pki_message: PKIMessageTMP, allow_self_signed: bool) -> None:
     """Verify the CMP protection in a `PKIMessage`, checking for the presence and ordering of extra certificates.
 
     Ensures that the `PKIMessage` has the required CMP protection certificate. As defined in Rfc9483
     self-signed certificates should be omitted, so, it is allowed to not include it.
 
-    :param pki_message: The `rfc9480.PKIMessage` containing the CMP protection data to verify.
+    :param pki_message: The `PKIMessageTMP` containing the CMP protection data to verify.
     :param allow_self_signed: If True, allows self-signed certificates in the absence of extra certificates.
     :raises ValueError: If the CMP protection certificate is missing and self-signed certificates are disallowed.
     """
@@ -405,7 +405,7 @@ def _check_cmp_protection_for_extra_certs(pki_message: rfc9480.PKIMessage, allow
 
 @keyword(name="Validate extraCerts")
 def validate_extra_certs(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     cert_number: Strint = 0,
     allow_self_signed: bool = False,
     eku_strictness: str = "LAX",
@@ -480,7 +480,7 @@ def validate_extra_certs(  # noqa D417 undocumented-param
 # TODO ask alex to maybe always has to start with CN=
 
 
-def _verify_senderkid_for_mac(pki_message: rfc9480.PKIMessage, allow_mac_failure: bool = False) -> None:
+def _verify_senderkid_for_mac(pki_message: PKIMessageTMP, allow_mac_failure: bool = False) -> None:
     """Verify the `senderKID` and `sender` fields in a PKIMessage for MAC-based protection.
 
     :param pki_message: The PKIMessage object containing the `sender` and `senderKID` fields to verify.
@@ -541,7 +541,7 @@ def _verify_senderkid_for_mac(pki_message: rfc9480.PKIMessage, allow_mac_failure
 
 @keyword(name="Validate senderKID For CMP Protection")
 def validate_senderkid_for_cmp_protection(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     protection_cert: Optional[rfc9480.CMPCertificate] = None,
     must_be_protected: bool = False,
     allow_mac_failure: bool = False,
@@ -610,7 +610,7 @@ def validate_senderkid_for_cmp_protection(  # noqa D417 undocumented-param
 
 @keyword(name="Validate PKIMessage Signature Protection")
 def check_pkimessage_signature_protection(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, allow_sender_failure: bool = True, check_sender_kid: bool = True
+    pki_message: PKIMessageTMP, allow_sender_failure: bool = True, check_sender_kid: bool = True
 ) -> None:
     """Validate the PKIMessage signature and ensure the sender and senderKID fields are correctly set.
 
@@ -845,7 +845,7 @@ def check_protection_alg_conform_to_spki(
 
 @keyword(name="Validate protectionAlg Field")
 def check_protection_alg_field(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, expected_type: Optional[str] = None, must_be_protected: bool = True
+    pki_message: PKIMessageTMP, expected_type: Optional[str] = None, must_be_protected: bool = True
 ):
     """Check the `protectionAlg` field in the PKI message for consistency with rfc 9483 Section 3.2.
 
@@ -918,7 +918,7 @@ def check_protection_alg_field(  # noqa D417 undocumented-param
 
 
 @keyword(name="Check implicitconfirm In generalInfo")
-def check_implicitconfirm_in_generalinfo(pki_message: rfc9480.PKIMessage) -> None:  # noqa: D417 undocumented-param
+def check_implicitconfirm_in_generalinfo(pki_message: PKIMessageTMP) -> None:  # noqa: D417 undocumented-param
     """Check whether `implicitConfirm` is correctly set in the `generalInfo` field of the `pki_message`.
 
     `implicitConfirm` is only allowed for the message types: `ip`, `cp`, `kup`, `ir`, `cr`, `kur`, and `p10cr`.
@@ -964,7 +964,7 @@ def check_implicitconfirm_in_generalinfo(pki_message: rfc9480.PKIMessage) -> Non
 
 
 @keyword(name="Check confirmWaitTime In generalInfo")
-def check_confirmwaittime_in_generalinfo(pki_message: rfc9480.PKIMessage) -> None:  # noqa D417 undocumented-param
+def check_confirmwaittime_in_generalinfo(pki_message: PKIMessageTMP) -> None:  # noqa D417 undocumented-param
     """Check if `confirmWaitTime` is correctly set, if set, in the GeneralInfo field of the `pki_message`.
 
     Verify that `confirmWaitTime` is properly set and validates its presence in relation
@@ -1002,7 +1002,7 @@ def check_confirmwaittime_in_generalinfo(pki_message: rfc9480.PKIMessage) -> Non
         try:
             confirm_wait_time, rest = decoder.decode(confirm_wait_time, useful.GeneralizedTime())
         except pyasn1.error.PyAsn1Error:
-            raise BadDataFormat(f"Can not correctly decode the confirmWaitTime.")  # pylint: disable=raise-missing-from
+            raise BadDataFormat("Can not correctly decode the confirmWaitTime.")  # pylint: disable=raise-missing-from
 
         if rest != b"":
             raise BadAsn1Data("confirmWaitTime")
@@ -1027,7 +1027,7 @@ def check_confirmwaittime_in_generalinfo(pki_message: rfc9480.PKIMessage) -> Non
 
 
 @keyword(name="Check certProfile In generalInfo")
-def check_certprofile_in_generalinfo(pki_message: rfc9480.PKIMessage) -> None:  # noqa D417 undocumented-param
+def check_certprofile_in_generalinfo(pki_message: PKIMessageTMP) -> None:  # noqa D417 undocumented-param
     """Check if `certProfile` is correctly set in the generalInfo field of the `pki_message`.
 
     The `certProfile` field is optional and can only be present in messages of type `ir`, `cr`, `kur`, `p10cr`,
@@ -1060,7 +1060,7 @@ def check_certprofile_in_generalinfo(pki_message: rfc9480.PKIMessage) -> None:  
 
 
 @keyword(name="Check generalInfo Field")
-def check_generalinfo_field(pki_message: rfc9480.PKIMessage) -> None:  # noqa D417 # undocumented-param
+def check_generalinfo_field(pki_message: PKIMessageTMP) -> None:  # noqa D417 # undocumented-param
     """Check the `implicitConfirm`, `confirmWaitTime` and `certProfile` in the GeneralInfo field of the `PKIMessage`.
 
     To ensure compliance with RFC 9483 3.1. General Description of the CMP Message Header.
@@ -1086,7 +1086,7 @@ def check_generalinfo_field(pki_message: rfc9480.PKIMessage) -> None:  # noqa D4
 
 @not_keyword
 def check_message_time_field(
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     allowed_interval: Optional[int] = None,
     request_time: Optional[datetime.datetime] = None,
 ):
@@ -1132,7 +1132,7 @@ def check_message_time_field(
 
 
 def validate_sender_and_recipient_nonce(  # noqa D417 undocumented-param
-    response: rfc9480.PKIMessage, request: rfc9480.PKIMessage, nonce_sec: Strint = 128
+    response: PKIMessageTMP, request: PKIMessageTMP, nonce_sec: Strint = 128
 ) -> None:
     """Check the sender and recipient nonce in the response and request messages.
 
@@ -1185,7 +1185,7 @@ def validate_sender_and_recipient_nonce(  # noqa D417 undocumented-param
 
 @keyword(name="Validate transactionID")
 def validate_transaction_id(  # noqa D417 undocumented-param
-    response: rfc9480.PKIMessage, request: Optional[rfc9480.PKIMessage] = None
+    response: PKIMessageTMP, request: Optional[PKIMessageTMP] = None
 ):
     """Validate the `transactionID` in a PKIMessage according to Rfc 9483 Section 3.1.
 
@@ -1226,8 +1226,8 @@ def validate_transaction_id(  # noqa D417 undocumented-param
 
 
 def validate_sender_and_recipient(  # noqa D417 undocumented-param
-    response: rfc9480.PKIMessage,
-    request: rfc9480.PKIMessage,
+    response: PKIMessageTMP,
+    request: PKIMessageTMP,
     must_be_eq: bool = False,
 ):
     """Check if the sender and recipient related fields in the request and response messages match.
@@ -1272,8 +1272,8 @@ def validate_sender_and_recipient(  # noqa D417 undocumented-param
 
 @keyword(name="Validate PKIMessage Header")
 def validate_pkimessage_header(  # noqa D417 undocumented-param
-    pki_message_response: rfc9480.PKIMessage,
-    pki_message_request: Optional[rfc9480.PKIMessage] = None,
+    pki_message_response: PKIMessageTMP,
+    pki_message_request: Optional[PKIMessageTMP] = None,
     protection: bool = True,
     time_interval: Union[None, Strint] = 200,
     allow_failure_sender: bool = True,
@@ -1356,7 +1356,7 @@ def validate_pkimessage_header(  # noqa D417 undocumented-param
 
 @keyword(name="Check RP CMP Message Body")
 def check_rp_cmp_message_body(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage, index: Strint = 0
+    pki_message: PKIMessageTMP, index: Strint = 0
 ) -> None:
     """Validate the content of an `rp` (Revocation Response) CMP message body according to Section 4.2 in RFC 9483.
 
@@ -1402,7 +1402,7 @@ def check_rp_cmp_message_body(  # noqa D417 undocumented-param
 
 @keyword(name="Validate certReqId")
 def validate_certReqId(  # noqa D417 undocumented-param pylint: disable=invalid-name
-    pki_message: rfc9480.PKIMessage, response_index: Strint = 0, used_p10cr: bool = False
+    pki_message: PKIMessageTMP, response_index: Strint = 0, used_p10cr: bool = False
 ):
     """Validate the `certReqId` field in a PKIMessage according to Rfc 9383 Section 4.
 
@@ -1440,7 +1440,7 @@ def validate_certReqId(  # noqa D417 undocumented-param pylint: disable=invalid-
 
 # TODO maybe support Polling or maybe auto generate Polling Request
 def validate_ca_message_body(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     local_key_gen: bool = True,
     trustanchors: str = "./data/trustanchors",
     used_p10cr: bool = False,
@@ -1491,8 +1491,8 @@ def validate_ca_message_body(  # noqa D417 undocumented-param
     """
     body_name = pki_message["body"].getName()
 
-    if body_name not in ["ip", "kup", "cp"]:
-        raise ValueError("Only supposed to be used on the `ip`, `kup` or `cp` PKIBody")
+    if body_name not in ["ip", "kup", "cp", "ccp"]:
+        raise ValueError("Only supposed to be used on the `ip`, `kup` `ccp` or `cp` PKIBody")
 
     response_size = len(pki_message["body"][body_name]["response"])
     if response_size != int(expected_size):
@@ -1543,9 +1543,9 @@ def validate_ca_message_body(  # noqa D417 undocumented-param
 
 @keyword(name="Validate PKI Confirmation Message")
 def validate_pki_confirmation_message(  # noqa D417 undocumented-param
-    pki_conf_msg: rfc9480.PKIMessage,
-    ca_message: rfc9480.PKIMessage,
-    request: Optional[rfc9480.PKIMessage] = None,
+    pki_conf_msg: PKIMessageTMP,
+    ca_message: PKIMessageTMP,
+    request: Optional[PKIMessageTMP] = None,
     allow_caching_certs: bool = True,
 ) -> None:
     """Validate the `pkiConf` body of a CMP PKIMessage.
@@ -1622,8 +1622,8 @@ def validate_pki_confirmation_message(  # noqa D417 undocumented-param
 
 @keyword(name="Check For grantedWithMods")
 def check_for_granted_with_mods(  # noqa D417 undocumented-param
-    pki_message_response: rfc9480.PKIMessage,
-    pki_message_request: rfc9480.PKIMessage,
+    pki_message_response: PKIMessageTMP,
+    pki_message_request: PKIMessageTMP,
     response_index: int = 0,
     include_fields: Optional[str] = None,
     exclude_fields: Optional[str] = None,
@@ -1694,7 +1694,7 @@ def check_for_granted_with_mods(  # noqa D417 undocumented-param
 
 
 def validate_ids_and_nonces_for_nested_response(  # noqa D417 undocumented-param
-    request: rfc9480.PKIMessage, response: rfc9480.PKIMessage
+    request: PKIMessageTMP, response: PKIMessageTMP
 ) -> None:
     """Validate transactionIDs and nonces for a nested PKIMessage response.
 
@@ -1762,7 +1762,7 @@ def _is_unique(lst: List[bytes]) -> bool:
 
 
 def validate_nested_message_unique_nonces_and_ids(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     check_transaction_id: bool = True,
     check_sender_nonce: bool = True,
     check_recip_nonce: bool = True,
@@ -1847,12 +1847,12 @@ def validate_add_protection_tx_id_and_nonces(  # noqa D417 undocumented-param
     The inner `PKIMessage` must contain the same `transactionID` and `senderNonce` as the outer request.
 
     Arguments:
-    ----------
+    ---------
         - `request`: The `PKIMessage` to validate.
         - `check_length`: Whether to check the length of the nonces and transactionID. Defaults to `True`.
 
     Returns:
-    --------
+    -------
         - `PKIMessage`: The validated `PKIMessage`.
 
     Raises:
@@ -1930,6 +1930,52 @@ def validate_add_protection_tx_id_and_nonces(  # noqa D417 undocumented-param
             _ensure_length(recip_nonce, "recipNonce", BadRecipientNonce)
 
 
-def validate_cross_certification_response(crp: rfc9480.PKIMessage, request: Optional[rfc9480.PKIMessage] = None):
-    """Validate a Cross certification response."""
-    raise NotImplementedError("Not implemented yet.")
+def validate_cross_certification_response(  # noqa D417 undocumented-param
+    ccp: PKIMessageTMP,
+    verbose: bool = False,
+    trustanchors: str = "./data/trustanchors",
+    allow_os_store: bool = True,
+):
+    """Validate a Cross certification response.
+
+    Arguments:
+    ---------
+        - `ccp`: The Cross Certification Response to validate.
+        - `verbose`: Enables verbose logging, including details about certificates in the `caPubs` field that
+            are not trust anchors. Defaults to `False`.
+        - `trustanchors`: Path to a file or directory containing trusted CA certificates for validation of
+        the caPubs field. Defaults to `"data/trustanchors"`.
+        - `allow_os_store`: If `True`, allows the use of the OS certificate store as additional trust anchors.
+
+    Raises:
+    ------
+        - `ValueError`: If the Cross Certification Response does not contain exactly one certificate.
+        - `ValueError`: If the Cross Certification Response is MAC protected.
+        - `BadMessageCheck`: If the Cross Certification Response does not contain `extraCerts`.
+        - `ValueError`: If the Cross Certification Response does not conform to the standard.
+
+    Examples:
+    --------
+    | Validate Cross Certification Response | ${ccp} | verbose=True |
+    | Validate Cross Certification Response | ${ccp} | verbose=True | trustanchors="/path/to/ca" | allow_os_store=True |
+
+    """
+    entries = len(ccp["body"]["ccp"]["response"])
+    if entries != 1:
+        raise ValueError(f"The `ccr` body should contain exactly One certificate.Got: {entries}")
+
+    _is_kem_based = ccp["header"]["protectionAlg"]["algorithm"] == id_KemBasedMac
+    if protectionutils.get_protection_type_from_pkimessage(ccp) == "mac" or _is_kem_based:
+        raise ValueError("The Cross Certification Response should be signed.Not MAC protected.")
+
+    if not ccp["extraCerts"].isValue:
+        raise BadMessageCheck("The Cross Certification Response should contain `extraCerts`.")
+    validate_ca_message_body(
+        ccp,
+        used_p10cr=False,
+        verbose=verbose,
+        allow_os_store=allow_os_store,
+        trustanchors=trustanchors,
+        expected_size=1,
+        response_index=0,
+    )

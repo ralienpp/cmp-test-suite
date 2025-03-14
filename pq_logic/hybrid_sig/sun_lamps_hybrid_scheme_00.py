@@ -35,7 +35,7 @@ from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.hybrid_structures import AltSignatureExt, AltSubPubKeyExt, UniformResourceIdentifier
 from pq_logic.keys.composite_sig import (
     CompositeSigCMSPublicKey,
-    compute_hash,
+    _compute_hash,
 )
 from pq_logic.migration_typing import HybridPublicKey
 from pq_logic.tmp_oids import (
@@ -61,7 +61,7 @@ def _hash_public_key(public_key, hash_alg: str) -> bytes:
         encoding=serialization.Encoding.DER, format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
 
-    return compute_hash(hash_alg, public_key_der)
+    return _compute_hash(hash_alg, public_key_der)
 
 
 ##############
@@ -215,7 +215,7 @@ def prepare_sun_hybrid_alt_sub_pub_key_ext(  # noqa: D417 Missing argument descr
     if not by_val:
         if not hash_alg:
             raise ValueError("hash_alg must be provided when byVal is False.")
-        public_key_der = compute_hash(alg_name=hash_alg, data=public_key_der)
+        public_key_der = _compute_hash(alg_name=hash_alg, data=public_key_der)
 
     alt_sub_pub_key_ext = AltSubPubKeyExt()
     alt_sub_pub_key_ext["byVal"] = by_val
@@ -285,7 +285,7 @@ def prepare_sun_hybrid_alt_signature_ext(  # noqa: D417 Missing argument descrip
     if not by_val:
         if not hash_alg:
             raise ValueError("hash_alg must be provided when byVal is False.")
-        signature = compute_hash(hash_alg, signature)
+        signature = _compute_hash(hash_alg, signature)
 
     alt_signature_ext = AltSignatureExt()
     alt_signature_ext["byVal"] = by_val
@@ -787,7 +787,7 @@ def validate_alt_sig_extn(  # noqa: D417 Missing argument descriptions in the do
 
     hash_alg = get_hash_from_oid(decoded_ext["hashAlg"]["algorithm"])
     hashed_sig = decoded_ext["plainOrHash"].asOctets()
-    if hashed_sig != compute_hash(alg_name=hash_alg, data=signature):
+    if hashed_sig != _compute_hash(alg_name=hash_alg, data=signature):
         raise ValueError("The fetched signature was invalid!")
 
     pq_compute_utils.verify_signature_with_alg_id(

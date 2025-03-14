@@ -109,7 +109,7 @@ ${ALLOW_CR_MAC_BASED}   ${True}
 ${ALLOW_IR_MAC_BASED}   ${True}
 ${ALLOW_KUR_SAME_KEY}    ${False}
 ${ALLOW_IR_SAME_KEY}   ${True}
-${LARGE_KEY_SIZE}    ${False}
+${LARGE_KEY_SIZE}    ${12800}
 ${ALLOW_CERT_CONF}    ${False}
 
 # Section 4.1.6
@@ -123,7 +123,7 @@ ${REVOCATION_STRICT_CHECK}    ${False}
 
 # Section 4.3
 # Whether a Support message can be used with a pre-shared-Secret.
-${ALLOW_MAC_PROTECTED_SUPPORT_MSG}   ${False}
+${ALLOW_MAC_PROTECTED_SUPPORT_MSG}   ${True}
 ${ALLOW_SUPPORT_MESSAGES}   ${True}
 # Can be used to check if the General Message CRL Update Retrieval works with the last CRL.
 ${CRL_FILEPATH}    ${None}
@@ -154,8 +154,8 @@ ${DEVICE_KEY}  ${None}
 
 # Section 5.2 and 5.3
 # Other trusted PKI and Key (None means not provided, so test are skipped).
-${OTHER_TRUSTED_PKI_KEY}    ${None}
-${OTHER_TRUSTED_PKI_CERT}    ${None}
+${OTHER_TRUSTED_PKI_KEY}    ./data/keys/private-key-ecdsa.pem
+${OTHER_TRUSTED_PKI_CERT}    ./data/trusted_ras/ra_cms_cert_ecdsa.pem
 
 # A certificate used to verify, if it is supported
 # that another trusted PKI Management Entity can revoke a certificate.
@@ -206,6 +206,13 @@ ${CHAMELEON_SUFFIX}   chameleon
 ${RELATED_CERT_SUFFIX}   related-Cert
 ${MULTI_AUTH_SUFFIX}   multi-auth
 ${CERT_DISCOVERY_SUFFIX}   cert-discovery
+
+
+# CMP and LwCMP certificates and keys
+${UPDATED_CERT}    ${None}
+${UPDATED_KEY}     ${None}
+${DSA_KEY}         ${None}
+${DSA_CERT}        ${None}
 
 
 # Hybrid Certificates and Keys

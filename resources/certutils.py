@@ -39,6 +39,7 @@ from resources import (
     typingutils,
     utils,
 )
+from resources.asn1_structures import PKIMessageTMP
 from resources.exceptions import BadAsn1Data, CertRevoked, SignerNotTrusted
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import CMP_EKU_OID_2_NAME, RSASSA_PSS_OID_2_NAME
@@ -330,7 +331,7 @@ def check_is_cert_signer(cert: rfc9480.CMPCertificate, poss_issuer: rfc9480.CMPC
 
 @keyword(name="Build CMP Chain From PKIMessage")
 def build_cmp_chain_from_pkimessage(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     ee_cert: Optional[rfc9480.CMPCertificate] = None,
     for_issued_cert: bool = False,
     last_cert_is_self_signed: bool = False,
@@ -1143,7 +1144,7 @@ def get_ocsp_url_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]
 
     ocsp_urls = [
         access_description.access_location.value
-        for access_description in aia
+        for access_description in aia  # type: ignore
         if access_description.access_method == AuthorityInformationAccessOID.OCSP
     ]
 
@@ -1485,7 +1486,9 @@ def _extract_crl_urls_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertifi
 
     crl_urls = []
     try:
-        crl_dist_points = cert.extensions.get_extension_for_oid(ExtensionOID.CRL_DISTRIBUTION_POINTS).value
+        crl_dist_points = cert.extensions.get_extension_for_oid(  # type: ignore
+            ExtensionOID.CRL_DISTRIBUTION_POINTS
+        ).value
     except x509.ExtensionNotFound:
         return crl_urls
 

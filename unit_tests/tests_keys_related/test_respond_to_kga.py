@@ -5,6 +5,7 @@
 import unittest
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from pyasn1_alt_modules import rfc9480
 
 from pq_logic.keys.composite_sig import CompositeSigCMSPublicKey
 from pq_logic.keys.composite_kem import CompositeKEMPublicKey
@@ -22,6 +23,9 @@ class TestRespondToKGA(unittest.TestCase):
         cls.ca_cert, cls.ca_key = build_certificate(private_key=generate_key("rsa", length=2048),
                                                     use_rsa_pss=False)
 
+        cls.request = PKIMessageTMP()
+        cls.request["header"]["protectionAlg"]["algorithm"] = rfc9480.id_PasswordBasedMac
+
     def test_prepare_correct_kga_response(self):
         """
         GIVEN a KGA request.
@@ -33,12 +37,12 @@ class TestRespondToKGA(unittest.TestCase):
             subject="CN=KGA",
         )
 
-        request = PKIMessageTMP()
+
         cert, env_data = prepare_cert_and_private_key_for_kga(
             cert_template=cert_template,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
-            request=request,
+            request=self.request,
             password=b"password",
             kga_cert_chain=[self.ca_cert],
             kga_key=self.ca_key,
@@ -60,12 +64,11 @@ class TestRespondToKGA(unittest.TestCase):
         )
         self.assertEqual(b"", cert_template["publicKey"]["subjectPublicKey"].asOctets())
 
-        request = PKIMessageTMP()
         cert, env_data = prepare_cert_and_private_key_for_kga(
             cert_template=cert_template,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
-            request=request,
+            request=self.request,
             password=b"password",
             kga_cert_chain=[self.ca_cert],
             kga_key=self.ca_key,
@@ -88,12 +91,11 @@ class TestRespondToKGA(unittest.TestCase):
         )
         self.assertEqual(b"", cert_template["publicKey"]["subjectPublicKey"].asOctets())
 
-        request = PKIMessageTMP()
         cert, env_data = prepare_cert_and_private_key_for_kga(
             cert_template=cert_template,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
-            request=request,
+            request=self.request,
             password=b"password",
             kga_cert_chain=[self.ca_cert],
             kga_key=self.ca_key,

@@ -25,6 +25,9 @@ env ?= cloudpki
 test: check_ejbca
 	robot --pythonpath=./ --outputdir=reports --variable environment:$(env) tests
 
+test-minimal:
+	robot --include minimal --pythonpath=./ --outputdir=reports --variable environment:$(env) tests
+
 # As above, but keep the results in timestamped subdirectories, so they keep accumulating. This is useful because you
 # won't overwrite test reports from previous runs, which may contain interesting information about exotic errors you
 # encountered.
@@ -102,10 +105,16 @@ start-mock-ca:
 	python ./mock_ca/ca_handler.py
 
 test-mock-ca:
-	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests_untested
+	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca pq_tests/composite_sig_alg.robot
 
 codespell:
-	codespell . --check-filenames --skip *.html,*.pem,*.xml,*venv*,*fips/*.py,*data/*,*/liboqs-python/*,*doc/*,*data/*,*data/pqc-certificates/*,*data/stats,
+	codespell . --check-filenames --skip=*.html,*.pem,*.xml,*venv*,*fips/*.py,*data/*,*/liboqs-python/*,*doc/*,*data/pqc-certificates/*,*data/stats,*/tests_rsa_kem/*
 
+dev-unit-tests:
+	python -m unittest discover -s work_in_progress
 
+rf-dev:
+	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests/kga.robot
 
+rf-lint:
+	robocop --report rules_by_error_type tests/lwcmp.robot

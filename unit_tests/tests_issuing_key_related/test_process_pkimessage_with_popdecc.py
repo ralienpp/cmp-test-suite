@@ -77,7 +77,7 @@ class TestProcessPKIMessageWithPopDecc(unittest.TestCase):
 
 
 
-    def test_invalid_size(self):
+    def test_invalid_size_popdecc(self):
         """
         GIVEN a PKIMessage with a PopDecc.
         WHEN processing the PKIMessage with an invalid size.
@@ -100,7 +100,7 @@ class TestProcessPKIMessageWithPopDecc(unittest.TestCase):
             )
 
 
-    def test_invalid_version(self):
+    def test_invalid_version_popdecc(self):
         """
         GIVEN a PKIMessage with a PopDecc.
         WHEN processing the PKIMessage with an invalid version.
@@ -120,7 +120,8 @@ class TestProcessPKIMessageWithPopDecc(unittest.TestCase):
                 pki_message=encoded_popdecc,
                 ee_key=self.rsa_key,
                 expected_size=1,
-                expected_sender="CN=CMP-TEST-SUITE"
+                expected_version=2,
+                expected_sender="CN=CMP-Test-Suite",
             )
 
     def test_encr_rand_and_challenge_present(self):
@@ -142,7 +143,7 @@ class TestProcessPKIMessageWithPopDecc(unittest.TestCase):
                 pki_message=encoded_popdecc,
                 ee_key=self.rsa_key,
                 expected_size=1,
-                expected_sender="CN=CMP-TEST-SUITE"
+                expected_sender="CN=CMP-Test-Suite"
             )
 
 

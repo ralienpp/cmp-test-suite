@@ -24,23 +24,33 @@ from cryptography.hazmat.primitives.asymmetric import (
     x448,
     x25519,
 )
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from pq_logic.combined_factory import CombinedKeyFactory
+from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
+from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.keys.key_pyasn1_utils import load_enc_key
 from pyasn1.codec.der import decoder
-from pyasn1_alt_modules import rfc5280, rfc5480, rfc6664
-from robot.api.deco import not_keyword
+from pyasn1_alt_modules import rfc4211, rfc5280, rfc5480, rfc6664, rfc9480
+from robot.api.deco import keyword, not_keyword
 
 from resources import oid_mapping, utils
-from resources.exceptions import BadAsn1Data, UnknownOID
-from resources.oid_mapping import get_curve_instance
+from resources.convertutils import str_to_bytes
+from resources.exceptions import BadAlg, BadAsn1Data, BadCertTemplate, UnknownOID
+from resources.oid_mapping import KEY_CLASS_MAPPING, get_curve_instance, get_hash_from_oid
 from resources.oidutils import (
     CMS_COMPOSITE_NAME_2_OID,
+    CMS_COMPOSITE_OID_2_NAME,
     CURVE_OIDS_2_NAME,
+    MSG_SIG_ALG_NAME_2_OID,
+    PQ_NAME_2_OID,
     PQ_OID_2_NAME,
     PQ_SIG_PRE_HASH_OID_2_NAME,
     TRAD_STR_OID_TO_KEY_NAME,
 )
-from resources.typingutils import PrivateKey, PublicKey
+from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey, PublicKeySig
 
 
 def save_key(key: PrivateKey, path: str, password: Union[None, str] = "11111"):  # noqa: D417 for RF docs
@@ -77,7 +87,7 @@ def save_key(key: PrivateKey, path: str, password: Union[None, str] = "11111"): 
     data = key.private_bytes(
         encoding=encoding_,
         format=format_,
-        encryption_algorithm=encrypt_algo,
+        encryption_algorithm=encrypt_algo,  # type: ignore
     )
 
     with open(path, "wb") as f:
@@ -395,8 +405,9 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
     try:
         # try to load the key with the password.
         _pem_data = _clean_data(pem_data)
-        password = password.encode("utf-8") if password else None  # type: ignore
-        return serialization.load_der_private_key(data=_pem_data, password=password)
+        if password is not None:
+            password = str_to_bytes(password)  # type: ignore
+        return serialization.load_der_private_key(data=_pem_data, password=password)  # type: ignore
     except ValueError:
         pass
 
@@ -408,9 +419,6 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
     except ValueError:
         pem_data2 = pem_data
 
-    is_custom = False
-
-    print("is_custom:", is_custom)
     is_custom = any((b"-----BEGIN " + key + b" PRIVATE KEY-----") in pem_data2 for key in CUSTOM_KEY_TYPES)
     print("is_custom:", is_custom)
     if is_custom:
@@ -420,7 +428,8 @@ def load_private_key_from_file(  # noqa: D417 for RF docs
 
         return CombinedKeyFactory.load_key_from_one_asym_key(data=pem_data)
 
-    password = password if not password else password.encode("utf-8")  # type: ignore
+    if password is not None:
+        password = str_to_bytes(password)  # type: ignore
 
     pem_data = _clean_data(pem_data)
     private_key = serialization.load_pem_private_key(
@@ -480,13 +489,16 @@ def load_public_key_from_spki(data: Union[bytes, rfc5280.SubjectPublicKeyInfo]) 
     """Load a public key from a DER-encoded SubjectPublicKeyInfo structure.
 
     Arguments:
+    ---------
          - `data`: DER-encoded SubjectPublicKeyInfo structure or a pyasn1 `SubjectPublicKeyInfo` object.
 
     Returns:
+    -------
         - The loaded public key.
 
     Raises:
-          - `ValueError`: If the public key is incorrectly formatted, or the OID is not valid/unknown.
+    ------
+          - `BadAlg`: If the public key is incorrectly formatted, or the OID is not valid/unknown.
 
     Examples:
     --------
@@ -498,7 +510,10 @@ def load_public_key_from_spki(data: Union[bytes, rfc5280.SubjectPublicKeyInfo]) 
         if rest != b"":
             raise ValueError("The decoded SubjectPublicKeyInfo structure had trailing data.")
 
-    return CombinedKeyFactory.load_public_key_from_spki(spki=data)
+    try:
+        return CombinedKeyFactory.load_public_key_from_spki(spki=data)
+    except ValueError:
+        raise BadAlg("The OID is not valid/unknown.")
 
 
 @not_keyword
@@ -576,3 +591,75 @@ def load_public_key_from_cert_template(  # noqa: D417 undocumented param
     old_spki["algorithm"] = spki["algorithm"]
     old_spki["subjectPublicKey"] = spki["subjectPublicKey"]
     return load_public_key_from_spki(old_spki)
+
+
+def get_key_name(key: Union[PrivateKey, PublicKey]) -> str:  # noqa: D417 undocumented param
+    """Retrieve the name of the key's class.
+
+    Arguments:
+    ---------
+        - `key`: The key instance.
+
+    Returns:
+    -------
+        - The name of the key class.
+
+    """
+    if hasattr(key, "name"):
+        return key.name  # type: ignore
+    return KEY_CLASS_MAPPING[key.__class__.__name__]
+
+
+def _check_trad_alg_id(public_key, oid: str, hash_alg: Optional[str]) -> None:
+    """Validate if the public key is of the same type as the algorithm identifier."""
+    msg = "The public key was not of the same type as the,algorithm identifier implied."
+    if isinstance(public_key, Ed448PublicKey):
+        if str(MSG_SIG_ALG_NAME_2_OID["ed448"]) == oid:
+            return
+    if isinstance(public_key, Ed25519PublicKey):
+        if str(MSG_SIG_ALG_NAME_2_OID["ed25519"]) == oid:
+            return
+
+    if isinstance(public_key, EllipticCurvePublicKey):
+        if str(MSG_SIG_ALG_NAME_2_OID[f"ecdsa-{hash_alg}"]) == oid:
+            return
+
+    if isinstance(public_key, RSAPublicKey):
+        if str(MSG_SIG_ALG_NAME_2_OID[f"rsa-{hash_alg}"]) == oid:
+            return
+
+    else:
+        raise BadAlg(f"Unknown key type: {type(public_key)}")
+
+    raise BadAlg(msg)
+
+
+def check_consistency_alg_id_and_key(
+    alg_id: rfc9480.AlgorithmIdentifier, key: Union[PrivateKeySig, PublicKeySig]
+) -> None:
+    """Check the consistency of the algorithm identifier and the key.
+
+    :param alg_id: The algorithm identifier for the key.
+    :param key: The key to check.
+    """
+    oid = alg_id["algorithm"]
+    if isinstance(key, (CompositeSigCMSPublicKey, CompositeSigCMSPrivateKey)):
+        if alg_id["algorithm"] not in CMS_COMPOSITE_OID_2_NAME:
+            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
+        name: str = CMS_COMPOSITE_OID_2_NAME[oid]
+        use_pss = name.endswith("-pss")
+        pre_hash = True if "hash-" in name else False
+        if str(key.get_oid(use_pss=use_pss, pre_hash=pre_hash)) != str(oid):
+            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
+
+        return
+
+    hash_alg = get_hash_from_oid(alg_id["algorithm"], only_hash=True)
+
+    if isinstance(key, (PQSignaturePublicKey, PQSignaturePrivateKey)):
+        _alg = "" if hash_alg is None else "-" + hash_alg
+        _name = key.name + _alg
+        if str(PQ_NAME_2_OID[_name]) != str(oid):
+            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
+    else:
+        _check_trad_alg_id(key, str(oid), hash_alg=hash_alg)

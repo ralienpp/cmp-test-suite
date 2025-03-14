@@ -28,6 +28,18 @@ and private keys as raw bytes.
 - The `get_subject_public_key` method is used to get the public key for the
 `SubjectPublicKeyInfo` structure.
 
+The `WrapperPublicKey` and `WrapperPrivateKey` classes are abstract classes that should be able to
+serialize the keys into different formats. The `BaseKey` class is an abstract class that provides
+common functionality and properties for all key types.
+
+The idea was to create a WrapperKey which supports are different challenges to allow the support
+of diverse key exports, for that purpose, contains the wrapper classes for public and private keys.
+The private functions are supposed to be used by the wrapper classes to export the keys in different formats.
+The Factories are used to create the keys. Inside the `keyutils` is the logic how to create the keys and
+work with them.
+
+
+
 """
 
 import base64
@@ -36,7 +48,12 @@ from abc import ABC, abstractmethod
 from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ed448, ed25519, rsa, x448, x25519
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa, x448, x25519
+from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey, DHPublicKey
+from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey, DSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey, Ed448PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
@@ -47,8 +64,29 @@ from pq_logic.hybrid_structures import CompositeSignaturePrivateKeyAsn1, Composi
 from pq_logic.keys.serialize_utils import prepare_enc_key_pem
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
-HybridTradPubComp = Union["TradKEMPublicKey", ECDHPublicKey, rsa.RSAPublicKey]
-HybridTradPrivComp = Union["TradKEMPrivateKey", ECDHPrivateKey, rsa.RSAPrivateKey]
+ECSignKey = Union[ec.EllipticCurvePrivateKey, Ed25519PrivateKey, Ed448PrivateKey]
+ECVerifyKey = Union[ec.EllipticCurvePublicKey, Ed25519PublicKey, Ed448PublicKey]
+
+HybridTradPubComp = Union["TradKEMPublicKey", ECDHPublicKey, rsa.RSAPublicKey, ECVerifyKey]
+HybridTradPrivComp = Union["TradKEMPrivateKey", ECDHPrivateKey, rsa.RSAPrivateKey, ECSignKey]
+
+# TODO decide if the comparison function should raise a error if a public key and
+# a None public key are compared.
+
+_PUBLIC_KEY = Union[
+    rsa.RSAPublicKey,
+    HybridTradPubComp,
+    DSAPublicKey,
+    DHPublicKey,
+]
+
+_PRIVATE_KEY = Union[
+    rsa.RSAPrivateKey,
+    HybridTradPrivComp,
+    DSAPrivateKey,
+    DHPrivateKey,
+]
+
 
 # Base Key Class
 # to add functionality and properties to all key types.
@@ -60,6 +98,12 @@ class BaseKey(ABC):
     _name: str
     # this name is used if a library uses a different name style for the algorithm.
     _other_name: Optional[str]
+
+    def __eq__(self, other: Union[_PUBLIC_KEY, _PRIVATE_KEY, "BaseKey"]) -> bool:
+        """Compare two keys."""
+        if not isinstance(other, BaseKey):
+            return False
+        return type(self) is type(other)
 
     @property
     def name(self) -> str:
@@ -100,6 +144,15 @@ class KEMPublicKey(BaseKey, ABC):
 
 class WrapperPublicKey(BaseKey):
     """Abstract class for public keys."""
+
+    _public_key_bytes: bytes
+
+    def __eq__(self, other) -> bool:
+        """Compare two public keys."""
+        result = super().__eq__(other)
+        if not result:
+            return False
+        return self._public_key_bytes == other._public_key_bytes
 
     @abstractmethod
     def _export_public_key(self) -> bytes:
@@ -406,8 +459,8 @@ class TradKEMPublicKey(WrapperPublicKey, KEMPublicKey, ABC):
         :return: The result of the comparison.
         :raises ValueError: If the types of the keys are different.
         """
-        if type(other) is not type(self):
-            raise ValueError(f"Cannot compare {type(self)} with {type(other)}")
+        if not isinstance(other, TradKEMPublicKey):
+            return False
         return self._public_key == other._public_key
 
     @abstractmethod
@@ -480,11 +533,12 @@ class HybridPublicKey(WrapperPublicKey, ABC):
 
     def __eq__(self, other):
         """Compare two hybrid public keys."""
-        if not isinstance(other, WrapperPublicKey):
-            raise ValueError(f"Cannot compare {type(self)} with {type(other)}")
-
-        if type(other) is not type(self):
+        if not isinstance(other, HybridPublicKey):
             return False
+
+        if other.name != self.name:
+            return False
+
         return self._pq_key == other.pq_key and self._trad_key == other.trad_key  # type: ignore
 
     @property
@@ -517,6 +571,90 @@ class HybridPrivateKey(WrapperPrivateKey, ABC):
     @abstractmethod
     def public_key(self) -> HybridPublicKey:
         """Get the public key."""
+
+
+class HybridSigPublicKey(HybridPublicKey, ABC):
+    """A public key for a hybrid signature scheme."""
+
+    _trad_key: ECVerifyKey
+    _name: str = "hybrid-sig"
+
+    def __init__(self, trad_key: ECVerifyKey, pq_key):
+        """Create a new instance."""
+        super().__init__(trad_key, pq_key)  # type: ignore
+        self._trad_key = trad_key
+        self._pq_key = pq_key
+
+    def __eq__(self, other: "HybridSigPublicKey") -> bool:
+        """Compare two hybrid public keys."""
+        if not isinstance(other, HybridSigPublicKey):
+            return False
+
+        if other.name != self.name:
+            return False
+
+        return self._pq_key == other.pq_key and self._trad_key == other.trad_key
+
+    @property
+    def trad_key(self) -> Union[Ed25519PrivateKey, Ed448PrivateKey, EllipticCurvePrivateKey]:
+        """Return the traditional key."""
+        return self._trad_key  # type: ignore
+
+    @property
+    def pq_key(self):
+        """Return the pq key."""
+        return self._pq_key  # type: ignore
+
+    @abstractmethod
+    def verify(self, signature: bytes, data: bytes, hash_alg: Optional[str] = None) -> bool:
+        """Verify the signature."""
+
+
+class HybridSigPrivateKey(HybridPrivateKey, ABC):
+    """A private key for a hybrid signature scheme."""
+
+    _trad_key: ECSignKey
+    _name: str = "hybrid-sig"
+
+    def __init__(self, trad_key, pq_key):
+        """Create a new instance."""
+        self._trad_key = trad_key
+        self._pq_key = pq_key
+
+    @property
+    def trad_key(self) -> ECSignKey:
+        """Return the traditional key."""
+        return self._trad_key
+
+    @property
+    def pq_key(self):
+        """Return the pq key."""
+        return self._pq_key  # type: ignore
+
+    def public_key(self) -> HybridPublicKey:
+        """Return the public key."""
+        return HybridSigPublicKey(self.trad_key.public_key(), self.pq_key.public_key())
+
+    @abstractmethod
+    def sign(self, data: bytes, hash_alg: Optional[str] = None) -> bytes:
+        """Sign the message."""
+
+    def _get_trad_key_name(self) -> str:
+        """Return the name of the traditional key."""
+        if isinstance(self._trad_key, ec.EllipticCurvePrivateKey):
+            return "ecdsa-" + self._trad_key.curve.name
+        if isinstance(self._trad_key, ed25519.Ed25519PrivateKey):
+            return "ed25519"
+        if isinstance(self._trad_key, ed448.Ed448PrivateKey):
+            return "ed448"
+        if isinstance(self._trad_key, rsa.RSAPrivateKey):
+            return f"rsa-{self._trad_key.key_size}"
+        raise ValueError("Unsupported key type: " + str(type(self._trad_key)))
+
+    @property
+    def name(self) -> str:
+        """Return the name of the key."""
+        return self._name + "-" + self._pq_key.name + "-" + self._get_trad_key_name()
 
 
 class HybridKEMPublicKey(HybridPublicKey, ABC):

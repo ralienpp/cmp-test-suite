@@ -20,6 +20,7 @@ Library             ../resources/certutils.py
 Library             ../resources/keyutils.py
 Library             ../resources/certbuildutils.py
 Library             ../resources/protectionutils.py
+Library             ../resources/extra_issuing_logic.py
 Library             ../pq_logic/hybrid_issuing.py
 Library             ../pq_logic/pq_compute_utils.py
 Library             ../pq_logic/pq_validation_utils.py
@@ -39,7 +40,7 @@ ${environment}          cloudpki
 @{collected_keys}       @{EMPTY}
 ${TestIndex}            ${0}
 @{burned_keys}          @{EMPTY}
-
+&{CERT_CONF_DEF_VALS}   sender=${SENDER}    recipient=${RECIPIENT}    private_key=${ISSUED_KEY}    cert=${ISSUED_CERT}    password=${PRESHARED_SECRET}    protection=signature
 
 *** Keywords ***
 
@@ -59,7 +60,8 @@ Set Up Test Suite
     IF  '${ISSUED_KEY}' == '${None}'
         ${issued_key}=    Generate Default Key
         IF    ${ALLOW_MAC_PROTECTION}
-            ${ir}=  Build Ir From Key    ${issued_key}    sender=${SENDER}    recipient=${RECIPIENT}    implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
+            ${ir}=  Build Ir From Key    ${issued_key}    sender=${SENDER}    recipient=${RECIPIENT}
+            ...     for_mac=True   implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
             ${protected_ir}=    Protect PKIMessage    ${ir}    password=${PRESHARED_SECRET}    protection=${DEFAULT_MAC_ALGORITHM}
         ELSE
             ${tmp_cert}    ${tmp_key}=    May Load Cert And Key
@@ -75,12 +77,13 @@ Set Up Test Suite
             ${protected_ir}=    Protect Hybrid PKIMessage     ${ir}    private_key=${tmp_key}    cert=${tmp_cert}
         END
         ${response}=   Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}    ${INIT_SUFFIX}
+        PKIStatus Must Be    ${response}   accepted
         ${issued_cert}=    Confirm Certificate If Needed    ${response}
-        VAR    ${ISSUED_KEY}    ${issued_key}    scope=GLOBAL
-        VAR    ${ISSUED_CERT}    ${issued_cert}    scope=GLOBAL
+        VAR    ${ISSUED_KEY}    ${issued_key}    scope=Global
+        VAR    ${ISSUED_CERT}    ${issued_cert}    scope=Global
         LOG    Initial certificate issued, with `MAC` protection.
-        VAR    &{CERT_CONF_DEF_VALS}    sender=${SENDER}    recipient=${RECIPIENT}    private_key=${issued_key}    cert=${issued_cert}    password=${PRESHARED_SECRET}    protection=signature   scope=GLOBAL
-        VAR    &{DEFAULT_PROTECTION_VALS}    protection=signature   private_key=${issued_key}    cert=${issued_cert}   password=${PRESHARED_SECRET}   scope=GLOBAL
+        VAR    &{CERT_CONF_DEF_VALS}    sender=${SENDER}    recipient=${RECIPIENT}    private_key=${issued_key}    cert=${issued_cert}    password=${PRESHARED_SECRET}    protection=signature   scope=Global
+        VAR    &{DEFAULT_PROTECTION_VALS}    protection=signature   private_key=${issued_key}    cert=${issued_cert}   password=${PRESHARED_SECRET}  scope=Global
     END
 
 Increase TestIndex
@@ -187,6 +190,22 @@ Certificate Must Be Valid
     Run Keyword And Warn On Failure
     ...    Validate Certificate PKILint    ${der_certificate}
 
+Validate Certificate was issued for expected Alg
+    [Documentation]    Validate that the certificate was issued for the expected algorithm.
+    ...
+    ...                Arguments:
+    ...                - `${response}`: The PKIMessage response.
+    ...                - `${expected_alg}`: The expected algorithm identifier (e.g., 'ml-dsa-44').
+    ...                - `${index}`: The index of the certificate in the PKIMessage. Defaults to `0`.
+    ...
+    ...                Examples:
+    ...                | Validate Certificate Was Issued For Expected Alg | ${response} | ml-dsa-44 |
+    ...                | Validate Certificate Was Issued For Expected Alg | ${response} | ml-dsa-44 | 1 |
+    [Arguments]    ${response}    ${expected_alg}    ${index}=0
+    PKIStatus Must Be    ${response}    status=accepted
+    ${cert}=    Get Cert From PKIMessage    ${response}    ${index}
+    Validate Migration OID In Certificate    ${cert}    ${expected_alg}
+
 Generate Key And CSR
     [Documentation]    This function generates a fresh Certificate Signing Request (CSR) and key, returning the DER-formatted data and the key.
     ...    Arguments:
@@ -208,6 +227,9 @@ PKIMessage Body Type Must Be
     [Documentation]    Ensure that the response type in a PKIMessage is of a certain type
     [Arguments]    ${pki_message}    ${expected_type}
     ${response_type}=    Get CMP Message Type    ${pki_message}
+    IF    '${response_type}' != '${expected_type}'
+        ${pki_status_info}=    Get PKIStatusInfo    ${pki_message}
+    END
     Should Be Equal    ${response_type}    ${expected_type}    Response type mismatch
 
 PKIMessage Must Contain ImplicitConfirm Extension
@@ -483,7 +505,7 @@ Generate Default IR Sig Protected
     ...                Examples:
     ...                | ${protected_ir}=    |    Generate Default IR Sig Protected    | transaction_id=${tx_id} |    sender_nonce=${nonce} |
     ...
-    [Arguments]    ${transaction_id}=${None}    ${sender_nonce}=${None}
+    [Arguments]    ${transaction_id}=${None}    ${sender_nonce}=${None}   &{params}
     ${cert_template}    ${key}=    Generate CertTemplate For Testing
     ${ir}=    Build Ir From Key
     ...       ${key}
@@ -493,11 +515,13 @@ Generate Default IR Sig Protected
     ...       recipient=${RECIPIENT}
     ...       implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
     ...       exclude_fields=sender,senderKID
+    ...       &{params}
     ${protected_ir}=    Protect PKIMessage
     ...                 ${ir}
     ...                 protection=signature
     ...                 private_key=${ISSUED_KEY}
     ...                 cert=${ISSUED_CERT}
+    ...                 &{params}
     RETURN    ${protected_ir}
 
 # @Suggested:
@@ -506,6 +530,25 @@ Generate Default IR Sig Protected
 # saved and used to test revocation request with a new certificate so ensure that the test cases
 # do not fail, because test cases before failed.
 # TODo fix doc
+
+Default Protect With MAC
+    [Documentation]    Protect a PKIMessage with the default protection algorithm, set inside the config
+    ...                and the default parameters.
+    ...
+    ...                Arguments:
+    ...                ---------
+    ...                - `pki_message`: The PKIMessage to be protected.
+    ...
+    ...                Returns:
+    ...                -------
+    ...                - The protected PKIMessage.
+    [Arguments]    ${pki_message}
+    [Tags]    protection
+    ${protected_pki_message}=    Protect PKIMessage    ${pki_message}    ${DEFAULT_MAC_ALGORITHM}
+    ...                          password=${PRESHARED_SECRET}
+    ...                          for_mac=${SUPPORT_DIRECTORY_CHOICE_FOR_MAC_PROTECTION}
+    RETURN    ${protected_pki_message}
+
 
 Generate Default MAC Protected PKIMessage
     [Documentation]    Build a PKIMessage used for MAC based protection, based on the config file which are allowed to be used.
@@ -557,8 +600,26 @@ Generate Default MAC Protected PKIMessage
         ...                      ${pki_message}
         ...                      password=${PRESHARED_SECRET}
         ...                      protection=${mac_alg}
+    ELSE
+        ${pki_message}=   Default Protect With MAC   ${pki_message}
     END
     RETURN    ${pki_message}
+
+Issue New Cert For Testing
+    [Documentation]    Issue a new certificate to be used in tests. It ensures that a valid certificate
+    ...    is available for testing.
+    ...
+    ...    Returns:
+    ...    - `cert`: The issued certificate.
+    ...    - `key`: The key used to generate the certificate request.
+    [Tags]    setup
+    ${cert_template}   ${key}=    Generate CertTemplate For Testing
+    ${ir}=    Build IR From Key   ${key}    cert_template=${cert_template}    recipient=${RECIPIENT}
+    ...                  implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}    exclude_fields=sender,senderKID
+    ${protected_ir}=    Default Protect PKIMessage    ${ir}
+    ${response}=    Exchange PKIMessage    ${ir}
+    ${cert}=   Confirm Certificate If Needed    ${response}
+    RETURN   ${cert}    ${key}
 
 PKIStatusInfo failinfo Bit Must Be
     [Documentation]       Validates that the given PKIMessage contains the expected `failinfo` bit(s) in the
@@ -605,4 +666,58 @@ Exchange Migration PKIMessage
     ${response} =    Exchange PKIMessage    ${ir}    ${url}
     RETURN    ${response}
 
+Exchange Hybrid PKIMessage
+    [Documentation]    Exchange a PKIMessage for a hybrid algorithm certificate.
+    ...                Arguments:
+    ...                - ${name}: The hybrid algorithm name (e.g., composite-kem).
+     ...                - ${pq_name}: The PQ KEM algorithm name (e.g., ml-kem-768, ml-kem-1024).
+    ...                - ${trad_name}: The traditional algorithm name (e.g., rsa2048, ecdh-secp384r1, x25519).
+    ...                - ${invalid_key_size}: Whether to use an invalid key size. Defaults to `False`.
+    ...                - ${extensions}: Additional certificate extensions (default: None).
+    ...                - ${optional_args}: Optional key-value pairs to set variables for the protection.
+    ...                (for the key generation, the certificate request, and the protection).
+    ...                Returns:
+    ...                - The response PKIMessage.
+    ...                - The key used to generate the request.
+    ...                Examples:
+    ...                | Exchange Composite KEM PKIMessage | composite-kem | rsa | ml-kem-768 |  length=2048 |
+    ...                | Exchange Composite KEM PKIMessage | composite-kem | ecdh | ml-kem-768 |  curve=secp256r1 |
+    [Arguments]    ${name}    ${pq_name}    ${trad_name}    ${invalid_key_size}=False    ${extensions}=${None}    &{optional_args}
+    ${length}=  Get From Dictionary    ${optional_args}    length   ${None}
+    ${curve}=  Get From Dictionary    ${optional_args}    curve   ${None}
+    ${key}=   Generate Key    algorithm=${name}    trad_name=${trad_name}    pq_name=${pq_name}    length=${length}    curve=${curve}
+    ${cm}=    Get Next Common Name
+    ${spki}=  Prepare SubjectPublicKeyInfo    ${key}    invalid_key_size=${invalid_key_size}
+    ${use_pre_hash}=   Get From Dictionary    ${optional_args}    use_pre_hash    ${False}
+    ${use_rsa_pss}=    Get From Dictionary    ${optional_args}    use_rsa_pss    ${False}
+    ${cert_req_msg}=    Prepare CertReqMsg  ${key}  spki=${spki}    common_name=${cm}
+    ...           extensions=${extensions}
+    ...           use_pre_hash=${use_pre_hash}
+    ${ir}=    Build Ir From Key    ${key}    cert_req_msg=${cert_req_msg}    exclude_fields=senderKID,sender
+    ${protected_ir}=    Default Protect PKIMessage    ${ir}
+    ${base_url}=   Get From Dictionary    ${optional_args}    base_url    ${CA_BASE_URL}
+    ${suffix}=   Get From Dictionary    ${optional_args}    suffix    ${ISSUING_SUFFIX}
+    ${response}=    Exchange Migration PKIMessage    ${protected_ir}    ${base_url}    ${suffix}
+    RETURN    ${response}   ${key}
 
+Validate EncrCert For KEM
+    [Documentation]    Validate that the encrypted certificate for the KEM algorithm is correct.
+    ...
+    ...                Arguments:
+    ...                - ${response}: The response from the CA.
+    ...                - ${key}: The key used for the certificate generation.
+    ...
+    ...                Returns:
+    ...                - The certificate.
+    ...
+    ...                Examples:
+    ...                | Validate EncrCert For KEM | ${response} | ${key} |
+    [Arguments]    ${response}    ${key}
+    PKIStatus Must Be       ${response}    status=accepted
+    # currently not validate able, because KEM does not allow to see the
+    # the certificate in the response.
+    # So the user has to now, if he expected to either has the `rid` set to the SKI or IssuerAndSerialNumber.
+    ${cert}=    Get EncCert From PKIMessage    ${response}    ee_private_key=${key}    exclude_rid_check=True
+    Validate Kemri Rid For Encrypted Cert    ${response}   key=${key}
+    Validate Migration Certificate KeyUsage    ${cert}
+    RETURN    ${cert}

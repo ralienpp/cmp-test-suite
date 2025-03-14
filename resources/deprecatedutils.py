@@ -224,7 +224,10 @@ def _build_certificate(  # noqa D417 undocumented-param
 
     ski = private_key.public_key() if ski else None  # type: ignore
     cert_builder = _add_extension(
-        cert_builder=cert_builder, key_usage=params.get("key_usage"), basic_constraint=basic_constraint, ski=ski
+        cert_builder=cert_builder,
+        key_usage=params.get("key_usage"),
+        basic_constraint=basic_constraint,
+        ski=ski,  # type: ignore
     )
     sign_key = params.get("sign_key", private_key)
     cert = _sign_cert_builder(cert_builder=cert_builder, sign_key=sign_key, hash_alg=hash_alg)
@@ -455,9 +458,9 @@ def generate_signed_csr2(  # noqa D417 undocumented-param
 
     """
     if key is None:
-        key = keyutils.generate_key(algorithm="rsa")
+        key = keyutils.generate_key(algorithm="rsa")  # type: ignore
     elif isinstance(key, str):
-        key = keyutils.generate_key(algorithm=key, **params)
+        key = keyutils.generate_key(algorithm=key, **params)  # type: ignore
     elif isinstance(key, PrivateKey):
         pass
     else:

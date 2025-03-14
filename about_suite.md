@@ -142,22 +142,3 @@ SPDX-License-Identifier: Apache-2.0
 | RFC 6712 Lax      | Only basic tests are available due to RFC 6712 being lax.                                         |
 
 ---
-
-#### TODOs
-
-**Verify Order**
-
-| #   | Task Description                                                                         | Status              | Notes                                  |
-|-----|------------------------------------------------------------------------------------------|---------------------|----------------------------------------|
-| 1   | Add PQ and Hybrid Mechanism.                                                             | Covered             |                                        |
-| 2   | Add some new features from rfc4210bis-15                                                 | In Progress         |                                        |
-| 3   | Better logic for non-signing keys.                                                       | Covered             |                                        |
-| 4   | Get Feedback for future improvements.                                                    | Pending             |                                        |
-| 5   | Update Logic for testing the Client Implementation                                       | Unknown if interested | Verified by Alex                       |
-| 6   | Add Tool for better doc generation.                                                      | Pending             |                                        |
-| 7   | Add Semantic-Fuzz-testing.                                                               | Pending             |                                        |
-| 8   | Add clarity for better differentiation between LwCMP and CMP.                            | Pending             |                                        |
-| 9   | Add CMP only logic.                                                                      | Pending             |                                        |
-| 10  | May integrate Polling test cases.                                                        | Pending             |                                        |
-
-

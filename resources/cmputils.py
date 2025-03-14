@@ -12,7 +12,7 @@ import random
 import string
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
 from cryptography.hazmat.primitives.asymmetric import dh, x448, x25519
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
@@ -46,7 +46,7 @@ from resources import (
     protectionutils,
     utils,
 )
-from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP, PKIMessagesTMP, InfoTypeAndValueAsn1
+from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessagesTMP, PKIMessageTMP
 from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.exceptions import BadAsn1Data
 from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKey, Strint
@@ -382,11 +382,56 @@ def build_p10cr_from_csr(  # noqa D417 undocumented-param
     return pki_message
 
 
+def prepare_old_cert_id_control(
+    cert: Optional[rfc9480.CMPCertificate] = None,
+    serial_number: Optional[int] = None,
+    issuer: Optional[str] = None,
+    inc_serial_number: bool = False,
+    bad_issuer: bool = False,
+) -> rfc4211.AttributeTypeAndValue:
+    """Prepare an `OldCertId` structure for use in CMP controls.
+
+    :param issuer: The issuer's distinguished name in OpenSSL notation.
+    :param serial_number: The serial number of the certificate.
+    :param inc_serial_number: Whether to increment the serial number by 1.
+    :return: The `OldCertId` structure with the specified issuer and serial number.
+    """
+    ser_num = serial_number or int(cert["tbsCertificate"]["serialNumber"])
+    if inc_serial_number:
+        ser_num += 1
+
+    cert_issuer = None
+    if cert is not None:
+        cert_issuer = utils.get_openssl_name_notation(cert["tbsCertificate"]["issuer"])
+
+    if bad_issuer and cert is None:
+        raise ValueError("A valid certificate must be provided when `bad_issuer` is True.")
+
+    if bad_issuer:
+        issuer = certbuildutils.modify_common_name_cert(
+            cert=cert,
+            issuer=True,
+        )
+
+    issuer_name = prepare_general_name(name_type="directoryName", name_str=issuer or cert_issuer)
+
+    old_cert_id = rfc4211.OldCertId()
+    old_cert_id["issuer"] = issuer_name
+    old_cert_id["serialNumber"] = ser_num
+
+    attr_instance = rfc4211.AttributeTypeAndValue()
+    attr_instance["type"] = rfc4211.id_regCtrl_oldCertID
+    attr_instance["value"] = old_cert_id
+
+    return attr_instance
+
+
 @keyword(name="Prepare Controls Structure")
 def prepare_controls_structure(  # noqa D417 undocumented-param
     cert: Optional[rfc9480.CMPCertificate] = None,
     serial_number: Optional[int] = None,
     issuer: Optional[str] = None,
+    controls: Optional[Sequence[rfc9480.AttributeTypeAndValue]] = None,
 ) -> rfc9480.Controls:
     """Prepare a `pyasn1` Controls structure for a key update request.
 
@@ -417,28 +462,21 @@ def prepare_controls_structure(  # noqa D417 undocumented-param
     | ${controls}= | Prepare Controls Structure | issuer=${issuer} | serial_number=12345 |
 
     """
-    if not cert and not (serial_number is not None and issuer):
+    if not cert and not (serial_number is not None and issuer) and controls is None:
         raise ValueError(
             "Either a valid certificate must be provided, or both `serial_number` and `issuer` must be specified."
         )
 
-    cert_issuer = None
-    cert_serial_number = None
-    if cert is not None:
-        cert_issuer = utils.get_openssl_name_notation(cert["tbsCertificate"]["issuer"])  # type: ignore
-        cert_serial_number = int(cert["tbsCertificate"]["serialNumber"])
+    if isinstance(controls, rfc9480.AttributeTypeAndValue):
+        controls = [controls]
+    if controls is None:
+        controls = []
+    if cert is not None or (serial_number is not None and issuer):
+        old_cert_id = prepare_old_cert_id_control(cert=cert, serial_number=serial_number, issuer=issuer)
+        controls.append(old_cert_id)
 
-    issuer_name = prepare_general_name(name_type="directoryName", name_str=issuer or cert_issuer)  # type: ignore
     control_instance = rfc9480.Controls()
-
-    attr_instance = rfc4211.AttributeTypeAndValue()
-    attr_instance["type"] = rfc4211.id_regCtrl_oldCertID
-    old_cert_id = rfc4211.OldCertId()
-    old_cert_id["issuer"] = issuer_name
-    old_cert_id["serialNumber"] = serial_number or cert_serial_number
-
-    attr_instance["value"] = old_cert_id
-    control_instance.append(attr_instance)
+    control_instance.extend(controls)
     return control_instance
 
 
@@ -1154,14 +1192,19 @@ def prepare_cert_req_msg(  # noqa D417 undocumented-param
 
     elif not isinstance(private_key, (x448.X448PrivateKey, x25519.X25519PrivateKey, dh.DHPrivateKey)):
         popo = prepare_signature_popo(
-            signing_key=private_key,
+            signing_key=private_key,  # type: ignore
             cert_request=cert_request,
             hash_alg=hash_alg,
             bad_pop=bad_pop,
         )
 
         if ra_verified:
-            popo = prepare_popo(signature=None, signing_key=private_key, ra_verified=ra_verified, hash_alg=hash_alg)
+            popo = prepare_popo(
+                signature=None,
+                signing_key=private_key,  # type: ignore
+                ra_verified=ra_verified,
+                hash_alg=hash_alg,
+            )
         cert_request_msg["popo"] = popo
     elif isinstance(private_key, (x448.X448PrivateKey, x25519.X25519PrivateKey)):
         popo = prepare_popo_challenge_for_non_signing_key(use_encr_cert=use_encr_cert, use_key_enc=False)
@@ -1179,7 +1222,10 @@ def _prepare_cert_req_msg_body(body_type: str) -> rfc9480.PKIBody:
     """
     type_2_id = {"ir": 0, "cr": 2, "kur": 7, "ccr": 13}
     if body_type not in type_2_id:
-        raise ValueError("The provided `body_type` is not one of the supported values ('cr', 'ir', 'kur', 'crr').")
+        raise ValueError(
+            "The provided `body_type` is not one of the supported values "
+            f"('cr', 'ir', 'kur', 'ccr'). But got: {body_type}"
+        )
 
     pki_body = rfc9480.PKIBody()
     pki_body[body_type] = rfc9480.CertReqMessages().subtype(
@@ -1376,7 +1422,8 @@ def build_ir_from_key(  # noqa D417 undocumented-param
             ra_verified=params.get("ra_verified", False),
             for_kga=params.get("for_kga", False),
             cert_template=params.get("cert_template"),
-            popo_structure=params.get("popo_structure"),
+            cert_request=params.get("cert_request"),
+            popo_structure=params.get("popo"),
             bad_pop=bad_pop,
             spki=spki,
         )
@@ -1499,8 +1546,8 @@ def build_cr_from_key(  # noqa D417 undocumented-param
     return pki_message
 
 
-@keyword(name="Build Crr From Key")
-def build_crr_from_key(  # noqa D417 undocumented-param
+@keyword(name="Build Ccr From Key")
+def build_ccr_from_key(  # noqa D417 undocumented-param
     signing_key: PrivateKeySig,
     common_name: str = "CN=Hans Mustermann",
     sender: str = "tests@example.com",
@@ -1576,9 +1623,9 @@ def build_crr_from_key(  # noqa D417 undocumented-param
     else:
         pvno = int(params.get("pvno"))
 
-    pki_body = _prepare_cert_req_msg_body("crr")
-    pki_body["crr"].append(cert_request_msg)
-    pki_body["crr"].extend(utils.ensure_list(cert_req_msg))
+    pki_body = _prepare_cert_req_msg_body("ccr")
+    pki_body["ccr"].append(cert_request_msg)
+    pki_body["ccr"].extend(utils.ensure_list(cert_req_msg))
 
     # To ensure that the prepared messageTime is newer.
     pki_message = prepare_pki_message(
@@ -1779,7 +1826,7 @@ def build_cr_from_csr(  # noqa D417 undocumented-param
 
 
 @keyword(name="Build Crr From CSR")
-def build_crr_from_csr(  # noqa D417 undocumented-param
+def build_ccr_from_csr(  # noqa D417 undocumented-param
     csr: rfc6402.CertificationRequest,
     signing_key: PrivateKeySig,
     sender: str = "tests@example.com",
@@ -1845,9 +1892,9 @@ def build_crr_from_csr(  # noqa D417 undocumented-param
         popo_structure=params.get("popo"),
     )
 
-    pki_body = _prepare_cert_req_msg_body("crr")
-    pki_body["crr"].append(cert_request_msg)
-    pki_body["crr"].extend(utils.ensure_list(cert_req_msg))
+    pki_body = _prepare_cert_req_msg_body("ccr")
+    pki_body["ccr"].append(cert_request_msg)
+    pki_body["ccr"].extend(utils.ensure_list(cert_req_msg))
 
     # To ensure that the prepared messageTime is newer.
     pki_message = prepare_pki_message(
@@ -1860,7 +1907,7 @@ def build_crr_from_csr(  # noqa D417 undocumented-param
         recip_kid=params.get("recip_kid"),
         implicit_confirm=params.get("implicit_confirm", False),
         sender_kid=params.get("sender_kid"),
-        pvno=int(params.get("pvno", 2)),
+        pvno=int(params.get("pvno", 3)),
         for_mac=params.get("for_mac", False),
     )
     pki_message["body"] = pki_body
@@ -2128,7 +2175,7 @@ def patch_pkimessage_header_with_other_message(  # noqa D417 undocumented-param
             target["header"][field] = other_message["header"][field]
 
     if for_exchange:
-        fields = _extract_fields_for_exchange(other_message, exclude_fields, for_py_functions=False)
+        fields = extract_fields_for_exchange(other_message, exclude_fields, for_py_functions=False)
         for field, value in fields.items():
             target["header"][field] = value
 
@@ -2160,7 +2207,8 @@ def patch_pkimessage_header_with_other_message(  # noqa D417 undocumented-param
     return target
 
 
-def _extract_fields_for_exchange(
+@not_keyword
+def extract_fields_for_exchange(
     other_msg: PKIMessageTMP, exclude_fields: Optional[str] = None, for_py_functions: bool = True
 ) -> dict:
     """Extract fields from a `PKIMessage`, to patch another one.
@@ -2211,6 +2259,7 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
     cert_status: Union[rfc9480.CertStatus, List[rfc9480.CertStatus]] = None,
     exclude_fields: Optional[str] = None,
     hash_alg: Optional[str] = None,
+    cert_req_id: Optional[Strint] = None,
     **params,
 ) -> PKIMessageTMP:
     """Create a certConf PKIMessage from a response PKIMessage.
@@ -2256,7 +2305,7 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
     | ${cert_conf}= | Build Cert Conf From Resp | ${response} | sender=tests@example.com | transaction_id=${new_id} |
 
     """
-    extracted_fields = _extract_fields_for_exchange(ca_message)
+    extracted_fields = extract_fields_for_exchange(ca_message)
     for key, value in extracted_fields.items():
         if key not in params:
             params[key] = value
@@ -2271,7 +2320,8 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
         entry: rfc9480.CertResponse
         for _, entry in enumerate(cert_resp_msg):
             # remove the tagging.
-            cert_req_id = int(entry["certReqId"])
+            cert_req_id = cert_req_id or entry["certReqId"]
+            cert_req_id = int(cert_req_id)
             cert = copy_asn1_certificate(cert=entry["certifiedKeyPair"]["certOrEncCert"]["certificate"])
             cert_status = prepare_certstatus(
                 hash_alg=hash_alg,
@@ -2430,6 +2480,19 @@ def parse_pkimessage(data: bytes) -> PKIMessageTMP:  # noqa D417 undocumented-pa
     """
     try:
         pki_message, _remainder = decoder.decode(data, asn1Spec=PKIMessageTMP())
+
+        if pki_message["body"].getName() == "nested":
+            data = pki_message["body"]["nested"]
+            msgs = PKIMessagesTMP().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20))
+            der_data = encoder.encode(data)
+            msgs, _ = decoder.decode(der_data, msgs)
+            # to clear the entries.
+            pki_message["body"]["nested"] = PKIMessagesTMP().subtype(
+                explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20)
+            )
+            for x in msgs:
+                pki_message["body"]["nested"].append(x)
+
     except PyAsn1Error as err:
         # Suppress detailed pyasn1 error messages; they are typically too verbose and
         # not helpful for non-pyasn1 experts. If debugging is needed, retrieve the server's
@@ -2539,7 +2602,7 @@ def get_cert_response_from_pkimessage(  # noqa D417 undocumented-param
 
     Raises:
     ------
-        - `ValueError`: If the `PKIBody` of the PKIMessage is not of type: `cp`, `kup`, or `ip.
+        - `ValueError`: If the `PKIBody` of the PKIMessage is not of type: `cp`, `kup`, `cpp` or `ip.
 
     Examples:
     --------
@@ -2548,7 +2611,7 @@ def get_cert_response_from_pkimessage(  # noqa D417 undocumented-param
 
     """
     message_type = get_cmp_message_type(pki_message)
-    if message_type not in {"cp", "kup", "ip"}:
+    if message_type not in {"cp", "kup", "ip", "ccp"}:
         raise ValueError(f"The provided `PKIBody` does not contain a certificate. Got: `{message_type}`")
 
     return pki_message["body"][message_type]["response"][int(response_index)]
@@ -2584,7 +2647,7 @@ def get_cert_from_pkimessage(  # noqa D417 undocumented-param
     response = get_cert_response_from_pkimessage(pki_message, response_index=cert_number)
     cert = response["certifiedKeyPair"]["certOrEncCert"]["certificate"]
     if not cert.isValue:
-        raise ValueError("The provided PKIMessage does not contain a valid certificate.")
+        raise ValueError("The provided PKIMessage does not contain a certificate.")
     cert = convertutils.copy_asn1_certificate(cert)
     return cert
 
@@ -2738,16 +2801,37 @@ def prepare_extra_certs_from_path(path: str, recursive: bool = False) -> univ.Se
     return extra_certs_wrapper
 
 
-@not_keyword
-def prepare_general_name(name_type: str, name_str: str) -> rfc9480.GeneralName:
+# TODO Talk to alex about updating for CertDiscovery ?
+
+
+@keyword(name="Prepare GeneralName")
+def prepare_general_name(  # noqa D417 undocumented-param
+    name_type: str, name_str: str
+) -> rfc9480.GeneralName:
     """Prepare a `pyasn1` GeneralName object used by the `PKIHeader` structure.
 
-    :param name_type: The type of name to prepare, e.g., "directoryName" or "rfc822Name" or
-    "uniformResourceIdentifier".
-    :param name_str: The actual name string to encode in the GeneralName.
-    In OpenSSL notation, e.g., "C=DE,ST=Bavaria,L=Munich,CN=Joe Mustermann".
-    :return: A `GeneralName` object with the encoded name based on the provided `name_type`.
+    Arguments:
+    ---------
+        - `name`: The type of name to prepare, e.g., "directoryName" or "rfc822Name" or "uniformResourceIdentifier".
+        - `name_str`: The actual name string to encode in the GeneralName. In OpenSSL notation, e.g.,
+            "C=DE,ST=Bavaria,L=Munich,CN=Joe Mustermann" is *MUST* for directoryName.
+
+    Returns:
+    -------
+        - A `GeneralName` object with the encoded name based on the provided `name_type`.
+
+    Raises:
+    ------
+        - `NotImplementedError`: If the provided `name_type` is not supported.
+
+    Examples:
+    --------
+    | ${general_name}= | Prepare GeneralName | directoryName | ${name_str} |
+    | ${general_name}= | Prepare GeneralName | rfc822Name | ${name_str} |
+    | ${general_name}= | Prepare GeneralName | uri | ${name_str} |
+
     """
+    error_msg = "Supported name types are: 'directoryName', 'rfc822Name', 'uri', 'dNSName'."
     if name_type == "directoryName":
         name_obj = prepareutils.prepare_name(name_str, 4)
         general_name = rfc9480.GeneralName()
@@ -2759,7 +2843,10 @@ def prepare_general_name(name_type: str, name_str: str) -> rfc9480.GeneralName:
     if name_type in ["uniformResourceIdentifier", "uri"]:
         return rfc9480.GeneralName().setComponentByName("uniformResourceIdentifier", name_str)
 
-    raise NotImplementedError(f"GeneralName name_type is Unsupported: {name_type}")
+    if name_type == "dNSName":
+        return rfc5280.GeneralName().setComponentByName("dNSName", name_str)
+
+    raise NotImplementedError(f"GeneralName name_type is Unsupported: {name_type}. {error_msg}")
 
 
 def prepare_info_value(  # noqa: D417 undocumented-param
@@ -3084,7 +3171,7 @@ def patch_messageTime(  # noqa D417 undocumented-param pylint: disable=invalid-n
         if isinstance(new_time, str):
             new_time = DateTime.convert_date(new_time)
         if isinstance(new_time, str):
-           new_time = datetime.fromisoformat(new_time)
+            new_time = datetime.fromisoformat(new_time)
 
     new_time = new_time or datetime.now(timezone.utc)
     message_time = useful.GeneralizedTime().fromDateTime(new_time)
@@ -3435,8 +3522,8 @@ def add_general_info_values(  # noqa D417 undocumented-param
     | ${updated_message}= | Add generalInfo Values | ${pki_message} | implicit_confirm=True |
     | ${updated_message}= | Add generalInfo Values | ${pki_message} | confirm_wait_time=300 |
     | ${updated_message}= | Add generalInfo Values | ${pki_message} | ${info_vals} |
-    """
 
+    """
     if info_vals is None:
         info_vals = []
 
@@ -3569,9 +3656,30 @@ def build_cmp_revive_request(  # noqa: D103 undocumented-public-function
     )
 
 
+def _prepare_crl_reason_extension(
+    data: bytes,
+    critical: bool = False,
+) -> rfc5280.Extension:
+    """Prepare a CRLReason extension for a certificate revocation request.
+
+    :param data: The DER-encoded data for the extension.
+    :param critical: A flag indicating whether the extension is critical. Defaults to `False`.
+    :return: The populated `Extension` structure.
+    """
+    crl_reason = rfc5280.Extension()
+    crl_reason["extnID"] = rfc5280.id_ce_cRLReasons
+    crl_reason["critical"] = critical
+    crl_reason["extnValue"] = univ.OctetString(data)
+    return crl_reason
+
+
 @keyword(name="Prepare CRLReason Extensions")
-def prepare_crlreason_extensions(  # noqa D417 undocumented-param
-    reasons: Optional[str] = None, negative: bool = False
+def prepare_crl_reason_extensions(  # noqa D417 undocumented-param
+    reasons: Optional[str] = None,
+    invalid_reason: bool = False,
+    invalid_der: bool = False,
+    add_bytes: bool = False,
+    critical: bool = False,
 ) -> rfc5280.Extensions:
     """Prepare a `pyasn1` Extensions structure with CRL (Certificate Revocation List) reasons.
 
@@ -3579,9 +3687,13 @@ def prepare_crlreason_extensions(  # noqa D417 undocumented-param
     ---------
         - `reasons`: A comma-separated string of reasons for certificate
           revocation (e.g., "keyCompromise,affiliationChanged").
-        - `negative`: A flag for generating an invalid CRLReason extension for testing
+        - `invalid_reason`: A flag for generating an invalid CRLReason extension for testing
           purposes. When `True`, the function will create a CRLReason with an out-of-range value
           (i.e., a reason that does not exist in the defined CRL reasons).
+        - `invalid_der`: Whether to generate an invalid DER encoding for the `CRLReason`.
+        - `add_bytes`: Whether to add additional bytes to the end of the DER encoding.
+        Defaults to `False`.
+        - `critical`: Whether the extension should be marked as critical. Defaults to `False`.
 
     Returns:
     -------
@@ -3594,29 +3706,36 @@ def prepare_crlreason_extensions(  # noqa D417 undocumented-param
     Examples:
     --------
     | ${crl_extensions}= | Prepare CRLReason Extensions | reasons=removeFromCRL,keyCompromise |
-    | ${crl_extensions}= | Prepare CRLReason Extensions | negative=True |
+    | ${crl_extensions}= | Prepare CRLReason Extensions | invalid_extension=True |
     | ${crl_extensions}= | Prepare CRLReason Extensions | reasons=keyCompromise,cessationOfOperation \
     | negative=True |
+    | ${crl_extensions}= | Prepare CRLReason Extensions | invalid_der=True |
 
     """
-    if reasons is None and not negative:
-        raise ValueError("reasons must be provided if the 'negative' flag is set to `False`.")
+    if reasons is None and not invalid_reason and not invalid_der:
+        raise ValueError("Either `reasons` or `invalid_reason` or `invalid_der` must be provided.")
     if reasons is not None:
         reasons = set(reasons.strip(" ").split(","))  # type: ignore
 
     crl_entry_details = rfc5280.Extensions()
     if reasons is not None:
         for reason in reasons:
-            crl_reason = rfc5280.Extension()
-            crl_reason["extnID"] = rfc5280.id_ce_cRLReasons
-            crl_reason["extnValue"] = univ.OctetString(encoder.encode(rfc5280.CRLReason(reason)))
+            data = encoder.encode(rfc5280.CRLReason(reason))
+            if add_bytes:
+                data += b"\x00\x00\x00\x00"
+            crl_reason = _prepare_crl_reason_extension(data, critical)
             crl_entry_details.append(crl_reason)
 
-    if negative:
+    if invalid_reason:
         # generate a number out of range. the last number is 10 "aACompromise".
-        crl_reason = rfc5280.Extension()
-        crl_reason["extnID"] = rfc5280.id_ce_cRLReasons
-        crl_reason["extnValue"] = univ.OctetString(encoder.encode(univ.Enumerated(11)))
+        data = encoder.encode(univ.Enumerated(20))
+        crl_reason = _prepare_crl_reason_extension(data, critical)
+        crl_entry_details.append(crl_reason)
+
+    if invalid_der:
+        # generate a CRLReason extension which can not be decoded.
+        data = b"This is not a valid DER encoding."
+        crl_reason = _prepare_crl_reason_extension(data, critical)
         crl_entry_details.append(crl_reason)
 
     return crl_entry_details
@@ -3631,7 +3750,7 @@ def prepare_rev_details(  # noqa D417 undocumented-param
     cert_template: Optional[rfc9480.CertTemplate] = None,
     crl_entry_details: Optional[rfc9480.Extensions] = None,
     exclude_cert_temp_vals: str = "extensions,validity,publicKey,subject",
-    exclude_cert_template: bool = False,
+    exclude_crl_entry: bool = False,
 ) -> rfc4210.RevDetails:
     """Prepare the `RevDetails` structure for a certificate revocation request.
 
@@ -3652,7 +3771,7 @@ def prepare_rev_details(  # noqa D417 undocumented-param
         entry details. Defaults to `None`.
         - `exclude_cert_temp_vals`: A comma-separated string of `CertTemplate` fields to exclude \
         from the template. Default is to exclude "extensions", "validity", "publicKey", and "subject".
-        - `exclude_cert_template`: If `True`, the `CertTemplate` is excluded from the revocation request.
+        - `exclude_crl_entry`: Whether to exclude the CRL entry details from the `RevDetails`. Defaults to `False`.
 
     Returns:
     -------
@@ -3669,21 +3788,20 @@ def prepare_rev_details(  # noqa D417 undocumented-param
     rev_details = rfc4210.RevDetails()
 
     if cert_template is None:
-        if not exclude_cert_template:
-            cert_template = certbuildutils.prepare_cert_template(
-                serial_number=serial_number,
-                issuer=issuer,
-                cert=cert,
-                exclude_fields=exclude_cert_temp_vals,
-            )
+        cert_template = certbuildutils.prepare_cert_template(
+            serial_number=serial_number,
+            issuer=issuer,
+            cert=cert,
+            exclude_fields=exclude_cert_temp_vals,
+        )
 
-    if crl_entry_details is None:
-        crl_entry_details = prepare_crlreason_extensions(reason)
+    if crl_entry_details is None and not exclude_crl_entry:
+        crl_entry_details = prepare_crl_reason_extensions(reason)
 
-    rev_details["crlEntryDetails"] = crl_entry_details
+    if not exclude_crl_entry:
+        rev_details["crlEntryDetails"] = crl_entry_details
 
-    if cert_template is not None and not exclude_cert_template:
-        rev_details["certDetails"] = cert_template
+    rev_details["certDetails"] = cert_template
 
     return rev_details
 
@@ -3697,7 +3815,7 @@ def prepare_rev_req_content(  # noqa D417 undocumented-param
     crl_entry_details: Optional[rfc9480.Extensions] = None,
     cert_template: Optional[rfc9480.CertTemplate] = None,
     exclude_cert_temp_vals: str = "extensions,validity,publicKey,subject",
-    exclude_cert_template: bool = False,
+    exclude_crl_entry: bool = False,
 ) -> rfc9480.RevReqContent:
     r"""Create a `RevReqContent` structure for a CMP revocation request.
 
@@ -3718,8 +3836,7 @@ def prepare_rev_req_content(  # noqa D417 undocumented-param
         - `exclude_cert_temp_vals`: A comma-separated string specifying fields to exclude
                                     from the `CertTemplate`. Defaults to excluding
                                     "extensions", "validity", "publicKey", and "subject".
-        - `exclude_cert_template`: A boolean indicating whether to exclude the `CertTemplate`
-                                   from the request. Defaults to `False`.
+        - `exclude_crl_entry`: Whether to exclude the CRL entry details from the `RevDetails`. Defaults to `False`.
 
     Returns:
     -------
@@ -3743,7 +3860,7 @@ def prepare_rev_req_content(  # noqa D417 undocumented-param
         crl_entry_details=crl_entry_details,
         cert_template=cert_template,
         exclude_cert_temp_vals=exclude_cert_temp_vals,
-        exclude_cert_template=exclude_cert_template,
+        exclude_crl_entry=exclude_crl_entry,
     )
 
     rev_req_content.append(rev_details)
@@ -3781,7 +3898,7 @@ def get_pkistatusinfo(  # noqa D417 undocumented-param
     elif body_name == "rp":
         pki_status_info: rfc9480.PKIStatusInfo = pki_message["body"]["rp"]["status"][index]
 
-    elif body_name in {"ip", "cp", "kup"}:
+    elif body_name in {"ip", "cp", "kup", "ccp"}:
         pki_status_info: rfc9480.PKIStatusInfo = pki_message["body"][body_name]["response"][index]["status"]
 
     elif body_name == "certConf":
@@ -3958,6 +4075,33 @@ def generate_unique_byte_values(  # noqa D417 undocumented-param
     return values
 
 
+@keyword(name="Append PKIMessage To Nested Message")
+def append_pki_message_to_nested_message(  # noqa D417 undocumented-param
+    nested: PKIMessageTMP, message: Union[PKIMessageTMP, Sequence[PKIMessageTMP]]
+) -> PKIMessageTMP:
+    """Append a `PKIMessage` or messages to a nested `PKIMessage`.
+
+    Arguments:
+    ---------
+        - `nested`: The nested `PKIMessage` to which the message will be appended.
+        - `message`: The `PKIMessage` or list of `PKIMessages` to append to the nested message.
+
+    Returns:
+    -------
+        - The updated `PKIMessage` with the appended message.
+
+    Examples:
+    --------
+    | ${nested_msg}= | Append PKIMessage To Nested Message | ${nested_msg} | ${message} |
+
+    """
+    if isinstance(message, PKIMessageTMP):
+        message = [message]
+
+    nested["body"]["nested"].extend(message)
+    return nested
+
+
 @keyword(name="Build Nested PKIMessage")
 def build_nested_pkimessage(  # noqa D417 undocumented-param
     sender: str = "tests@example.com",
@@ -3966,6 +4110,7 @@ def build_nested_pkimessage(  # noqa D417 undocumented-param
     exclude_fields: Union[None, str] = "sender,senderKID",
     transaction_id: bytes = None,
     sender_nonce: bytes = None,
+    for_added_protection: bool = False,
     **params,
 ):
     """Build a nested PKIMessage structure, used for wrapped protection or batch requests.
@@ -4005,6 +4150,18 @@ def build_nested_pkimessage(  # noqa D417 undocumented-param
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 20)
     )
 
+    if isinstance(other_messages, PKIMessageTMP):
+        other_messages = [other_messages]
+
+    if for_added_protection:
+        transaction_id_tmp = other_messages[0]["header"]["transactionID"].asOctets()
+        sender_nonce_tmp = other_messages[0]["header"]["senderNonce"].asOctets()
+        sender_nonce = sender_nonce_tmp if sender_nonce is None else sender_nonce
+        transaction_id = transaction_id_tmp if transaction_id is None else transaction_id
+        if other_messages[0]["body"].getName() == "certConf":
+            recip_nonce_tmp = other_messages[0]["header"]["recipNonce"].asOctets()
+            params["recip_nonce"] = recip_nonce_tmp if params.get("recip_nonce") is None else params["recip_nonce"]
+
     pki_message = prepare_pki_message(
         sender=sender,
         recipient=recipient,
@@ -4020,11 +4177,7 @@ def build_nested_pkimessage(  # noqa D417 undocumented-param
 
     pki_body["nested"] = nested_content
     if other_messages is not None:
-        if isinstance(other_messages, PKIMessageTMP):
-            other_messages = [other_messages]
-
-        for x in other_messages:
-            pki_body["nested"].append(x)
+        pki_body["nested"].extend(other_messages)
 
     pki_message["body"] = pki_body
     return pki_message
@@ -4077,7 +4230,7 @@ def build_polling_request(  # noqa D417 undocumented-param
     body_content.append(cert_req_obj)
 
     if resp_pki_message is not None:
-        fields = _extract_fields_for_exchange(resp_pki_message)
+        fields = extract_fields_for_exchange(resp_pki_message)
 
         for key, value in fields.items():
             if key not in params:
@@ -4188,7 +4341,7 @@ def build_polling_response(  # noqa D417 undocumented-param
     body_content.append(poll_content_structure)
 
     if not params.get("exclude_pki_message") and req_pki_message is not None:
-        fields = _extract_fields_for_exchange(req_pki_message)
+        fields = extract_fields_for_exchange(req_pki_message)
         for key, value in fields.items():
             if key not in params:
                 params[key] = value
@@ -4284,7 +4437,7 @@ def build_kem_based_mac_protected_message(  # noqa: D417 Missing argument descri
         if get_kem_oid_from_key(client_key) != obj["kem"]["algorithm"]:
             raise ValueError("KEM algorithm mismatch.")
 
-        shared_secret = client_key.decaps(obj["ct"].asOctets())
+        shared_secret = client_key.decaps(obj["ct"].asOctets())  # type: ignore
 
     elif ca_cert is not None:
         ca_key = keyutils.load_public_key_from_spki(ca_cert["tbsCertificate"]["subjectPublicKeyInfo"])
@@ -4295,7 +4448,7 @@ def build_kem_based_mac_protected_message(  # noqa: D417 Missing argument descri
         if isinstance(ca_key, HybridKEMPublicKey):
             shared_secret, ct = ca_key.encaps(client_key)  # type: ignore
         else:
-            shared_secret, ct = ca_key.encaps()
+            shared_secret, ct = ca_key.encaps()  # type: ignore
 
         kem_ct_info = protectionutils.prepare_kem_ciphertextinfo(
             key=ca_key,

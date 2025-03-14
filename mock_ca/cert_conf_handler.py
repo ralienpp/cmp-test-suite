@@ -14,6 +14,7 @@ from resources.asn1_structures import PKIMessageTMP
 from resources.ca_ra_utils import build_pki_conf_from_cert_conf
 from resources.checkutils import validate_pkimessage_header
 from resources.exceptions import (
+    BadDataFormat,
     BadMessageCheck,
     BadRecipientNonce,
     BadRequest,
@@ -21,7 +22,6 @@ from resources.exceptions import (
     CertConfirmed,
     WrongAuthority,
     WrongIntegrity,
-    BadDataFormat,
 )
 from resources.protectionutils import get_protection_type_from_pkimessage
 

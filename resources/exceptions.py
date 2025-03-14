@@ -45,7 +45,6 @@ class CMPTestSuiteError(Exception):
 
     def get_error_details(self) -> List[str]:
         """Return the error details."""
-
         if isinstance(self.error_details, str):
             return [self.error_details]
 
@@ -123,11 +122,20 @@ class BadMessageCheck(CMPTestSuiteError):
     bit_num = 1
 
 
+class BadMacProtection(BadMessageCheck):
+    """Raised when the MAC protection of a PKIMessage is invalid."""
+
+
+class BadSignatureProtection(BadMessageCheck):
+    """Raised when the signature protection of a PKIMessage is invalid."""
+
+
 class BadRequest(CMPTestSuiteError):
     """Raised when the request is invalid."""
 
     failinfo = "badRequest"
     bit_num = 2
+
 
 class BadTime(CMPTestSuiteError):
     """Raised when the time is invalid.
@@ -296,6 +304,7 @@ class NotAuthorized(CMPTestSuiteError):
 
     failinfo = "notAuthorized"
     bit_num = 23
+
 
 def get_pki_error_message_from_exception(pki_message: rfc9480.PKIMessage, exception: CMPTestSuiteError):
     """Return a PKI Error message from the exception.

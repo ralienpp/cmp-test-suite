@@ -17,11 +17,11 @@ from pq_logic.tmp_oids import (
     FALCON_NAME_2_OID,
     FRODOKEM_NAME_2_OID,
     FRODOKEM_OID_2_NAME,
-    HASH_COMPOSITE_NAME_TO_OID,
+    HASH_COMPOSITE_SIG03_NAME_TO_OID,
     MCELIECE_NAME_2_OID,
     MCELIECE_OID_2_NAME,
     PREHASH_OID_2_HASH,
-    PURE_COMPOSITE_NAME_TO_OID,
+    PURE_COMPOSITE_SIG03_NAME_TO_OID,
     PURE_OID_TO_HASH,
     id_altSignatureExt,
     id_altSubPubKeyExt,
@@ -146,13 +146,17 @@ MSG_SIG_ALG.update(RSA_SHA_OID_2_NAME)
 MSG_SIG_ALG.update(RSASSA_PSS_OID_2_NAME)
 MSG_SIG_ALG.update(ECDSA_SHA_OID_2_NAME)
 
+MSG_SIG_ALG_NAME_2_OID = {y: x for x, y in MSG_SIG_ALG.items()}
+
 LWCMP_MAC_OID_2_NAME = {rfc9480.id_PasswordBasedMac: "password_based_mac", rfc8018.id_PBMAC1: "pbmac1"}
 
+id_KemBasedMac = univ.ObjectIdentifier("1.2.840.113533.7.66.16")
 
 SYMMETRIC_PROT_ALGO = {}
 SYMMETRIC_PROT_ALGO.update(
     {
         rfc9480.id_DHBasedMac: "dh_based_mac",
+        id_KemBasedMac: "kem_based_mac",
     }
 )
 
@@ -303,7 +307,68 @@ ECMQV = {
     rfc9481.mqvSinglePass_sha512kdf_scheme: "mqv-sha512",
 }
 
+CURVE_2_COFACTORS = {
+    # Curves over prime fields (Fp)
+    "secp112r1": 1,
+    "secp112r2": 4,
+    "secp128r1": 1,
+    "secp128r2": 4,
+    "secp160k1": 1,
+    "secp160r1": 1,
+    "secp160r2": 1,
+    "secp192k1": 1,
+    "secp192r1": 1,
+    "secp224k1": 1,
+    "secp224r1": 1,
+    "secp256k1": 1,
+    "secp256r1": 1,
+    "secp384r1": 1,
+    "secp521r1": 1,
+    # Curves over binary fields (F2m)
+    "sect113r1": 2,
+    "sect113r2": 2,
+    "sect131r1": 2,
+    "sect131r2": 2,
+    "sect163k1": 2,
+    "sect163r1": 2,
+    "sect163r2": 2,
+    "sect193r1": 2,
+    "sect193r2": 2,
+    "sect233k1": 4,
+    "sect233r1": 2,
+    "sect239k1": 4,
+    "sect283k1": 4,
+    "sect283r1": 2,
+    "sect409k1": 4,
+    "sect409r1": 2,
+    "sect571k1": 4,
+    "sect571r1": 2,
+    # Brainpool curves
+    "brainpoolP160r1": 1,
+    "brainpoolP192r1": 1,
+    "brainpoolP224r1": 1,
+    "brainpoolP256r1": 1,
+    "brainpoolP320r1": 1,
+    "brainpoolP384r1": 1,
+    "brainpoolP512r1": 1,
+    "brainpoolP160t1": 1,
+    "brainpoolP192t1": 1,
+    "brainpoolP224t1": 1,
+    "brainpoolP256t1": 1,
+    "brainpoolP320t1": 1,
+    "brainpoolP384t1": 1,
+    "brainpoolP512t1": 1,
+    # Montgomery and Edwards curves
+    "curve25519": 8,
+    "curve448": 4,
+    "edwards25519": 8,
+    "edwards448": 4,
+}
+
+
+ECMQV_NAME_2_OID = {y: x for x, y in ECMQV.items()}
 KM_KA_ALG.update(ECMQV)
+KM_KA_ALG_NAME_2_OID = {y: x for x, y in KM_KA_ALG.items()}
 
 KM_KD_ALG = {rfc9481.id_PBKDF2}  # As per Section 4.4 in RFC 9481
 KM_KW_ALG = {
@@ -354,7 +419,6 @@ kems_oid = nist_algorithms_oid + (4,)
 # ###################------
 # KEM OIDs
 # ###################------
-id_KemBasedMac = univ.ObjectIdentifier("1.2.840.113533.7.66.16")
 
 
 id_alg_ml_kem_512_oid = kems_oid + (1,)
@@ -527,8 +591,8 @@ CMS_COMPOSITE_OID_2_HASH.update(PURE_OID_TO_HASH)
 CMS_COMPOSITE_OID_2_HASH.update(PREHASH_OID_2_HASH)
 
 CMS_COMPOSITE_NAME_2_OID = {}
-CMS_COMPOSITE_NAME_2_OID.update(PURE_COMPOSITE_NAME_TO_OID)
-CMS_COMPOSITE_NAME_2_OID.update(HASH_COMPOSITE_NAME_TO_OID)
+CMS_COMPOSITE_NAME_2_OID.update(PURE_COMPOSITE_SIG03_NAME_TO_OID)
+CMS_COMPOSITE_NAME_2_OID.update(HASH_COMPOSITE_SIG03_NAME_TO_OID)
 
 CMS_COMPOSITE_OID_2_NAME: Dict[univ.ObjectIdentifier, str] = {y: x for x, y in CMS_COMPOSITE_NAME_2_OID.items()}
 
@@ -598,6 +662,7 @@ EXTENSION_NAME_2_OID = {
     "basic_constraints": rfc5280.id_ce_basicConstraints,
     "aki": rfc5280.id_ce_authorityKeyIdentifier,
     "san": rfc5280.id_ce_subjectAltName,
+    "ian": rfc5280.id_ce_issuerAltName,
     "dcd": id_ce_deltaCertificateDescriptor,
     "alt_sig_alg": id_ce_altSignatureAlgorithm,
     "alt_sig_val": id_ce_altSignatureValue,

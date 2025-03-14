@@ -95,8 +95,6 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         :param hash_alg: The hash algorithm to use for the pre-hashing of the data.
         :param is_prehashed: Whether the data is prehashed. Defaults to `False`.
         """
-        logging.info("ctx is currently not supported, possible in liboqs version 13.")
-
         if len(ctx) > 255:
             raise ValueError(f"The context length is longer than 255 bytes. Got: {len(ctx)}")
 

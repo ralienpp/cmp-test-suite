@@ -58,4 +58,7 @@ def parse_common_name_from_str(common_name: str) -> x509.Name:
     if common_name == "Null-DN":
         return x509.Name([])
 
+    if "=" not in common_name:
+        raise ValueError("The common name must contain at least one attribute, e.g., 'CN=Joe Mustermann'")
+
     return x509.Name.from_rfc4514_string(data=common_name.replace(", ", ","))

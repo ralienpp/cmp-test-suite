@@ -23,7 +23,7 @@ from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1.type.base import Asn1Type
-from pyasn1_alt_modules import rfc4211, rfc5652, rfc6955, rfc9480, rfc9629
+from pyasn1_alt_modules import rfc4211, rfc5652, rfc9480, rfc9629
 from robot.api.deco import keyword, not_keyword
 
 from resources import asn1utils, ca_kga_logic, cmputils, compareutils, envdatautils, keyutils, utils
@@ -31,9 +31,8 @@ from resources.asn1_structures import ChallengeASN1, PKIMessageTMP
 from resources.certutils import load_public_key_from_cert
 from resources.compareutils import is_null_dn
 from resources.convertutils import str_to_bytes
-from resources.cryptoutils import compute_aes_cbc, compute_hmac, perform_ecdh
+from resources.cryptoutils import compute_aes_cbc, perform_ecdh
 from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
-from resources.oid_mapping import compute_hash
 from resources.prepareutils import prepare_name
 from resources.protectionutils import compute_and_prepare_mac
 from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, PrivateKey, Strint
@@ -373,7 +372,7 @@ def validate_rid_for_encrypted_rand(  # noqa D417 undocumented-param
     | Validate Rid For encryptedRand | ${env_data} | cert_req_id=2 | ${recip_index} | ${kari_index} |
 
     """
-    recipient_infos: rfc9480 = env_data["recipientInfos"]
+    recipient_infos = env_data["recipientInfos"]
     recipient_info: rfc5652.RecipientInfo = recipient_infos[int(recip_index)]
 
     rid = _extract_rid(recipient_info=recipient_info, kari_index=int(kari_index))
@@ -407,6 +406,22 @@ def _parse_pkimessage_from_der(raw_bytes: bytes) -> PKIMessageTMP:
     return msg
 
 
+def _set_header_fields(pki_message: PKIMessageTMP, kwargs: dict) -> dict:
+    """Set the header fields"""
+    out = cmputils.extract_fields_for_exchange(pki_message, for_py_functions=True)
+    for entry in out:
+        if entry not in kwargs:
+            kwargs[entry] = out[entry]
+
+    if kwargs.get("sender") is None:
+        kwargs["sender"] = pki_message["header"]["recipient"]
+
+    if kwargs.get("recipient") is None:
+        kwargs["recipient"] = pki_message["header"]["sender"]
+
+    return kwargs
+
+
 @keyword(name="Process PKIMessage With Popdecc")
 def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     pki_message: Union[bytes, PKIMessageTMP],
@@ -419,8 +434,9 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     expected_size: Strint = 1,
     expected_sender: Optional[str] = None,
     iv: Union[str, bytes] = "A" * 16,
+    expected_version: Optional[int] = None,
     **kwargs,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Process the POPODecKeyChallContent structure by decrypting the encryptedRand field or decapsulating the challenge
 
      When the end-entity wants to issue a key, which is not allowed to sign data, it can indicate to
@@ -446,6 +462,10 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
         - `recip_index`: The index of the recipientInfo to extract the `rid` field from. Defaults to `0`.
         - `expected_size`: The expected size inside the `EnvelopedData` structure.
         - `expected_sender`: The expected sender name to validate in the `Rand` structure.
+        - `iv`: The initialization vector to use for the AES-CBC-256 decryption. Defaults to `A` * 16.
+        (only used for version 2).
+        - `kari_cert`: The KARI certificate to use for the ECC-based key exchange. Defaults to `None`.
+        - `expected_version`: The expected version of the PKIMessage. Defaults to `None`.
         - `**kwargs`: Additional values for the `PKIHeader`.
 
     Returns:
@@ -479,19 +499,26 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     challenge = popdecc[int(challenge_index)]
     validate_popdecc_version(pki_message)  # type: ignore
 
+    if expected_version is not None:
+        if expected_version == 3 and not challenge["encryptedRand"].isValue:
+            raise BadRequest("Expected version 3 with `encryptedRand`. Got a Challenge instead.")
+        if expected_version == 2 and challenge["encryptedRand"].isValue:
+            raise BadRequest("Expected version 2 with `challenge`. Got an `encryptedRand` instead.")
+
     if challenge["encryptedRand"].isValue:
         rand = _process_encrypted_rand(
             env_data=challenge["encryptedRand"],
             pki_message=pki_message,  # type: ignore
             password=password,
-            ee_key=ee_key,
+            ee_key=ee_key,  # type: ignore
             recip_index=int(recip_index),
             cert_req_id=int(cert_req_id),
             expected_size=int(expected_size),
+            kari_cert=kwargs.get("kari_cert"),
         )
 
     else:
-        rand = process_simple_challenge(challenge=challenge, ee_key=ee_key, iv=iv)
+        rand = process_simple_challenge(challenge=challenge, ee_key=ee_key, iv=iv)  # type: ignore
 
     num = rand["int"]
     if expected_sender is not None:
@@ -499,6 +526,8 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
         if not compareutils.compare_general_name_and_name(rand["sender"], sender):
             rand_name = get_openssl_name_notation(rand["sender"]["directoryName"])
             raise ValueError(f"Expected sender name: {expected_sender}. Got: {rand_name}")
+
+    kwargs = _set_header_fields(pki_message, kwargs)
 
     response = cmputils.prepare_pki_message(
         **kwargs,
@@ -516,12 +545,16 @@ def validate_popdecc_version(pki_message: PKIMessageTMP) -> None:
     :param pki_message: The PKIMessage to validate.
     """
     is_enc_present = any(c["encryptedRand"].isValue for c in pki_message["body"]["popdecc"])
+    is_not_enc_present = any(c["challenge"].asOctets() != b"" for c in pki_message["body"]["popdecc"])
 
     if int(pki_message["header"]["pvno"]) != 3 and is_enc_present:
         raise BadRequest("Invalid PKIMessage version for encryptedRand. Expected version 3.")
 
     if int(pki_message["header"]["pvno"]) != 2 and not is_enc_present:
         raise BadRequest("Invalid PKIMessage version for challenge. Expected version 2.")
+
+    if is_enc_present and is_not_enc_present:
+        raise BadRequest("The PKIMessage contains both `encryptedRand` and `challenge` fields.")
 
 
 def _process_encrypted_rand(
@@ -532,6 +565,7 @@ def _process_encrypted_rand(
     recip_index: int,
     cert_req_id: int,
     expected_size: int,
+    kari_cert: Optional[rfc9480.CMPCertificate] = None,
 ) -> rfc9480.Rand:
     """Process the encryptedRand field by decrypting it with the end-entity private key.
 
@@ -543,6 +577,7 @@ def _process_encrypted_rand(
     :param cert_req_id: The certificate request ID to validate against the serialNumber.
     the challenge. Defaults to `False`.
     :param expected_size: The expected size inside the `EnvelopedData` structure.
+    :param kari_cert: The KARI certificate to use for the ECC-based key exchange. Defaults to `None`.
     :return: The decrypted challenge as a `Rand` object.
     :raises BadAsn1Data: If the `Rand` decoding has a remainder.
     :raises ValueError: If the `rid` field is not correctly populated with NULL-DN and `cert_req_id` as `serialNumber`.
@@ -560,6 +595,7 @@ def _process_encrypted_rand(
         expected_raw_data=True,
         expected_size=expected_size,
         for_pop=True,
+        kari_cert=kari_cert,
     )
 
     obj, rest = decoder.decode(raw_bytes, asn1Spec=rfc9480.Rand())
@@ -600,7 +636,7 @@ def process_simple_challenge(
     if isinstance(ee_key, ECDHPrivateKey):
         ss = perform_ecdh(ee_key, ca_pub_key)
     elif is_kem_private_key(ee_key):
-        ss = ee_key.decaps(kemct)
+        ss = ee_key.decaps(kemct)  # type: ignore
     else:
         raise ValueError(
             f"The private key type is not supported, for processing the challenge.: {type(ee_key).__name__}"
@@ -622,9 +658,9 @@ def _compute_ss(client_key: ECDHPrivateKey, ca_cert: rfc9480.CMPCertificate) -> 
     :return: The computed shared secret.
     :raises ValueError: If the client key is of an unsupported type.
     """
-    pub_key = load_public_key_from_cert(ca_cert)
-    if isinstance(client_key, ECDHPrivKeyTypes):
-        return perform_ecdh(client_key, pub_key)
+    pub_key = load_public_key_from_cert(ca_cert)  # type: ECDHPublicKey
+    if isinstance(client_key, ECDHPrivateKey):
+        return perform_ecdh(client_key, pub_key)  # type: ignore
 
     raise ValueError(f"The provided public key type is not expected: {type(client_key).__name__}")
 
@@ -745,68 +781,9 @@ def prepare_key_agreement_popo(  # noqa D417 undocumented-param
     return popo_structure
 
 
-@not_keyword
-def compute_dh_static_pop(
-    ca_cert: rfc9480.CMPCertificate,
-    cert_request: rfc4211.CertRequest,
-    ss: Optional[bytes] = None,
-    private_key: Optional[ECDHPrivateKey] = None,
-    use_pkmac: bool = False,
-):
-    """Compute a static Diffie-Hellman Proof-of-Possession (PoP) value for certificate requests.
-
-    :param ss: The shared secret used for generating the MAC (if not provided, it's computed).
-    :param ca_cert: The CA's certificate containing the issuer's public key.
-    :param cert_request: The certificate request to be authenticated with the MAC.
-    :param private_key: Optionally, the private key used for Diffie-Hellman.
-    :param use_pkmac: A flag indicating whether to use the PKMAC value in the PoP structure.
-
-    :return: A populated Proof-of-Possession structure, including either a DH MAC or PKMAC value.
-    :raises ValueError: If neither the shared secret nor the private key is provided.
-    """
-    if not ss and not private_key:
-        raise ValueError("Both the shared secret and private key cannot be None")
-
-    if not ss:
-        public_key = load_public_key_from_cert(ca_cert)
-        ss = perform_ecdh(private_key=private_key, public_key=public_key)
-
-    # as of RFC 2875
-    # If either the subject or
-    # issuer name in the CA certificate is empty, then the alternative name
-    # should be used in its place.
-
-    subject_dn_bytes = encoder.encode(ca_cert["tbsCertificate"]["subject"])
-    issuer_dn_bytes = encoder.encode(ca_cert["tbsCertificate"]["issuer"])
-    concatenated_data = subject_dn_bytes + ss + issuer_dn_bytes
-    key = compute_hash(alg_name="sha1", data=concatenated_data)
-    mac = compute_hmac(hash_alg="sha1", key=key, data=encoder.encode(cert_request))
-
-    alg_id = rfc9480.AlgorithmIdentifier()
-    alg_id["algorithm"] = rfc6955.id_dhPop_static_sha1_hmac_sha1
-    # names differs, but same structure.
-    dh_pop_static = rfc6955.DhSigStatic()
-    dh_pop_static["hashValue"] = rfc6955.MessageDigest(mac)
-    dh_pop_static["issuerAndSerial"] = envdatautils.prepare_issuer_and_serial_number(ca_cert)
-    alg_id["algorithm"]["parameters"] = rfc6955.DhSigStatic()
-
-    popo_priv_key = rfc4211.POPOPrivKey().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3))
-
-    if use_pkmac:
-        pk_mac_val = rfc4211.PKMACValue().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 3))
-
-        pk_mac_val["algId"] = alg_id
-        pk_mac_val["value"] = univ.BitString().fromOctetString(mac)
-        popo_priv_key["agreeMAC"] = pk_mac_val
-    else:
-        popo_priv_key["dhMAC"] = popo_priv_key["dhMAC"].fromOctetString(mac)
-
-    return popo_priv_key
-
-
 @keyword(name="Get EncCert From PKIMessage")
 def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     cert_number: Strint = 0,
     ee_private_key: Optional[PrivateKey] = None,
     server_cert: Optional[rfc9480.CMPCertificate] = None,
@@ -861,7 +838,7 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
         env_data=env_data,
         pki_message=pki_message,
         password=password,
-        ee_key=ee_private_key,
+        ee_key=ee_private_key,  # type: ignore
         cmp_protection_cert=server_cert,
         expected_raw_data=True,
         expected_type=expected_recip_type,

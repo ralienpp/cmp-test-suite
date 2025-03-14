@@ -12,6 +12,9 @@ import pyasn1
 from cryptography import x509
 from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, HybridKEMPublicKey
 from pq_logic.migration_typing import KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
@@ -38,7 +41,7 @@ from resources.convertutils import copy_asn1_certificate, str_to_bytes
 from resources.copyasn1utils import copy_name
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_alg_name_to_oid
-from resources.oidutils import KEY_WRAP_NAME_2_OID
+from resources.oidutils import CURVE_2_COFACTORS, ECMQV_NAME_2_OID, KEY_WRAP_NAME_2_OID, KM_KA_ALG_NAME_2_OID
 from resources.prepareutils import prepare_name
 from resources.protectionutils import (
     compute_kdf_from_alg_id,
@@ -169,7 +172,7 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
     cert: Optional[rfc9480.CMPCertificate] = None,
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     ski: Optional[bytes] = None,
-    key: Optional[PublicKey] = None,
+    key: Optional[Union[PublicKey, PrivateKey]] = None,
     bad_ski: bool = False,
 ) -> rfc5652.RecipientIdentifier:
     """Prepare a RecipientIdentifier used for kari and ktri.
@@ -213,7 +216,7 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
         ski = x509.SubjectKeyIdentifier.from_public_key(key).digest
 
     elif cert is not None:
-        ski = ski or certextractutils.get_field_from_certificate(cert, extension="ski")
+        ski = ski or certextractutils.get_field_from_certificate(cert, extension="ski")  # type: ignore
 
     if bad_ski and ski is not None:
         ski = utils.manipulate_first_byte(ski)
@@ -755,6 +758,58 @@ def prepare_key_transport_recipient_info(
     return ktri_structure
 
 
+def _get_kari_ephemeral_oid(hash_alg: Optional[str]) -> univ.ObjectIdentifier:
+    """Determine the ECMQV (Elliptic Curve Menezes-Qu-Vanstone) oid.
+
+    :return: Corresponding OID.
+    :raises KeyError: If the combination is not allowed.
+    """
+    if hash_alg is None:
+        hash_alg = "sha256"
+    try:
+        return ECMQV_NAME_2_OID[f"mvq-{hash_alg}"]
+    except KeyError:
+        _hash_algs = ["sha224", "sha256", "sha384", "sha512"]
+        raise KeyError(f"The ECMQV ECC supports only the hash algorithms: {hash_alg}")
+
+
+def _get_ecc_dh_oid(public_key: EllipticCurvePublicKey, hash_alg: Optional[str]) -> univ.ObjectIdentifier:
+    """Get the ECC KARI oid"""
+    if public_key.curve.name.startswith("brainpoolP"):
+        name = f"cofactorDH-{hash_alg.upper()}"
+    else:
+        try:
+            order = CURVE_2_COFACTORS[public_key.curve.name.lower()]
+        except KeyError:
+            raise ValueError(f"Unsupported KARI ECC Public Key: `{public_key.curve.name}`")
+
+        if hash_alg is None:
+            raise ValueError("Hash algorithm must be provided for ECC KARI.")
+
+        if order == 1:
+            name = f"cofactorDH-{hash_alg.upper()}"
+
+        else:
+            name = f"stdDH-{hash_alg.upper()}"
+
+    return KM_KA_ALG_NAME_2_OID[name]
+
+
+def _get_kari_oid(
+    public_key: ECDHPublicKey, use_ephemeral: bool = True, hash_alg: str = "sha256"
+) -> univ.ObjectIdentifier:
+    if isinstance(public_key, X448PublicKey):
+        oid = rfc9481.id_X448
+    elif isinstance(public_key, X25519PublicKey):
+        oid = rfc9481.id_X25519
+    elif use_ephemeral:
+        oid = _get_kari_ephemeral_oid(hash_alg=hash_alg)
+    else:
+        oid = _get_ecc_dh_oid(public_key, hash_alg)
+
+    return oid
+
+
 # TODO refactor to remove issuer_and_ser
 def prepare_kari(
     public_key: ECDHPublicKey,
@@ -763,7 +818,8 @@ def prepare_kari(
     recip_cert: Optional[rfc9480.CMPCertificate] = None,
     hash_alg: str = "sha256",
     issuer_and_ser: rfc5652.IssuerAndSerialNumber = None,
-    oid: univ.ObjectIdentifier = rfc9481.dhSinglePass_stdDH_sha256kdf_scheme,
+    oid: Optional[univ.ObjectIdentifier] = rfc9481.dhSinglePass_stdDH_sha256kdf_scheme,
+    use_ephemeral: bool = True,
 ) -> rfc5652.KeyAgreeRecipientInfo:
     """Prepare a KeyAgreeRecipientInfo object for testing.
 
@@ -775,13 +831,18 @@ def prepare_kari(
     :param issuer_and_ser: The optional `IssuerAndSerialNumber` structure to use. Defaults to None.
     :param oid: The Object Identifier for the key agreement algorithm.
     Defaults to dhSinglePass-stdDH-sha256kdf-scheme.
+    :param use_ephemeral: Whether to use an ephemeral key agreement. Defaults to `True`.
     :return: The populated `KeyAgreeRecipientInfo` structure.
     """
     ecc_cms_info = encoder.encode(
         prepare_ecc_cms_shared_info(key_wrap_oid=rfc9481.id_aes256_wrap, entity_u_info=None, supp_pub_info=32)
     )
 
-    # TODO fix for other oids.
+    if cek is None:
+        cek = os.urandom(32)
+
+    if oid is None:
+        oid = _get_kari_oid(public_key=public_key, use_ephemeral=use_ephemeral, hash_alg=hash_alg)
 
     shared_secret = cryptoutils.perform_ecdh(recip_private_key, public_key)
     k = cryptoutils.compute_ansi_x9_63_kdf(shared_secret, 32, ecc_cms_info, hash_alg=hash_alg)
@@ -1092,7 +1153,7 @@ def build_env_data_for_exchange(
     if is_kem_public_key(public_key_recip):
         kem_recip_info = prepare_kem_recip_info(
             recip_cert=cert_sender,
-            public_key_recip=public_key_recip,
+            public_key_recip=public_key_recip,  # type: ignore
             cek=cek,
             issuer_and_ser=issuer_and_ser,
             hybrid_key_recip=hybrid_key_recip,
@@ -1116,12 +1177,14 @@ def _handle_kem_encapsulation(
     if public_key_recip:
         kem_pub_key = public_key_recip
     elif recip_cert is not None:
-        kem_pub_key = keyutils.load_public_key_from_spki(recip_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        kem_pub_key = keyutils.load_public_key_from_spki(recip_cert["tbsCertificate"]["subjectPublicKeyInfo"])  # type: KEMPublicKey
     else:
         raise ValueError("No valid KEM public key or certificate provided.")
 
     if not is_kem_public_key(kem_pub_key):
         raise ValueError(f"Expected KEMPublicKey, got {type(kem_pub_key).__name__}.")
+
+    kem_pub_key: KEMPublicKey
 
     if hybrid_key_recip is None:
         shared_secret, kemct = kem_pub_key.encaps()
@@ -1475,7 +1538,7 @@ def prepare_recipient_encrypted_keys(
 @not_keyword
 def prepare_key_agreement_recipient_info(
     cmp_cert: rfc9480.CMPCertificate,
-    key_agreement_oid: univ.ObjectIdentifier,
+    key_agreement_oid: Optional[univ.ObjectIdentifier] = None,
     encrypted_key: Optional[bytes] = None,
     key_wrap_oid: univ.ObjectIdentifier = rfc9481.id_aes256_wrap,
     version: int = 3,
@@ -1727,7 +1790,7 @@ def is_cmsori_kem_other_info_decode_able(ukm_der: bytes) -> bytes:
     """
     try:
         try_decode, rest = decoder.decode(ukm_der, rfc9629.CMSORIforKEMOtherInfo())
-    except pyasn1.error.PyAsn1Error:
+    except pyasn1.error.PyAsn1Error:  # type: ignore
         raise BadAsn1Data("`CMSORIforKEMOtherInfo` is not decode able", overwrite=True)
 
     if rest:

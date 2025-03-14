@@ -514,7 +514,7 @@ def may_load_cert_and_key(  # noqa D417 undocumented-param
 
 
 def is_certificate_and_key_set(  # noqa D417 undocumented-param
-    cert: Optional[Union[str, rfc9480.CMPCertificate]] = None, key: Optional[PrivateKey] = None
+    cert: Optional[Union[str, rfc9480.CMPCertificate]] = None, key: Optional[Union[PrivateKey, str]] = None
 ) -> bool:
     """Check if a certificate and its corresponding private key are valid and set.
 
@@ -541,6 +541,9 @@ def is_certificate_and_key_set(  # noqa D417 undocumented-param
     """
     if cert is None and key is None:
         return False
+
+    if isinstance(key, str):
+        key = keyutils.load_private_key_from_file(key)
 
     if isinstance(cert, str):
         der_cert = load_and_decode_pem_file(cert)
@@ -689,7 +692,7 @@ def manipulate_composite_sig(  # noqa: D417 Missing argument description in the 
     """
     try:
         obj, _ = decoder.decode(sig, CompositeSignatureValue())
-    except pyasn1.error.PyAsn1Error as e:
+    except pyasn1.error.PyAsn1Error as e:  # type: ignore
         raise BadAsn1Data(f"Failed to manipulate the data: {e}")  # pylint: disable=raise-missing-from
 
     sig1 = obj[0].asOctets()
@@ -732,7 +735,7 @@ def manipulate_composite_kem_ct(  # noqa: D417 Missing argument description in t
     """
     try:
         obj, _ = decoder.decode(kem_ct, CompositeCiphertextValue())
-    except pyasn1.error.PyAsn1Error as e:
+    except pyasn1.error.PyAsn1Error as e:  # type: ignore
         raise BadAsn1Data(f"Failed to manipulate the data: {e}")  # pylint: disable=raise-missing-from
 
     kem_ct1 = obj[0].asOctets()
@@ -762,7 +765,7 @@ def fetch_value_from_location(location: str, timeout: Optional[Union[str, int]] 
     if not location:
         return None
     try:
-        response = requests.get(location, timeout=int(timeout))
+        response = requests.get(location, timeout=int(timeout))  # type: ignore
         response.raise_for_status()
         return response.content
     except Exception as e:
@@ -803,6 +806,9 @@ def load_certificate_from_uri(  # noqa: D417 Missing argument description in the
             raise ValueError("The decoding of the fetching certificate had a remainder.")
 
         return [cert]
+
+    if not content:
+        raise ValueError("No content was fetched from the provided URI.")
 
     certs = content.split(b"-----END CERTIFICATE-----\n")
     certs = [cert for cert in certs if cert.strip()]

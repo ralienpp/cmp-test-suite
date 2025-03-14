@@ -4,8 +4,7 @@
 
 import unittest
 
-from pyasn1.codec.der import encoder, decoder
-from pyasn1_alt_modules import rfc5652, rfc9480
+from pyasn1_alt_modules import rfc5652
 from resources.ca_ra_utils import build_ip_cmp_message, prepare_cert_response
 from resources.certbuildutils import build_certificate, build_csr
 from resources.certutils import parse_certificate

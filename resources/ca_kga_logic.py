@@ -14,12 +14,13 @@ import pyasn1
 from cryptography.hazmat.primitives import keywrap, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, padding, rsa, x448, x25519
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey, X448PublicKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
 from pq_logic.keys.trad_keys import RSADecapKey
 from pq_logic.migration_typing import KEMPrivateKey
 from pq_logic.tmp_oids import COMPOSITE_SIG_SIGNED_DATA_OID_HASH, id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder
-from pyasn1.type import univ
 from pyasn1_alt_modules import (
     rfc4055,
     rfc4211,
@@ -47,6 +48,8 @@ from resources import (
     keyutils,
     protectionutils,
 )
+from resources.asn1_structures import PKIMessageTMP
+from resources.compareutils import check_if_alg_id_parameters_is_absent
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_ansi_x9_63_kdf, compute_hkdf, perform_ecdh
 from resources.envdatautils import (
@@ -197,7 +200,7 @@ def process_kari(
 
 
 def validate_not_local_key_gen(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     password: Optional[str] = None,
     expected_type: Optional[str] = None,
     cert_index: Strint = 0,
@@ -301,7 +304,7 @@ def validate_not_local_key_gen(  # noqa D417 undocumented-param
 def _check_correct_non_local_key_gen_use(
     cmp_cert: rfc9480.CMPCertificate,
     kga_type: str,
-    pki_message: Optional[rfc9480.PKIMessage] = None,
+    pki_message: Optional[PKIMessageTMP] = None,
     password: Optional[Union[bytes, str]] = None,
     strictness: int = 2,
 ):
@@ -346,7 +349,7 @@ def _check_correct_non_local_key_gen_use(
 
 
 def _extract_pwri_content_enc_key(
-    pki_message: rfc9480.PKIMessage, password: Union[str, bytes], recip_info: rfc5652.RecipientInfo
+    pki_message: PKIMessageTMP, password: Union[str, bytes], recip_info: rfc5652.RecipientInfo
 ) -> bytes:
     """Extract and compute the content encryption key from the `pwri` structure, based on the shared password/secret.
 
@@ -378,6 +381,8 @@ def _extract_ktri_and_kari_content_enc_key(
     cmp_protection_cert: rfc9480.CMPCertificate,
     ee_key: EnvDataPrivateKey,
     for_pop: bool = False,
+    allow_rsa_null: bool = False,
+    kari_cert: Optional[rfc9480.CMPCertificate] = None,
 ) -> bytes:
     """Extract and compute the content encryption key from the `kari` or `ktri` structure, based on the EE private key.
 
@@ -386,19 +391,27 @@ def _extract_ktri_and_kari_content_enc_key(
     :param ee_key: The private key of the end-entity used for the key agreement or encipherment.
     :param for_pop: Whether the extraction is for proof-of-possession (POP) purposes.
     (changes the validation for the `rid` field)
+    :param allow_rsa_null: Whether to allow RSA parameters to be `NUll`. Defaults to `False`.
+    :param kari_cert: The certificate used for key agreement or encryption, if X448 or X22519 is not used.
     :return: The content encryption key.
     :raises ValueError: If the RecipientInfo type is not 'ktri' or 'kari'.
     """
     recip_name = recip_info.getName()
     if recip_name == "ktri":
         params = validate_key_trans_recipient_info(recip_info["ktri"], cmp_protection_cert, for_pop=for_pop)
-        content_encryption_key = compute_key_transport_mechanism(ee_private_key=ee_key, **params)
+        content_encryption_key = compute_key_transport_mechanism(
+            ee_private_key=ee_key, allow_rsa_null=allow_rsa_null, **params
+        )
         logging.info("Ktri content encryption key: %s", content_encryption_key.hex())
 
     elif recip_name == "kari":
-        params = validate_key_agree_recipient_info(recip_info["kari"], cmp_protection_cert)
+        params = validate_key_agree_recipient_info(
+            recip_info["kari"],
+            cmp_protection_cert,
+            for_pop=for_pop,
+        )
         content_encryption_key = compute_key_agreement_mechanism(
-            ee_private_key=ee_key, cmp_protection_cert=cmp_protection_cert, **params
+            ee_private_key=ee_key, cmp_protection_cert=kari_cert or cmp_protection_cert, **params
         )
         logging.info("Kari content encryption key: %s", content_encryption_key.hex())
     else:
@@ -444,15 +457,41 @@ def process_other_recip_info(
         raise ValueError(f"Got a unknown `oriType`: {other_info['oriType']}")
 
 
+def _get_kari_cert(pki_message: PKIMessageTMP) -> rfc9480.CMPCertificate:
+    """Get the KARI certificate from the PKIMessage."""
+    if not pki_message["extraCerts"].isValue:
+        raise ValueError("The `extraCerts` field must contain the X-Key certificate.")
+
+    tmp = pki_message["extraCerts"][0]
+    pub_key = keyutils.load_public_key_from_spki(tmp["tbsCertificate"]["subjectPublicKeyInfo"])
+    if isinstance(pub_key, (X448PublicKey, X25519PublicKey)):
+        return tmp
+
+    tmp = pki_message["extraCerts"][1]
+
+    if not tmp.isValue:
+        raise ValueError("The certificate at position 1 must be the matching X-Key.")
+
+    pub_key = keyutils.load_public_key_from_spki(tmp["tbsCertificate"]["subjectPublicKeyInfo"])
+    if not isinstance(pub_key, (X448PublicKey, X25519PublicKey)):
+        raise ValueError(
+            "Either a kari cert must be provided or the certificate at position 1, must be the matching X-Key."
+        )
+    kari_cert = tmp
+    return kari_cert
+
+
 def extract_content_encryption_key(
     env_data: rfc9480.EnvelopedData,
-    pki_message: Optional[rfc9480.PKIMessage] = None,
-    password: Optional[str] = None,
+    pki_message: Optional[PKIMessageTMP] = None,
+    password: Optional[Union[str, bytes]] = None,
     ee_key: Optional[EnvDataPrivateKey] = None,
     cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
     recip_index: int = 0,
     expected_size: int = 1,
     for_pop: bool = False,
+    allow_rsa_null: bool = False,
+    kari_cert: Optional[rfc9480.CMPCertificate] = None,
 ) -> bytes:
     """
     Extract the content-encryption-key from an EnvelopedData structure.
@@ -470,6 +509,8 @@ def extract_content_encryption_key(
     :param expected_size: The expected size of the entries inside the `RecipientInfos` structure.
     :param for_pop: Whether the extraction is for proof-of-possession (POP) purposes.
     (changes the validation for the `rid` field)
+    :param allow_rsa_null: Whether to allow for RSA `parameters` to be `NUll`. Defaults to `False`.
+    :param kari_cert: Optional certificate for `KARI`. Defaults to `None`.
     :return: The extracted content-encryption-key.
     :raises ValueError: If the extraction fails due to missing keys or unsupported RecipientInfo types.
     """
@@ -490,7 +531,10 @@ def extract_content_encryption_key(
 
     elif recip_info.getName() == "ori":
         return process_other_recip_info(
-            other_info=recip_info["ori"], server_cert=cmp_protection_cert, recip_private_key=ee_key, for_pop=for_pop
+            other_info=recip_info["ori"],
+            server_cert=cmp_protection_cert,
+            recip_private_key=ee_key,  # type: ignore
+            for_pop=for_pop,
         )
 
     elif recip_info.getName() in ["ktri", "kari"]:
@@ -499,8 +543,17 @@ def extract_content_encryption_key(
 
         if ee_key is None:
             raise ValueError("A private key are required for `ktri` or `kari`.")
+
+        if kari_cert is None and isinstance(ee_key, (X448PrivateKey, X25519PrivateKey)):
+            kari_cert = _get_kari_cert(pki_message)
+
         content_encryption_key = _extract_ktri_and_kari_content_enc_key(
-            recip_info, cmp_protection_cert, ee_key, for_pop=for_pop
+            recip_info,
+            cmp_protection_cert,
+            ee_key,
+            for_pop=for_pop,
+            allow_rsa_null=allow_rsa_null,
+            kari_cert=kari_cert,
         )
 
     else:
@@ -513,15 +566,17 @@ def extract_content_encryption_key(
 @not_keyword
 def validate_enveloped_data(
     env_data: rfc9480.EnvelopedData,
-    pki_message: Optional[rfc9480.PKIMessage] = None,
-    password: Optional[str] = None,
+    pki_message: Optional[PKIMessageTMP] = None,
+    password: Optional[Union[str, bytes]] = None,
     cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
+    kari_cert: Optional[rfc9480.CMPCertificate] = None,
     expected_type: Optional[str] = None,
     recip_info_index: int = 0,
     expected_size: int = 1,
     ee_key: Optional[EnvDataPrivateKey] = None,
     expected_raw_data: bool = False,
     for_pop: bool = False,
+    allow_rsa_null: bool = False,
 ) -> bytes:
     """Validate and decrypt the `EnvelopedData` structure from a PKIMessage and extract the private key.
 
@@ -540,6 +595,7 @@ def validate_enveloped_data(
     :param expected_raw_data: Return the raw DER-encoded bytes, which were decrypted.
     :param for_pop: Whether the decryption is for proof-of-possession (POP) purposes.
     (skip the validation for the `rid` field)
+    :param allow_rsa_null: Whether to allow RSA `NULL` as `parameters`. Defaults to `False`.
     :return: The decrypted raw DER-encoded bytes.
     :raises ValueError: If validation fails due to incorrect `RecipientInfo`, version mismatch, or decryption issues.
     """
@@ -554,7 +610,15 @@ def validate_enveloped_data(
             )
 
     content_encryption_key = extract_content_encryption_key(
-        env_data, pki_message, password, ee_key, cmp_protection_cert, expected_size=expected_size, for_pop=for_pop
+        env_data,
+        pki_message,
+        password,
+        ee_key,
+        cmp_protection_cert,
+        expected_size=expected_size,
+        for_pop=for_pop,
+        allow_rsa_null=allow_rsa_null,
+        kari_cert=kari_cert,
     )
 
     decrypted_data = validate_encrypted_content_info(
@@ -1180,6 +1244,7 @@ def validate_key_agree_recipient_info(
     cmp_cert: rfc9480.CMPCertificate,
     expected_size: int = 1,
     key_index: int = 0,
+    for_pop: bool = False,
 ) -> dict:
     """Validate a `KeyAgreeRecipientInfo` structure and extract key agreement parameters.
 
@@ -1187,6 +1252,7 @@ def validate_key_agree_recipient_info(
     :param cmp_cert: The CMP protection certificate used for key agreement and validation.
     :param expected_size: The expected number of private keys to be present.
     :param key_index: The index of the private key to extract.
+    :param for_pop: A boolean indicating whether the structure is used for proof-of-possession. Defaults to `False`.
     :return: A dictionary containing the `encrypted_key`, key encryption algorithm, and `ukm` or None if not set.
     :raises ValueError: If any required field is missing, invalid, or if the structure does not comply
     with expected values.
@@ -1200,7 +1266,8 @@ def validate_key_agree_recipient_info(
     if not kari_structure["originator"].isValue:
         raise ValueError("The `originator` field of the `KeyAgreeRecipientInfo` structure was absent!")
 
-    validate_originator_in_kari(kari_structure, cmp_cert)
+    if not for_pop:
+        validate_originator_in_kari(kari_structure, cmp_cert)
 
     if not kari_structure["keyEncryptionAlgorithm"].isValue:
         raise ValueError("The `keyEncryptionAlgorithm` field of the `KeyAgreeRecipientInfo` structure was absent!")
@@ -1224,7 +1291,8 @@ def validate_key_agree_recipient_info(
         raise ValueError("The `recipientEncryptedKeys` field must contain exactly one `RecipientEncryptedKey`.")
 
     recip_enc_keys: rfc5652.RecipientEncryptedKeys = kari_structure["recipientEncryptedKeys"]
-    encrypted_key = check_recip_enc_key(recip_enc_keys[key_index], cmp_cert)
+
+    encrypted_key = check_recip_enc_key(recip_enc_keys[key_index], cmp_cert, for_pop=for_pop)
 
     return {"encrypted_key": encrypted_key, "key_enc_alg": key_enc_alg, "ukm": ukm}
 
@@ -1258,37 +1326,43 @@ def compute_key_agreement_mechanism(
 
 
 @not_keyword
-def check_recip_enc_key(recip_enc_key: rfc5652.RecipientEncryptedKey, cmp_cert: rfc9480.CMPCertificate) -> bytes:
+def check_recip_enc_key(
+    recip_enc_key: rfc5652.RecipientEncryptedKey,
+    cmp_cert: rfc9480.CMPCertificate,
+    for_pop: bool = False,
+) -> bytes:
     """Validate and extract the encrypted key from a `RecipientEncryptedKey` structure.
 
     :param recip_enc_key: The `RecipientEncryptedKey` structure to validate.
     :param cmp_cert: The CMP protection certificate to validate against.
+    :param for_pop: A boolean indicating whether the validation is for proof-of-possession. Defaults to `False`.
     :return: The extracted encrypted key as bytes.
     :raises ValueError: If the recipient identifier does not match the CMP certificate's subjectKeyIdentifier
                         or issuer and serial number.
     """
-    rid: rfc5652.KeyAgreeRecipientIdentifier = recip_enc_key["rid"]
-    ski = certextractutils.get_field_from_certificate(cmp_cert, extension="ski")
-    # If the CMP protection certificate has a subjectKeyIdentifier (ski) it must be used.
-    if ski is not None:
-        if rid.getName() != "subjectKeyIdentifier":
-            raise ValueError(
-                "The CMP protection certificate contains a subjectKeyIdentifier, "
-                f"so the recipient identifier must be of type `subjectKeyIdentifier`, but was: {rid.getName()}"
-            )
+    if not for_pop:
+        rid: rfc5652.KeyAgreeRecipientIdentifier = recip_enc_key["rid"]
+        ski = certextractutils.get_field_from_certificate(cmp_cert, extension="ski")
+        # If the CMP protection certificate has a subjectKeyIdentifier (ski) it must be used.
+        if ski is not None:
+            if rid.getName() != "subjectKeyIdentifier":
+                raise ValueError(
+                    "The CMP protection certificate contains a subjectKeyIdentifier, "
+                    f"so the recipient identifier must be of type `subjectKeyIdentifier`, but was: {rid.getName()}"
+                )
 
-        if rid["subjectKeyIdentifier"].asOctets() != ski:
-            raise ValueError(
-                "The subjectKeyIdentifier in the CMP protection certificate does not match "
-                "the recipient identifier in the `RecipientEncryptedKey`."
-            )
-    else:
-        if rid.getName() != "issuerAndSerialNumber":
-            raise ValueError(
-                "If the CMP protection certificate does not contain a subjectKeyIdentifier, "
-                "the `issuerAndSerialNumber` choice must be used."
-            )
-        validate_issuer_and_serial_number_field(rid["issuerAndSerialNumber"], cmp_cert)
+            if rid["subjectKeyIdentifier"].asOctets() != ski:
+                raise ValueError(
+                    "The subjectKeyIdentifier in the CMP protection certificate does not match "
+                    "the recipient identifier in the `RecipientEncryptedKey`."
+                )
+        else:
+            if rid.getName() != "issuerAndSerialNumber":
+                raise ValueError(
+                    "If the CMP protection certificate does not contain a subjectKeyIdentifier, "
+                    "the `issuerAndSerialNumber` choice must be used."
+                )
+            validate_issuer_and_serial_number_field(rid["issuerAndSerialNumber"], cmp_cert)
 
     enc_key = recip_enc_key["encryptedKey"].asOctets()
     return enc_key
@@ -1394,22 +1468,30 @@ def validate_key_trans_recipient_info(
 
 @not_keyword
 def compute_key_transport_mechanism(
-    ee_private_key: rsa.RSAPrivateKey, key_enc_alg_id: rfc5652.KeyEncryptionAlgorithmIdentifier, encrypted_key: bytes
+    ee_private_key: rsa.RSAPrivateKey,
+    key_enc_alg_id: rfc5652.KeyEncryptionAlgorithmIdentifier,
+    encrypted_key: bytes,
+    allow_rsa_null: bool = False,
 ) -> bytes:
     """Decrypt an encrypted key using a key transport mechanism.
 
     :param ee_private_key: The recipient's RSA private key used for decryption.
     :param key_enc_alg_id: The key encryption algorithm identifier.
     :param encrypted_key: The encrypted key to be decrypted.
+    :param allow_rsa_null: A boolean indicating whether the `rsaEncryption` algorithm with no parameters is allowed.
+    Defaults to `False`.
     :return: The decrypted key as bytes.
     :raises ValueError: If the key encryption algorithm is unsupported or has incorrect parameters.
     """
     if key_enc_alg_id["algorithm"] == rfc9481.rsaEncryption:
         # because inside a certificate univ.Null("") is used for rsaEncryption.
-        if not key_enc_alg_id["parameters"].isValue or key_enc_alg_id["parameters"] == univ.Null(""):
+        if check_if_alg_id_parameters_is_absent(key_enc_alg_id, allow_null=allow_rsa_null):
             padding_val = padding.PKCS1v15()
         else:
-            raise ValueError("The `parameters` field must be absent for `rsaEncryption` key transport.")
+            raise ValueError(
+                "The `parameters` field must be absent for `rsaEncryption` key transport."
+                f"Got: {key_enc_alg_id['parameters'].prettyPrint()}"
+            )
 
     elif key_enc_alg_id["algorithm"] == rfc9481.id_RSAES_OAEP:
         param, rest = decoder.decode(key_enc_alg_id["parameters"], rfc4055.RSAES_OAEP_params())

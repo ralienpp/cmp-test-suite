@@ -53,7 +53,7 @@ CA MUST Accept EE Rejection Of The Issued Certificate
     ...    `rejection` with a failInfo of `badCertTemplate` and optional explanatory text. The CA MUST
     ...    acknowledge this rejection by responding with a PKI confirmation message, completing the
     ...    transaction.
-    [Tags]    positive    rejection
+    [Tags]    positive    rejection   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${status_info}=    Prepare PKIStatusInfo
     ...    status=rejection
@@ -130,7 +130,7 @@ CA MUST Reject failInfo With Status Accepted Inside The certConf
     ...    and failInfo. A `status` "accepted" indicates no error, making the inclusion of a failInfo
     ...    like `badRequest` invalid. We send a certConf message with this inconsistency, and the CA
     ...    MUST detect it and respond with an error, optionally including the failInfo `badRequest`.
-    [Tags]    inconsistency    negative    status
+    [Tags]    inconsistency    negative    status   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${status_info}=    Prepare PKIStatusInfo    status=accepted    failinfo=badRequest
     ${cert_conf}=    Build Cert Conf From Resp
@@ -219,7 +219,7 @@ CA MUST Reject certConf Signed With The Newly Issued Certificate
     ...    certConf message signed with the newly issued certificate instead of the original
     ...    credentials. The CA MUST detect this integrity error and respond with an error,
     ...    optionally including the failInfo `badMessageCheck` or `badRequest`.
-    [Tags]    bad-behaviour    certConf    negative    protection
+    [Tags]    bad-behaviour    certConf    negative    protection   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
@@ -262,6 +262,7 @@ CA MUST Reject certConf without Protection
     ...    confirmation message without any protection. The CA MUST detect the missing protection
     ...    and reject the certConf message. The CA may optionally include the failInfo
     ...    `badMessageCheck`.
+    [Tags]    negative    protection   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp    ${response}
     ${response}=    Exchange PKIMessage    ${cert_conf}
@@ -295,7 +296,7 @@ CA MUST Reject CertConf With No senderNonce
     ...    message must include the same `senderNonce` used throughout the transaction. We send a
     ...    certificate confirmation message without the `senderNonce` field. The CA MUST detect this
     ...    omission and reject the message, optionally including the failInfo `badSenderNonce`.
-    [Tags]    negative    rfc9483-header
+    [Tags]    negative    rfc9483-header   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
@@ -317,7 +318,7 @@ CA MUST Reject CertConf With Different senderNonce
     ...    message must include the same `senderNonce` used throughout the transaction. We send a
     ...    `certConf` message with a modified `senderNonce`, expecting the CA to detect this mismatch.
     ...    The CA MUST reject the message and may respond with the optional failInfo `badSenderNonce`.
-    [Tags]    negative    rfc9483-header
+    [Tags]    negative    rfc9483-header   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
@@ -344,7 +345,7 @@ CA MUST Reject certConf With No recipNonce
     ...    This ensures message integrity and guards against replay attacks. We send a certConf message
     ...    without the `recipNonce` field. The CA MUST detect this omission and reject the message,
     ...    optionally including the failInfo `badRecipientNonce`.
-    [Tags]    negative    rfc9483-header
+    [Tags]    negative    rfc9483-header  minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
@@ -366,7 +367,7 @@ CA MUST Reject CertConf With Different recipNonce
     ...    integrity. We send a certificate confirmation message with a modified `recipNonce` value. The
     ...    CA MUST detect this nonce mismatch and reject the message, optionally including the failInfo
     ...    `badRecipientNonce`.
-    [Tags]    negative    rfc9483-header
+    [Tags]    negative    rfc9483-header   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
@@ -390,7 +391,7 @@ CA MUST Reject CertConf with omitted transactionID
     ...    `transactionID` from the initial certificate issuance request. We send a certConf message
     ...    without the `transactionID` field. The CA MUST detect this omission and reject the message,
     ...    optionally including the failInfo `badRequest`.
-    [Tags]    negative    rfc9483-header
+    [Tags]    negative    rfc9483-header   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
@@ -411,7 +412,7 @@ CA MUST Reject CertConf with Different transactionID
     ...    `transactionID` from the initial certificate issuance request. We send a certConf message with
     ...    a modified `transactionID`. The CA MUST detect the mismatch and reject the message, optionally
     ...    responding with the failInfo `transactionIdInUse` or `badRequest`.
-    [Tags]    negative    rfc9483-header
+    [Tags]    negative    rfc9483-header  minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${tx_id}=    Get Asn1 Value As Bytes    ${response}    header.transactionID
     ${tx_id}=    Manipulate First Byte    ${tx_id}
@@ -437,7 +438,7 @@ CA MAY Reject CertConf With implicitConfirm
     ...    The CA MAY reject this message due to the presence of `implicitConfirm`, potentially returning
     ...    a failInfo of `badRequest`. This test evaluates policy-dependent behavior and may fail based
     ...    on the policy.
-    [Tags]    negative    policy    rfc9483-header    robot:skip-on-failure    strict
+    [Tags]    negative    policy-dependent    rfc9483-header    robot:skip-on-failure    strict
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
@@ -459,7 +460,7 @@ CA SHOULD Send certConfirmed When Valid certConf Is Sent Again
     ...    the CA SHOULD return a `certConfirmed` response to acknowledge the repeated confirmation.
     ...    We send a valid `certConf` message followed by a duplicate `certConf` message. The CA should
     ...    return a failInfo of `certConfirmed` in response to the repeated `certConf` message.
-    [Tags]    negative    rfc9483-header    robot:skip-on-failure    strict
+    [Tags]    negative    rfc9483-header    robot:skip-on-failure    strict   minimal
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}

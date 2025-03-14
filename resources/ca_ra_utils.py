@@ -10,15 +10,20 @@ import random
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import pyasn1.error
+from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.dh import DHPublicKey
 from cryptography.hazmat.primitives.asymmetric.dsa import DSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey, X448PublicKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from pq_logic import pq_compute_utils, py_verify_logic
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.keys.abstract_pq import PQKEMPublicKey
-from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
+from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey, KEMPublicKey
+from pq_logic.pq_compute_utils import sign_data_with_alg_id
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import CA_RESPONSE, ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
@@ -34,34 +39,41 @@ from resources import (
     compareutils,
     envdatautils,
     keyutils,
+    prepareutils,
     protectionutils,
     utils,
 )
-from resources.asn1_structures import CAKeyUpdContent, CertResponseTMP, ChallengeASN1, PKIMessageTMP
-from resources.certextractutils import get_extension, get_field_from_certificate
-from resources.cmputils import prepare_pkistatusinfo
-from resources.convertutils import copy_asn1_certificate, str_to_bytes, subjectPublicKeyInfo_from_pubkey
+from resources.asn1_structures import CertResponseTMP, ChallengeASN1, PKIBodyTMP, PKIMessageTMP
+from resources.asn1utils import get_set_bitstring_names, try_decode_pyasn1
+from resources.certextractutils import get_extension
+from resources.compareutils import is_null_dn
+from resources.convertutils import (
+    copy_asn1_certificate,
+    ensure_is_verify_key,
+    str_to_bytes,
+    subjectPublicKeyInfo_from_pubkey,
+)
 from resources.cryptoutils import compute_aes_cbc, perform_ecdh
 from resources.exceptions import (
+    AddInfoNotAvailable,
+    BadAlg,
     BadAsn1Data,
+    BadCertId,
     BadCertTemplate,
+    BadDataFormat,
+    BadMessageCheck,
     BadPOP,
     BadRequest,
+    CertRevoked,
     CMPTestSuiteError,
     InvalidAltSignature,
     NotAuthorized,
-    BadCertId,
-    CertRevoked,
-    AddInfoNotAvailable,
-    BadMessageCheck,
     SignerNotTrusted,
 )
-from resources.compareutils import is_null_dn
+from resources.keyutils import load_public_key_from_cert_template
 from resources.oid_mapping import compute_hash, get_hash_from_oid, may_return_oid_to_name, sha_alg_name_to_oid
-from resources.prepareutils import prepare_name
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
 from resources.utils import get_openssl_name_notation
-from unit_tests.utils_for_test import try_decode_pyasn1
 
 
 def _prepare_issuer_and_ser_num_for_challenge(cert_req_id: int) -> rfc5652.IssuerAndSerialNumber:
@@ -71,7 +83,7 @@ def _prepare_issuer_and_ser_num_for_challenge(cert_req_id: int) -> rfc5652.Issue
     :return: The populated `IssuerAndSerialNumber` structure.
     """
     issuer_and_ser_num = rfc5652.IssuerAndSerialNumber()
-    issuer_and_ser_num["issuer"] = prepare_name("Null-DN")
+    issuer_and_ser_num["issuer"] = prepareutils.prepare_name("Null-DN")
     issuer_and_ser_num["serialNumber"] = univ.Integer(cert_req_id)
     return issuer_and_ser_num
 
@@ -183,6 +195,7 @@ def prepare_challenge(
         shared_secret, ct = public_key.encaps()
         info_val = protectionutils.prepare_kem_ciphertextinfo(key=public_key, ct=ct)
     elif is_kem_public_key(public_key):
+        public_key: KEMPublicKey
         shared_secret, ct = public_key.encaps(ca_key)
         info_val = protectionutils.prepare_kem_ciphertextinfo(key=public_key, ct=ct)
     else:
@@ -329,7 +342,7 @@ def validate_oob_cert_hash(  # noqa: D417 Missing argument descriptions in the d
     # 3. If the subject field contains a "NULL-DN", then both subjectAltNames and issuerAltNames
     # extensions MUST be present and have exactly the same value
 
-    if is_null_dn(ca_cert["tbsCertificate"]["subject"]):
+    if compareutils.is_null_dn(ca_cert["tbsCertificate"]["subject"]):
         logging.info("Subject is NULL-DN")
         extn_san = get_extension(ca_cert["tbsCertificate"]["extensions"], rfc5280.id_ce_subjectAltName)
         extn_ian = get_extension(ca_cert["tbsCertificate"]["extensions"], rfc5280.id_ce_issuerAltName)
@@ -414,7 +427,7 @@ def build_cmp_ckuann(
 
 @keyword("Get CertReqMsg From PKIMessage")
 def get_cert_req_msg_from_pkimessage(  # noqa: D417 Missing argument descriptions in the docstring
-    pki_message: rfc9480.PKIMessage, index: int = 0
+    pki_message: PKIMessageTMP, index: int = 0
 ) -> rfc4211.CertReqMsg:
     """Extract the certificate request from a PKIMessage.
 
@@ -439,14 +452,14 @@ def get_cert_req_msg_from_pkimessage(  # noqa: D417 Missing argument description
 
     """
     body_name = pki_message["body"].getName()
-    if body_name in {"ir", "cr", "kur", "crr"}:
+    if body_name in {"ir", "cr", "kur", "ccr"}:
         return pki_message["body"][body_name][index]
 
-    raise ValueError(f"Invalid PKIMessage body: {body_name} Expected: ir, cr, kur, crr")
+    raise ValueError(f"Invalid PKIMessage body: {body_name} Expected: ir, cr, kur, ccr")
 
 
 def validate_cert_request_cert_id(  # noqa: D417 Missing argument descriptions in the docstring
-    pki_message: rfc9480.PKIMessage, cert_req_id: Union[str, int] = 0
+    pki_message: PKIMessageTMP, cert_req_id: Union[str, int] = 0
 ) -> None:
     """Validate the certificate request certificate ID.
 
@@ -485,13 +498,7 @@ def get_public_key_from_cert_req_msg(cert_req_msg: rfc4211.CertReqMsg) -> Public
     :return: The extracted public key.
     :raises ValueError: If the public key type is invalid.
     """
-    spki = cert_req_msg["certReq"]["certTemplate"]["publicKey"]
-
-    old_spki = rfc5280.SubjectPublicKeyInfo()
-    old_spki["algorithm"] = spki["algorithm"]
-    old_spki["subjectPublicKey"] = spki["subjectPublicKey"]
-
-    return keyutils.load_public_key_from_spki(old_spki)
+    return keyutils.load_public_key_from_cert_template(cert_req_msg["certReq"]["certTemplate"], must_be_present=True)  # type: ignore
 
 
 def _prepare_recip_info_for_kga(
@@ -524,7 +531,11 @@ def _prepare_recip_info_for_kga(
                 public_key=public_key, recip_private_key=ec_priv_key, cek=cek, recip_cert=cert
             )
         elif is_kem_public_key(public_key):
-            recip_info = envdatautils.prepare_kem_recip_info(public_key_recip=public_key, cek=cek, recip_cert=cert)
+            recip_info = envdatautils.prepare_kem_recip_info(
+                public_key_recip=public_key,  # type: ignore
+                cek=cek,
+                recip_cert=cert,
+            )
         else:
             raise ValueError(f"Invalid public key type: {type(public_key).__name__}")
     else:
@@ -551,7 +562,7 @@ def _get_kga_key_from_cert_template(cert_template: rfc4211.CertTemplate) -> Priv
         if not cert_template["publicKey"]["subjectPublicKey"].isValue:
             raise BadCertTemplate("Public key value is missing in the certificate template.")
         if cert_template["publicKey"]["subjectPublicKey"].asOctets() != b"":
-            raise BadCertTemplate("Public key value is not empty in the certificate template,for `KGA`.")
+            raise BadPOP("Public key value is set, but not the `POPO`.")
 
         tmp = may_return_oid_to_name(oid)
 
@@ -565,7 +576,7 @@ def _get_kga_key_from_cert_template(cert_template: rfc4211.CertTemplate) -> Priv
 
 def _prepare_private_key_for_kga(
     new_private_key: PrivateKey,
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     cert: Optional[rfc9480.CMPCertificate] = None,
     password: Optional[Union[bytes, str]] = None,
     kga_cert_chain: Optional[List[rfc9480.CMPCertificate]] = None,
@@ -617,7 +628,7 @@ def _prepare_private_key_for_kga(
 @not_keyword
 def prepare_cert_and_private_key_for_kga(
     cert_template: rfc4211.CertTemplate,
-    request: rfc9480.PKIMessage,
+    request: PKIMessageTMP,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKeySig,
     kga_cert_chain: Optional[List[rfc9480.CMPCertificate]],
@@ -641,6 +652,12 @@ def prepare_cert_and_private_key_for_kga(
     or the recipient cert for `KEMRI`. Defaults to `None`.
     :return: The populated `CertifiedKeyPair` structure.
     """
+    if protectionutils.get_protection_type_from_pkimessage(request) == "mac" and password is None:
+        raise ValueError("The password must be provided for KGA `PWRI`.")
+
+    if kga_cert_chain is None:
+        raise ValueError("`kga_cert_chain` must be provided.")
+
     private_key = _get_kga_key_from_cert_template(cert_template)
     spki = subjectPublicKeyInfo_from_pubkey(private_key.public_key())
     cert_template["publicKey"]["subjectPublicKey"] = spki["subjectPublicKey"]
@@ -672,7 +689,7 @@ def prepare_cert_and_private_key_for_kga(
     return cert, enveloped_data
 
 
-def check_if_request_is_for_kga(pki_message: rfc9480.PKIMessage, index: int = 0) -> bool:
+def check_if_request_is_for_kga(pki_message: PKIMessageTMP, index: int = 0) -> bool:
     """Check if the request is for key generation action.
 
     :param pki_message: The PKIMessage to check.
@@ -690,7 +707,7 @@ def check_if_request_is_for_kga(pki_message: rfc9480.PKIMessage, index: int = 0)
 
 
 def _verify_pop_signature(
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     request_index: int = 0,
 ) -> None:
     """Verify the POP signature in the PKIMessage.
@@ -730,49 +747,89 @@ def _verify_pop_signature(
 
 
 def _verify_ra_verified(
-    pki_message: rfc9480.PKIMessage,
-    allowed_ra_dir: str,
-    trustanchor: Optional[str] = None,
-    allow_os_store: bool = False,
-    strict: bool = True,
+    pki_message: PKIMessageTMP,
+    allowed_ra_dir: str = "data/trusted_ras",
+    strict_eku: bool = True,
+    strict_ku: bool = True,
+    verify_ra_verified: bool = True,
+    verify_cert_chain: bool = True,
 ) -> None:
     """Verify the raVerified in the PKIMessage.
 
     :param pki_message: The PKIMessage to verify the raVerified for.
-    :param trustanchor: The trust anchor to use for verification. Defaults to `None`.
     :param allowed_ra_dir: The allowed RA directory. Defaults to `None`.
-    :param allow_os_store: Allow the OS store. Defaults to `False`.
-    :param strict: Whether the RA certificate must have the `cmcRA` EKU bit set.
-    Defaults to `True`.
+    :param strict_eku: Whether the RA certificate must have the `cmcRA` EKU bit set. Defaults to `True`.
+    :param strict_ku: Whether the RA certificate must have the `digitalSignature` KeyUsage bit set. Defaults to `True`.
+    :param verify_ra_verified: Whether to verify the `raVerified` or let it pass. Defaults to `True`.
+    :param verify_cert_chain: Whether to verify the certificate chain. Defaults to `True`.
     """
+    if not verify_ra_verified:
+        logging.info("Skipping `raVerified` verification.")
+        return
+
     ra_certs = certutils.load_certificates_from_dir(allowed_ra_dir)
+
+    if len(ra_certs) is None:
+        raise ValueError("No RA certificates found in the allowed RA directory.")
+
+    logging.debug("Loaded RA certificates: %d", len(ra_certs))
+
+    if not pki_message["extraCerts"].isValue:
+        raise NotAuthorized("RA certificate is missing in the PKIMessage (no `extraCerts`).")
+
     may_ra_cert = pki_message["extraCerts"][0]
     result = certutils.cert_in_list(may_ra_cert, ra_certs)
 
     if not result:
         raise NotAuthorized("RA certificate not in allowed RA directory.")
 
-    eku_cert = get_field_from_certificate(may_ra_cert, extension="eku")
-    certutils.validate_cmp_extended_key_usage(eku_cert, ext_key_usages="cmcRA", strict="STRICT" if strict else "LAX")
+    try:
+        certutils.validate_cmp_extended_key_usage(
+            cert=may_ra_cert, ext_key_usages="cmcRA", strictness="STRICT" if strict_eku else "LAX"
+        )
+    except ValueError as err:
+        raise NotAuthorized("RA certificate does not have the `cmcRA` EKU bit set.") from err
+
+    try:
+        certutils.validate_key_usage(
+            cert=may_ra_cert, key_usages="digitalSignature", strictness="STRICT" if strict_ku else "LAX"
+        )
+    except ValueError as err:
+        raise NotAuthorized("RA certificate does not have the `digitalSignature` KeyUsage bit set.") from err
 
     cert_chain = certutils.build_cmp_chain_from_pkimessage(
         pki_message,
+        ee_cert=may_ra_cert,
     )
-    try:
-        certutils.certificates_must_be_trusted(
-            cert_chain=cert_chain, trustanchors=trustanchor, allow_os_store=allow_os_store
-        )
-    except InvalidSignature as err:
-        raise NotAuthorized("RA certificate not trusted.") from err
+
+    if len(cert_chain) == 1 and not certutils.check_is_cert_signer(cert_chain[0], cert_chain[0]):
+        raise NotAuthorized("RA certificate is not self-signed, but the certificate chain could not be build.")
+
+    logging.debug("RA certificate chain length: %d", len(cert_chain))
+    print("RA certificate chain length:", len(cert_chain))
+
+    if verify_cert_chain:
+        try:
+            certutils.verify_cert_chain_openssl(
+                cert_chain=cert_chain,
+                crl_check=False,
+                verbose=True,
+                timeout=60,
+            )
+        except SignerNotTrusted as err:
+            error_details = [err.message] + err.get_error_details()
+            raise NotAuthorized(
+                "RA certificate is not trusted, verification with OpenSSL failed.", error_details=error_details
+            ) from err
 
 
 def verify_popo_for_cert_request(  # noqa: D417 Missing argument descriptions in the docstring
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     allowed_ra_dir: str = "data/trusted_ras",
-    trustanchor: Optional[str] = None,
-    allow_os_store: bool = False,
     cert_req_index: Union[int, str] = 0,
     must_have_ra_eku_set: bool = True,
+    verify_ra_verified: bool = True,
+    verify_cert_chain: bool = True,
 ) -> None:
     """Verify the Proof-of-Possession (POP) for a certificate request.
 
@@ -781,10 +838,11 @@ def verify_popo_for_cert_request(  # noqa: D417 Missing argument descriptions in
        - `pki_message`: The pki message to verify the POP for.
        - `allowed_ra_dir`: The allowed RA directory, filed with trusted RA certificates.
          Defaults to `data/trusted_ras`.
-       - `trustanchor`: The trust anchor to use for verification. Defaults to `None`.
        - `allow_os_store`: Whether to allow the OS store. Defaults to `False`.
        - `cert_req_index`: The index of the certificate request to verify the POP for. Defaults to `0`.
        - `must_have_ra_eku_set`: Whether Extended Key Usage (EKU) CMP-RA bit must be set. Defaults to `True`.
+       - `verify_ra_verified`: Whether to verify the `raVerified` or let it pass. Defaults to `True`.
+       - `verify_cert_chain`: Whether to verify the certificate chain. Defaults to `True`.
 
     Raises:
     ------
@@ -795,15 +853,35 @@ def verify_popo_for_cert_request(  # noqa: D417 Missing argument descriptions in
         - BadPOP: If the POP verification fails.
         - NotAuthorized: If the RA certificate is not trusted.
 
+    Examples:
+    --------
+    | Verify POP Signature For PKI Request | ${pki_message} | ${allowed_ra_dir} | ./data/trustanchors | True |
+    | Verify POP Signature For PKI Request | ${pki_message} | verify_ra_verified=False |
+
     """
-    if pki_message["body"].getName() not in {"ir", "cr", "kur", "crr"}:
+    body_name = pki_message["body"].getName()
+    if body_name not in {"ir", "cr", "kur", "crr"}:
         raise ValueError(f"Invalid PKIMessage body: {pki_message['body'].getName()} Expected: ir, cr, kur, crr")
 
     cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message, index=cert_req_index)
+
+    if check_if_request_is_for_kga(pki_message=pki_message, index=cert_req_index):
+        return
+
+    if not cert_req_msg["popo"].isValue:
+        raise BadPOP(f"POP structure is missing in the PKIMessage, for {body_name}")
+
     name = cert_req_msg["popo"].getName()
 
     if name == "raVerified":
-        _verify_ra_verified(pki_message, allowed_ra_dir, trustanchor, allow_os_store, must_have_ra_eku_set)
+        _verify_ra_verified(
+            pki_message,
+            allowed_ra_dir=allowed_ra_dir,
+            verify_cert_chain=verify_cert_chain,
+            strict_eku=must_have_ra_eku_set,
+            verify_ra_verified=verify_ra_verified,
+        )
+
     elif name == "signature":
         verify_sig_pop_for_pki_request(pki_message)
     elif name == "keyEncipherment":
@@ -823,6 +901,124 @@ def verify_popo_for_cert_request(  # noqa: D417 Missing argument descriptions in
         )
 
 
+def _validate_cert_template(
+    cert_template: rfc9480.CertTemplate,
+    pop_alg_id: Optional[rfc9480.AlgorithmIdentifier] = None,
+    max_key_size: Optional[int] = None,
+):
+    """Validate that the certificate template has set the correct fields."""
+    if not cert_template["subject"].isValue:
+        raise BadCertTemplate("The `subject` field is not set inside the certificate template.")
+
+    public_key = keyutils.load_public_key_from_cert_template(cert_template=cert_template, must_be_present=False)
+    if isinstance(public_key, DHPublicKey):
+        raise BadCertTemplate("The `publicKey` inside the certificate template was a `DH` key, which is not allowed.")
+
+    if isinstance(public_key, DSAPublicKey):
+        raise BadCertTemplate("The `publicKey` inside the certificate template was a `DSA` key, which is not allowed.")
+
+    if isinstance(public_key, RSAPublicKey):
+        if public_key.key_size < 2048:
+            raise BadCertTemplate("The RSA public key was shorter then 2048 bits")
+
+        if max_key_size is not None and public_key.key_size > max_key_size:
+            raise BadCertTemplate(f"The RSA public key was longer then {max_key_size} bits")
+
+
+def respond_to_key_agreement(  # noqa: D417 Missing argument descriptions in the docstring
+    cert_req_msg: rfc4211.CertReqMsg,
+    ca_key: PrivateKeySig,
+    ca_cert: rfc9480.CMPCertificate,
+    cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
+    ca_ecc_key: Optional[EllipticCurvePublicKey] = None,
+    ca_x25519: Optional[X25519PrivateKey] = None,
+    ca_x448: Optional[X448PrivateKey] = None,
+    use_ephemeral: bool = False,
+    extensions: Optional[rfc9480.Extensions] = None,
+    **kwargs,
+) -> Tuple[rfc9480.CMPCertificate, rfc9480.EnvelopedData]:
+    """Respond to a certificate request using key agreement.
+
+    Note:
+    ----
+       - Assumes that the request includes a public key compatible with key agreement.
+       - Requires the CA to have a corresponding private key for key agreement.
+
+    Arguments:
+    ---------
+       - `cert_req_msg`: The certificate request message containing the key agreement parameters.
+       - `ca_key`: The CA private key used to sign the certificate.
+       - `ca_cert`: The CA certificate corresponding to the signing key.
+       - `cmp_protection_cert`: The CMP protection certificate used in the key agreement. Defaults to `None`.
+       - `ca_ecc_key`: The CA’s Elliptic Curve public key for ECDH key agreement. Defaults to `None`.
+       - `ca_x25519`: The CA’s X25519 private key for key agreement. Defaults to `None`.
+       - `ca_x448`: The CA’s X448 private key for key agreement. Defaults to `None`.
+       - `use_ephemeral`: Whether to use an ephemeral key for key agreement. Defaults to `False`.
+       - `extensions`: Additional certificate extensions (e.g., OCSP, CRL). Defaults to `None`.
+
+    Returns:
+    -------
+       - The newly issued certificate and an `EnvelopedData` structure for secure transport.
+
+    Raises:
+    ------
+       - `ValueError`: If the request contains an invalid public key type.
+       - `ValueError`: If no matching CA key is provided for key agreement.
+
+    Examples:
+    --------
+    | ${cert} | ${env_data} = | Respond To Key Agreement | ${cert_req_msg} | ${ca_key} | ${ca_cert} |
+    | ${cert} | ${env_data} = | Respond To Key Agreement | ${cert_req_msg} | ${ca_key} | ${ca_cert} \
+    | ${cmp_protection_cert} | ${ca_x25519} | ${use_ephemeral} |
+
+    """
+    cert_template = cert_req_msg["certReq"]["certTemplate"]
+    public_key = keyutils.load_public_key_from_cert_template(cert_template=cert_template)
+
+    if not isinstance(public_key, ECDHPublicKey):
+        raise ValueError(
+            f"Invalid public key type, for `keyAgreement`.Expected: ECDHPublicKey, Got: {type(public_key)}"
+        )
+
+    if isinstance(public_key, X25519PublicKey):
+        server_key = ca_x25519
+    elif isinstance(public_key, X448PublicKey):
+        server_key = ca_x448
+    elif use_ephemeral:
+        server_key = keyutils.generate_key("ec", curve=public_key.curve.name)
+    else:
+        server_key = ca_ecc_key
+
+    if server_key is None:
+        raise ValueError(f"The CA key for the matching public key was not provided: Expectedtype: {type(public_key)}")
+
+    cek = os.urandom(32)
+    kari = envdatautils.prepare_kari(
+        public_key=public_key,
+        recip_private_key=server_key,  # type: ignore
+        recip_cert=cmp_protection_cert,
+        oid=None,
+        cek=cek,
+        use_ephemeral=use_ephemeral,
+    )
+    new_ee_cert = certbuildutils.build_cert_from_cert_template(
+        cert_template=cert_template,
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        extensions=extensions,
+    )
+    data = encoder.encode(new_ee_cert)
+    kari = envdatautils.parse_recip_info(kari)
+    env_data = envdatautils.prepare_enveloped_data(
+        recipient_infos=[kari],
+        cek=cek,
+        target=None,
+        data_to_protect=data,
+        enc_oid=rfc5652.id_data,
+    )
+    return new_ee_cert, env_data
+
+
 @keyword(name="Respond To CertReqMsg")
 def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the docstring
     cert_req_msg: rfc4211.CertReqMsg,
@@ -831,6 +1027,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
     hybrid_kem_key: Optional[ECDHPrivateKey] = None,
     hash_alg: str = "sha256",
     extensions: Optional[Sequence[rfc5280.Extension]] = None,
+    **kwargs,
 ) -> [rfc9480.CMPCertificate, Optional[rfc9480.EnvelopedData]]:
     """Respond to a certificate request.
 
@@ -863,20 +1060,52 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
     | ${hybrid_kem_key} | ${hash_alg} |
 
     """
+    cert_template = cert_req_msg["certReq"]["certTemplate"]
+
+    _validate_cert_template(
+        cert_template,
+        max_key_size=4096 * 2,
+    )
+
+    if not cert_req_msg["popo"].isValue:
+        public_key = load_public_key_from_cert_template(cert_template=cert_template, must_be_present=False)
+
+        if public_key:
+            raise BadPOP("The public key value is set, but the POPO is missing in the certificate request.")
+
+    if not cert_req_msg["popo"].isValue:
+        request = kwargs.get("request")
+        body_name = request["body"].getName()
+        cert_index = int(kwargs.get("cert_index", 0))
+        cert, private_key = prepare_cert_and_private_key_for_kga(
+            cert_template=request["body"][body_name][cert_index]["certReq"]["certTemplate"],
+            request=request,
+            ca_cert=ca_cert,
+            ca_key=ca_key,
+            kga_cert_chain=kwargs.get("kga_cert_chain"),
+            kga_key=kwargs.get("kga_key"),
+            password=kwargs.get("password"),
+            hash_alg=kwargs.get("hash_alg", "sha256"),
+            ec_priv_key=kwargs.get("ec_priv_key"),
+            cmp_protection_cert=kwargs.get("cmp_protection_cert"),
+            extensions=kwargs.get("extensions"),
+        )
+        return cert, None, private_key
+
     name = cert_req_msg["popo"].getName()
 
     if name in ["raVerified", "signature"]:
         cert = certbuildutils.build_cert_from_cert_template(
-            cert_template=cert_req_msg["certReq"]["certTemplate"],
+            cert_template=cert_template,
             ca_key=ca_key,
             ca_cert=ca_cert,
             extensions=extensions,
         )
-        return cert, None
+        return cert, None, None
 
     elif name == "keyEncipherment":
         cert = certbuildutils.build_cert_from_cert_template(
-            cert_template=cert_req_msg["certReq"]["certTemplate"],
+            cert_template=cert_template,
             ca_key=ca_key,
             ca_cert=ca_cert,
             extensions=extensions,
@@ -890,10 +1119,14 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
             hybrid_kem_key=hybrid_kem_key,
         )
 
-        return cert, enc_cert
+        return cert, enc_cert, None
 
     elif name == "keyAgreement":
-        raise NotImplementedError("Key agreement is not allowed.")
+        cert, enc_cert = respond_to_key_agreement(
+            ca_key=ca_key, ca_cert=ca_cert, hash_alg=hash_alg, extensions=extensions, **kwargs
+        )
+        return cert, enc_cert, None
+
     else:
         name = cert_req_msg["popo"].getName()
         raise ValueError(f"Invalid POP structure: {name}.")
@@ -901,7 +1134,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
 
 @keyword(name="Verify POP Signature For PKI Request")
 def verify_sig_pop_for_pki_request(  # noqa: D417 Missing argument descriptions in the docstring
-    pki_message: rfc9480.PKIMessage, cert_index: Union[int, str] = 0
+    pki_message: PKIMessageTMP, cert_index: Union[int, str] = 0
 ) -> None:
     """Verify the POP in the PKIMessage.
 
@@ -923,9 +1156,9 @@ def verify_sig_pop_for_pki_request(  # noqa: D417 Missing argument descriptions 
         cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message, index=cert_index)
         popo: rfc4211.ProofOfPossession = cert_req_msg["popo"]
         if not popo["signature"].isValue:
-            raise ValueError("POP signature is missing in the PKIMessage.")
+            raise BadPOP("POP signature is missing in the PKIMessage.")
 
-        _verify_pop_signature(pki_message)
+        _verify_pop_signature(pki_message, request_index=cert_index)
 
     elif pki_message["p10cr"]:
         csr = pki_message["p10cr"]
@@ -938,11 +1171,12 @@ def verify_sig_pop_for_pki_request(  # noqa: D417 Missing argument descriptions 
         raise ValueError(f"Invalid PKIMessage body: {body_name} Expected: ir, cr, kur, crr or p10cr")
 
 
-def _prepare_ca_body(
+@not_keyword
+def prepare_ca_body(
     body_name: str,
     responses: Union[Sequence[CertResponseTMP], CertResponseTMP],
     ca_pubs: Optional[Sequence[rfc9480.CMPCertificate]] = None,
-) -> rfc9480.PKIBody:
+) -> PKIBodyTMP:
     """Prepare the body for a CA `CertResponse` message.
 
     :return: The prepared body.
@@ -951,7 +1185,7 @@ def _prepare_ca_body(
     if body_name not in types_to_id:
         raise ValueError(f"Unsupported body_type: '{body_name}'. Expected one of {list(types_to_id.keys())}.")
 
-    body = rfc9480.PKIBody()
+    body = PKIBodyTMP()
     if ca_pubs is not None:
         body[body_name]["caPubs"].extend(ca_pubs)
 
@@ -965,8 +1199,17 @@ def _prepare_ca_body(
     return body
 
 
-def _set_header_fields(request: rfc9480.PKIMessage, kwargs: dict) -> dict:
-    """Set header fields for a new PKIMessage, by extracting them from the request."""
+@not_keyword
+def set_ca_header_fields(request: PKIMessageTMP, kwargs: dict) -> dict:
+    """Set header fields for a new PKIMessage, by extracting them from the request.
+
+    Includes the setting of the `recipNonce`, `recipKID`, `senderNonce`, `transactionID`, and
+    `recipient`, `pvno` fields.
+
+    :param request: The PKIMessage to extract the header fields from.
+    :param kwargs: The additional values to set for the header, values if are
+    included in the request will not be overwritten.
+    """
     if request["header"]["senderKID"].isValue:
         kwargs["recip_kid"] = kwargs.get("recip_kid") or request["header"]["senderKID"].asOctets()
     else:
@@ -978,11 +1221,13 @@ def _set_header_fields(request: rfc9480.PKIMessage, kwargs: dict) -> dict:
     )
     kwargs["sender_nonce"] = kwargs.get("sender_nonce") or alt_nonce
     kwargs["transaction_id"] = kwargs.get("transaction_id") or request["header"]["transactionID"].asOctets()
+    kwargs["recipient"] = kwargs.get("recipient") or request["header"]["sender"]
+    kwargs["pvno"] = kwargs.get("pvno") or int(request["header"]["pvno"])
     return kwargs
 
 
 def build_cp_from_p10cr(  # noqa: D417 Missing argument descriptions in the docstring
-    request: rfc9480.PKIMessage,
+    request: PKIMessageTMP,
     cert: Optional[rfc9480.CMPCertificate] = None,
     set_header_fields: bool = True,
     cert_req_id: Union[int, str] = -1,
@@ -990,7 +1235,7 @@ def build_cp_from_p10cr(  # noqa: D417 Missing argument descriptions in the docs
     ca_key: Optional[PrivateKey] = None,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     **kwargs,
-) -> Tuple[rfc9480.PKIMessage, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessageTMP, rfc9480.CMPCertificate]:
     """Build a CMP message for a certificate request.
 
     Arguments:
@@ -1014,15 +1259,19 @@ def build_cp_from_p10cr(  # noqa: D417 Missing argument descriptions in the docs
         - ValueError: If the request is not a `p10cr`.
         - ValueError: If the CA key and certificate are not provided and the certificate is not provided.
 
+    Examples:
+    --------
+    | ${pki_message} | ${cert} = | Build CP From P10CR | ${request} | ${cert} | ${ca_key} | ${ca_cert} |
+    | ${pki_message} | ${cert} = | Build CP From P10CR | ${request} | ${cert} | ${ca_key} | ${ca_cert} | cert_req_id=2 |
+
     """
     if request["body"].getName() != "p10cr":
         raise ValueError("Request must be a p10cr to build a CP message for it.")
 
     if request and set_header_fields:
-        kwargs = _set_header_fields(request, kwargs)
+        kwargs = set_ca_header_fields(request, kwargs)
 
     pq_compute_utils.verify_csr_signature(request["body"]["p10cr"])
-
     if cert is None:
         if ca_key is None or ca_cert is None:
             raise ValueError("Either `cert` or `ca_key` and `ca_cert` must be provided to build a CA CMP message.")
@@ -1034,9 +1283,8 @@ def build_cp_from_p10cr(  # noqa: D417 Missing argument descriptions in the docs
         hash_alg=kwargs.get("hash_alg", "sha256"),
         extensions=kwargs.get("extensions"),
     )
-
     responses = prepare_cert_response(cert=cert, cert_req_id=cert_req_id)
-    body = _prepare_ca_body(body_name="cp", responses=responses, ca_pubs=ca_pubs)
+    body = prepare_ca_body(body_name="cp", responses=responses, ca_pubs=ca_pubs)
     pki_message = cmputils.prepare_pki_message(**kwargs)
     pki_message["body"] = body
     return pki_message, cert
@@ -1045,11 +1293,11 @@ def build_cp_from_p10cr(  # noqa: D417 Missing argument descriptions in the docs
 def _process_one_cert_request(
     ca_key: PrivateKey,
     ca_cert: rfc9480.CMPCertificate,
-    request: rfc9480.PKIMessage,
+    request: PKIMessageTMP,
     cert_index: int,
     eku_strict: bool,
     **kwargs,
-) -> Tuple[rfc9480.CMPCertificate, Optional[rfc5652.EnvelopedData]]:
+) -> Tuple[rfc9480.CMPCertificate, Optional[rfc5652.EnvelopedData], Optional[rfc9480.EnvelopedData]]:
     """Process a single certificate response.
 
     :param ca_key: The CA private key to sign the certificate with.
@@ -1060,30 +1308,48 @@ def _process_one_cert_request(
     :param kwargs: The additional values to set for the header.
     :return: The certificate and the optional encrypted certificate.
     """
+    logging.info("Processing certificate request: %d", cert_index)
+    logging.debug("Verify RA verified in _process_one_cert: %s", kwargs.get("verify_ra_verified", True))
+
+    cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message=request, index=cert_index)
+
+    if cert_req_msg["popo"].isValue:
+        if cert_req_msg["popo"].getName() == "signature":
+            public_key = get_public_key_from_cert_req_msg(cert_req_msg)
+            try:
+                keyutils.check_consistency_alg_id_and_key(
+                    cert_req_msg["popo"]["signature"]["algorithmIdentifier"], public_key
+                )
+            except BadAlg:
+                raise BadCertTemplate("The `signature` POP alg id and the public key are of different types.")
+
+    elif not cert_req_msg["popo"].isValue:
+        if not check_if_request_is_for_kga(request):
+            raise BadCertTemplate(
+                "The `popo` structure is missing in the PKIMessage."
+                "But the request is not for KGA (key generation authority)."
+            )
+
+    _validate_cert_template(cert_req_msg["certReq"]["certTemplate"], max_key_size=4096 * 2)
+
     verify_popo_for_cert_request(
         pki_message=request,
-        allowed_ra_dir=kwargs.get("allowed_ra_dir", "./data/allowed_ras"),
-        trustanchor=kwargs.get("trustanchor", "./data/trustanchors"),
-        allow_os_store=kwargs.get("allow_os_store", True),
+        allowed_ra_dir=kwargs.get("allowed_ra_dir", "./data/trusted_ras"),
         cert_req_index=cert_index,
         must_have_ra_eku_set=eku_strict,
+        verify_ra_verified=kwargs.get("verify_ra_verified", True),
     )
-    cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message=request, index=cert_index)
-    cert, enc_cert = respond_to_cert_req_msg(
-        cert_req_msg=cert_req_msg,
-        ca_key=ca_key,
-        ca_cert=ca_cert,
-        hybrid_kem_key=kwargs.get("hybrid_kem_key"),
-        hash_alg=kwargs.get("hash_alg", "sha256"),
-        extensions=kwargs.get("extensions"),
+
+    cert, enc_cert, private_key = respond_to_cert_req_msg(
+        cert_req_msg=cert_req_msg, request=request, ca_key=ca_key, ca_cert=ca_cert, **kwargs
     )
-    return cert, enc_cert
+    return cert, enc_cert, private_key
 
 
 def _process_cert_requests(
     ca_key: PrivateKey,
     ca_cert: rfc9480.CMPCertificate,
-    request: rfc9480.PKIMessage,
+    request: PKIMessageTMP,
     eku_strict: bool,
     **kwargs,
 ) -> Tuple[List[CertResponseTMP], List[rfc9480.CMPCertificate]]:
@@ -1098,10 +1364,12 @@ def _process_cert_requests(
     responses = []
     certs = []
 
+    logging.warning("Verify RA verified in _process_cert_requests: %s", kwargs.get("verify_ra_verified", True))
+
     body_name = request["body"].getName()
 
     for i in range(len(request["body"][body_name])):
-        cert, enc_cert = _process_one_cert_request(
+        cert, enc_cert, private_key = _process_one_cert_request(
             ca_key=ca_key,
             ca_cert=ca_cert,
             request=request,
@@ -1111,7 +1379,7 @@ def _process_cert_requests(
         )
         certs.append(cert)
         cert_req_id = int(request["body"][body_name][i]["certReq"]["certReqId"])
-        response = prepare_cert_response(cert=cert, enc_cert=enc_cert, cert_req_id=cert_req_id)
+        response = prepare_cert_response(cert=cert, enc_cert=enc_cert, private_key=private_key, cert_req_id=cert_req_id)
 
         responses.append(response)
 
@@ -1119,7 +1387,7 @@ def _process_cert_requests(
 
 
 def build_cp_cmp_message(  # noqa: D417 Missing argument descriptions in the docstring
-    request: Optional[rfc9480.PKIMessage] = None,
+    request: Optional[PKIMessageTMP] = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     enc_cert: Optional[rfc5652.EnvelopedData] = None,
     ca_key: Optional[PrivateKey] = None,
@@ -1171,7 +1439,7 @@ def build_cp_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
 
     elif request is not None:
         if cert_index is not None:
-            cert, enc_cert = _process_one_cert_request(
+            cert, enc_cert, private_key = _process_one_cert_request(
                 ca_key=ca_key,
                 ca_cert=ca_cert,
                 request=request,
@@ -1184,7 +1452,9 @@ def build_cp_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
             if cert_req_id is None:
                 cert_req_id = request["body"]["cr"][cert_index]["certReq"]["certReqId"]
 
-            responses = prepare_cert_response(cert=cert, enc_cert=enc_cert, cert_req_id=cert_req_id)
+            responses = prepare_cert_response(
+                cert=cert, enc_cert=enc_cert, private_key=private_key, cert_req_id=cert_req_id
+            )
 
         else:
             responses, certs = _process_cert_requests(
@@ -1196,9 +1466,10 @@ def build_cp_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
             )
 
     if request and set_header_fields:
-        kwargs = _set_header_fields(request, kwargs)
+        kwargs = set_ca_header_fields(request, kwargs)
 
-    body = _prepare_ca_body("ip", responses=responses, ca_pubs=kwargs.get("ca_pubs"))
+    kwargs["sender_nonce"] = kwargs.get("sender_nonce") or os.urandom(16)
+    body = prepare_ca_body("cp", responses=responses, ca_pubs=kwargs.get("ca_pubs"))
     pki_message = cmputils.prepare_pki_message(**kwargs)
     pki_message["body"] = body
     return pki_message, certs
@@ -1206,7 +1477,7 @@ def build_cp_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
 
 @keyword(name="Enforce LwCMP For CA")
 def enforce_lwcmp_for_ca(  # noqa: D417 Missing argument descriptions in the docstring
-    request: rfc9480.PKIMessage,
+    request: PKIMessageTMP,
 ) -> None:
     """Enforce the Lightweight CMP (LwCMP) for a CA.
 
@@ -1253,13 +1524,14 @@ def enforce_lwcmp_for_ca(  # noqa: D417 Missing argument descriptions in the doc
 
 
 def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the docstring
-    request: Optional[rfc9480.PKIMessage] = None,
+    request: Optional[PKIMessageTMP] = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     enc_cert: Optional[rfc5652.EnvelopedData] = None,
     ca_pubs: Optional[Sequence[rfc9480.CMPCertificate]] = None,
     responses: Optional[Union[Sequence[CertResponseTMP], CertResponseTMP]] = None,
     exclude_fields: Optional[str] = None,
     set_header_fields: bool = True,
+    verify_ra_verified: bool = True,
     **kwargs,
 ) -> CA_RESPONSE:
     """Build a CMP message for an initialization response.
@@ -1306,7 +1578,7 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
         )
 
     if request and set_header_fields:
-        kwargs = _set_header_fields(request, kwargs)
+        kwargs = set_ca_header_fields(request, kwargs)
 
     if responses is not None:
         # TODO think about extracting the certs from the responses.
@@ -1319,6 +1591,7 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
         if request["body"].getName() != "p10cr":
             responses, certs = _process_cert_requests(
                 request=request,
+                verify_ra_verified=verify_ra_verified,
                 **kwargs,
             )
         else:
@@ -1343,8 +1616,8 @@ def build_ip_cmp_message(  # noqa: D417 Missing argument descriptions in the doc
             cert_req_id=int(kwargs.get("cert_req_id", 0)),
         )
 
-    body = _prepare_ca_body("ip", responses=responses, ca_pubs=ca_pubs)
-
+    body = prepare_ca_body("ip", responses=responses, ca_pubs=ca_pubs)
+    kwargs["sender_nonce"] = kwargs.get("sender_nonce") or os.urandom(16)
     pki_message = cmputils.prepare_pki_message(exclude_fields=exclude_fields, **kwargs)
     pki_message["body"] = body
     return pki_message, certs
@@ -1416,7 +1689,7 @@ def prepare_certified_key_pair(
 def prepare_cert_response(
     cert_req_id: Union[str, int] = 0,
     status: str = "accepted",
-    text: str = None,
+    text: Union[List[str], str] = None,
     failinfo: str = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     enc_cert: Optional[rfc9480.EnvelopedData] = None,
@@ -1491,7 +1764,7 @@ def _verify_encrypted_key_popo(
                 raise ValueError(f"EncKeyWithID identifier name mismatch. Expected: {expected_name}. Got: {idf_name}")
         else:
             result = compareutils.compare_general_name_and_name(
-                enc_key["identifier"]["generalName"], prepare_name(expected_name)
+                enc_key["identifier"]["generalName"], prepareutils.prepare_name(expected_name)
             )
             if not result:
                 logging.debug(enc_key["identifier"].prettyPrint())
@@ -1650,7 +1923,7 @@ def build_cert_from_cert_req_msg(  # noqa: D417 Missing argument descriptions in
 
 
 def _perform_encaps_with_keys(
-    public_key: PublicKey,
+    public_key: KEMPublicKey,
     hybrid_kem_key: Optional[Union[ECDHPrivateKey, HybridKEMPrivateKey]] = None,
 ) -> Tuple[bytes, bytes, univ.ObjectIdentifier]:
     """Perform encapsulation with the provided keys.
@@ -1866,10 +2139,10 @@ def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions i
         )
 
         if entry["certHash"].asOctets() != computed_hash:
-            raise BadPOP("Invalid certificate hash in CertConf message.")
+            raise BadCertId("Invalid certificate hash in CertConf message.")
 
     if request and set_header_fields:
-        kwargs = _set_header_fields(request, kwargs)
+        kwargs = set_ca_header_fields(request, kwargs)
 
     pki_message = cmputils.prepare_pki_message(exclude_fields=exclude_fields, **kwargs)
     pki_message["body"]["pkiconf"] = rfc9480.PKIConfirmContent("").subtype(
@@ -1880,7 +2153,7 @@ def build_pki_conf_from_cert_conf(  # noqa: D417 Missing argument descriptions i
 
 
 @not_keyword
-def get_correct_ca_body_name(request: rfc9480.PKIMessage) -> str:
+def get_correct_ca_body_name(request: PKIMessageTMP) -> str:
     """Get the correct body name for the response.
 
     :param request: The PKIMessage with the request.
@@ -1906,7 +2179,7 @@ def get_correct_ca_body_name(request: rfc9480.PKIMessage) -> str:
 @not_keyword
 def build_ca_message(
     responses: Union[PKIMessageTMP, Sequence[CertResponseTMP]],
-    request: Optional[rfc9480.PKIMessage] = None,
+    request: Optional[PKIMessageTMP] = None,
     set_header_fields: bool = True,
     body_name: Optional[str] = None,
     **pki_header_fields,
@@ -1923,10 +2196,10 @@ def build_ca_message(
     body_name = body_name or get_correct_ca_body_name(request)
 
     if request and set_header_fields:
-        pki_header_fields = _set_header_fields(request, pki_header_fields)
+        pki_header_fields = set_ca_header_fields(request, pki_header_fields)
 
     pki_message = cmputils.prepare_pki_message(**pki_header_fields)
-    pki_message["body"] = _prepare_ca_body(body_name, responses=responses)
+    pki_message["body"] = prepare_ca_body(body_name, responses=responses)
     return pki_message
 
 
@@ -1936,19 +2209,47 @@ def _contains_cert(cert_template, certs: Sequence[rfc9480.CMPCertificate]) -> Op
     :param cert_template: The certificate template to check.
     :param certs: The list of certificates to check.
     :return: The certificate if it is in the list, `None` otherwise.
+    :raises BadCertId: If the certificate template does not match the certificate or
+    If the certificate template does not match any known certificates
     """
+    found = False
     for cert in certs:
+        found = compareutils.compare_cert_template_and_cert(cert_template, cert, include_fields="serialNumber, issuer")
+
         if compareutils.compare_cert_template_and_cert(cert_template, cert, strict_subject_validation=True):
             return cert
-    return None
+
+    if found:
+        raise BadCertId("The certificate template did not match the certificate.")
+
+    raise BadCertId("The certificate template did not match any known certificates.")
 
 
-def _get_revocation_reason(crl_entry_details: rfc9480.Extensions) -> str:
-    """Get the revocation reason from the CRL entry details.
+@keyword(name="Validate RR crlEntryDetails Reason")
+def validate_rr_crl_entry_details_reason(  # noqa: D417 Missing argument descriptions in the docstring
+    crl_entry_details: rfc9480.Extensions, must_be: Optional[str] = None
+) -> str:
+    """Validate the extension containing the CRL entry details.
 
-    :param crl_entry_details: The `Extensions` object containing the CRL entry details.
-    :return: The revocation reason or `unspecified`, if the reason is not set.
-    :raises BadRequest: If the CRL entry details are missing or invalid.
+    Arguments:
+    ---------
+        - `crl_entry_details`: The `Extensions` object containing the CRL entry details.
+        - `must_be`: The revocation reason that the CRL entry details must have. Defaults to `None`.
+
+    Returns:
+    -------
+        - The revocation reason.
+
+    Raises:
+    ------
+        - `BadRequest`: If the CRL entry details are missing or invalid.
+        - `ValueError`: If the revocation reason does not match the expected value.
+        - `BadAsn1Data`: If the CRL entry details extension cannot be decoded.
+
+    Examples:
+    --------
+    | ${reason} | Validate RR crlEntryDetails Reason | ${crl_entry_details} |
+
     """
     if crl_entry_details.isValue:
         if len(crl_entry_details) != 1:
@@ -1968,9 +2269,12 @@ def _get_revocation_reason(crl_entry_details: rfc9480.Extensions) -> str:
             raise BadAsn1Data("CRLReason")
 
         if int(decoded) not in rfc5280.CRLReason.namedValues.values():
-            raise BadRequest("Invalid CRL reason value.")
+            raise BadAsn1Data("Invalid CRL reason value.")
 
-        return decoded.prettyPrint()
+        _reason = decoded.prettyPrint()
+        if must_be is not None and _reason != must_be:
+            raise ValueError(f"Invalid CRL reason. Expected: `{must_be}`. Got: `{_reason}`")
+        return _reason
 
     raise BadRequest("CRL entry details are missing.")
 
@@ -1988,7 +2292,7 @@ def _prepare_cert_id(cert: rfc9480.CMPCertificate) -> rfc4211.CertId:
 
 
 def _verify_pkimessage_protection_rp(
-    request: rfc9480.PKIMessage,
+    request: PKIMessageTMP,
     shared_secret: Optional[bytes],
 ) -> Tuple[Optional[str], Optional[str]]:
     """Verify the protection of the PKIMessage for the response.
@@ -2011,82 +2315,222 @@ def _verify_pkimessage_protection_rp(
     return None, None
 
 
+def _check_rev_details_mandatory_fields(cert_details: rfc9480.CertTemplate) -> None:
+    """Check the mandatory fields for a Revocation Request.
+
+    :param cert_details: The certificate details to check.
+    :raises AddInfoNotAvailable: If the mandatory fields are missing.
+    """
+    if not cert_details["issuer"].isValue:
+        raise AddInfoNotAvailable("Issuer field is missing in the certificate details.")
+
+    if not cert_details["serialNumber"].isValue:
+        raise AddInfoNotAvailable("Serial number field is missing in the certificate details.")
+
+    if cert_details["version"].isValue:
+        if int(cert_details["version"]) != int(rfc5280.Version("v2")):
+            raise BadRequest("Invalid version inside the `RevDetails` `CertTemplate`.")
+
+
+def _check_cert_for_revoked(
+    cert: rfc9480.CMPCertificate, revoked_certs: Optional[List[rfc9480.CMPCertificate]] = None
+) -> None:
+    """Check if a certificate is revoked.
+
+    :param cert: The certificate to check.
+    :param revoked_certs: The list of revoked certificates. Defaults to `None`.
+    :raises BadRequest: If the certificate is not revoked.
+    """
+    if revoked_certs is not None:
+        for revoked_cert in revoked_certs:
+            if encoder.encode(cert) == encoder.encode(revoked_cert):
+                raise CertRevoked("Certificate is already revoked.")
+
+
+def _check_cert_for_revive(
+    cert: rfc9480.CMPCertificate, revoked_certs: Optional[List[rfc9480.CMPCertificate]] = None
+) -> None:
+    """Check if a certificate can be revived. Only check if the revoked certificate is not `None`.
+
+    :param cert: The certificate to check.
+    :param revoked_certs: The list of revoked certificates. Defaults to `None`.
+    :raises BadCertId: If the certificate cannot be revived, because it was not revoked.
+    """
+    if revoked_certs is not None:
+        for revoked_cert in revoked_certs:
+            if encoder.encode(cert) == encoder.encode(revoked_cert):
+                return
+    else:
+        return
+
+    raise BadCertId("Certificate can not be revived it was not revoked.")
+
+
+@keyword(name="Validate Revocation Details")
+def validate_rev_details(  # noqa D417 undocumented-param
+    rev_details: rfc9480.RevDetails,
+    issued_certs: Sequence[rfc9480.CMPCertificate],
+    revoked_certs: Optional[List[rfc9480.CMPCertificate]] = None,
+) -> Tuple[rfc9480.PKIStatusInfo, Dict]:
+    """Process a single Revocation Request entry.
+
+    Arguments:
+    ---------
+       - `entry`: The RevDetails entry to process.
+       - `issued_certs`: The list of certificates to check.
+       - `revoked_certs`: The list of revoked certificates. Defaults to `None`.
+
+    Returns:
+    -------
+        - The PKIStatusInfo for the response.
+        - A dictionary containing the reason and the certificate if it was found.
+        ({"reason": "removeFromCRL", "cert": `CMPCertificate`})
+
+    Raises:
+    ------
+        - `AddInfoNotAvailable`: If the mandatory fields are missing (issuer, serial number).
+        - `BadRequest`: If the version is set and not 2.
+        - `BadCertId`: If the RevDetails entry does not match any of the known certificates.
+        - `BadCertID`: If the certificate details are invalid.
+        - `BadAsn1Data`: If the CRL entry details extension cannot be decoded or the reason contains
+        trailing data or is invalid.
+        - `CertRevoked`: If the certificate is already revoked.
+        - `BadCertId`: If the certificate cannot be revived, because it was not revoked.
+
+    Examples:
+    --------
+    | ${response} | Validate Revocation Details | ${entry} | ${issued_certs} |
+    | ${response} | Validate Revocation Details | ${entry} | ${issued_certs} | ${revoked_certs} |
+
+    """
+    _check_rev_details_mandatory_fields(rev_details["certDetails"])
+
+    cert = _contains_cert(
+        cert_template=rev_details["certDetails"],
+        certs=issued_certs,
+    )
+    reason = validate_rr_crl_entry_details_reason(rev_details["crlEntryDetails"])
+    if cert is not None:
+        if reason == "removeFromCRL":
+            msg = f"Revive certificate with serial number: {int(cert['tbsCertificate']['serialNumber'])}"
+            _check_cert_for_revive(cert, revoked_certs)
+        else:
+            _check_cert_for_revoked(cert, revoked_certs)
+            msg = f"Revoked certificate with reason: {reason}"
+        return cmputils.prepare_pkistatusinfo(status="accepted", texts=msg), {"reason": reason, "cert": cert}
+
+    raise BadCertId("The RevDetails entry does not match any of the known certificates.")
+
+
 # TODO fix for bad order od CertID
 
 
-def build_rp_from_rr(
-    request: rfc9480.PKIMessage,
+def build_rp_from_rr(  # noqa: D417 missing argument descriptions in the docstring
+    request: PKIMessageTMP,
     shared_secret: Optional[bytes] = None,
     set_header_fields: bool = True,
     certs: Optional[Sequence[rfc9480.CMPCertificate]] = None,
     add_another_details: bool = False,
     crls: Optional[Union[rfc5280.CertificateList, Sequence[rfc5280.CertificateList]]] = None,
+    verify: bool = True,
     **kwargs,
-) -> Tuple[rfc9480.PKIMessage, List[Dict[str, Union[str, rfc9480.CMPCertificate]]]]:
+) -> Tuple[PKIMessageTMP, List[Dict[str, Union[str, rfc9480.CMPCertificate]]]]:
     """Build a PKIMessage for a revocation request.
 
-    :param request: The Revocation Request message.
-    :param shared_secret: The shared secret to use for the response. Defaults to `None`.
-    :param set_header_fields: Whether to set the header fields. Defaults to `True`.
-    :return: The built PKIMessage for the revocation response.
+    Arguments:
+    ---------
+        - `request`: The Revocation Request message.
+        - `shared_secret`: The shared secret to use for the response. Defaults to `None`.
+        (experimental used for KEM keys and EC keys)
+        - `set_header_fields`: Whether to set the header fields. Defaults to `True`.
+        - `certs`: The certificates to use for the response. Defaults to `None`.
+        - `add_another_details`: Whether to add another status details. Defaults to `False`.
+        - `crls`: The CRLs to include in the response. Defaults to `None`.
+        - `verify`: Whether to verify the PKIMessage protection. Defaults to `True`.
+
+    **kwargs:
+    --------
+        - `enforce_lwcmp` (bool): Whether to enforce LwCMP rules. Defaults to `True`.
+        - `cert_id` (CertId): The certificate ID to use for the response. Defaults to `None`.
+        - `revoked_certs` (List[rfc9480.CMPCertificate]): The list of revoked certificates. Defaults to `None`.
+
+    Returns:
+    -------
+        - The built PKIMessage for the revocation response.
+        - The data for the revocation response. (reason and certificate) as dict.
+
+    Raises:
+    ------
+        - `ValueError`: If the request is not a `rr` message.
+        - `BadRequest`: If `enforce_lwcmp` is set to `True` and the request size is not 1.
+        - `BadRequest`: If the `extraCerts` field is empty in the revocation request message.
+        - `BadMessageCheck`: If the PKIMessage protection is invalid.
+        - `BadCertTemplate`: If the certificate details are invalid.
+
+    Examples:
+    --------
+    | ${response} | Build RP from RR | ${request} | ${shared_secret} | ${set_header_fields} | ${certs} |
+    | ${response} | Build RP from RR | ${request} | ${certs} | add_another_details=True |
+
     """
     if kwargs.get("enforce_lwcmp", True):
         enforce_lwcmp_for_ca(request)
 
     body = rfc9480.PKIBody()
     if set_header_fields:
-        kwargs = _set_header_fields(request, kwargs)
+        kwargs = set_ca_header_fields(request, kwargs)
 
-    if not request["extraCerts"].isValue:
-        fail_info = "addInfoNotAvailable"
-        text = "The `extraCerts` field was empty in the revocation request message."
-    else:
-        fail_info, text = _verify_pkimessage_protection_rp(
-            request=request,
-            shared_secret=shared_secret,
-        )
+    fail_info = None
+
+    if verify:
+        if not request["extraCerts"].isValue:
+            fail_info = "addInfoNotAvailable"
+            text = "The `extraCerts` field was empty in the revocation request message."
+        else:
+            fail_info, text = _verify_pkimessage_protection_rp(
+                request=request,
+                shared_secret=shared_secret,
+            )
 
     if fail_info is not None:
         status_info = cmputils.prepare_pkistatusinfo(
             status="rejection",
             failinfo=fail_info,
-            texts=text,
+            texts=text,  # pylint: disable=undefined-variable
         )
         body["rp"]["status"].append(status_info)
         pki_message = cmputils.prepare_pki_message(**kwargs)
         pki_message["body"] = body
         return pki_message, []
 
-    status = "accepted"
-
     data = []
 
     for entry in request["body"]["rr"]:
-        tmp = None
-        tmp_status = None
+        try:
+            status_info, entry = validate_rev_details(
+                rev_details=entry,
+                issued_certs=certs,
+                revoked_certs=kwargs.get("revoked_certs"),
+            )
+        except CMPTestSuiteError as e:
+            status_info = cmputils.prepare_pkistatusinfo(
+                status="rejection",
+                failinfo=e.failinfo,
+                texts=e.message,
+            )
+            entry = {}
 
-        cert = _contains_cert(
-            cert_template=entry["certDetails"],
-            certs=certs or [],
-        )
-        if cert is not None:
-            reason = _get_revocation_reason(entry["crlEntryDetails"])
-            data.append({"reason": reason, "cert": cert})
-        else:
-            tmp = "badCertTemplate"
-            tmp_status = "rejection"
+        if entry:
+            data.append(entry)
 
-        _add = tmp or fail_info
-        tmp_status = tmp_status or status
-
-        status_info = cmputils.prepare_pkistatusinfo(
-            status=tmp_status,
-            failinfo=_add,
-        )
         body["rp"]["status"].append(status_info)
 
-        if not kwargs.get("enforce_lwcmp", True) and cert is not None:
-            body["rp"]["revCerts"].append(_prepare_cert_id(cert))
+        if not kwargs.get("enforce_lwcmp", True):
+            cert = _contains_cert(
+                cert_template=entry["certDetails"],
+                certs=certs,
+            )
+            body["rp"]["revCerts"].append(kwargs.get("cert_id") or _prepare_cert_id(cert))
 
         if add_another_details:
             body["rp"]["status"].append(status_info)
@@ -2104,7 +2548,7 @@ def build_rp_from_rr(
 
 @keyword(name="Build POPDecryptionChallenge From Request")
 def build_popdecc_from_request(  # noqa D417 undocumented-param
-    request: rfc9480.PKIMessage,
+    request: PKIMessageTMP,
     ca_key: Optional[ECDHPrivateKey] = None,
     rand_int: Optional[int] = None,
     cert_req_id: Optional[int] = None,
@@ -2115,7 +2559,7 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
     bad_witness: bool = False,
     for_pvno: Optional[Union[str, int]] = None,
     **kwargs,
-) -> Tuple[rfc9480.PKIMessage, int]:
+) -> Tuple[PKIMessageTMP, int]:
     """Build a PKIMessage for a POPDecryptionChallenge message.
 
     Arguments:
@@ -2140,6 +2584,7 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
         - `iv`: The initialization vector to use for the challenge. Defaults to `A` * 16.
         - `challenge`: The challenge to use for the POPDecryptionChallenge. Defaults to `b""`.
         (only used for negative testing, with version 3)
+        - `cmp_protection_cert`: for KARI to populate the RID. Defaults to `None`.
 
     Returns:
     -------
@@ -2173,8 +2618,9 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
     for_pvno = int(for_pvno)
 
     if set_header_fields:
-        kwargs = _set_header_fields(request, kwargs)
+        kwargs = set_ca_header_fields(request, kwargs)
 
+    kwargs["pvno"] = kwargs.get("pvno") or for_pvno
     pki_message = cmputils.prepare_pki_message(**kwargs)
     tmp = PKIMessageTMP()
     tmp["header"] = pki_message["header"]
@@ -2190,6 +2636,7 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
             challenge=kwargs.get("challenge", b""),
             hash_alg=kwargs.get("hash_alg", None),
             hybrid_kem_key=kwargs.get("hybrid_kem_key"),
+            ca_cert=kwargs.get("cmp_protection_cert"),
         )
 
     else:
@@ -2208,21 +2655,208 @@ def build_popdecc_from_request(  # noqa D417 undocumented-param
     tmp["body"]["popdecc"].append(challenge)
 
     return tmp, rand_int  # type: ignore
-def get_popo_from_pkimessage(request: rfc9480.PKIMessage, index: int = 0) -> rfc4211.ProofOfPossession:
+
+
+def _validate_old_cert_id(
+    control: rfc4211.AttributeTypeAndValue, cert: rfc9480.CMPCertificate, ca_cert: rfc9480.CMPCertificate
+) -> None:
+    """Validate the old certificate ID inside the KUR message.
+
+    :param control: The control to validate.
+    :param cert: The certificate to use for validation.
+    :param ca_cert: The CA certificate to use for validation.
+    :raises BadRequest: If the old certificate ID is missing.
+    :raises BadAsn1Data: If the old certificate ID cannot be decoded or has a remaining part.
+    :raises BadCertId: If the old certificate ID does not match the CA certificate.
+    """
+    if not control["value"].isValue:
+        raise BadRequest("Old certificate ID is missing in the KUR message.")
+
+    old_cert_id, rest = try_decode_pyasn1(
+        control["value"].asOctets(),
+        rfc4211.OldCertId(),
+    )
+    old_cert_id: rfc4211.OldCertId
+
+    if rest:
+        raise BadAsn1Data("OldCertId")
+
+    if not old_cert_id["serialNumber"].isValue:
+        raise BadRequest("Serial number is missing in the old certificate ID.")
+
+    if not old_cert_id["issuer"].isValue:
+        raise BadRequest("Issuer is missing in the old certificate ID.")
+
+    if not compareutils.compare_general_name_and_name(
+        old_cert_id["issuer"],
+        ca_cert["tbsCertificate"]["subject"],
+    ):
+        name_issuer = get_openssl_name_notation(
+            old_cert_id["issuer"]["directoryName"],
+        )
+        cert_name = get_openssl_name_notation(
+            ca_cert["tbsCertificate"]["subject"],
+        )
+        msg = "Expected: " + cert_name + " Got: " + name_issuer
+        raise BadCertId(f"Issuer in the old certificate ID does not match the CA certificate.{msg}")
+
+    if int(old_cert_id["serialNumber"]) != int(cert["tbsCertificate"]["serialNumber"]):
+        raise BadCertId("Serial number in the old certificate ID does not match the CA certificate.")
+
+
+def validate_kur_controls(  # noqa D417 undocumented-param
+    request: PKIMessageTMP,
+    ca_cert: Optional[rfc9480.CMPCertificate] = None,
+    request_index: int = 0,
+    must_be_present: bool = False,
+) -> None:
+    """Validate the KUR controls.
+
+    Arguments:
+    ---------
+        - `request`: The KUR message to validate.
+        - `ca_cert`: The CA certificate to use for validation (will be extracted from the \
+        `extraCerts` field at position 1) Defaults to `None`.
+        - `request_index`: The index of the request. Defaults to `0`.
+        - `must_be_present`: Whether the controls must be present. Defaults to `False`.
+
+    Raises:
+    ------
+        - `BadRequest`: If the controls are missing in the KUR message.
+        - `BadMessageCheck`: If the extraCerts are missing in the KUR message.
+        - `BadCertId`: If the old certificate ID is invalid.
+
+    Examples:
+    --------
+    | Validate KUR Controls | ${request} | ${ca_cert} |
+    | Validate KUR Controls | ${request} | ${ca_cert} | must_be_present=True |
+    | Validate KUR Controls | ${request} | ${ca_cert} | request_index=1 |
+
+    """
+    cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message=request, index=request_index)
+
+    controls: rfc4211.Controls = cert_req_msg["certReq"]["controls"]
+    if not controls.isValue and must_be_present:
+        raise BadRequest("Controls are missing in the KUR message.")
+    if not controls.isValue:
+        return
+
+    if not request["extraCerts"].isValue:
+        raise BadMessageCheck("ExtraCerts are missing in the KUR message.")
+
+    if ca_cert is None:
+        ca_cert = request["extraCerts"][1]
+
+    cert = request["extraCerts"][0]
+
+    control: rfc4211.AttributeTypeAndValue
+
+    for control in controls:
+        if control["type"] == rfc4211.id_regCtrl_oldCertID:
+            _validate_old_cert_id(control, cert=cert, ca_cert=ca_cert)
+        else:
+            logging.debug(f"Unknown control type: {str(control['type'])}")
+
+
+def _validate_popo_kur(request: PKIMessageTMP, index: int = 0) -> None:
+    """Validate the Proof-of-Possession structure for the KUR message.
+
+    :param request: The request message.
+    :param index: The index of the request.
+    """
+    popo = get_popo_from_pkimessage(request=request, index=index)
+    if not popo.isValue:
+        raise BadRequest("POP structure is missing in the KUR message.")
+
+    if popo["signature"].isValue:
+        _verify_pop_signature(pki_message=request, request_index=index)
+        return
+
+    if popo["keyAgreement"].isValue:
+        raise NotImplementedError("`keyAgreement` is not supported for KUR messages.")
+
+    if popo["keyEncipherment"].isValue:
+        raise NotImplementedError("`keyEncipherment` is not supported for KUR messages.")
+
+    if popo.getName() == "raVerified":
+        raise BadPOP("`raVerified` is not supported for KUR messages.")
+
+    raise BadPOP(f"Did got a unknown POP: {popo.getName()}")
+
+
+def build_kup_from_kur(
+    request: PKIMessageTMP,
+    ca_key: PrivateKeySig,
+    ca_cert: rfc9480.CMPCertificate,
+    must_have_controls: bool = False,
+    allow_same_key: bool = True,
+    **kwargs,
+) -> CA_RESPONSE:
+    """Build a KUP message from a KUR message.
+
+    :param request: The request message.
+    :param ca_key: The CA key used for signing the new certificate.
+    :param ca_cert: The CA certificate matching the CA key.
+    :param kwargs: Optional parameters to set.
+    :param allow_same_key: Whether to allow the same key for the new certificate. Defaults to `False`.
+    :return: The KUP message and the new certificate.
+    """
+    if request["body"].getName() != "kur":
+        raise ValueError("Request must be a `kur` message.")
+
+    if len(request["body"]["kur"]) != 1:
+        raise BadRequest("Invalid number of entries in KUR message. Expected 1.")
+
+    _validate_popo_kur(
+        request=request,
+        index=0,
+    )
+
+    cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message=request)
+    if not allow_same_key:
+        cert = request["extraCerts"][0]
+        pub_key = get_public_key_from_cert_req_msg(cert_req_msg)
+        pub_key_cert = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        if pub_key == pub_key_cert:
+            raise BadCertTemplate("The new certificate must not have the same key as the old certificate.")
+
+    validate_kur_controls(request, must_be_present=must_have_controls)
+
+    if cert_req_msg:
+        _num = int(cert_req_msg["certReq"]["certReqId"])
+        if _num != 0:
+            raise BadRequest(f"Invalid CertReqId in KUR message. Expected 0. Got: {_num}")
+
+    cert = certbuildutils.build_cert_from_cert_template(
+        cert_template=cert_req_msg["certReq"]["certTemplate"],
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+    )
+
+    responses = prepare_cert_response(cert=cert, cert_req_id=kwargs.get("cert_req_id", 0))
+    body = prepare_ca_body(body_name="kup", responses=responses, ca_pubs=kwargs.get("ca_pubs"))
+
+    kwargs["recip_nonce"] = kwargs.get("recip_nonce") or os.urandom(16)
+    pki_message = cmputils.prepare_pki_message(**kwargs)
+    pki_message["body"] = body
+    return pki_message, [cert]
+
+
+def get_popo_from_pkimessage(request: PKIMessageTMP, index: int = 0) -> rfc4211.ProofOfPossession:
     """Extract the POPO from a PKIMessage.
 
     :param request: The PKIMessage to extract the Proof-of-Possession from.
     :param index: The `CertMsgReq` index to extract the Proof-of-Possession from.
     """
     body_name = request["body"].getName()
-    if body_name not in ["ir", "cr", "kur", "crr"]:
+    if body_name not in ["ir", "cr", "kur", "ccr"]:
         raise ValueError(f"The PKIMessage was not a certification request. Got body name: {body_name}")
 
     return request["body"][body_name][index]["popo"]
 
 
 @keyword(name="Prepare New CA Certificate")
-def prepare_new_ca_certificate(
+def prepare_new_ca_certificate(  # noqa D417 undocumented-param
     old_cert: rfc9480.CMPCertificate,
     new_priv_key: PrivateKeySig,
     hash_alg: Optional[str] = "sha256",
@@ -2297,7 +2931,7 @@ def prepare_new_ca_certificate(
     return new_cert
 
 
-def prepare_old_with_new_cert(
+def prepare_old_with_new_cert(  # noqa D417 undocumented-param
     old_cert: rfc9480.CMPCertificate,
     new_cert: rfc9480.CMPCertificate,
     new_priv_key: PrivateKeySig,
@@ -2343,7 +2977,7 @@ def prepare_old_with_new_cert(
     )
 
 
-def prepare_new_root_ca_certificate(
+def prepare_new_root_ca_certificate(  # noqa D417 undocumented-param
     old_cert: rfc9480.CMPCertificate,
     old_priv_key: PrivateKeySig,
     new_priv_key: PrivateKeySig,
@@ -2432,7 +3066,7 @@ def prepare_new_root_ca_certificate(
 
 
 @keyword(name="Prepare RootCAKeyUpdateValue")
-def prepare_root_ca_key_update(
+def prepare_root_ca_key_update(  # noqa D417 undocumented-param
     new_with_new_cert: Optional[rfc9480.CMPCertificate] = None,
     new_with_old_cert: Optional[rfc9480.CMPCertificate] = None,
     old_with_new_cert: Optional[rfc9480.CMPCertificate] = None,
@@ -2455,7 +3089,8 @@ def prepare_root_ca_key_update(
 
     Examples:
     --------
-    | ${root_ca}= | Build Root CA Key Update Content | ${new_with_new_cert} | ${new_with_old_cert} | ${old_with_new_cert} |
+    | ${root_ca}= | Build Root CA Key Update Content | ${new_with_new_cert} | ${new_with_old_cert} | \
+    ${old_with_new_cert} |
 
     """
     root_ca_update = rfc9480.RootCaKeyUpdateValue()
@@ -2480,3 +3115,316 @@ def prepare_root_ca_key_update(
         root_ca_update.setComponentByName("oldWithNew", old_with_new)
 
     return root_ca_update
+
+
+CertsType = Union[rfc9480.CMPCertificate, Sequence[rfc9480.CMPCertificate]]
+
+
+def _validate_ccr_cert_template(cert_template: rfc9480.CertTemplate) -> rfc9480.CertTemplate:
+    """Validate the certificate template for the CCR message.
+
+    :param cert_template: The certificate template to validate.
+    :raises BadCertTemplate: If the certificate template is invalid.
+    """
+    if cert_template["version"].isValue:
+        # For now is absent treated as version 3.
+        if int(cert_template["version"]) != int(rfc5280.Version("v3")):
+            logging.warning("The certificate template version is not v3. But is strongly advised to use v3.")
+
+        if int(cert_template["version"]) == int(rfc5280.Version("v2")):
+            raise BadCertTemplate("The certificate template version is allowed to be `v2`.")
+
+    if not cert_template["validity"]["notBefore"].isValue:
+        raise BadCertTemplate("For the CA cross certificate request, the `notBefore` field must be set.")
+
+    if not cert_template["validity"]["notAfter"].isValue:
+        raise BadCertTemplate("For the CA cross certificate request, the `notAfter` field must be set.")
+
+    if not cert_template["issuer"].isValue:
+        raise BadCertTemplate("For the CA cross certificate request, must the `issuer` be set.")
+
+    if is_null_dn(cert_template["issuer"]):
+        if get_extension(cert_template["extensions"], rfc5280.id_ce_issuerAltName) is None:
+            raise BadCertTemplate("The certificate template must contain an `issuer` or an `issuerAltName`.")
+
+    if not cert_template["subject"].isValue:
+        raise BadCertTemplate("For the CA cross certificate request, must the `subject` be set.")
+
+    if not cert_template["subject"].isValue:
+        raise BadCertTemplate("The certificate template must contain a subject.")
+
+    if not cert_template["validity"].isValue:
+        raise BadCertTemplate("The certificate template must contain a validity period.")
+
+    if cert_template["signingAlg"].isValue:
+        logging.debug("The signature algorithm is set in the certificate template.But currently not supported.")
+
+    return cert_template
+
+
+def _process_crr_single(
+    request,
+    ca_key,
+    ca_cert,
+    index: int = 0,
+    expected_id: Optional[int] = 0,
+) -> rfc9480.CMPCertificate:
+    """Process a single CRR message."""
+    popo = get_popo_from_pkimessage(request=request, index=index)
+
+    if not popo.isValue:
+        raise BadRequest("The CA cross certificate request message must contain a POP structure.")
+
+    cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message=request, index=index)
+    public_key = keyutils.load_public_key_from_cert_template(cert_req_msg["certReq"]["certTemplate"])
+    try:
+        _ = ensure_is_verify_key(public_key)
+    except ValueError as e:
+        raise BadCertTemplate(
+            f"The public key in the cross Certificate request is not a signing key.Got: {type(public_key)}",
+            error_details=str(e),
+        )
+
+    if popo.getName() == "raVerified":
+        raise BadRequest("The `raVerified` POP structure is not supported for CA cross certification request.")
+
+    if popo["signature"].isValue:
+        _verify_pop_signature(pki_message=request, request_index=index)
+
+    else:
+        raise BadPOP("The POP structure must contain a signature, for a CA cross certification request.")
+
+    if expected_id is not None:
+        if int(request["body"]["ccr"][index]["certReq"]["certReqId"]) != expected_id:
+            raise BadRequest("The `CCR` message `certReqId` must not 0.")
+
+    cert_template = request["body"]["ccr"][index]["certReq"]["certTemplate"]
+    result = check_if_request_is_for_kga(pki_message=request, index=index)
+    if result:
+        raise BadRequest(
+            "The `CCR` message can not be for a `KGA` request.The private key must be securely generated by the client."
+        )
+
+    _validate_ccr_cert_template(cert_template)
+
+    cert_template = _ensure_key_usage(cert_template)
+    cert_template = _ensure_basic_constraints(cert_template)
+    cert = certbuildutils.build_cert_from_cert_template(cert_template=cert_template, ca_key=ca_key, ca_cert=ca_cert)
+    return cert
+
+
+def build_ccp_from_ccr(  # noqa D417 undocumented-param
+    request: PKIMessageTMP,
+    ca_key: Optional[PrivateKeySig] = None,
+    ca_cert: Optional[rfc9480.CMPCertificate] = None,
+    cert: Optional[rfc9480.CMPCertificate] = None,
+    **kwargs,
+) -> CA_RESPONSE:
+    """Build a CCP message from a CCR message.
+
+    Build a CA certificate response message from a CA certificate request.
+    Validates the `KeyUsage` bits and the `BasicConstraints` extension.
+
+    Arguments:
+    ---------
+        - `request`: The CCR message.
+        - `ca_key`: The CA key used for signing the new certificate.
+        - `ca_cert`: The CA certificate matching the CA key.
+        - `certs`: The certificates to use for the response. Defaults to `None`.
+
+    """
+    if request["body"].getName() != "ccr":
+        raise ValueError("Request must be a `ccr` message.")
+
+    if len(request["body"]["ccr"]) != 1:
+        raise BadRequest("Invalid number of entries in CCR message. Expected 1.")
+
+    if not cert:
+        # ONLY 1 is allowed, please refer to RFC4210bis-18!
+        cert = _process_crr_single(request, ca_key, ca_cert, index=0, expected_id=0)
+
+    responses = prepare_cert_response(
+        cert=cert,
+        cert_req_id=kwargs.get("cert_req_id", 0),
+        text=kwargs.get("text", "Certificate issued"),
+        status=kwargs.get("status", "accepted"),
+        rspInfo=kwargs.get("rspInfo", None),
+    )
+
+    body = prepare_ca_body(body_name="ccp", responses=responses)
+
+    if kwargs.get("set_header_fields", True):
+        kwargs = set_ca_header_fields(request, kwargs)
+
+    pki_message = cmputils.prepare_pki_message(**kwargs)
+    pki_message["body"] = body
+    return pki_message, [cert]
+
+
+def _ensure_key_usage(cert_template: rfc9480.CertTemplate) -> rfc9480.CertTemplate:
+    """Ensure that the KeyUsage extension is present in the certificate template."""
+    extn = get_extension(cert_template["extensions"], rfc5280.id_ce_keyUsage)
+    if extn:
+        try:
+            decoded_extn, _ = decoder.decode(extn["extnValue"], asn1Spec=rfc5280.KeyUsage())
+        except pyasn1.error.PyAsn1Error:
+            raise BadDataFormat("The `KeyUsage` extension could not be decoded.")
+
+        required_usages = {"keyCertSign"}
+        present_usages = set(get_set_bitstring_names(decoded_extn).split(", "))
+        if not required_usages.issubset(present_usages):
+            raise BadCertTemplate(
+                "KeyUsage extension is present but does not include required key usages."
+                f" Got: {present_usages}. Required: {required_usages}."
+            )
+
+        if not {"digitalSignature"}.issubset(present_usages):
+            logging.warning("Only `keyCertSign` is set not `digitalSignature`")
+
+    else:
+        extn = certbuildutils.prepare_key_usage_extension("keyCertSign,digitalSignature", critical=True)
+        cert_template["extensions"].append(extn)
+
+    return cert_template
+
+
+def _ensure_basic_constraints(cert_template: rfc9480.CertTemplate) -> rfc9480.CertTemplate:
+    """Ensure that the BasicConstraints extension is present in the certificate template."""
+    extn = get_extension(cert_template["extensions"], rfc5280.id_ce_basicConstraints)
+    if extn is None:
+        extn = certbuildutils.prepare_basic_constraints_extension(ca=True, critical=True)
+        cert_template["extensions"].append(extn)
+    return cert_template
+
+
+@not_keyword
+def build_kga_cmp_response(
+    request: PKIMessageTMP,
+    ca_cert: rfc9480.CMPCertificate,
+    ca_key: PrivateKeySig,
+    kga_cert_chain: Optional[List[rfc9480.CMPCertificate]],
+    kga_key: Optional[PrivateKeySig] = None,
+    password: Optional[Union[bytes, str]] = None,
+    hash_alg: str = "sha256",
+    set_header_fields: bool = True,
+    **kwargs,
+) -> CA_RESPONSE:
+    """Build a CMP message that responds to a KGA request and returns the newly generated private key to the end entity.
+
+    :param request:        The PKIMessage (e.g., an ir/cr/p10cr) that includes a KGA request
+                           (no POP, i.e. no signature). We'll generate the key for it.
+    :param ca_cert:        The CA certificate used to sign the newly issued certificate.
+    :param ca_key:         The CA's private key.
+    :param kga_cert_chain: The full chain for the KGA (including the KGA cert and possibly others).
+                           Typically [kga_cert, ca_cert].
+    :param kga_key:        The KGA private key if the KGA must sign the "SignedData" that wraps
+                           the newly generated private key (optional).
+    :param password:       The password used if the KGA uses PWRI instead of KARI/KTRI.
+                           (i.e. the client used MAC-based protection on the KGA request.)
+    :param hash_alg:       The signature/hash algorithm to use for the newly issued certificate.
+    :param set_header_fields: Whether to set common header fields (transactionID, senderNonce, etc.).
+    :param kwargs:         Additional fields to pass into the final CMP-building function,
+                           such as 'recipient', 'sender', or 'exclude_fields'.
+
+    :return: A tuple (pki_message, [certs]) where pki_message is the newly built CMP message
+             with the new certificate & private key in the CertifiedKeyPair. 'certs' is a
+             list of the newly issued certificate(s).
+    :raises BadRequest: If the request is not recognized or does not represent a valid KGA request.
+    """
+    body_name = request["body"].getName()
+
+    if len(request["body"][body_name]) != 1:
+        raise BadRequest("Invalid number of entries in KGA request. Expected 1.")
+
+    body_name = request["body"].getName()
+    if not check_if_request_is_for_kga(request):
+        raise BadRequest("This PKIMessage is not a KGA request (the 'popo' is not empty).")
+
+    if body_name not in ("ir", "cr", "p10cr"):
+        raise BadRequest(f"Invalid message body for KGA: {body_name}. Must be one of ir, cr, p10cr, or kur.")
+    cert_req_msg = get_cert_req_msg_from_pkimessage(request)
+
+    # Actually generate a new key & build the certificate, plus EnvelopedData for the private key
+    # (with PWRI, KARI, or KTRI) using existing KGA logic:
+    cert, enveloped_data = prepare_cert_and_private_key_for_kga(
+        cert_template=cert_req_msg["certReq"]["certTemplate"],
+        request=request,
+        ca_cert=ca_cert,
+        ca_key=ca_key,
+        kga_cert_chain=kga_cert_chain,
+        kga_key=kga_key,
+        password=password,
+        hash_alg=hash_alg,
+        # For KARI with ephemeral ECDH or KEM:
+        ec_priv_key=kwargs.get("ec_priv_key"),
+        cmp_protection_cert=kwargs.get("cmp_protection_cert"),
+        extensions=kwargs.get("extensions"),
+    )
+
+    cert_req_id = int(cert_req_msg["certReq"]["certReqId"])
+    cert_response = prepare_cert_response(
+        cert_req_id=cert_req_id,
+        cert=cert,
+        private_key=enveloped_data,  # Goes in 'CertifiedKeyPair.privateKey'
+        status="accepted",
+        text="New Key Generation completed.",
+    )
+
+    if body_name == "ir":
+        pki_message, certs = build_ip_cmp_message(
+            request=request, responses=cert_response, ca_pubs=None, set_header_fields=set_header_fields, **kwargs
+        )
+    else:
+        pki_message, certs = build_cp_cmp_message(
+            request=request, responses=cert_response, set_header_fields=set_header_fields, **kwargs
+        )
+
+    return pki_message, certs
+
+
+def _compare_comp_template(cert_template: rfc9480.CertTemplate, certs: list[rfc9480.CMPCertificate]) -> bool:
+    """Check if a `CertTemplate` is already present in a list of certificates.
+
+    :param cert_template: The template to check.
+    :param certs: A list of `CMPCertificate` objects to check against.
+    """
+    for cert in certs:
+        if compareutils.compare_cert_template_and_cert(cert_template, cert, strict_subject_validation=True):
+            return True
+    return False
+
+
+@not_keyword
+def cert_template_exists(
+    cert_template: rfc9480.CertTemplate,
+    certs: list[rfc9480.CMPCertificate],
+    check_only_subject_and_pub_key: bool = True,
+) -> bool:
+    """Check if a `CertTemplate` is already present in a list of certificates.
+
+    The subject and the public key of the certificate are used for comparison.
+
+    :param cert_template: A CMPCertificate object serving as the reference (template).
+    :param certs: A list of CMPCertificate objects to check against.
+    :param check_only_subject_and_pub_key: If True, only the subject and public key are compared.
+    Defaults to `True`.
+    :return: True if a certificate with the same subject and public key
+             is found in 'cert_list'. Otherwise, False.
+    """
+    template_subject = cert_template["subject"]
+    pub_key = keyutils.load_public_key_from_cert_template(cert_template)
+    if not pub_key:
+        return False
+
+    if not check_only_subject_and_pub_key:
+        return _compare_comp_template(cert_template, certs)
+
+    for cert in certs:
+        cert_subject = cert["tbsCertificate"]["subject"]
+        cert_spki = cert["tbsCertificate"]["subjectPublicKeyInfo"]
+        result = compareutils.compare_pyasn1_names(cert_subject, template_subject, "without_tag")
+        result2 = pub_key == keyutils.load_public_key_from_spki(cert_spki)
+        if result and result2:
+            return True
+
+    return False

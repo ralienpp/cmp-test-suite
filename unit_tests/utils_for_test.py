@@ -15,10 +15,10 @@ from typing import List, Optional, Tuple, Union
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa, x25519, x448, ed448
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import AuthorityKeyIdentifier
 from cryptography.x509.extensions import ExtensionOID
-from pyasn1.type.base import Asn1Type
 
 from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
 from pyasn1.codec.der import decoder, encoder
@@ -28,11 +28,12 @@ from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402, rfc8
 
 from resources import certutils, cmputils, utils
 from resources.asn1_structures import PKIMessageTMP
+from resources.asn1utils import try_decode_pyasn1
 from resources.certbuildutils import build_certificate, build_csr, prepare_extensions, \
-    _prepare_basic_constraints_extension, _prepare_ski_extension, _prepare_authority_key_identifier_extension
+    prepare_basic_constraints_extension, prepare_ski_extension, prepare_authority_key_identifier_extension
 from resources.certutils import parse_certificate, build_cert_chain_from_dir, \
     load_public_key_from_cert
-from resources.cmputils import parse_csr, parse_pkimessage
+from resources.cmputils import parse_csr
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import verify_signature
 from resources.envdatautils import (
@@ -97,23 +98,6 @@ def try_encode_pyasn1(data, exclude_pretty_print: bool = False) -> bytes:
         data = data.prettyPrint() if not exclude_pretty_print else str(type(data))
         raise BadAsn1Data(f"Error encoding data: {data}", overwrite=True)
 
-@not_keyword
-def try_decode_pyasn1(data: bytes, asn1_spec: Asn1Type, for_nested: bool = False) -> Tuple[Asn1Type, bytes]:
-    """Try to decode a DER-encoded data using the provided ASN.1 specification.
-
-    :param data: The DER-encoded data to decode.
-    :param asn1_spec: The PyASN1 specification to use for decoding.
-    :param for_nested: If True, the function will return the decoded data and not the rest of the data.
-    :return: The decoded PyASN1 object.
-    """
-    try:
-        if for_nested:
-            out = parse_pkimessage(data)
-            _, rest = decoder.decode(data, PKIMessageTMP())
-            return out, rest
-        return decoder.decode(data, asn1_spec)
-    except Exception:
-        raise BadAsn1Data(f"Error decoding data for {type(asn1_spec)}", overwrite=True)
 
 def de_and_encode_pkimessage(pki_message: PKIMessageTMP) -> PKIMessageTMP:
     """Encode and decode a given PKIMessage, to simulate getting a message over the wire.
@@ -481,17 +465,17 @@ def _prepare_ca_ra_extensions(
     :return: The extensions for the intermediate CA certificate.
     """
 
-    basic_constraints = _prepare_basic_constraints_extension(
+    basic_constraints = prepare_basic_constraints_extension(
         ca=True,
         critical=for_ca,
     )
 
-    ski = _prepare_ski_extension(
+    ski = prepare_ski_extension(
         key=key.public_key(),
         critical=False,
     )
 
-    aia = _prepare_authority_key_identifier_extension(
+    aia = prepare_authority_key_identifier_extension(
         ca_key=issuer_key.public_key(),
         critical=False,
     )
@@ -1278,3 +1262,9 @@ def print_alg_id(
         print("  Parameters: ", alg_id["parameters"].prettyPrint())
 
 
+
+def load_ca_cert_and_key() -> Tuple[rfc9480.CMPCertificate, Ed25519PrivateKey]:
+    """Load a valid Root CA key and certificate for testing."""
+    root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
+    root_cert = parse_certificate(load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
+    return root_cert, root_key

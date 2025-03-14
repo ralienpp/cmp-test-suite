@@ -8,9 +8,6 @@ import logging
 from typing import List, Optional, Tuple, Union
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
@@ -21,7 +18,7 @@ from resources.certextractutils import get_extension
 from resources.certutils import load_certificates_from_dir
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadAlg, BadAsn1Data, BadPOP, InvalidKeyCombination
-from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name, get_alg_oid_from_key_hash
+from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
 from resources.oidutils import (
     CMS_COMPOSITE_OID_2_NAME,
     MSG_SIG_ALG,
@@ -29,7 +26,7 @@ from resources.oidutils import (
     RSASSA_PSS_OID_2_NAME,
     id_ce_altSignatureAlgorithm,
     id_ce_altSignatureValue,
-    id_ce_subjectAltPublicKeyInfo, PQ_NAME_2_OID,
+    id_ce_subjectAltPublicKeyInfo,
 )
 from resources.typingutils import PrivateKeySig, PublicKeySig
 from robot.api.deco import keyword
@@ -39,7 +36,7 @@ from pq_logic import py_verify_logic
 from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, chameleon_logic
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey, WrapperPublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey
 from pq_logic.keys.composite_kem import CompositeKEMPublicKey
 from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
 from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
@@ -225,30 +222,6 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
 
     return None
 
-def _check_trad_alg_id(public_key, oid: str, hash_alg: Optional[str]) -> None:
-    """Validate if the public key is of the same type as the algorithm identifier."""
-    msg = ("The public key was not of the same type as the,"
-                       "algorithm identifier implied.")
-    if isinstance(public_key, Ed448PublicKey):
-        if str(MSG_SIG_ALG["ed448"]) == oid:
-            return
-    if isinstance(public_key, Ed25519PublicKey):
-        if str(MSG_SIG_ALG["ed25519"]) == oid:
-           return
-
-    if isinstance(public_key, EllipticCurvePublicKey):
-        if str(MSG_SIG_ALG[f"ecdsa-{hash_alg}"]) == oid:
-            return
-
-    if isinstance(public_key, RSAPublicKey):
-        if str(MSG_SIG_ALG[f"rsa-{hash_alg}"]) == oid:
-            return
-
-    else:
-        raise BadAlg(f"Unknown key type: {type(public_key)}")
-
-    raise BadAlg(msg)
-
 
 @keyword(name="Verify Signature With Alg ID")
 def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
@@ -294,15 +267,7 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
     elif oid in PQ_OID_2_NAME or str(oid) in PQ_OID_2_NAME or oid in MSG_SIG_ALG:
         hash_alg = get_hash_from_oid(oid, only_hash=True)
 
-        if isinstance(public_key, WrapperPublicKey):
-            _name = public_key.name + "" if hash_alg is None else hash_alg
-            if str(PQ_NAME_2_OID[_name]) == str(oid):
-                raise BadAlg("The public key was not of the same type as the,"
-                             "algorithm identifier implied.")
-            else:
-                _check_trad_alg_id(public_key, str(oid), hash_alg=hash_alg)
-
-
+        keyutils.check_consistency_alg_id_and_key(alg_id, public_key)
         cryptoutils.verify_signature(public_key=public_key, signature=signature, data=data, hash_alg=hash_alg)
     else:
         raise BadAlg(f"Unsupported public key type: {type(public_key).__name__}.")
@@ -334,12 +299,12 @@ def _prepare_catalyst_info_vals(
 
 def _compute_protection(
     signing_key: PrivateKeySig,
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
     use_pre_hash: bool = False,
     bad_message_check: bool = False,
-) -> rfc9480.PKIMessage:
+) -> PKIMessageTMP:
     """Compute the protection for a PKIMessage.
 
     :param signing_key: The private key used for signing.
@@ -378,7 +343,7 @@ def _compute_protection(
     return pki_message
 
 
-def _verbose_get_protected_part(pki_message: rfc9480.PKIMessage) -> bytes:
+def _verbose_get_protected_part(pki_message: PKIMessageTMP) -> bytes:
     """Get the protected part of the PKIMessage.
 
     :param pki_message: The PKIMessage.

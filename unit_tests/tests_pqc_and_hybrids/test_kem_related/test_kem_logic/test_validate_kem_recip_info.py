@@ -48,7 +48,7 @@ class TestValidateKEMInfo(unittest.TestCase):
         self.assertEqual(result["kdf_algorithm"]["algorithm"], rfc8619.id_alg_hkdf_with_sha256)
         self.assertNotEqual(result["ukm"], b"mock_ukm")
 
-    def test_invalid_version(self):
+    def test_invalid_version_kemri(self):
         """
         GIVEN a KEMRecipientInfo structure.
         WHEN the version field is not equal to 0.

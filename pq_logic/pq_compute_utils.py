@@ -12,6 +12,8 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPubl
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc6402, rfc9480
+
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from resources import certbuildutils, cryptoutils, keyutils, protectionutils, utils
 from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP
 from resources.certextractutils import get_extension
@@ -38,10 +40,11 @@ from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey
 from pq_logic.keys.composite_kem import CompositeKEMPublicKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
 from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey, SignKey, VerifyKey
-from pq_logic.tmp_oids import id_altSubPubKeyExt, id_ce_deltaCertificateDescriptor, id_relatedCert
+from pq_logic.tmp_oids import id_altSubPubKeyExt, id_ce_deltaCertificateDescriptor, id_relatedCert, \
+    CMS_COMPOSITE04_OID_2_NAME
 from pq_logic.trad_typing import ECDHPrivateKey
 
 
@@ -72,11 +75,16 @@ def sign_data_with_alg_id(  # noqa: D417 Missing argument descriptions in the do
     """
     oid = alg_id["algorithm"]
 
-    if isinstance(key, CompositeSigCMSPrivateKey):
+    if isinstance(key, CompositeSig04PrivateKey):
+        name: str = CMS_COMPOSITE04_OID_2_NAME[oid]
+        use_pss = name.endswith("-pss")
+        pre_hash = True if "hash-" in name else False
+        return key.sign(data=data, use_pss=use_pss, pre_hash=pre_hash)
+    if isinstance(key, CompositeSig03PrivateKey):
         name: str = CMS_COMPOSITE_OID_2_NAME[oid]
         use_pss = name.endswith("-pss")
         pre_hash = True if "hash-" in name else False
-        key: CompositeSigCMSPrivateKey
+        key: CompositeSig03PrivateKey
         return key.sign(data=data, use_pss=use_pss, pre_hash=pre_hash)
     if oid in PQ_OID_2_NAME or oid in MSG_SIG_ALG or oid in RSASSA_PSS_OID_2_NAME or str(oid) in PQ_OID_2_NAME:
         hash_alg = get_hash_from_oid(oid, only_hash=True)
@@ -111,7 +119,7 @@ def verify_csr_signature(  # noqa: D417 Missing argument descriptions in the doc
 
     if alg_id["algorithm"] in CMS_COMPOSITE_OID_2_NAME:
         public_key = keyutils.load_public_key_from_spki(spki)
-        CompositeSigCMSPublicKey.validate_oid(alg_id["algorithm"], public_key)
+        CompositeSig03PublicKey.validate_oid(alg_id["algorithm"], public_key)
     else:
         public_key = keyutils.load_public_key_from_spki(spki)
 
@@ -217,7 +225,7 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
 
     if oid in CMS_COMPOSITE_OID_2_NAME:
         public_key = keyutils.load_public_key_from_spki(spki)
-        CompositeSigCMSPublicKey.validate_oid(oid, public_key)
+        CompositeSig03PublicKey.validate_oid(oid, public_key)
         return public_key.pq_key
 
     return None
@@ -251,12 +259,12 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
     """
     oid = alg_id["algorithm"]
 
-    if oid in CMS_COMPOSITE_OID_2_NAME:
+    if oid in CMS_COMPOSITE_OID_2_NAME or oid in CMS_COMPOSITE04_OID_2_NAME:
         name: str = CMS_COMPOSITE_OID_2_NAME[oid]
         use_pss = name.endswith("-pss")
         logging.debug(name)
         pre_hash = True if "hash-" in name else False
-        public_key: CompositeSigCMSPublicKey
+        public_key: CompositeSig03PublicKey
         public_key.verify(data=data, signature=signature, use_pss=use_pss, pre_hash=pre_hash)
 
     elif oid in RSASSA_PSS_OID_2_NAME:
@@ -334,7 +342,7 @@ def _compute_protection(
     )
 
     if bad_message_check:
-        if isinstance(signing_key, CompositeSigCMSPrivateKey):
+        if isinstance(signing_key, CompositeSig03PrivateKey):
             signature = utils.manipulate_composite_sig(signature)
         else:
             signature = utils.manipulate_first_byte(signature)
@@ -466,7 +474,7 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
             if isinstance(alt_signing_key, PQSignaturePrivateKey):
                 private_key, alt_signing_key = alt_signing_key, private_key
 
-            private_key = CompositeSigCMSPrivateKey(
+            private_key = CompositeSig03PrivateKey(
                 pq_key=private_key,
                 trad_key=alt_signing_key,
             )

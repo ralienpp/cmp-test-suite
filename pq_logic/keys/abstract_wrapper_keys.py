@@ -616,10 +616,10 @@ class HybridSigPrivateKey(HybridPrivateKey, ABC):
     _trad_key: ECSignKey
     _name: str = "hybrid-sig"
 
-    def __init__(self, trad_key, pq_key):
+    def __init__(self, pq_key, trad_key):
         """Create a new instance."""
-        self._trad_key = trad_key
         self._pq_key = pq_key
+        self._trad_key = trad_key
 
     @property
     def trad_key(self) -> ECSignKey:
@@ -807,17 +807,8 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         return len(self._export_public_key())
 
 
-class AbstractCompositePrivateKey(HybridPrivateKey, ABC):
+class AbstractCompositePrivateKey(HybridSigPrivateKey, ABC):
     """Abstract class for Composite private keys."""
-
-    def __init__(self, pq_key: PQPrivateKey, trad_key: Union[ECDHPrivateKey, rsa.RSAPrivateKey]):
-        """Initialize the CompositePrivateKey.
-
-        :param pq_key: The post-quantum private key object.
-        :param trad_key: The traditional private key object.
-        """
-        self._pq_key = pq_key
-        self._trad_key = trad_key
 
     @abstractmethod
     def public_key(self) -> "AbstractCompositePublicKey":

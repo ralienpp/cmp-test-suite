@@ -8,9 +8,15 @@ from typing import Dict, List, Optional, Union
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, x448, x25519
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc5958
+
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey, CompositeSig04PublicKey
+from pq_logic.keys.sig_keys import MLDSAPublicKey, MLDSAPrivateKey
+
 from resources.exceptions import BadAlg, BadAsn1Data
 from resources.oid_mapping import get_curve_instance
 from resources.oidutils import (
@@ -34,9 +40,9 @@ from pq_logic.keys.composite_kem import (
     CompositeKEMPrivateKey,
     CompositeKEMPublicKey,
 )
-from pq_logic.keys.composite_sig import (
-    CompositeSigCMSPrivateKey,
-    CompositeSigCMSPublicKey,
+from pq_logic.keys.composite_sig03 import (
+    CompositeSig03PrivateKey,
+    CompositeSig03PublicKey,
 )
 from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.keys.kem_keys import FrodoKEMPublicKey, MLKEMPublicKey
@@ -44,7 +50,8 @@ from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.trad_key_factory import generate_trad_key, parse_trad_key_from_one_asym_key
 from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
 from pq_logic.keys.xwing import XWingPublicKey
-from pq_logic.tmp_oids import CHEMPAT_OID_2_NAME, COMPOSITE_KEM_OID_2_NAME, id_rsa_kem_spki
+from pq_logic.tmp_oids import CHEMPAT_OID_2_NAME, COMPOSITE_KEM_OID_2_NAME, id_rsa_kem_spki, CMS_COMPOSITE04_OID_2_NAME, \
+    CMS_COMPOSITE04_NAME_2_OID
 
 
 def _any_string_in_string(string: str, options: List[str]) -> str:
@@ -204,6 +211,31 @@ class CombinedKeyFactory:
         raise ValueError(f"Unsupported traditional public key type: {trad_name}")
 
     @staticmethod
+    def _get_comp_sig04_key(oid: univ.ObjectIdentifier, public_key: bytes) -> CompositeSig04PublicKey:
+        """Load a Composite signature version 4 public key."""
+        _length = int.from_bytes(public_key[:4], "big")
+        data = public_key[4:]
+        mldsa_key_data = data[:_length]
+        trad_data = data[_length:]
+
+        name = CMS_COMPOSITE04_OID_2_NAME[oid]
+        prefix = _any_string_in_string(name, ["sig-04-hash", "sig-04"])
+        name = name.replace(f"composite-{prefix}-", "", 1)
+        pq_name = PQKeyFactory.get_pq_alg_name(algorithm=name)
+        rest = name.replace(f"{pq_name}-", "", 1)
+        trad_name = _any_string_in_string(rest, ["rsa", "ecdsa", "ecdh", "ec", "ed25519", "x25519", "x448", "ed448"])
+        rest = rest.replace(f"{trad_name}", "")
+        curve = None
+        if not rest.isdigit():
+            curve = rest.replace("-", "", 1) if rest else None
+        trad_key = CombinedKeyFactory._comp_load_trad_key(public_key=trad_data,
+                                                          trad_name=trad_name,
+                                                          curve=curve)
+
+        pq_key = PQKeyFactory.from_public_bytes(name=pq_name, data=mldsa_key_data)
+        return CompositeSig04PublicKey(pq_key, trad_key)
+
+    @staticmethod
     def _get_composite_public_key(oid: univ.ObjectIdentifier, public_key: bytes) -> AbstractCompositePublicKey:
         """Get a composite public key from the provided OID and public key bytes.
 
@@ -211,6 +243,9 @@ class CombinedKeyFactory:
         :param public_key:
         :return: The loaded public key.
         """
+
+        if oid in CMS_COMPOSITE04_OID_2_NAME:
+            name = CMS_COMPOSITE04_OID_2_NAME[oid]
         if oid in CMS_COMPOSITE_OID_2_NAME:
             name = CMS_COMPOSITE_OID_2_NAME[oid]
         elif str(oid) in COMPOSITE_KEM_OID_2_NAME:
@@ -240,7 +275,7 @@ class CombinedKeyFactory:
             return CompositeDHKEMRFC9180PublicKey(pq_key, trad_key)
         if prefix == "kem":
             return CompositeKEMPublicKey(pq_key, trad_key)
-        return CompositeSigCMSPublicKey(pq_key, trad_key)  # type: ignore
+        return CompositeSig03PublicKey(pq_key, trad_key)  # type: ignore
 
     @staticmethod
     def load_public_key_from_spki(spki: rfc5280.SubjectPublicKeyInfo):
@@ -250,6 +285,9 @@ class CombinedKeyFactory:
         :return: The loaded public key.
         """
         oid = spki["algorithm"]["algorithm"]
+
+        if oid in CMS_COMPOSITE04_OID_2_NAME:
+            return CombinedKeyFactory._get_comp_sig04_key(oid, spki["subjectPublicKey"].asOctets())
 
         if oid in CMS_COMPOSITE_OID_2_NAME:
             return CombinedKeyFactory._get_composite_public_key(oid, spki["subjectPublicKey"].asOctets())
@@ -396,7 +434,72 @@ class CombinedKeyFactory:
         if prefix == "dhkem":
             return CompositeDHKEMRFC9180PrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
 
-        return CompositeSigCMSPrivateKey(pq_key=pq_key, trad_key=trad_key)
+        return CompositeSig03PrivateKey(pq_key=pq_key, trad_key=trad_key)
+
+    @staticmethod
+    def _decode_composite_sig04_key(
+            name: str, private_key: bytes, public_key: Optional[bytes],
+    ) -> CompositeSig04PrivateKey:
+        """Load a composite sig version 4 private key."""
+        prefix = _any_string_in_string(name, ["sig-04-hash", "sig-04"])
+        name = name.replace(f"composite-{prefix}-", "", 1)
+        pq_name = PQKeyFactory.get_pq_alg_name(algorithm=name)
+        rest = name.replace(f"{pq_name}-", "", 1)
+        trad_name = _any_string_in_string(rest, ["rsa", "ecdsa", "ecdh", "ec", "ed25519", "x25519", "x448", "ed448"])
+        rest = rest.replace(f"{trad_name}", "")
+        curve = None
+
+        tmp = MLDSAPrivateKey(pq_name)
+        _length = int.from_bytes(private_key[:4], "big")
+
+        data = private_key[4:]
+
+        mldsa_key = data[:_length]
+        trad_data = data[_length:]
+
+        obj, rest = decoder.decode(data[:_length], asn1Spec=univ.OctetString())
+        if rest:
+            raise BadAsn1Data("CompositeSig04PrivateKey")
+
+        mldsa_key = obj.asOctets()
+
+        if len(mldsa_key) not in [tmp.key_size, 32, tmp.key_size + 32]:
+            raise ValueError(f"Invalid composite signature version 4 {pq_name} key.")
+
+        if len(mldsa_key) == tmp.key_size + 32:
+            raise NotImplementedError()
+
+
+        trad_data, rest = decoder.decode(trad_data, univ.OctetString())
+
+        if rest:
+            raise BadAsn1Data("CompositeSig04PrivateKey")
+
+        trad_data = trad_data.asOctets()
+        pq_key = MLDSAPrivateKey.from_private_bytes(name=pq_name, data=mldsa_key)
+        if trad_name == "ed25519":
+            trad_key = Ed25519PrivateKey.from_private_bytes(trad_data)
+        elif trad_name == "ed448":
+            trad_key = Ed448PrivateKey.from_private_bytes(trad_data)
+        elif trad_name == "ecdsa":
+            trad_key = serialization.load_der_private_key(trad_data, password=None)
+        else:
+            trad_key = serialization.load_der_private_key(trad_data, password=None)
+
+        comp_key = CompositeSig04PrivateKey(pq_key=pq_key, trad_key=trad_key)
+
+        if public_key is None:
+            return comp_key
+
+        oid = CMS_COMPOSITE04_NAME_2_OID[comp_key.name]
+        public_key = CombinedKeyFactory._get_comp_sig04_key(oid, public_key=public_key)
+
+        if comp_key.public_key() != public_key:
+            raise ValueError("The loaded public is no match with the composite sig v04 private key")
+        return comp_key
+
+
+
 
     @staticmethod
     def load_key_from_one_asym_key(data: Union[bytes, rfc5958.OneAsymmetricKey], must_be_version_2: bool = False):
@@ -417,6 +520,10 @@ class CombinedKeyFactory:
         alg_oid = str(one_asym_key["privateKeyAlgorithm"]["algorithm"])
         private_bytes = one_asym_key["privateKey"].asOctets()
         public_bytes = one_asym_key["publicKey"].asOctets() if one_asym_key["publicKey"].isValue else None
+
+        if oid in CMS_COMPOSITE04_OID_2_NAME:
+            _name = CMS_COMPOSITE04_OID_2_NAME[oid]
+            return CombinedKeyFactory._decode_composite_sig04_key(_name, private_bytes, public_bytes)
 
         if oid in COMPOSITE_KEM_OID_2_NAME or str(oid) in COMPOSITE_KEM_OID_2_NAME:
             _name = COMPOSITE_KEM_OID_2_NAME[str(oid)]

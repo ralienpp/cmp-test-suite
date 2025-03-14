@@ -30,7 +30,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.keys.key_pyasn1_utils import load_enc_key
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc5480, rfc6664, rfc9480
@@ -512,8 +512,9 @@ def load_public_key_from_spki(data: Union[bytes, rfc5280.SubjectPublicKeyInfo]) 
 
     try:
         return CombinedKeyFactory.load_public_key_from_spki(spki=data)
-    except ValueError:
-        raise BadAlg("The OID is not valid/unknown.")
+    except ValueError as e:
+        raise e
+        raise BadAlg("The OID is not valid/unknown.") from e
 
 
 @not_keyword
@@ -643,7 +644,7 @@ def check_consistency_alg_id_and_key(
     :param key: The key to check.
     """
     oid = alg_id["algorithm"]
-    if isinstance(key, (CompositeSigCMSPublicKey, CompositeSigCMSPrivateKey)):
+    if isinstance(key, (CompositeSig03PublicKey, CompositeSig03PrivateKey)):
         if alg_id["algorithm"] not in CMS_COMPOSITE_OID_2_NAME:
             raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
         name: str = CMS_COMPOSITE_OID_2_NAME[oid]

@@ -18,7 +18,7 @@ import pyasn1
 import requests
 from pq_logic.hybrid_structures import CompositeCiphertextValue, CompositeSignatureValue
 from pq_logic.keys.composite_kem import CompositeKEMPrivateKey, CompositeKEMPublicKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, char, univ
 from pyasn1_alt_modules import rfc2986, rfc5280, rfc6402, rfc9480
@@ -663,7 +663,7 @@ def manipulate_bytes_based_on_key(  # noqa D417 Missing argument description in 
         return manipulate_first_byte(data)
     if isinstance(key, (CompositeKEMPublicKey, CompositeKEMPrivateKey)):
         return manipulate_composite_kem_ct(data)
-    if isinstance(key, (CompositeSigCMSPublicKey, CompositeSigCMSPrivateKey)):
+    if isinstance(key, (CompositeSig03PublicKey, CompositeSig03PrivateKey)):
         return manipulate_composite_sig(data)
     return manipulate_first_byte(data)
 

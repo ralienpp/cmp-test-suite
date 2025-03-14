@@ -22,7 +22,7 @@ from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig.catalyst_logic import verify_catalyst_signature
 from pq_logic.hybrid_sig.chameleon_logic import build_delta_cert_from_paired_cert
 from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PublicKey
 from pyasn1.codec.der import encoder
 from pyasn1_alt_modules import rfc9480
 from resources.certutils import parse_certificate
@@ -137,7 +137,7 @@ def verify_signature_with_alg_id(
         pq_compute_utils.verify_signature_with_alg_id(
             public_key=public_key, alg_id=alg_id, signature=signature, data=data
         )
-        if isinstance(public_key, CompositeSigCMSPublicKey):
+        if isinstance(public_key, CompositeSig03PublicKey):
             name: str = CMS_COMPOSITE_OID_2_NAME[oid]
             use_pss = name.endswith("-pss")
             pre_hash = True if "hash-" in name else False

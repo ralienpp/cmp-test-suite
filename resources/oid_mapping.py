@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dsa, ec
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey
 from pq_logic.tmp_oids import (
-    CMS_COMPOSITE_OID_2_HASH,
+    CMS_COMPOSITE03_OID_2_HASH,
 )
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc9481
@@ -130,8 +130,8 @@ def get_hash_from_oid(oid: univ.ObjectIdentifier, only_hash: bool = False) -> Un
     if oid in {rfc9481.id_Ed25519, rfc9481.id_Ed448}:
         return None
 
-    if oid in CMS_COMPOSITE_OID_2_HASH:
-        return CMS_COMPOSITE_OID_2_HASH[oid]
+    if oid in CMS_COMPOSITE03_OID_2_HASH:
+        return CMS_COMPOSITE03_OID_2_HASH[oid]
 
     try:
         if oid in PQ_SIG_PRE_HASH_OID_2_NAME:
@@ -196,9 +196,9 @@ def get_alg_oid_from_key_hash(
 
         return PQ_NAME_2_OID[name]
 
-    from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
+    from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
 
-    if isinstance(key, CompositeSigCMSPrivateKey):
+    if isinstance(key, CompositeSig03PrivateKey):
         alg_oid = key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
 
     if alg_oid is not None:

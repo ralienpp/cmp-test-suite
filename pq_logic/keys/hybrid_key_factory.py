@@ -21,7 +21,7 @@ from pq_logic.keys.composite_kem import (
     CompositeDHKEMRFC9180PrivateKey,
     CompositeKEMPrivateKey,
 )
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.trad_key_factory import generate_ec_key, generate_trad_key
 from pq_logic.keys.xwing import XWingPrivateKey
@@ -299,7 +299,7 @@ class HybridKeyFactory:
                 return HybridKeyFactory.generate_comp_sig_key(
                     pq_name=pq_name,
                 )
-            return CompositeSigCMSPrivateKey(pq_key, trad_key)
+            return CompositeSig03PrivateKey(pq_key, trad_key)
 
         if algorithm == "composite-dhkem":
             keys = HybridKeyFactory.from_keys(algorithm="composite-kem", pq_key=pq_key, trad_key=trad_key)
@@ -391,7 +391,7 @@ class HybridKeyFactory:
         trad_name: Optional[str] = None,
         length: Optional[Strint] = None,
         curve: Optional[str] = None,
-    ) -> CompositeSigCMSPrivateKey:
+    ) -> CompositeSig03PrivateKey:
         """
         Generate a composite signature key.
 
@@ -402,7 +402,7 @@ class HybridKeyFactory:
         pq_key, trad_key = HybridKeyFactory._get_combinations(
             pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
         )
-        return CompositeSigCMSPrivateKey(pq_key, trad_key)
+        return CompositeSig03PrivateKey(pq_key, trad_key)
 
     @staticmethod
     def generate_comp_kem_key(

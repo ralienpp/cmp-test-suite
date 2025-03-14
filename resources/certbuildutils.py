@@ -14,7 +14,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, get_oid_cms_composite_signature
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, get_oid_cms_composite_signature
 from pq_logic.pq_utils import is_kem_public_key
 from pq_logic.tmp_oids import id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder
@@ -148,7 +148,7 @@ def prepare_sig_alg_id(  # noqa D417 undocumented-param
     """
     alg_id = rfc9480.AlgorithmIdentifier()
 
-    if isinstance(signing_key, CompositeSigCMSPrivateKey):
+    if isinstance(signing_key, CompositeSig03PrivateKey):
         # TODO maybe make it better to get the oid from the key itself.
         # Left like this, because unknown how the cryptography library will
         # implement the CompositeSigPrivateKey (Probably for every key a new class).
@@ -162,7 +162,7 @@ def prepare_sig_alg_id(  # noqa D417 undocumented-param
         # domain_oid = signing_key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
         alg_id["algorithm"] = domain_oid
 
-    elif isinstance(signing_key, CompositeSigCMSPrivateKey):
+    elif isinstance(signing_key, CompositeSig03PrivateKey):
         # means an expired key is used.
         domain_oid = signing_key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
         alg_id["algorithm"] = domain_oid
@@ -239,7 +239,7 @@ def sign_csr(  # noqa D417 undocumented-param
     )
     logging.info("CSR Signature: %s", signature)
     if bad_pop:
-        if isinstance(signing_key, CompositeSigCMSPrivateKey):
+        if isinstance(signing_key, CompositeSig03PrivateKey):
             signature = utils.manipulate_composite_sig(signature)
         else:
             signature = utils.manipulate_first_byte(signature)
@@ -948,7 +948,7 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
     logging.info("Certificate signature: %s", signature.hex())
 
     if bad_sig:
-        if isinstance(signing_key, CompositeSigCMSPrivateKey):
+        if isinstance(signing_key, CompositeSig03PrivateKey):
             signature = utils.manipulate_composite_sig(signature)
         else:
             signature = utils.manipulate_first_byte(signature)
@@ -1433,8 +1433,8 @@ def _prepare_public_key_for_cert_template(
     elif isinstance(
         key,
         (
-            typingutils.PrivateKey,
-            CompositeSigCMSPrivateKey,
+                typingutils.PrivateKey,
+                CompositeSig03PrivateKey,
         ),
     ):
         key = key.public_key()  # type: ignore
@@ -1611,7 +1611,7 @@ def prepare_subject_public_key_info(  # noqa D417 undocumented-param
             spki = rfc5280.SubjectPublicKeyInfo()
             pub_key = pub_key if not invalid_key_size else pub_key + b"\x00"
             spki["subjectPublicKey"] = univ.BitString.fromOctetString(pub_key)
-            if isinstance(key, CompositeSigCMSPrivateKey):
+            if isinstance(key, CompositeSig03PrivateKey):
                 oid = key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
             else:
                 oid = key.get_oid()

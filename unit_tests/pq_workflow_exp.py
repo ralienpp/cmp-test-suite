@@ -5,7 +5,7 @@
 from typing import Optional
 
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import prepare_sun_hybrid_csr_attributes
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, get_oid_cms_composite_signature
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, get_oid_cms_composite_signature
 from pq_logic.pq_compute_utils import sign_data_with_alg_id
 from resources.certbuildutils import build_csr
 
@@ -19,7 +19,7 @@ from pyasn1.type import univ
 ###################
 
 def build_sun_hybrid_composite_csr(
-    signing_key: Optional[CompositeSigCMSPrivateKey] = None,
+    signing_key: Optional[CompositeSig03PrivateKey] = None,
     common_name: str = "CN=Hans Mustermann",
     pub_key_hash_alg: Optional[str] = None,
     pub_key_location: Optional[str] = None,
@@ -39,7 +39,7 @@ def build_sun_hybrid_composite_csr(
     :param use_rsa_pss: Whether to use RSA-PSS for traditional keys.
     :return: CertificationRequest object with composite signature.
     """
-    signing_key = signing_key or CompositeSigCMSPrivateKey.generate(pq_name="ml-dsa-44", trad_param="ec")
+    signing_key = signing_key or CompositeSig03PrivateKey.generate(pq_name="ml-dsa-44", trad_param="ec")
 
     csr = build_csr(signing_key, common_name=common_name, exclude_signature=True, use_rsa_pss=use_rsa_pss)
     sig_alg_id = rfc5280.AlgorithmIdentifier()

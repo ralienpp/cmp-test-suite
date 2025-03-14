@@ -46,14 +46,14 @@ from pq_logic.hybrid_sig.cert_binding_for_multi_auth import (
 from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax_extension
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey, CompositeSigCMSPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
 from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONSE, ECDHPrivateKey
 
 
 def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descriptions in the docstring
     request: PKIMessagesTMP,
-    ca_key: Union[CompositeSigCMSPublicKey, HybridKEMPublicKey],
+    ca_key: Union[CompositeSig03PublicKey, HybridKEMPublicKey],
     pub_key_loc: str,
     sig_loc: str,
     serial_number: Optional[int] = None,
@@ -121,7 +121,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
         cert_index = cert_index if cert_index is not None else 0
         cert_req_msg: rfc4211.CertReqMsg = request["body"]["ir"][cert_index]
         public_key = ca_ra_utils.get_public_key_from_cert_req_msg(cert_req_msg)
-        if isinstance(public_key, CompositeSigCMSPublicKey):
+        if isinstance(public_key, CompositeSig03PublicKey):
             ca_ra_utils.verify_sig_pop_for_pki_request(request, cert_index)
             cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_cert_template_to_cert(
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
@@ -478,8 +478,8 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
         if not isinstance(first_key, PQSignaturePublicKey):
             first_key, alt_pub_key = alt_pub_key, first_key
 
-        public_key = CompositeSigCMSPublicKey(pq_key=first_key, trad_key=alt_pub_key)
-        CompositeSigCMSPublicKey.validate_oid(oid, public_key)
+        public_key = CompositeSig03PublicKey(pq_key=first_key, trad_key=alt_pub_key)
+        CompositeSig03PublicKey.validate_oid(oid, public_key)
         pq_compute_utils.verify_signature_with_alg_id(
             public_key=public_key,
             alg_id=sig_alg_oid,
@@ -565,7 +565,7 @@ def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descr
         if not isinstance(first_key, PQSignaturePrivateKey):
             first_key, alt_key = alt_key, first_key
 
-        comp_key = CompositeSigCMSPrivateKey(first_key, alt_key)
+        comp_key = CompositeSig03PrivateKey(first_key, alt_key)
         extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
         cert_req["certTemplate"]["extensions"].append(extn)
         data = encoder.encode(cert_req)

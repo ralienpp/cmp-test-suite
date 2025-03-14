@@ -14,7 +14,7 @@ from resources.oidutils import HYBRID_NAME_2_OID, HYBRID_OID_2_NAME, PQ_NAME_2_O
 from robot.api.deco import keyword
 
 from pq_logic.keys.abstract_pq import PQPublicKey, PQSignaturePublicKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PublicKey
 from pq_logic.pq_utils import is_kem_public_key
 
 
@@ -90,7 +90,7 @@ def validate_migration_certificate_key_usage(  # noqa: D417 Missing argument des
 
     sig_usages = {"digitalSignature", "nonRepudiation", "keyCertSign", "cRLSign"}
 
-    if isinstance(public_key, (PQSignaturePublicKey, CompositeSigCMSPublicKey)):
+    if isinstance(public_key, (PQSignaturePublicKey, CompositeSig03PublicKey)):
         ml_dsa_disallowed = {"keyEncipherment", "dataEncipherment", "keyAgreement", "encipherOnly", "decipherOnly"}
 
         if not set(key_usage).issubset(sig_usages):

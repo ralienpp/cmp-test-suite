@@ -16,7 +16,7 @@ from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import (
 from unit_tests.pq_workflow_exp import build_sun_hybrid_composite_csr
 from pq_logic.tmp_oids import id_altSubPubKeyExt, id_altSignatureExt
 from pq_logic.hybrid_structures import AltSignatureExt
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
 from pq_logic.pq_compute_utils import verify_csr_signature
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc6402, rfc9480
@@ -44,7 +44,7 @@ class TestSunHybridScheme(unittest.TestCase):
 
     def setUp(self):
         """Set up keys and other reusable components for testing."""
-        self.composite_key = CompositeSigCMSPrivateKey.generate(
+        self.composite_key = CompositeSig03PrivateKey.generate(
             pq_name="ml-dsa-44", trad_param="ec"
         )
         self.issuer_private_key = rsa.generate_private_key(

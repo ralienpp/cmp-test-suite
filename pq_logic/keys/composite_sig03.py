@@ -29,7 +29,7 @@ from pq_logic.hybrid_structures import CompositeSignatureValue
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, AbstractCompositePublicKey
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import (
-    CMS_COMPOSITE_OID_2_HASH,
+    CMS_COMPOSITE03_OID_2_HASH,
     HASH_COMPOSITE_SIG03_NAME_TO_OID,
     PURE_COMPOSITE_SIG03_NAME_TO_OID,
 )
@@ -187,7 +187,7 @@ def _get_hash(param: Union[str, int]) -> hashes.HashAlgorithm:
     return curve_to_hash[param]
 
 
-class CompositeSigCMSPublicKey(AbstractCompositePublicKey):
+class CompositeSig03PublicKey(AbstractCompositePublicKey):
     """Composite signature public key."""
 
     _pq_key: MLDSAPublicKey
@@ -223,7 +223,7 @@ class CompositeSigCMSPublicKey(AbstractCompositePublicKey):
     ) -> str:
         """Retrieve the hash algorithm name for the given composite signature combination."""
         domain_oid = domain_oid or self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
-        return CMS_COMPOSITE_OID_2_HASH[domain_oid]
+        return CMS_COMPOSITE03_OID_2_HASH[domain_oid]
 
     def _verify_trad(
         self,
@@ -279,7 +279,7 @@ class CompositeSigCMSPublicKey(AbstractCompositePublicKey):
         length_bytes = len(ctx).to_bytes(1, "big", signed=False)
 
         if pre_hash:
-            hash_alg = CMS_COMPOSITE_OID_2_HASH[domain_oid]
+            hash_alg = CMS_COMPOSITE03_OID_2_HASH[domain_oid]
             hash_oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
             hashed_data = _compute_hash(alg_name=hash_alg, data=data)
             # Construct M' with pre-hashing
@@ -337,10 +337,10 @@ class CompositeSigCMSPublicKey(AbstractCompositePublicKey):
         validation is performed.
         :raises ValueError: If the OID is not compatible with the key.
         """
-        CompositeSigCMSPrivateKey.validate_oid(oid, key)
+        CompositeSig03PrivateKey.validate_oid(oid, key)
 
 
-class CompositeSigCMSPrivateKey(AbstractCompositePrivateKey):
+class CompositeSig03PrivateKey(AbstractCompositePrivateKey):
     """Composite signature private key."""
 
     _pq_key: MLDSAPrivateKey
@@ -356,7 +356,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositePrivateKey):
         return b"COMPOSITE-SIG"
 
     @staticmethod
-    def validate_oid(oid: univ.ObjectIdentifier, key: Union[CompositeSigCMSPublicKey, "CompositeSigCMSPrivateKey"]):
+    def validate_oid(oid: univ.ObjectIdentifier, key: Union[CompositeSig03PublicKey, "CompositeSig03PrivateKey"]):
         """Validate that the given OID is compatible with the composite signature private key.
 
         :param oid: The object identifier to validate.
@@ -388,7 +388,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositePrivateKey):
     @staticmethod
     def generate(
         pq_name: str = "ml-dsa-65", trad_param: Optional[Union[int, str]] = 3072
-    ) -> "CompositeSigCMSPrivateKey":
+    ) -> "CompositeSig03PrivateKey":
         """Generate a new composite private key, consisting of a pq and traditional private key.
 
         :param pq_name: The name of the post-quantum algorithm (default: "ml-dsa-65").
@@ -419,15 +419,15 @@ class CompositeSigCMSPrivateKey(AbstractCompositePrivateKey):
             raise ValueError("trad_param must be an integer (RSA key size) or a string (EC curve name).")
 
         pq_private_key = MLDSAPrivateKey.generate(name=pq_name)
-        return CompositeSigCMSPrivateKey(pq_key=pq_private_key, trad_key=trad_private_key)
+        return CompositeSig03PrivateKey(pq_key=pq_private_key, trad_key=trad_private_key)
 
-    def public_key(self) -> CompositeSigCMSPublicKey:
+    def public_key(self) -> CompositeSig03PublicKey:
         """Generate the public key corresponding to this composite private key.
 
         :return: A `CompositeSigPublicKey` instance containing the public keys derived
              from the composite private key.
         """
-        return CompositeSigCMSPublicKey(self._pq_key.public_key(), self.trad_key.public_key())
+        return CompositeSig03PublicKey(self._pq_key.public_key(), self.trad_key.public_key())
 
     def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Return the Object Identifier for the composite signature."""
@@ -458,7 +458,7 @@ class CompositeSigCMSPrivateKey(AbstractCompositePrivateKey):
         length_bytes = len(ctx).to_bytes(1, "big", signed=False)
 
         if pre_hash:
-            hash_alg = CMS_COMPOSITE_OID_2_HASH[domain_oid]
+            hash_alg = CMS_COMPOSITE03_OID_2_HASH[domain_oid]
             hash_oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
             hashed_data = _compute_hash(alg_name=hash_alg, data=data)
             # Construct M' with pre-hashing

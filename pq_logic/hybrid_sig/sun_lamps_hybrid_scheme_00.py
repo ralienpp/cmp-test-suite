@@ -33,13 +33,13 @@ from robot.api.deco import keyword, not_keyword
 from pq_logic import pq_compute_utils
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.hybrid_structures import AltSignatureExt, AltSubPubKeyExt, UniformResourceIdentifier
-from pq_logic.keys.composite_sig import (
-    CompositeSigCMSPublicKey,
+from pq_logic.keys.composite_sig03 import (
+    CompositeSig03PublicKey,
     _compute_hash,
 )
 from pq_logic.migration_typing import HybridPublicKey
 from pq_logic.tmp_oids import (
-    CMS_COMPOSITE_OID_2_HASH,
+    CMS_COMPOSITE03_OID_2_HASH,
     id_altSignatureExt,
     id_altSigValueHashAlgAttr,
     id_altSigValueLocAttr,
@@ -378,19 +378,19 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
     """
     public_key = keyutils.load_public_key_from_spki(csr["certificationRequestInfo"]["subjectPublicKeyInfo"])
 
-    if not isinstance(public_key, CompositeSigCMSPublicKey):
+    if not isinstance(public_key, CompositeSig03PublicKey):
         raise ValueError("The public key must be a CompositeSigCMSPublicKey.")
 
     oid = csr["signatureAlgorithm"]["algorithm"]
     data: dict = _extract_sun_hybrid_attrs_from_csr(csr)
 
     if data["pub_key_hash_id"] is None:
-        data["pub_key_hash_id"] = CMS_COMPOSITE_OID_2_HASH[oid] or hash_alg
+        data["pub_key_hash_id"] = CMS_COMPOSITE03_OID_2_HASH[oid] or hash_alg
     else:
         data["pub_key_hash_id"] = get_hash_from_oid(data["pub_key_hash_id"]["algorithm"])
 
     if data["sig_hash_id"] is None:
-        data["sig_hash_id"] = CMS_COMPOSITE_OID_2_HASH[oid] or hash_alg
+        data["sig_hash_id"] = CMS_COMPOSITE03_OID_2_HASH[oid] or hash_alg
     else:
         data["sig_hash_id"] = get_hash_from_oid(data["sig_hash_id"]["algorithm"])
 
@@ -481,7 +481,7 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     if not isinstance(composite_key, HybridPublicKey):
         raise ValueError("The public key must be a HybridPublicKey.")
     oid = composite_key.get_oid()
-    hash_alg = hash_alg or CMS_COMPOSITE_OID_2_HASH.get(oid) or "sha256"
+    hash_alg = hash_alg or CMS_COMPOSITE03_OID_2_HASH.get(oid) or "sha256"
     extn_alt_pub, extn_alt_pub2 = _prepare_public_key_extensions(composite_key, hash_alg, pub_key_loc)
 
     tbs_cert["extensions"].append(extn_alt_pub)

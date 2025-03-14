@@ -24,7 +24,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.composite_sig import CompositeSigCMSPrivateKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
 from pyasn1_alt_modules import rfc8018, rfc9480, rfc9481
 from robot.api.deco import not_keyword
 
@@ -76,7 +76,7 @@ def sign_data(  # noqa D417 undocumented-param
     elif hash_alg is not None:
         hash_alg = hash_name_to_instance(hash_alg)  # type: ignore
 
-    if isinstance(key, CompositeSigCMSPrivateKey):
+    if isinstance(key, CompositeSig03PrivateKey):
         return key.sign(data=data, use_pss=use_rsa_pss, ctx=ctx, pre_hash=use_pre_hash)  # type: ignore
 
     if isinstance(

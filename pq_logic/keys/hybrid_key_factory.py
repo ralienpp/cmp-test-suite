@@ -545,43 +545,36 @@ class HybridKeyFactory:
 
 
 def get_valid_hybrid_combination(
-    combinations: List[dict],
-    pq_name: Optional[str] = None,
-    trad_name: Optional[str] = None,
-    length: Optional[str] = None,
-    curve: Optional[str] = None,
-) -> dict:
-    """Get the valid combination of post-quantum and traditional algorithms based on the given parameters.
+        combinations: List[dict],
+        pq_name: Optional[str] = None,
+        trad_name: Optional[str] = None,
+        length: Optional[str] = None,
+        curve: Optional[str] = None,
+) -> Optional[dict]:
+    """Return the first valid matching combination based on provided criteria."""
 
-    :param combinations: The dictionary with the valid combinations.
-    :param pq_name: The name of the post-quantum algorithm.
-    :param trad_name: The name of the traditional algorithm.
-    :param length: The key length for RSA keys.
-    :return: A dictionary with the matching combination, or None if no match is found.
-    """
-    if pq_name is None and trad_name is None:
+    if not pq_name and not trad_name and not length and not curve:
         return combinations[0]
 
-    if length is not None:
+    if length:
         length = str(length)
 
     for entry in combinations:
-        if pq_name and entry["pq_name"] == pq_name:
-            return entry
+        # Skip entry if criteria provided but don't match
+        if pq_name and entry.get("pq_name") != pq_name:
+            continue
+        if trad_name and entry.get("trad_name") != trad_name:
+            continue
+        if length and entry.get("length") != length:
+            continue
+        if curve and entry.get("curve", "").lower() != curve.lower():
+            continue
 
-        if entry["trad_name"] == trad_name:
-            if entry["trad_name"] == trad_name:
-                if length is None and curve is None and pq_name is None:
-                    return entry
+        return entry
 
-            if "length" in entry and length and entry["length"] == length:
-                return entry
-            if "curve" in entry and curve and entry["curve"] == curve:
-                return entry
-            if "length" not in entry and "curve" not in entry:
-                return entry
-
-    raise ValueError(f"No valid combination found for pq_name={pq_name}, trad_name={trad_name}, length={length}")
+    raise ValueError(
+        f"No valid combination found for pq_name={pq_name}, trad_name={trad_name}, length={length}, curve={curve}"
+    )
 
 
 def get_valid_comp_sig_combination(

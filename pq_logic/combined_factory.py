@@ -88,7 +88,8 @@ class CombinedKeyFactory:
         pq_key = PQKeyFactory.generate_pq_key(pq_name)
 
         rest = algorithm.replace(f"composite-{prefix}-{pq_name}-", "", 1)
-        trad_name = _any_string_in_string(rest, ["rsa", "ecdsa", "ecdh", "ec"])
+        trad_name = _any_string_in_string(rest, ["rsa", "ecdsa", "ecdh", "ec",
+                                                 "ed25519", "ed448", "x25519", "x448"])
         rest = rest.replace(f"{trad_name}", "")
 
         curve = None

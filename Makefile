@@ -78,8 +78,6 @@ pq-docs:
 	python -m robot.libdoc --pythonpath=./ pq_logic/hybrid_prepare.py doc/hybrid_prepare.html
 	python -m robot.testdoc tests_untested/ doc/test-migration-suites.html
 
-
-
 autoformat:
 	ruff check --fix .
 
@@ -105,7 +103,7 @@ start-mock-ca:
 	python ./mock_ca/ca_handler.py
 
 test-mock-ca:
-	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca pq_tests/composite_sig_alg.robot
+	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests_pq/composite_sig04_alg.robot
 
 codespell:
 	codespell . --check-filenames --skip=*.html,*.pem,*.xml,*venv*,*fips/*.py,*data/*,*/liboqs-python/*,*doc/*,*data/pqc-certificates/*,*data/stats,*/tests_rsa_kem/*

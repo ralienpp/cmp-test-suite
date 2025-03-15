@@ -158,15 +158,16 @@ def verify_cert_signature(cert: rfc9480.CMPCertificate, issuer_pub_key: Optional
     :param issuer_pub_key: Optional PublicKeySig used for verification.
     :raises InvalidSignature: If the certificate's signature is not valid.
     """
-    cert_hash_alg = oid_mapping.get_hash_from_oid(cert["signatureAlgorithm"]["algorithm"], only_hash=True)
     tbs_der = encoder.encode(cert["tbsCertificate"])
     pub_key = issuer_pub_key or load_public_key_from_cert(cert)
 
-    cryptoutils.verify_signature(
+    from pq_logic import pq_compute_utils
+
+    pq_compute_utils.verify_signature_with_alg_id(
         public_key=pub_key,
-        signature=cert["signature"].asOctets(),
         data=tbs_der,
-        hash_alg=cert_hash_alg,
+        signature=cert["signature"].asOctets(),
+        alg_id=cert["tbsCertificate"]["signature"],
     )
 
 

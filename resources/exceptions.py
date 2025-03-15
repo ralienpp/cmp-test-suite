@@ -56,13 +56,6 @@ class CMPTestSuiteError(Exception):
 ##########################
 
 
-class InvalidKeyCombination(CMPTestSuiteError):
-    """Raised when a Hybrid key combination is invalid.
-
-    As an example, a key combination for Chempat or Composite keys is invalid.
-    """
-
-
 class UnknownOID(CMPTestSuiteError):
     """Raised when an OID is unknown."""
 
@@ -106,6 +99,13 @@ class BadAlg(CMPTestSuiteError):
 
     failinfo = "badAlg"
     bit_num = 0
+
+
+class InvalidKeyCombination(BadAlg):
+    """Raised when a Hybrid key combination is invalid.
+
+    As an example, a key combination for Chempat or Composite keys is invalid.
+    """
 
 
 class BadMessageCheck(CMPTestSuiteError):

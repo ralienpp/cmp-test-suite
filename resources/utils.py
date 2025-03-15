@@ -19,6 +19,7 @@ import requests
 from pq_logic.hybrid_structures import CompositeCiphertextValue, CompositeSignatureValue
 from pq_logic.keys.composite_kem import CompositeKEMPrivateKey, CompositeKEMPublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey, CompositeSig04PublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, char, univ
 from pyasn1_alt_modules import rfc2986, rfc5280, rfc6402, rfc9480
@@ -661,34 +662,26 @@ def manipulate_bytes_based_on_key(  # noqa D417 Missing argument description in 
     """
     if key is None:
         return manipulate_first_byte(data)
+
+    if isinstance(key, (CompositeSig04PublicKey, CompositeSig04PrivateKey)):
+        # contains the length of the signature, afterwards starts the pq signature.
+        return data[:4] + manipulate_first_byte(data[4:])
+
     if isinstance(key, (CompositeKEMPublicKey, CompositeKEMPrivateKey)):
         return manipulate_composite_kem_ct(data)
     if isinstance(key, (CompositeSig03PublicKey, CompositeSig03PrivateKey)):
-        return manipulate_composite_sig(data)
+        return manipulate_composite_sig03(data)
     return manipulate_first_byte(data)
 
 
-def manipulate_composite_sig(  # noqa: D417 Missing argument description in the docstring
+@not_keyword
+def manipulate_composite_sig03(
     sig: bytes,
 ) -> bytes:
     """Manipulate the first signature of a CompositeSignature.
 
-    Arguments:
-    ---------
-       - `sig`: The DER-encoded signature.
-
-    Returns:
-    -------
-         - The modified signature.
-
-    Raises:
-    ------
-            - `BadAsn1Data`: if the provided `sig` is not a valid `CompositeSignatureValue`.
-
-    Examples:
-    --------
-    | ${manipulated_sig}= | Manipulate Composite Sig | sig=${sig} |
-
+    :param sig: The DER-encoded `CompositeSignatureValue`.
+    :return: The modified `CompositeSignatureValue` as DER-encoded bytes.
     """
     try:
         obj, _ = decoder.decode(sig, CompositeSignatureValue())

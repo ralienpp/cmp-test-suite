@@ -12,7 +12,7 @@ from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc5958
 from resources.exceptions import BadAlg, InvalidKeyCombination
 from resources.oid_mapping import may_return_oid_to_name
-from resources.oidutils import ALL_COMPOSITE_SIG_COMBINATIONS, XWING_OID_STR
+from resources.oidutils import ALL_COMPOSITE_SIG04_COMBINATIONS, ALL_COMPOSITE_SIG_COMBINATIONS, XWING_OID_STR
 from resources.typingutils import Strint
 
 from pq_logic.chempatkem import ChempatPrivateKey, ChempatPublicKey
@@ -22,6 +22,7 @@ from pq_logic.keys.composite_kem import (
     CompositeKEMPrivateKey,
 )
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.trad_key_factory import generate_ec_key, generate_trad_key
 from pq_logic.keys.xwing import XWingPrivateKey
@@ -265,7 +266,7 @@ class HybridKeyFactory:
 
             return CompositeKEMPrivateKey(pq_key, trad_key)
 
-        if algorithm == "composite-sig":
+        if algorithm == "composite-sig" or algorithm == "composite-sig-04":
             if pq_key is None and trad_key is None:
                 raise ValueError("Either a pq_key or trad_key must be provided, to generate a composite sig key.")
 
@@ -289,17 +290,21 @@ class HybridKeyFactory:
                 else:
                     raise ValueError(f"Unsupported traditional key type: {type(trad_key)}")
 
-                comp_key = HybridKeyFactory.generate_comp_sig_key(
+                comp_key = HybridKeyFactory.generate_comp_sig03_key(
                     pq_name=None, trad_name=trad_name, length=length, curve=curve
                 )
                 pq_key = comp_key.pq_key
 
             if trad_key is None:
                 pq_name = pq_key.name
-                return HybridKeyFactory.generate_comp_sig_key(
+                return HybridKeyFactory.generate_comp_sig03_key(
                     pq_name=pq_name,
                 )
-            return CompositeSig03PrivateKey(pq_key, trad_key)
+
+            if algorithm == "composite-sig":
+                return CompositeSig03PrivateKey(pq_key, trad_key)
+
+            return CompositeSig04PrivateKey(pq_key, trad_key)
 
         if algorithm == "composite-dhkem":
             keys = HybridKeyFactory.from_keys(algorithm="composite-kem", pq_key=pq_key, trad_key=trad_key)
@@ -315,7 +320,7 @@ class HybridKeyFactory:
     @staticmethod
     def supported_algorithms() -> List[str]:
         """Return a list of supported hybrid algorithms."""
-        return ["xwing", "composite-sig", "composite-kem", "composite-dhkem", "chempat"]
+        return ["xwing", "composite-sig", "composite-sig-04", "composite-kem", "composite-dhkem", "chempat"]
 
     @staticmethod
     def generate_hybrid_key(
@@ -336,8 +341,14 @@ class HybridKeyFactory:
         """
         if algorithm == "xwing":
             return XWingPrivateKey.generate()
+
+        if algorithm == "composite-sig-04":
+            return HybridKeyFactory.generate_comp_sig04_key(
+                pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
+            )
+
         if algorithm == "composite-sig":
-            return HybridKeyFactory.generate_comp_sig_key(
+            return HybridKeyFactory.generate_comp_sig03_key(
                 pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
             )
         if algorithm == "composite-kem":
@@ -386,7 +397,30 @@ class HybridKeyFactory:
         return pq_key, trad_key
 
     @staticmethod
-    def generate_comp_sig_key(
+    def generate_comp_sig04_key(
+        pq_name: Optional[str] = None,
+        trad_name: Optional[str] = None,
+        length: Optional[Strint] = None,
+        curve: Optional[str] = None,
+    ) -> CompositeSig04PrivateKey:
+        """
+        Generate a composite signature key.
+
+        :param pq_name: Name of the post-quantum signature algorithm.
+        :param trad_name: Name of the traditional signature algorithm.
+        :return: The private key.
+        """
+        params = get_valid_hybrid_combination(
+            ALL_COMPOSITE_SIG04_COMBINATIONS, pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
+        )
+        pq_key = PQKeyFactory.generate_pq_key(params["pq_name"])
+        trad_key = generate_trad_key(
+            algorithm=params["trad_name"], length=params.get("length"), curve=params.get("curve")
+        )
+        return CompositeSig04PrivateKey(pq_key, trad_key)
+
+    @staticmethod
+    def generate_comp_sig03_key(
         pq_name: Optional[str] = None,
         trad_name: Optional[str] = None,
         length: Optional[Strint] = None,
@@ -399,10 +433,14 @@ class HybridKeyFactory:
         :param trad_name: Name of the traditional signature algorithm.
         :return: Instance of a subclass of Abstract
         """
-        pq_key, trad_key = HybridKeyFactory._get_combinations(
-            pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
+        params = get_valid_hybrid_combination(
+            ALL_COMPOSITE_SIG_COMBINATIONS, pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
         )
-        return CompositeSig03PrivateKey(pq_key, trad_key)
+        pq_key = PQKeyFactory.generate_pq_key(params["pq_name"])
+        trad_key = generate_trad_key(
+            algorithm=params["trad_name"], length=params.get("length"), curve=params.get("curve")
+        )
+        return CompositeSig03PrivateKey(pq_key, trad_key)  # type: ignore
 
     @staticmethod
     def generate_comp_kem_key(
@@ -506,6 +544,46 @@ class HybridKeyFactory:
         return private_key
 
 
+def get_valid_hybrid_combination(
+    combinations: List[dict],
+    pq_name: Optional[str] = None,
+    trad_name: Optional[str] = None,
+    length: Optional[str] = None,
+    curve: Optional[str] = None,
+) -> dict:
+    """Get the valid combination of post-quantum and traditional algorithms based on the given parameters.
+
+    :param combinations: The dictionary with the valid combinations.
+    :param pq_name: The name of the post-quantum algorithm.
+    :param trad_name: The name of the traditional algorithm.
+    :param length: The key length for RSA keys.
+    :return: A dictionary with the matching combination, or None if no match is found.
+    """
+    if pq_name is None and trad_name is None:
+        return combinations[0]
+
+    if length is not None:
+        length = str(length)
+
+    for entry in combinations:
+        if pq_name and entry["pq_name"] == pq_name:
+            return entry
+
+        if entry["trad_name"] == trad_name:
+            if entry["trad_name"] == trad_name:
+                if length is None and curve is None and pq_name is None:
+                    return entry
+
+            if "length" in entry and length and entry["length"] == length:
+                return entry
+            if "curve" in entry and curve and entry["curve"] == curve:
+                return entry
+            if "length" not in entry and "curve" not in entry:
+                return entry
+
+    raise ValueError(f"No valid combination found for pq_name={pq_name}, trad_name={trad_name}, length={length}")
+
+
 def get_valid_comp_sig_combination(
     pq_name: Optional[str] = None,
     trad_name: Optional[str] = None,
@@ -523,21 +601,6 @@ def get_valid_comp_sig_combination(
     if pq_name is None and trad_name is None:
         return {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"}
 
-    for entry in ALL_COMPOSITE_SIG_COMBINATIONS:
-        if pq_name and entry["pq_name"] == pq_name:
-            return entry
-
-        if entry["trad_name"] == trad_name:
-            if length is None and curve is None and pq_name is None:
-                return entry
-
-            if "length" in entry and length and entry["length"] == length:
-                return entry
-            if "curve" in entry and curve and entry["curve"] == curve:
-                return entry
-            if "length" not in entry and "curve" not in entry:
-                return entry
-
-    raise ValueError(
-        f"No valid combination found for pq_name={pq_name}, trad_name={trad_name}, length={length}, curve={curve}"
+    return get_valid_hybrid_combination(
+        ALL_COMPOSITE_SIG_COMBINATIONS, pq_name=pq_name, trad_name=trad_name, length=length, curve=curve
     )

@@ -111,6 +111,10 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the composite KEM."""
         _name = f"composite-kem-{self.pq_key.name}-{self.trad_key.get_trad_name}"
+
+        if COMPOSITE_KEM_NAME_2_OID.get(_name) is None:
+            raise InvalidKeyCombination(f"Unsupported composite KEM combination: {_name}")
+
         return COMPOSITE_KEM_NAME_2_OID[_name]
 
     @property
@@ -229,6 +233,10 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
         else:
             trad_name = self.trad_key.get_trad_name
         _name = f"composite-kem-{self.pq_key.name}-{trad_name}"
+
+        if COMPOSITE_KEM_NAME_2_OID.get(_name) is None:
+            raise InvalidKeyCombination(f"Unsupported composite KEM combination: {_name}")
+
         return COMPOSITE_KEM_NAME_2_OID[_name]
 
     def public_key(self) -> CompositeKEMPublicKey:

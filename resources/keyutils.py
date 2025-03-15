@@ -207,7 +207,8 @@ def generate_key(algorithm: str = "rsa", **params) -> PrivateKey:  # noqa: D417 
     Hybrid algorithms:
     ------------------
         - "xwing"
-        - "composite-sig"
+        - "composite-sig" (v3)
+        - "composite-sig-04"
         - "composite-kem"
         - "composite-dhkem" (uses DHKEM: RFC9180)
         - "chempat"

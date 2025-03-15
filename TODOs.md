@@ -25,6 +25,8 @@ Certificate Contents.
 16. Add alternative certificate linters.
 17. Restructure the test cases for better readability/identification.
 18. Change test cases in composite-sig-tests to use RF templates.
+19. Fix CompositeSig v3 and v4 names for the Test-Suite,
+to refer to composite-sig as the latest version.
 
 ## About PQ:
 

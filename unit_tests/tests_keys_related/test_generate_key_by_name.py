@@ -6,6 +6,7 @@ import unittest
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from pq_logic.combined_factory import CombinedKeyFactory
+from resources.exceptions import InvalidKeyCombination
 
 
 class TestGenerateKeyByName(unittest.TestCase):
@@ -57,5 +58,5 @@ class TestGenerateKeyByName(unittest.TestCase):
         because this combination is not allowed.
         """
         algorithm = "composite-kem-ml-kem-768-ecdh-secp256r1"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(InvalidKeyCombination):
             CombinedKeyFactory.generate_key_from_name(algorithm)

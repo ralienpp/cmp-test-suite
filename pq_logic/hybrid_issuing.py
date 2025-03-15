@@ -577,7 +577,7 @@ def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descr
         sig = pq_compute_utils.sign_data_with_alg_id(key=comp_key, alg_id=sig_alg, data=data)
 
         if bad_pop:
-            sig = utils.manipulate_composite_sig(sig)
+            sig = utils.manipulate_bytes_based_on_key(sig, comp_key)
 
         popo = cmputils.prepare_popo(signature=sig, alg_oid=sig_alg["algorithm"])
 

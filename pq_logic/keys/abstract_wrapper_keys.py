@@ -558,6 +558,15 @@ class HybridPrivateKey(WrapperPrivateKey, ABC):
     _pq_key: PQPrivateKey
     _trad_key: HybridTradPrivComp
 
+    def __init__(self, pq_key: PQPrivateKey, trad_key: HybridTradPrivComp):
+        """Initialize the HybridPrivateKey.
+
+        :param pq_key: The post-quantum private key object.
+        :param trad_key: The traditional private key object.
+        """
+        self._pq_key = pq_key
+        self._trad_key = trad_key
+
     @property
     def pq_key(self) -> WrapperPrivateKey:
         """Get the private key of the post-quantum algorithm."""
@@ -807,7 +816,7 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         return len(self._export_public_key())
 
 
-class AbstractCompositePrivateKey(HybridSigPrivateKey, ABC):
+class AbstractCompositePrivateKey(HybridPrivateKey, ABC):
     """Abstract class for Composite private keys."""
 
     @abstractmethod

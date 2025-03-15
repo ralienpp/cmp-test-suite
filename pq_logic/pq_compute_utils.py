@@ -12,8 +12,6 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPubl
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc6402, rfc9480
-
-from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from resources import certbuildutils, cryptoutils, keyutils, protectionutils, utils
 from resources.asn1_structures import KemCiphertextInfoAsn1, PKIMessageTMP
 from resources.certextractutils import get_extension
@@ -41,10 +39,15 @@ from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKe
 from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey
 from pq_logic.keys.composite_kem import CompositeKEMPublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
 from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey, SignKey, VerifyKey
-from pq_logic.tmp_oids import id_altSubPubKeyExt, id_ce_deltaCertificateDescriptor, id_relatedCert, \
-    CMS_COMPOSITE04_OID_2_NAME
+from pq_logic.tmp_oids import (
+    CMS_COMPOSITE04_OID_2_NAME,
+    id_altSubPubKeyExt,
+    id_ce_deltaCertificateDescriptor,
+    id_relatedCert,
+)
 from pq_logic.trad_typing import ECDHPrivateKey
 
 
@@ -342,10 +345,7 @@ def _compute_protection(
     )
 
     if bad_message_check:
-        if isinstance(signing_key, CompositeSig03PrivateKey):
-            signature = utils.manipulate_composite_sig(signature)
-        else:
-            signature = utils.manipulate_first_byte(signature)
+        signature = utils.manipulate_bytes_based_on_key(signature, signing_key)
 
     pki_message["protection"] = protectionutils.prepare_pki_protection_field(signature)
     return pki_message

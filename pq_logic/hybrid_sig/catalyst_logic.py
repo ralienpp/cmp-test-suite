@@ -28,7 +28,6 @@ from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_structures import AltSignatureValueExt, SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
 
 
 @keyword(name="Prepare SubjectAltPublicKeyInfo Extension")
@@ -245,10 +244,7 @@ def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
 
     alt_signature = cryptoutils.sign_data(data=alt_sig_data, key=pq_key, hash_alg=pq_hash_alg)
     if bad_alt_sig:
-        if isinstance(pq_key, CompositeSig03PrivateKey):
-            alt_signature = utils.manipulate_composite_sig(alt_signature)
-        else:
-            alt_signature = utils.manipulate_first_byte(alt_signature)
+        alt_signature = utils.manipulate_bytes_based_on_key(alt_signature, pq_key)
 
     alt_extn = prepare_alt_signature_value_extn(signature=alt_signature, critical=critical)
     cert["tbsCertificate"]["extensions"].append(alt_extn)
@@ -560,10 +556,7 @@ def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
         alt_sig_value = cryptoutils.sign_data(data=data, key=alt_private_key, hash_alg=alt_hash_alg or hash_alg)
 
         if bad_alt_sig:
-            if isinstance(alt_private_key, CompositeSig03PrivateKey):
-                alt_sig_value = utils.manipulate_composite_sig(alt_sig_value)
-            else:
-                alt_sig_value = utils.manipulate_first_byte(alt_sig_value)
+            alt_sig_value = utils.manipulate_bytes_based_on_key(alt_sig_value, alt_private_key)
 
         alt_sig_ext = prepare_alt_signature_value_extn(signature=alt_sig_value, critical=critical)
         crl["tbsCertList"]["crlExtensions"].append(alt_sig_ext)
@@ -572,10 +565,7 @@ def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     crl_signature = cryptoutils.sign_data(data=crl_tbs, key=ca_private_key, hash_alg=hash_alg)
 
     if bad_sig:
-        if isinstance(ca_private_key, CompositeSig03PrivateKey):
-            crl_signature = utils.manipulate_composite_sig(crl_signature)
-        else:
-            crl_signature = utils.manipulate_first_byte(crl_signature)
+        crl_signature = utils.manipulate_bytes_based_on_key(crl_signature, ca_private_key)
 
     crl["signature"] = univ.BitString.fromOctetString(crl_signature)
 

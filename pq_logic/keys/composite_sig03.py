@@ -30,6 +30,7 @@ from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, Abs
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE03_OID_2_HASH,
+    COMP_SIG03_PREHASH_OID_2_HASH,
     HASH_COMPOSITE_SIG03_NAME_TO_OID,
     PURE_COMPOSITE_SIG03_NAME_TO_OID,
 )
@@ -458,7 +459,7 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey):
         length_bytes = len(ctx).to_bytes(1, "big", signed=False)
 
         if pre_hash:
-            hash_alg = CMS_COMPOSITE03_OID_2_HASH[domain_oid]
+            hash_alg = COMP_SIG03_PREHASH_OID_2_HASH[domain_oid]
             hash_oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
             hashed_data = _compute_hash(alg_name=hash_alg, data=data)
             # Construct M' with pre-hashing

@@ -24,7 +24,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pyasn1_alt_modules import rfc8018, rfc9480, rfc9481
 from robot.api.deco import not_keyword
 
@@ -527,6 +527,7 @@ def verify_signature(  # noqa D417 undocumented-param
     hash_alg: Optional[Union[str, hashes.HashAlgorithm]] = None,
     use_rsa_pss: bool = False,
     salt_length: Optional[int] = None,
+    use_pre_hash: bool = False,
 ) -> None:
     """Verify a digital signature using the provided public key, data and hash algorithm.
 
@@ -595,7 +596,10 @@ def verify_signature(  # noqa D417 undocumented-param
     elif isinstance(public_key, PQSignaturePublicKey):
         # TODO maybe think about a better solution.
         hash_alg = public_key.check_hash_alg(hash_alg)
-        public_key.verify(data=data, hash_alg=hash_alg, signature=signature)
+        public_key.verify(data=data, hash_alg=hash_alg, signature=signature, is_prehashed=use_pre_hash)
+
+    elif isinstance(public_key, CompositeSig03PublicKey):
+        public_key.verify(signature, data, use_pss=use_rsa_pss, pre_hash=use_pre_hash)
 
     else:
         raise BadAlg(f"Unsupported public key type: {type(public_key).__name__}.")

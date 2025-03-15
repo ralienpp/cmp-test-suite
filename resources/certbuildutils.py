@@ -239,10 +239,7 @@ def sign_csr(  # noqa D417 undocumented-param
     )
     logging.info("CSR Signature: %s", signature)
     if bad_pop:
-        if isinstance(signing_key, CompositeSig03PrivateKey):
-            signature = utils.manipulate_composite_sig(signature)
-        else:
-            signature = utils.manipulate_first_byte(signature)
+        signature = utils.manipulate_bytes_based_on_key(signature, signing_key)
         logging.info("Modified CSR signature: %s", signature)
 
     csr["signature"] = univ.BitString.fromOctetString(signature)
@@ -948,10 +945,7 @@ def sign_cert(  # noqa: D417 Missing argument descriptions in the docstring
     logging.info("Certificate signature: %s", signature.hex())
 
     if bad_sig:
-        if isinstance(signing_key, CompositeSig03PrivateKey):
-            signature = utils.manipulate_composite_sig(signature)
-        else:
-            signature = utils.manipulate_first_byte(signature)
+        signature = utils.manipulate_bytes_based_on_key(signature, signing_key)
         logging.info("Modified certificate signature: %s", signature.hex())
 
     cert["signature"] = univ.BitString.fromOctetString(signature)
@@ -971,6 +965,7 @@ def generate_certificate(
     extensions: Optional[Sequence[rfc5280.Extension]] = None,
     days: int = 365,
     use_rsa_pss: bool = False,
+    bad_sig: bool = False,
 ) -> rfc9480.CMPCertificate:
     """Generate a complete `CMPCertificate` using specified parameters.
 
@@ -984,6 +979,7 @@ def generate_certificate(
     :param extensions: Optional `rfc9480.Extensions` to include in the certificate.
     :param use_rsa_pss: Whether to use RSA-PSS for signing. Defaults to `False`.
     :param days: The duration in days for which the certificate remains valid. Defaults to 365 days.
+    :param bad_sig: Whether to generate a bad signature. Defaults to `False`.
     :return: `rfc9480.CMPCertificate` object representing the created certificate.
     """
     cert = rfc9480.CMPCertificate()
@@ -1011,7 +1007,13 @@ def generate_certificate(
         days=int(days),
     )
     cert["tbsCertificate"] = tbs_cert
-    return sign_cert(signing_key=signing_key, cert=cert, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
+    return sign_cert(
+        signing_key=signing_key,
+        cert=cert,
+        hash_alg=hash_alg,
+        use_rsa_pss=use_rsa_pss,
+        bad_sig=bad_sig,
+    )
 
 
 def build_certificate(  # noqa D417 undocumented-param
@@ -1045,6 +1047,7 @@ def build_certificate(  # noqa D417 undocumented-param
         - `key_alg` (str): Algorithm for key generation (e.g., "ecdsa"). Defaults to `ec`.
         - `key_usage` (str): Specific key usage (e.g., "digitalSignature") to set on the certificate.
         - `eku` (str): Extended key usage to set for the certificate.
+        - `bad_sig` (bool): Whether to generate a bad signature. Defaults to `False`.
 
     Returns:
     -------
@@ -1089,6 +1092,7 @@ def build_certificate(  # noqa D417 undocumented-param
         extensions=extensions,
         use_rsa_pss=params.get("use_rsa_pss", False),
         days=int(params.get("days", 365)),
+        bad_sig=params.get("bad_sig", False),
     )
     return certificate, private_key
 
@@ -1433,8 +1437,8 @@ def _prepare_public_key_for_cert_template(
     elif isinstance(
         key,
         (
-                typingutils.PrivateKey,
-                CompositeSig03PrivateKey,
+            typingutils.PrivateKey,
+            CompositeSig03PrivateKey,
         ),
     ):
         key = key.public_key()  # type: ignore

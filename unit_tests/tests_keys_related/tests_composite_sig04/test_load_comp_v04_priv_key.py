@@ -7,7 +7,9 @@ from pyasn1_alt_modules import rfc5280
 
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
+from pq_logic.keys.sig_keys import MLDSAPrivateKey
 from resources import keyutils
+from resources.utils import manipulate_first_byte
 
 
 class TestLoadCompSig04(unittest.TestCase):
@@ -65,3 +67,24 @@ class TestLoadCompSig04(unittest.TestCase):
         private_key = CombinedKeyFactory.load_key_from_one_asym_key(der_data)
         self.assertEqual(private_key.public_key(), self.comp_ecc_key.public_key())
 
+
+    def test_export_and_load_priv_key_bad_seed(self):
+        """
+        GIVEN a composite signature key in version 4.
+        WHEN exporting the private key and loading it back with a bad ML-DSA seed.
+        THEN is the loaded key different from the exported key.
+        """
+        _seed = manipulate_first_byte(self.comp_rsa_key.pq_key._seed)
+        pq_key = MLDSAPrivateKey(seed=self.comp_rsa_key.pq_key._seed,
+                                 alg_name=self.comp_rsa_key.pq_key.name)
+        other_key = CompositeSig04PrivateKey(pq_key, trad_key=self.comp_rsa_key.trad_key)
+
+        other_key.pq_key._seed = _seed
+
+        der_data = other_key.private_bytes(
+            encoding=Encoding.DER,
+            format=PrivateFormat.PKCS8
+        )
+
+        out_key = CombinedKeyFactory.load_key_from_one_asym_key(der_data)
+        self.assertNotEqual(out_key.public_key(), other_key.public_key())

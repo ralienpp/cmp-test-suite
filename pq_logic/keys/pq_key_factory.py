@@ -5,11 +5,12 @@
 """Factory class to generate and load post-quantum keys in various input formats."""
 
 import logging
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Tuple, Type, Union
 
 import resources.oidutils
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc5280, rfc5958
+from resources.exceptions import InvalidKeyData
 from resources.oid_mapping import may_return_oid_to_name
 from resources.oidutils import (
     FRODOKEM_NAME_2_OID,
@@ -223,20 +224,21 @@ class PQKeyFactory:
 
         :param name: The name of the algorithm.
         :param data: The public key bytes.
+        :param allow_rest: If True, allow additional data after the public key. Defaults to `False`.
         :return: The public key instance.
         """
-
-        pq_name = PQKeyFactory.may_be_pq_alg(name)
+        pq_name = PQKeyFactory.get_pq_alg_name(name)
         pq_key = PQKeyFactory.generate_pq_key(pq_name)
+        key_size = pq_key.public_key().key_size
 
-        pq_data = data[pq_key.key_size:]
-        key = class_inst.from_public_bytes(pq_data, pq_key.name)
+        pq_data = data[:key_size]
+        key = pq_key.public_key().from_public_bytes(data=pq_data, name=pq_key.name)
 
-        if not allow_rest and len(data) != key.key_size:
-            raise InvalidKeyData()
+        if not allow_rest and len(data) != key_size:
+            raise InvalidKeyData(f"Invalid key data length, for the provided {pq_name} key.")
 
-        rest = data[:key.key_size]
-        return key.public_key().from_public_bytes(data, name), rest
+        rest = data[key_size:]
+        return key, rest
 
     @staticmethod
     def from_one_asym_key(

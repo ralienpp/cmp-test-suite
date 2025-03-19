@@ -14,6 +14,7 @@ from pq_logic.tmp_oids import (
     CMS_COMPOSITE03_OID_2_HASH,
     COMP_SIG03_PREHASH_OID_2_HASH,
     COMPOSITE_KEM05_OID_2_NAME,
+    COMPOSITE_KEM06_OID_2_NAME,
     COMPOSITE_SIG03_HASH_NAME_2_OID,
     COMPOSITE_SIG03_OID_2_NAME,
     COMPOSITE_SIG04_OID_2_NAME,
@@ -27,7 +28,7 @@ from pq_logic.tmp_oids import (
     id_altSignatureExt,
     id_altSubPubKeyExt,
     id_ce_deltaCertificateDescriptor,
-    id_sntrup761_str, COMPOSITE_KEM06_NAME_2_OID, COMPOSITE_KEM06_OID_2_NAME,
+    id_sntrup761_str,
 )
 from pyasn1.type import univ
 from pyasn1_alt_modules import (

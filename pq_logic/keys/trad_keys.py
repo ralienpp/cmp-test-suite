@@ -212,12 +212,12 @@ class RSADecapKey(TradKEMPrivateKey):
         return self._private_key.private_numbers()
 
     def encode(self) -> bytes:
+        """Encode the private key as PKCS8 bytes."""
         return self._private_key.private_bytes(
             serialization.Encoding.DER,
             serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
-
 
 
 class DHKEMPublicKey(TradKEMPublicKey):
@@ -268,12 +268,24 @@ class DHKEMPublicKey(TradKEMPublicKey):
     @property
     def name(self) -> str:
         """Return the name of the encapsulation key."""
-        return "dhkem-rfc9180" if self.use_rfc9180 else "ecdh-kem"
+        return "dhkem-" if self.use_rfc9180 else "ecdh-kem-" + self.get_trad_name
 
     @property
     def key_size(self) -> int:
         """Return the size of the encapsulation key."""
-        return get_trad_key_length(self._public_key)
+        if isinstance(self._public_key, x25519.X25519PublicKey):
+            return 32
+        if isinstance(self._public_key, x448.X448PublicKey):
+            return 56
+
+        # Plus one for the prefix that the key is a point on the curve,
+        # which is negative or positive.
+        # Currently only uncompressed point is supported.
+        return self._public_key.curve.key_size // 8 + 1
+
+    @property
+    def ct_length(self) -> int:
+        return self.key_size
 
     @property
     def get_trad_name(self) -> str:
@@ -304,6 +316,37 @@ class DHKEMPublicKey(TradKEMPublicKey):
         if isinstance(self._public_key, ec.EllipticCurvePublicKey):
             return self._public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
         return self._public_key.public_bytes_raw()
+
+    @classmethod
+    def _ec_key_from_der(cls, data: bytes, curve: ec.EllipticCurve) -> ec.EllipticCurvePublicKey:
+        """Reconstruct an EllipticCurvePublicKey from DER data.
+
+        :param data: The DER encoded public key.
+        :param curve: The elliptic curve.
+        :return: The reconstructed public key.
+        """
+        return ec.EllipticCurvePublicKey.from_encoded_point(curve=curve, data=data)
+
+    @classmethod
+    def from_public_bytes(cls, name: str, data: bytes) -> "DHKEMPublicKey":
+        """Load the public key from raw bytes.
+
+        :param name: The name of the key. (e.g. "ecdh-secp256r1", "x25519", "x448")
+        :param data: The raw bytes of the public key.
+        :return: The DHKEMPublicKey instance.
+        """
+        if name not in ["x25519", "x448"]:
+            curve = name.replace("ecdh-", "", 1)
+            curve_inst = get_curve_instance(curve)
+            trad_key = cls._ec_key_from_der(data, curve_inst)
+        elif name == "x25519":
+            trad_key = x25519.X25519PublicKey.from_public_bytes(data)
+        elif name == "x448":
+            trad_key = x448.X448PublicKey.from_public_bytes(data)
+        else:
+            raise ValueError(f"Unsupported key type: {name}. Expected one of 'x25519', 'x448' or 'ecdh-*'.")
+
+        return cls(trad_key)
 
 
 class DHKEMPrivateKey(TradKEMPrivateKey):
@@ -349,7 +392,11 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
     @property
     def key_size(self) -> int:
         """Return the size of the decapsulation key."""
-        return get_trad_key_length(self._private_key)
+        return self.public_key().key_size
+
+    @property
+    def ct_length(self) -> int:
+        return self.public_key().ct_length
 
     @property
     def get_trad_name(self) -> str:
@@ -403,6 +450,16 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
 
     @classmethod
     def from_private_bytes(cls, name: str, data: bytes, curve: Optional[str] = None) -> "DHKEMPrivateKey":
+        """Load the private key from raw bytes.
+
+        :param name: The name of the key. (e.g. "ecdh-secp256r1", "x25519", "x448")
+        :param data: The raw bytes of the private key.
+        :param curve: The curve name for ECDH keys.
+        :return: The DHKEMPrivateKey instance.
+        """
+        if name not in ["x25519", "x448"] and curve is None:
+            curve = name.replace("ecdh-", "", 1)
+
         if name == "x25519":
             trad_key = x25519.X25519PrivateKey.from_private_bytes(data)
         elif name == "x448":
@@ -413,8 +470,6 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
             trad_key = cls._ec_key_from_der(data, curve_inst)
 
         return cls(trad_key)
-
-
 
     def private_bytes(
         self,

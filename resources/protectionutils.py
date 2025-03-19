@@ -1670,9 +1670,7 @@ def check_signature_alg_is_consistent(
 
     if pki_polling is not None:
         pki_polling_alg_id = pki_polling["header"]["protectionAlg"]
-        pki_polling_oid = ALL_KNOWN_OIDS_2_NAME.get(
-            pki_polling_alg_id["algorithm"], pki_polling_alg_id["algorithm"]
-        )
+        pki_polling_oid = ALL_KNOWN_OIDS_2_NAME.get(pki_polling_alg_id["algorithm"], pki_polling_alg_id["algorithm"])
         if protection_alg["algorithm"] != pki_polling_alg_id["algorithm"]:
             logging.info("Initial ProtectionAlg OID was: %s but pkiConf OID was %s", server_alg_id, pki_polling_oid)
             raise ValueError("The `pkiConf` message has a different ObjectIdentifier!")

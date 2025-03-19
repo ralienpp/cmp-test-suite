@@ -13,7 +13,6 @@ from pyasn1_alt_modules import rfc9480
 from resources.asn1_structures import PKIMessageTMP
 from resources.ca_ra_utils import build_pki_conf_from_cert_conf
 from resources.checkutils import validate_pkimessage_header
-from resources.convertutils import copy_asn1_certificate
 from resources.exceptions import (
     BadDataFormat,
     BadMessageCheck,

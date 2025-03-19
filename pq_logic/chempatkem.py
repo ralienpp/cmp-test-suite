@@ -37,6 +37,7 @@ CURVE_NAME_2_CONTEXT_NAME = {
     "brainpoolP256r1": "brainpoolP256",
     "secp384r1": "P384",
     "brainpoolP384r1": "brainpoolP384",
+    "brainpoolP512r1": "brainpoolP512",
 }
 
 
@@ -89,7 +90,9 @@ class ChempatKEM:
             pq_name = self.pq_key.name.upper()
 
         elif isinstance(self.pq_key, (FrodoKEMPrivateKey, FrodoKEMPublicKey)):
-            pq_name = self.pq_key.name
+            pq_name = self.pq_key.name.replace("frodokem", "FrodoKEM")
+            pq_name = pq_name.replace("-aes", "")
+            pq_name = pq_name.replace("-shake", "")
 
         else:
             raise InvalidKeyCombination(f"Unsupported post-quantum key type for Chempat.: {self.pq_key.name}")
@@ -235,8 +238,8 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
 
     @staticmethod
     def _from_public_bytes(data: bytes, name: str):
-
-        pq_key, rest = PQKeyFactory.from_public_bytes(name, allow_rest=True)
+        """Load a ChempatPublicKey instance from the provided public bytes."""
+        pq_key, rest = PQKeyFactory.from_public_bytes(name=name, data=data, allow_rest=True)
         trad_key = _load_public_key(data=rest, name=name)
         name = name.lower()
         if "sntrup761" in name:
@@ -246,10 +249,11 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         if "ml-kem" in name:
             return ChempatMLKEMPublicKey(pq_key, trad_key)
         if "frodokem" in name:
-            return ChempatFrodoKEMPublicKey.from_public_bytes(data, name=name)
+            return ChempatFrodoKEMPublicKey(pq_key, trad_key)
+
         raise NotImplementedError(f"The ChempatPublicKey class does not support key generation. Got name: {name}")
 
-@classmethod
+    @classmethod
     def from_public_bytes(cls, data: bytes, name: str) -> "ChempatPublicKey":
         """Create a public key from the given byte string.
 
@@ -257,18 +261,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         :param name: The key name.
         :return: The public key.
         """
-        return self._from_public_bytes(data, name.lower())
-        name = name.lower()
-        if "sntrup761" in name:
-            return ChempatSntrup761PublicKey.from_public_bytes(data, name=name)
-        if "mceliece" in name:
-            return ChempatMcEliecePublicKey.from_public_bytes(data, name=name)
-        if "ml-kem" in name:
-            return ChempatMLKEMPublicKey.from_public_bytes(data, name=name)
-        if "frodokem" in name:
-            return ChempatFrodoKEMPublicKey.from_public_bytes(data, name=name)
-
-        raise NotImplementedError(f"The ChempatPublicKey class does not support key generation. Got name: {name}")
+        return cls._from_public_bytes(data, name.lower())
 
     @property
     def ct_length(self) -> int:
@@ -715,12 +708,18 @@ def _load_public_key(data: bytes, name: str) -> ECDHPublicKey:
         return x25519.X25519PublicKey.from_public_bytes(data)
     if "x448" in name:
         return x448.X448PublicKey.from_public_bytes(data)
-    if "p256" in name:
+
+    if "p256" in name or "secp256r1" in name:
         curve = ec.SECP256R1()
         return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
-    if "p384" in name:
+    if "p384" in name or "secp384r1" in name:
         curve = ec.SECP384R1()
         return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
+
+    if "brainpoolp512" in name.lower():
+        curve = ec.BrainpoolP512R1()
+        return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
+
     if "brainpoolp256" in name:
         curve = ec.BrainpoolP256R1()
         return ec.EllipticCurvePublicKey.from_encoded_point(curve, data)
@@ -827,4 +826,12 @@ def get_trad_key_length(key: Union[ECDHPrivateKey, ECDHPrivateKey, rsa.RSAPrivat
     return TRAD_ALG_2_NENC[get_ec_trad_name(key)]
 
 
-TRAD_ALG_2_NENC = {"brainpoolP384": 97, "P256": 65, "brainpoolP256": 65, "X448": 56, "X25519": 32, "P384": 97}
+TRAD_ALG_2_NENC = {
+    "brainpoolP384": 97,
+    "P256": 65,
+    "brainpoolP256": 65,
+    "X448": 56,
+    "X25519": 32,
+    "P384": 97,
+    "brainpoolP512": 129,
+}

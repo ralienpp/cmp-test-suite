@@ -143,8 +143,8 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey, HybridSigPrivateKey):
     https://www.ietf.org/archive/id/draft-ietf-lamps-pq-composite-sigs-04.html
     """
 
-    pq_key: MLDSAPrivateKey
-    trad_key: Union[
+    _pq_key: MLDSAPrivateKey
+    _trad_key: Union[
         rsa.RSAPrivateKey,
         ec.EllipticCurvePrivateKey,
         ed25519.Ed25519PrivateKey,

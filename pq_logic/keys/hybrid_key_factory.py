@@ -9,8 +9,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc5958
-
-from pq_logic.keys.composite_kem06 import CompositeKEM06PrivateKey, CompositeDHKEMRFC9180PrivateKey
 from resources.exceptions import BadAlg, InvalidKeyCombination
 from resources.oid_mapping import KEY_CLASS_MAPPING, may_return_oid_to_name
 from resources.oidutils import (
@@ -25,6 +23,7 @@ from pq_logic.keys.abstract_wrapper_keys import HybridPrivateKey, PQPrivateKey
 from pq_logic.keys.composite_kem05 import (
     CompositeKEMPrivateKey,
 )
+from pq_logic.keys.composite_kem06 import CompositeDHKEMRFC9180PrivateKey, CompositeKEM06PrivateKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
 from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
@@ -55,14 +54,12 @@ ALL_CHEMPAT_COMBINATIONS = [
 CHEMPAT_FRODOKEM_COMBINATIONS = [
     {"pq_name": "frodokem-976-aes", "trad_name": "x25519"},
     {"pq_name": "frodokem-976-shake", "trad_name": "x25519"},
-    {"pq_name": "frodokem-976-aes", "trad_name": "ecdh", "curve": "secp256r1"},
-    {"pq_name": "frodokem-976-shake", "trad_name": "ecdh", "curve": "secp256r1"},
-    {"pq_name": "frodokem-976-aes", "trad_name": "ecdh", "curve": "brainpoolp256r1"},
-    {"pq_name": "frodokem-976-shake", "trad_name": "ecdh", "curve": "brainpoolp256r1"},
-    {"pq_name": "frodokem-1344-aes", "trad_name": "ecdh", "curve": "secp384r1"},
-    {"pq_name": "frodokem-1344-shake", "trad_name": "ecdh", "curve": "secp384r1"},
-    {"pq_name": "frodokem-1344-aes", "trad_name": "ecdh", "curve": "brainpoolp384r1"},
-    {"pq_name": "frodokem-1344-shake", "trad_name": "ecdh", "curve": "brainpoolp384r1"},
+    {"pq_name": "frodokem-640-aes", "trad_name": "ecdh", "curve": "brainpoolp256r1"},
+    {"pq_name": "frodokem-640-shake", "trad_name": "ecdh", "curve": "brainpoolp256r1"},
+    {"pq_name": "frodokem-976-aes", "trad_name": "ecdh", "curve": "brainpoolp384r1"},
+    {"pq_name": "frodokem-976-shake", "trad_name": "ecdh", "curve": "brainpoolp384r1"},
+    {"pq_name": "frodokem-1344-aes", "trad_name": "ecdh", "curve": "brainpoolp512r1"},
+    {"pq_name": "frodokem-1344-shake", "trad_name": "ecdh", "curve": "brainpoolp512r1"},
     {"pq_name": "frodokem-1344-aes", "trad_name": "x448"},
     {"pq_name": "frodokem-1344-shake", "trad_name": "x448"},
 ]

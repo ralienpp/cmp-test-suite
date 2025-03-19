@@ -7,12 +7,11 @@
 import logging
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple, Iterable
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.x509 import ocsp
-from pyasn1.type.univ import Sequence
 
 # needs to be here to import the correct modules
 # so that this file can be run from the root directory with:
@@ -65,7 +64,8 @@ from resources.exceptions import (
     CertRevoked,
     CMPTestSuiteError,
     InvalidAltSignature,
-    TransactionIdInUse, NotAuthorized,
+    NotAuthorized,
+    TransactionIdInUse,
 )
 from resources.general_msg_utils import build_genp_kem_ct_info_from_genm
 from resources.keyutils import generate_key, load_private_key_from_file
@@ -285,12 +285,12 @@ def _contains_challenge(request_msg: PKIMessageTMP) -> bool:
 @dataclass
 class VerifyState:
     """A simple class to store the verification state."""
+
     allow_only_authorized_certs: bool = False
     use_openssl: bool = False
     algorithms: str = "ecc+,rsa, pq, hybrid"
     curves: str = "all"
     hash_alg: str = "all"
-
 
 
 class CAHandler:
@@ -550,10 +550,12 @@ class CAHandler:
             for i, entry in enumerate(pki_message["extraCerts"]):
                 result = self.cert_conf_handler.is_not_confirmed(cert=entry)
                 if result:
-                    raise NotAuthorized("The certificate is not authorized to be used to "
-                                        "start a certificate request."
-                                        "The certificate must first be confirmed.", error_details=[f"Found at index: {i}"])
-
+                    raise NotAuthorized(
+                        "The certificate is not authorized to be used to "
+                        "start a certificate request."
+                        "The certificate must first be confirmed.",
+                        error_details=[f"Found at index: {i}"],
+                    )
 
     def process_normal_request(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Process the normal request.
@@ -562,7 +564,6 @@ class CAHandler:
         """
         logging.debug("Processing request with body: %s", pki_message["body"].getName())
         try:
-
             # self._check_is_not_confirmed(pki_message)
 
             if pki_message["extraCerts"].isValue:

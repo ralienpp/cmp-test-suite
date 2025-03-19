@@ -503,19 +503,22 @@ id_Chempat_P384_ML_KEM_1024 = univ.ObjectIdentifier(f"{id_Chempat}.15")
 id_chempat_brainpool_p256_ml_kem_768 = univ.ObjectIdentifier(f"{id_Chempat}.16")
 id_chempat_brainpool_p384_ml_kem_1024 = univ.ObjectIdentifier(f"{id_Chempat}.17")
 
-# FrodoKEM
+# newly added in version 03, just specifies FrodoKEM and not aes or shake.
 id_chempat_x25519_frodokem_aes_976 = univ.ObjectIdentifier(f"{id_Chempat}.18")
 id_chempat_x25519_frodokem_shake_976 = univ.ObjectIdentifier(f"{id_Chempat}.19")
-id_chempat_x448_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.20")
-id_chempat_x448_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.21")
-id_chempat_p256_frodokem_aes_976 = univ.ObjectIdentifier(f"{id_Chempat}.22")
-id_chempat_P256_frodokem_shake_976 = univ.ObjectIdentifier(f"{id_Chempat}.23")
-id_chempat_P384_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.24")
-id_chempat_P384_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.25")
-id_chempat_brainpoolP256_frodokem_aes_976 = univ.ObjectIdentifier(f"{id_Chempat}.26")
-id_chempat_brainpoolP256_frodokem_shake_976 = univ.ObjectIdentifier(f"{id_Chempat}.27")
-id_chempat_brainpoolP384_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.28")
-id_chempat_brainpoolP384_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.29")
+id_chempat_brainpoolP256_frodokem_aes_640 = univ.ObjectIdentifier(f"{id_Chempat}.20")
+id_chempat_brainpoolP256_frodokem_shake_640 = univ.ObjectIdentifier(f"{id_Chempat}.21")
+id_chempat_brainpoolP384_frodokem_aes_976 = univ.ObjectIdentifier(f"{id_Chempat}.22")
+id_chempat_brainpoolP384_frodokem_shake_976 = univ.ObjectIdentifier(f"{id_Chempat}.23")
+id_chempat_brainpoolP512_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.24")
+id_chempat_brainpoolP512_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.25")
+
+# not inside the draft, but added for completeness.
+id_chempat_x448_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.26")
+id_chempat_x448_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.27")
+
+# TODO add eFrodoKEM.
+# id_chempat_x25519_efrodokem_aes_640
 
 CHEMPAT_OID_2_NAME = {
     id_chempat_x25519_sntrup761: "chempat-sntrup761-x25519",
@@ -535,24 +538,19 @@ CHEMPAT_OID_2_NAME = {
     id_Chempat_P384_ML_KEM_1024: "chempat-ml-kem-1024-ecdh-secp384r1",
     id_chempat_brainpool_p256_ml_kem_768: "chempat-ml-kem-768-ecdh-brainpoolp256r1",
     id_chempat_brainpool_p384_ml_kem_1024: "chempat-ml-kem-1024-ecdh-brainpoolp384r1",
-}
-
-CHEMPAT_FRODOKEM_OID_2_NAME = {
     id_chempat_x25519_frodokem_aes_976: "chempat-frodokem-976-aes-x25519",
     id_chempat_x25519_frodokem_shake_976: "chempat-frodokem-976-shake-x25519",
-    id_chempat_p256_frodokem_aes_976: "chempat-frodokem-976-aes-ecdh-secp256r1",
-    id_chempat_P256_frodokem_shake_976: "chempat-frodokem-976-shake-ecdh-secp256r1",
-    id_chempat_brainpoolP256_frodokem_aes_976: "chempat-frodokem-976-aes-ecdh-brainpoolp256r1",
-    id_chempat_brainpoolP256_frodokem_shake_976: "chempat-frodokem-976-shake-ecdh-brainpoolp256r1",
-    id_chempat_brainpoolP384_frodokem_aes_1344: "chempat-frodokem-1344-aes-ecdh-brainpoolp384r1",
-    id_chempat_brainpoolP384_frodokem_shake_1344: "chempat-frodokem-1344-shake-ecdh-brainpoolp384r1",
-    id_chempat_P384_frodokem_aes_1344: "chempat-frodokem-1344-aes-ecdh-secp384r1",
-    id_chempat_P384_frodokem_shake_1344: "chempat-frodokem-1344-shake-ecdh-secp384r1",
+    id_chempat_brainpoolP256_frodokem_aes_640: "chempat-frodokem-640-aes-ecdh-brainpoolp256r1",
+    id_chempat_brainpoolP256_frodokem_shake_640: "chempat-frodokem-640-shake-ecdh-brainpoolp256r1",
+    id_chempat_brainpoolP384_frodokem_aes_976: "chempat-frodokem-976-aes-ecdh-brainpoolp384r1",
+    id_chempat_brainpoolP384_frodokem_shake_976: "chempat-frodokem-976-shake-ecdh-brainpoolp384r1",
+    id_chempat_brainpoolP512_frodokem_aes_1344: "chempat-frodokem-1344-aes-ecdh-brainpoolp512r1",
+    id_chempat_brainpoolP512_frodokem_shake_1344: "chempat-frodokem-1344-shake-ecdh-brainpoolp512r1",
     id_chempat_x448_frodokem_aes_1344: "chempat-frodokem-1344-aes-x448",
     id_chempat_x448_frodokem_shake_1344: "chempat-frodokem-1344-shake-x448",
 }
 
-CHEMPAT_OID_2_NAME.update(CHEMPAT_FRODOKEM_OID_2_NAME)
+
 CHEMPAT_NAME_2_OID = {y: x for x, y in CHEMPAT_OID_2_NAME.items()}
 
 ########################

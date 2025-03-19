@@ -7,11 +7,12 @@
 import logging
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Iterable
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.x509 import ocsp
+from pyasn1.type.univ import Sequence
 
 # needs to be here to import the correct modules
 # so that this file can be run from the root directory with:
@@ -33,7 +34,7 @@ from pq_logic.pq_compute_utils import protect_hybrid_pkimessage
 from pq_logic.py_verify_logic import verify_hybrid_pkimessage_protection
 from pq_logic.tmp_oids import id_it_KemCiphertextInfo
 from pyasn1.codec.der import encoder
-from pyasn1_alt_modules import rfc4211, rfc9480, rfc9481
+from pyasn1_alt_modules import rfc9480, rfc9481
 from resources.asn1_structures import PKIMessageTMP
 from resources.ca_ra_utils import (
     build_ip_cmp_message,
@@ -64,7 +65,7 @@ from resources.exceptions import (
     CertRevoked,
     CMPTestSuiteError,
     InvalidAltSignature,
-    TransactionIdInUse,
+    TransactionIdInUse, NotAuthorized,
 )
 from resources.general_msg_utils import build_genp_kem_ct_info_from_genm
 from resources.keyutils import generate_key, load_private_key_from_file
@@ -219,6 +220,7 @@ class MockCAState:
         return self.cert_state_db.check_request_for_compromised_key(request)
 
     def add_updated_cert(self, cert: rfc9480.CMPCertificate):
+        """Add an updated certificate to the state."""
         hashed_cert = compute_hash("sha1", encoder.encode(cert))
         self.cert_state_db.add_update_entry(RevokedEntry("updated", cert, hashed_cert))
 
@@ -256,14 +258,14 @@ def _is_encrypted_cert(pki_message: PKIMessageTMP) -> bool:
     return rep["certifiedKeyPair"]["certOrEncCert"]["encryptedCert"].isValue
 
 
-def _contains_challenge(request: PKIMessageTMP) -> bool:
+def _contains_challenge(request_msg: PKIMessageTMP) -> bool:
     """Check if the request contains a challenge.
 
-    :param request: The PKIMessage request.
+    :param request_msg: The PKIMessage request.
     :return: `True` if the request is made for a challenge, otherwise `False`.
     """
-    if request["body"].getName() in ["ir", "cr"]:
-        popo = get_popo_from_pkimessage(request)
+    if request_msg["body"].getName() in ["ir", "cr"]:
+        popo = get_popo_from_pkimessage(request_msg)
         if not popo.isValue:
             return False
 
@@ -271,7 +273,6 @@ def _contains_challenge(request: PKIMessageTMP) -> bool:
             return False
 
         _name = popo.getName()
-        popo_key: rfc4211.POPOPrivKey
         if not popo[_name]["subsequentMessage"].isValue:
             return False
 
@@ -279,6 +280,17 @@ def _contains_challenge(request: PKIMessageTMP) -> bool:
             return True
 
     return False
+
+
+@dataclass
+class VerifyState:
+    """A simple class to store the verification state."""
+    allow_only_authorized_certs: bool = False
+    use_openssl: bool = False
+    algorithms: str = "ecc+,rsa, pq, hybrid"
+    curves: str = "all"
+    hash_alg: str = "all"
+
 
 
 class CAHandler:
@@ -293,6 +305,8 @@ class CAHandler:
         ca_alt_key: Optional[PrivateKey] = None,
         state: Optional[MockCAState] = None,
         port: int = 5000,
+        allow_only_authorized_certs: bool = False,
+        use_openssl: bool = False,
     ):
         """Initialize the CA Handler.
 
@@ -366,6 +380,14 @@ class CAHandler:
 
         aki_extn = prepare_authority_key_identifier_extension(self.ca_key.public_key(), critical=False)
         extensions = [self.ocsp_extn, self.crl_extn, aki_extn]
+
+        self.verify_state = VerifyState(
+            allow_only_authorized_certs=allow_only_authorized_certs,
+            use_openssl=use_openssl,
+        )
+
+        if use_openssl:
+            raise NotImplementedError("OpenSSL verification is not yet supported.")
 
         self.cert_req_handler = CertReqHandler(
             ca_cert=self.ca_cert,
@@ -521,6 +543,18 @@ class CAHandler:
             protected["extraCerts"].extend(self.cert_chain[1:])
         return protected
 
+    def _check_is_not_confirmed(self, pki_message: PKIMessageTMP) -> None:
+        """Check if the certificate is not confirmed, but used for a certificate request."""
+        body_name = pki_message["body"].getName()
+        if pki_message["extraCerts"].isValue and body_name != "certConf":
+            for i, entry in enumerate(pki_message["extraCerts"]):
+                result = self.cert_conf_handler.is_not_confirmed(cert=entry)
+                if result:
+                    raise NotAuthorized("The certificate is not authorized to be used to "
+                                        "start a certificate request."
+                                        "The certificate must first be confirmed.", error_details=[f"Found at index: {i}"])
+
+
     def process_normal_request(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Process the normal request.
 
@@ -528,6 +562,9 @@ class CAHandler:
         """
         logging.debug("Processing request with body: %s", pki_message["body"].getName())
         try:
+
+            # self._check_is_not_confirmed(pki_message)
+
             if pki_message["extraCerts"].isValue:
                 if self.rev_handler.is_updated(pki_message["extraCerts"][0]):
                     raise CertRevoked("The certificate has been updated.")
@@ -540,7 +577,7 @@ class CAHandler:
             if pki_message["body"].getName() not in ["rr", "genm"]:
                 self.verify_protection(pki_message)
 
-            if pki_message["body"].getName() in ["ir", "cr", "p10cr", "crr", "kur"]:
+            if pki_message["body"].getName() in ["ir", "cr", "p10cr", "crr", "kur", "rr"]:
                 self._check_for_compromised_key(pki_message)
 
             if pki_message["body"].getName() in ["ir", "cr"]:

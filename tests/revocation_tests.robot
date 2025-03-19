@@ -21,7 +21,7 @@ Library             ../resources/checkutils.py
 
 # Runs first before any test case.
 Test Setup          Regenerate Cert For RR Tests
-
+Suite Setup    Set Up Test Suite
 Test Tags           revocation
 
 
@@ -134,7 +134,7 @@ CA MUST Reject Revocation Request With An Unknown Value As CRLReason
     Verify Hybrid PKIMessage Protection    ${rr}
     ${response}=    Exchange PKIMessage    ${rr}
     PKIMessage Body Type Must Be    ${response}    rp
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badRequest    exclusive=True
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badDataFormat    exclusive=True
 
 CA MUST Reject Revocation Request With More Than One CRLReason Extension
     [Documentation]    According to RFC 9483 Section 4.2, a revocation request must not contain more than one
@@ -476,7 +476,9 @@ CA MUST Accept Valid Revive Request
     ...    all required details. The CA MUST accept the request and successfully revive the
     ...    certificate.
     [Tags]    positive    revive
-    ${rev_cert}   ${rev_key}=   Revoke Certificate    ${REVOCATION_CERT}    ${REVOCATION_KEY}
+    ${new_cert}   ${new_key}=   Issue New Cert For Testing
+    Is Certificate And Key Set    ${new_cert}    ${new_key}
+    ${rev_cert}   ${rev_key}=   Revoke Certificate    ${new_cert}    ${new_key}
     ${rr}=    Build CMP Revive Request
     ...    cert=${rev_cert}
     ...    recipient=${RECIPIENT}

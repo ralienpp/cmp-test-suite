@@ -211,6 +211,14 @@ class RSADecapKey(TradKEMPrivateKey):
         """Return the private numbers of the RSA key."""
         return self._private_key.private_numbers()
 
+    def encode(self) -> bytes:
+        return self._private_key.private_bytes(
+            serialization.Encoding.DER,
+            serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
+
 
 class DHKEMPublicKey(TradKEMPublicKey):
     """Wrapper class for Diffie-Hellman Key Encapsulation Mechanism (DHKEM) public keys."""
@@ -381,6 +389,32 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
             private_numbers = self._private_key.private_numbers()
             return private_numbers.private_value.to_bytes(self._private_key.key_size, byteorder="big")
         return self._private_key.private_bytes_raw()
+
+    @staticmethod
+    def _ec_key_from_der(der_data: bytes, curve: ec.EllipticCurve) -> ec.EllipticCurvePrivateKey:
+        """Reconstruct an EllipticCurvePrivateKey from DER data.
+
+        :param der_data: The DER encoded private key.
+        :param curve: The elliptic curve.
+        :return: The reconstructed private key.
+        """
+        private_value = int.from_bytes(der_data, byteorder="big")
+        return ec.derive_private_key(private_value, curve)
+
+    @classmethod
+    def from_private_bytes(cls, name: str, data: bytes, curve: Optional[str] = None) -> "DHKEMPrivateKey":
+        if name == "x25519":
+            trad_key = x25519.X25519PrivateKey.from_private_bytes(data)
+        elif name == "x448":
+            trad_key = x448.X448PrivateKey.from_private_bytes(data)
+
+        else:
+            curve_inst = get_curve_instance(curve)
+            trad_key = cls._ec_key_from_der(data, curve_inst)
+
+        return cls(trad_key)
+
+
 
     def private_bytes(
         self,

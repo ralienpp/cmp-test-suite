@@ -5,6 +5,7 @@
 import unittest
 
 from pq_logic.combined_factory import CombinedKeyFactory
+from resources.keyutils import generate_key
 from unit_tests.pq_workflow_exp import build_sun_hybrid_composite_csr
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, get_names_from_oid
 from pq_logic.pq_compute_utils import verify_csr_signature
@@ -59,8 +60,8 @@ class TestCompositeSignature(unittest.TestCase):
         WHEN generating a certificate,
         THEN the signature is valid.
         """
-        key = CompositeSig03PrivateKey.generate()
-        cert = _generate_composite_cert(key)
+        key = generate_key("composite-sig", trad_name="rsa")
+        cert = _generate_composite_cert(key) # type: ignore
         _verify_cert_signature(cert, key.public_key())
 
 
@@ -70,8 +71,8 @@ class TestCompositeSignature(unittest.TestCase):
         WHEN generating a certificate,
         THEN the signature is valid.
         """
-        key = CompositeSig03PrivateKey.generate()
-        cert = _generate_composite_cert(key)
+        key = generate_key("composite-sig", trad_name="rsa")
+        cert = _generate_composite_cert(key) # type: ignore
         _verify_cert_signature(cert)
 
 
@@ -81,6 +82,7 @@ class TestCompositeSignature(unittest.TestCase):
         WHEN signing a CSR,
         THEN the signature is valid.
         """
-        csr = build_sun_hybrid_composite_csr()
+        key = generate_key("composite-sig", trad_name="rsa")
+        csr = build_sun_hybrid_composite_csr(key) # type: ignore
         verify_csr_signature(csr)
 

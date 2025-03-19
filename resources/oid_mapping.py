@@ -25,8 +25,8 @@ from pyasn1_alt_modules.rfc5480 import id_dsa_with_sha256
 from robot.api.deco import not_keyword
 
 from resources.oidutils import (
-    ALL_KNOWN_NAME_2_OID,
-    ALL_KNOWN_PROTECTION_OIDS,
+    ALL_KNOWN_NAMES_2_OID,
+    ALL_KNOWN_OIDS_2_NAME,
     ALLOWED_HASH_TYPES,
     CURVE_NAMES_TO_INSTANCES,
     OID_HASH_MAP,
@@ -228,8 +228,8 @@ def may_return_oid_to_name(oid: univ.ObjectIdentifier) -> str:
     :param oid: The OID to perform the lookup for.
     :return: Either a human-readable name or the OID as dotted string.
     """
-    oid = ALL_KNOWN_PROTECTION_OIDS.get(oid, str(oid))
-    return str(ALL_KNOWN_PROTECTION_OIDS.get(oid, oid))
+    oid = ALL_KNOWN_OIDS_2_NAME.get(oid, str(oid))
+    return str(ALL_KNOWN_OIDS_2_NAME.get(oid, oid))
 
 
 @not_keyword
@@ -242,4 +242,4 @@ def may_return_oid(name: str) -> univ.ObjectIdentifier:
     """
     if "." in name:
         return univ.ObjectIdentifier(name)
-    return ALL_KNOWN_NAME_2_OID[name]
+    return ALL_KNOWN_NAMES_2_OID[name]

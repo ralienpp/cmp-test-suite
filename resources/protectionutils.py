@@ -66,7 +66,7 @@ from resources.oid_mapping import (
 from resources.oidutils import (
     AES_GMAC_NAME_2_OID,
     AES_GMAC_OID_2_NAME,
-    ALL_KNOWN_PROTECTION_OIDS,
+    ALL_KNOWN_OIDS_2_NAME,
     CMS_COMPOSITE_OID_2_NAME,
     HKDF_NAME_2_OID,
     HKDF_OID_2_NAME,
@@ -1659,18 +1659,18 @@ def check_signature_alg_is_consistent(
     """
     protection_alg = pki_response["header"]["protectionAlg"]
 
-    server_alg_id = ALL_KNOWN_PROTECTION_OIDS.get(protection_alg["algorithm"], protection_alg["algorithm"])
+    server_alg_id = ALL_KNOWN_OIDS_2_NAME.get(protection_alg["algorithm"], protection_alg["algorithm"])
 
     if pki_conf is not None:
         pki_conf_alg_id = pki_conf["header"]["protectionAlg"]
-        pki_conf_oid = ALL_KNOWN_PROTECTION_OIDS.get(pki_conf_alg_id["algorithm"], pki_conf_alg_id["algorithm"])
+        pki_conf_oid = ALL_KNOWN_OIDS_2_NAME.get(pki_conf_alg_id["algorithm"], pki_conf_alg_id["algorithm"])
         if protection_alg["algorithm"] != pki_conf_alg_id["algorithm"]:
             logging.info("Initial ProtectionAlg OID was: %s but pkiConf OID was %s", server_alg_id, pki_conf_oid)
             raise ValueError("The `pkiConf` message has a different ObjectIdentifier!")
 
     if pki_polling is not None:
         pki_polling_alg_id = pki_polling["header"]["protectionAlg"]
-        pki_polling_oid = ALL_KNOWN_PROTECTION_OIDS.get(
+        pki_polling_oid = ALL_KNOWN_OIDS_2_NAME.get(
             pki_polling_alg_id["algorithm"], pki_polling_alg_id["algorithm"]
         )
         if protection_alg["algorithm"] != pki_polling_alg_id["algorithm"]:

@@ -83,15 +83,13 @@ class KemMechanism(ABC):
         :raise: The public key of the recipient.
         :return: (shared_secret, ciphertext_or_serialized_public_data).
         """
-        pass
 
     @abstractmethod
-    def decaps(self, private_key, ciphertext_or_public_data) -> bytes:
+    def decaps(self, private_key, ct) -> bytes:
         """Decapsulate to recover the shared secret using the given private key and ciphertext/public data.
 
         :return: The Shared_secret.
         """
-        pass
 
 
 #####################################
@@ -119,10 +117,10 @@ class ECDHKEM(KemMechanism):
         """
         if isinstance(pubkey, ec.EllipticCurvePublicKey):
             return pubkey.public_bytes(encoding=Encoding.X962, format=PublicFormat.UncompressedPoint)
-        elif isinstance(pubkey, (x25519.X25519PublicKey, x448.X448PublicKey)):
+        if isinstance(pubkey, (x25519.X25519PublicKey, x448.X448PublicKey)):
             return pubkey.public_bytes_raw()
-        else:
-            raise TypeError("Unsupported public key type for encoding.")
+
+        raise TypeError("Unsupported public key type for encoding.")
 
     @staticmethod
     def generate_matching_private_key(peer_pubkey: ECDHPublicKey) -> ECDHPrivateKey:
@@ -133,23 +131,22 @@ class ECDHKEM(KemMechanism):
         """
         if isinstance(peer_pubkey, ec.EllipticCurvePublicKey):
             return ec.generate_private_key(peer_pubkey.curve)
-        elif isinstance(peer_pubkey, x25519.X25519PublicKey):
+        if isinstance(peer_pubkey, x25519.X25519PublicKey):
             return x25519.X25519PrivateKey.generate()
-        elif isinstance(peer_pubkey, x448.X448PublicKey):
+        if isinstance(peer_pubkey, x448.X448PublicKey):
             return x448.X448PrivateKey.generate()
-        else:
-            raise TypeError("Unsupported peer public key type.")
+        raise TypeError("Unsupported peer public key type.")
 
-    def encaps(self, peer_pub_key: Union[bytes, ECDHPublicKey]) -> Tuple[bytes, bytes]:
+    def encaps(self, public_key: Union[bytes, ECDHPublicKey]) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using the ephemeral ECDH private key and the receiver's public key.
 
-        :param peer_pub_key: The public key of the receiver.
+        :param public_key: The public key of the receiver.
         :return: The shared secret and the serialized ephemeral public key as bytes.
         """
         if not self.private_key:
-            self.private_key = self.generate_matching_private_key(peer_pub_key)
+            self.private_key = self.generate_matching_private_key(public_key)
 
-        shared_secret = _perform_ecdh(self.private_key, peer_pub_key)
+        shared_secret = _perform_ecdh(self.private_key, public_key)
         ephemeral_public_key = self.private_key.public_key()
         return shared_secret, ECDHKEM.encode_public_key(ephemeral_public_key)
 
@@ -208,10 +205,9 @@ def _get_key_id(key: Union[ECDHPrivateKey, ECDHPublicKey]) -> int:
     if isinstance(key, (ec.EllipticCurvePublicKey, ec.EllipticCurvePrivateKey)):
         curve_name = key.curve.name.lower()
         return KEY_TYPE_TO_ID.get(curve_name)
-    elif isinstance(key, (x448.X448PublicKey, x448.X448PrivateKey)):
+    if isinstance(key, (x448.X448PublicKey, x448.X448PrivateKey)):
         return KEY_TYPE_TO_ID["x448"]
-    else:
-        return KEY_TYPE_TO_ID["x25519"]
+    return KEY_TYPE_TO_ID["x25519"]
 
 
 def _i2osp(num: int, size: int) -> bytes:
@@ -256,10 +252,9 @@ class DHKEMRFC9180:
         """
         if isinstance(pubkey, ec.EllipticCurvePublicKey):
             return pubkey.public_bytes(encoding=Encoding.X962, format=PublicFormat.UncompressedPoint)
-        elif isinstance(pubkey, (x25519.X25519PublicKey, x448.X448PublicKey)):
+        if isinstance(pubkey, (x25519.X25519PublicKey, x448.X448PublicKey)):
             return pubkey.public_bytes_raw()
-        else:
-            raise TypeError("Unsupported public key type for encoding.")
+        raise TypeError("Unsupported public key type for encoding.")
 
     def _extract_and_expand(self, dh: bytes, kem_context: bytes, cipher_id: int) -> bytes:
         """Perform HKDF extract-and-expand for key derivation.

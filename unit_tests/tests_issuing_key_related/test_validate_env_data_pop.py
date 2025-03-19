@@ -4,7 +4,7 @@
 
 import unittest
 
-from pq_logic.keys.composite_kem import CompositeKEMPrivateKey
+from pq_logic.keys.composite_kem05 import CompositeKEMPrivateKey
 from pq_logic.keys.kem_keys import MLKEMPrivateKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc4211

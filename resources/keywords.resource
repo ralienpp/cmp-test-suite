@@ -85,6 +85,9 @@ Set Up Test Suite
         VAR    &{CERT_CONF_DEF_VALS}    sender=${SENDER}    recipient=${RECIPIENT}    private_key=${issued_key}    cert=${issued_cert}    password=${PRESHARED_SECRET}    protection=signature   scope=Global
         VAR    &{DEFAULT_PROTECTION_VALS}    protection=signature   private_key=${issued_key}    cert=${issued_cert}   password=${PRESHARED_SECRET}  scope=Global
     END
+    ${cert}  ${key}=   May Load Cert And Key    ${OTHER_TRUSTED_PKI_CERT}    ${OTHER_TRUSTED_PKI_KEY}
+    VAR    ${OTHER_TRUSTED_PKI_CERT}    ${cert}    scope=Global
+    VAR    ${OTHER_TRUSTED_PKI_KEY}    ${key}    scope=Global
 
 Increase TestIndex
     [Documentation]    Perform the incrementation of the `TestIndex` to update the sender name inside the PKIMessage,

@@ -1,9 +1,14 @@
+"""Composite Signature Implementation for Draft v04.
+
+available at: https://www.ietf.org/archive/id/draft-ietf-lamps-pq-composite-sigs-04.html
+"""
+
 from typing import Union
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives._serialization import Encoding, PrivateFormat
-from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, padding, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa
+from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat
 from pyasn1.codec.der import encoder
 from pyasn1.type import univ
 from resources.exceptions import InvalidKeyCombination
@@ -12,9 +17,9 @@ from resources.oid_mapping import sha_alg_name_to_oid
 from pq_logic.keys.abstract_wrapper_keys import (
     HybridSigPrivateKey,
 )
-from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey, _compute_hash, _get_hash
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey, _compute_hash
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
-from pq_logic.tmp_oids import CMS_COMPOSITE04_NAME_2_OID, COMP_SIG04_PREHASH_OID_2_HASH
+from pq_logic.tmp_oids import COMP_SIG04_PREHASH_OID_2_HASH, COMPOSITE_SIG04_NAME_2_OID
 
 _PREFIX = b"CompositeAlgorithmSignatures2025"
 
@@ -32,6 +37,7 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
         ed25519.Ed25519PublicKey,
         ed448.Ed448PublicKey,
     ]
+    _name = "composite-sig-04"
 
     def _export_public_key(self) -> bytes:
         _pq_export = self.pq_key._export_public_key()  # pylint: disable=protected-access
@@ -41,46 +47,22 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
     @property
     def name(self) -> str:
         """Return the name of the composite signature."""
-        return f"composite-sig-04-{self.pq_key.name}-{self._get_trad_name(self.trad_key)}"
+        return f"{self._name}-{self.pq_key.name}-{self._get_trad_key_name(self.trad_key)}"
 
     def _get_name(self, use_pss: bool = False, pre_hash: bool = False) -> str:
         """Retrieve the composite signature name."""
         to_add = "" if not pre_hash else "hash-"
-        trad_name = self._get_trad_name(self.trad_key, use_pss=use_pss)
-        return f"composite-sig-04-{to_add}{self.pq_key.name}-{trad_name}"
+        trad_name = self._get_trad_key_name(self.trad_key, use_pss=use_pss)
+        return f"{self._name}-{to_add}{self.pq_key.name}-{trad_name}"
 
-    def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
+    def get_oid(self, use_pss: bool = True, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Get the OID for the composite signature."""
+        # Defaults to use PSS padding because ML-DSA-87 only supports the PSS padding.
         _name = self._get_name(use_pss=use_pss, pre_hash=pre_hash)
-        try:
-            return CMS_COMPOSITE04_NAME_2_OID[_name]
-        except KeyError:
-            raise InvalidKeyCombination(f"Unsupported composite signature combination: {_name}")
 
-    @staticmethod
-    def _get_trad_name(
-        trad_key: Union[
-            ec.EllipticCurvePublicKey,
-            rsa.RSAPublicKey,
-            ed25519.Ed25519PublicKey,
-            ed448.Ed448PublicKey,
-        ],
-        use_pss: bool = False,
-    ) -> str:
-        """Retrieve the traditional algorithm name based on the key type."""
-        if isinstance(trad_key, ec.EllipticCurvePublicKey):
-            trad_name = f"ecdsa-{trad_key.curve.name}"
-        elif isinstance(trad_key, rsa.RSAPublicKey):
-            trad_name = f"rsa{trad_key.key_size}"
-            if use_pss:
-                trad_name += "-pss"
-        elif isinstance(trad_key, ed25519.Ed25519PublicKey):
-            trad_name = "ed25519"
-        elif isinstance(trad_key, ed448.Ed448PublicKey):
-            trad_name = "ed448"
-        else:
-            raise ValueError(f"Unsupported key type: {type(trad_key).__name__}")
-        return trad_name
+        if COMPOSITE_SIG04_NAME_2_OID.get(_name) is None:
+            raise InvalidKeyCombination(f"Unsupported composite signature v4 combination: {_name}")
+        return COMPOSITE_SIG04_NAME_2_OID[_name]
 
     @property
     def pq_key(self) -> MLDSAPublicKey:
@@ -129,24 +111,26 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
 
     def verify(
         self,
-        signature: bytes,
         data: bytes,
+        signature: bytes,
         ctx: bytes = b"",
         use_pss: bool = False,
         pre_hash: bool = False,
     ) -> None:
         """Verify the composite signature."""
+        # currently unsure what the length is for
+        # inside the pqc-certificates, the length is 2495
+        # for HashMLDSA44-ECDSA-P256-SHA256-2.16.840.1.114027.80.8.1.83_ta.der
         _length = int.from_bytes(signature[:4], "big")
-
         signature = signature[4:]
-        mldsa_sig = signature[:_length]
+        mldsa_sig = signature[: self._pq_key.sig_size]
         if self._pq_key.sig_size != len(mldsa_sig):
             raise InvalidSignature(
                 f"The composite signature was invalid. Due to the {self.pq_key.name} sig size"
                 f"Expected: {self.pq_key.sig_size}. Got: {len(mldsa_sig)}"
             )
 
-        trad_sig = signature[_length:]
+        trad_sig = signature[self.pq_key.sig_size :]
         domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
         m_prime = self._prepare_input(data=data, ctx=ctx, use_pss=use_pss, pre_hash=pre_hash)
         self._verify_trad(data=m_prime, signature=trad_sig, use_pss=use_pss)
@@ -176,14 +160,13 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey, HybridSigPrivateKey):
                 format=PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption(),
             )
-        elif isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
+        if isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
             return self.trad_key.private_bytes(
                 encoding=Encoding.DER,
                 format=PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption(),
             )
-        else:
-            return self.trad_key.private_bytes_raw()
+        return self.trad_key.private_bytes_raw()
 
     def _export_private_key(self) -> bytes:
         """Export the private key."""
@@ -199,26 +182,12 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey, HybridSigPrivateKey):
         """Generate the public key corresponding to this composite private key."""
         return CompositeSig04PublicKey(self.pq_key.public_key(), self.trad_key.public_key())
 
-    def _get_trad_key_name(self, use_pss: bool = False) -> str:
-        """Retrieve the traditional algorithm name based on the key type."""
-        # to allow an invalid size for the RSA key.
-        if isinstance(self.trad_key, rsa.RSAPrivateKey):
-            length = self._get_rsa_size(self.trad_key.key_size)
-            to_add = "" if not use_pss else "-pss"
-            return f"rsa{length}" + to_add
-        return super()._get_trad_key_name()
-
-    def _get_name(self, use_pss: bool = False, pre_hash: bool = False) -> str:
-        """Retrieve the composite signature name."""
-        to_add = "" if not pre_hash else "hash-"
-        return f"{self._name}-{to_add}{self.pq_key.name}-{self._get_trad_key_name(use_pss=use_pss)}"
-
-    def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
+    def get_oid(self, use_pss: bool = True, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Get the OID for the composite signature."""
         _name = self._get_name(use_pss=use_pss, pre_hash=pre_hash)
-        if CMS_COMPOSITE04_NAME_2_OID.get(_name) is None:
+        if COMPOSITE_SIG04_NAME_2_OID.get(_name) is None:
             raise InvalidKeyCombination(f"Unsupported composite signature combination: {_name}")
-        return CMS_COMPOSITE04_NAME_2_OID[_name]
+        return COMPOSITE_SIG04_NAME_2_OID[_name]
 
     def _prepare_input(self, data: bytes, ctx: bytes, use_pss: bool, pre_hash: bool) -> bytes:
         """Prepare the input for the composite signature.
@@ -248,41 +217,17 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey, HybridSigPrivateKey):
             m_prime = _PREFIX + encoder.encode(domain_oid) + length_bytes + ctx + data
         return m_prime
 
-    def _sign_trad(self, data: bytes, use_pss: bool = False) -> bytes:
-        """Generate a signature using the traditional private key.
-
-        :param data: The data to be signed.
-        :param use_pss: Indicates whether RSA-PSS padding should be used.
-        :return: The signature as bytes.
-        :raises ValueError: If the key type is unsupported.
-        """
-        if isinstance(self.trad_key, rsa.RSAPrivateKey):
-            size = self._get_rsa_size(self.trad_key.key_size)
-            hash_instance = _get_hash(size)
-            if use_pss:
-                rsa_padding = padding.PSS(mgf=padding.MGF1(hash_instance), salt_length=hash_instance.digest_size)
-            else:
-                rsa_padding = padding.PKCS1v15()
-            return self.trad_key.sign(data, padding=rsa_padding, algorithm=hash_instance)
-        if isinstance(self.trad_key, (ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey)):
-            return self.trad_key.sign(data)
-        if isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
-            hash_instance = _get_hash(self.trad_key.curve.name)
-            return self.trad_key.sign(data, signature_algorithm=ec.ECDSA(hash_instance))
-        raise ValueError(f"Unsupported traditional private key type: {type(self.trad_key).__name__}")
-
-    def _prepare_composite_sig04(self, pq_sig, trad_sig) -> bytes:
+    @staticmethod
+    def _prepare_composite_sig04(pq_sig: bytes, trad_sig: bytes) -> bytes:
         """Prepare the composite signature for draft v04."""
         # Check length limits
         if len(pq_sig) > (2**32 - 1):
             raise ValueError("ML-DSA signature too long to encode in 4 bytes.")
 
-        # Encode signature lengths as 4-byte big-endian integers
         mldsa_length_encoded = len(pq_sig).to_bytes(4, byteorder="big")
-
-        # Combine encoded lengths and signatures
-        composite_signature = mldsa_length_encoded + pq_sig + trad_sig
-        return composite_signature
+        # the cryptography library directly returns the DER-encoded signature.
+        # and the PQ signature is raw, so now additional encoding is needed.
+        return mldsa_length_encoded + pq_sig + trad_sig
 
     def sign(self, data: bytes, ctx: bytes = b"", use_pss: bool = False, pre_hash: bool = False) -> bytes:
         """Sign data with optional pre-hashing and context.
@@ -290,7 +235,7 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey, HybridSigPrivateKey):
         :param data: The data to sign.
         :param ctx: The context for the signature, must not exceed 255 bytes.
         :param use_pss: Whether to use padding.
-        :param pre_hash: Whether to pre-hash the data before signing.
+        :param pre_hash: Whether to pre-hash the data before signing it.
         :return: The encoded signature.
         """
         if len(ctx) > 255:

@@ -11,6 +11,8 @@ from typing import Optional, Tuple, Union
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
+from pyasn1.codec.der import decoder, encoder
+from pyasn1.type import univ
 
 from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
 
@@ -28,6 +30,9 @@ class PQSignaturePublicKey(PQPublicKey, ABC):
 
     def _initialize_key(self) -> None:
         """Initialize the `PQSignaturePublicKey` object."""
+        if oqs is None:
+            raise ImportError("The `liboqs` is not installed.")
+
         self._sig_method = oqs.Signature(self._other_name)
 
     @abstractmethod
@@ -154,6 +159,70 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
         if key.key_size != len(data):
             raise ValueError(f"Invalid key size expected {key.key_size}, but got: {len(data)}")
         return key
+
+
+# TODO add the abstract class for HASH-stateful signatures. XMSS and LMS.
+# for a pure python solution refer to fips205.
+
+
+class PQHashStatefulSigPublicKey(PQSignaturePublicKey, ABC):
+    """Abstract base class for Post-Quantum Hash Stateful Signature Public Keys."""
+
+    def verify(
+        self,
+        signature: bytes,
+        data: bytes,
+        ctx: bytes = b"",
+    ) -> None:
+        """Verify a signature of the provided data."""
+        return super().verify(signature=signature, data=data, ctx=ctx)
+
+
+class PQHashStatefulSigPrivateKey(PQSignaturePrivateKey, ABC):
+    """Abstract base class for Post-Quantum Hash Stateful Signature Private Keys."""
+
+    _count_sig: int
+    _max_sig_size: int
+
+    def _export_private_key(self) -> bytes:
+        """Return the private key as bytes."""
+        der_data = encoder.encode(univ.Integer(self._count_sig))
+        return der_data + self._private_key_bytes
+
+    def __init__(
+        self,
+        alg_name: str,
+        private_bytes: Optional[bytes] = None,
+        public_bytes: Optional[bytes] = None,
+        seed: Optional[bytes] = None,
+        count_sig: int = 0,
+    ):
+        """Initialize the private key object."""
+        super().__init__(alg_name=alg_name, private_bytes=private_bytes, public_key=public_bytes, seed=seed)
+
+        self._count_sig = count_sig
+
+    @classmethod
+    def _check_sig_size(cls) -> None:
+        """Check the signature size."""
+        if cls._max_sig_size < cls._count_sig:
+            logging.warning(f"Invalid signature size for {cls.name}. Expected {cls._max_sig_size}, got {cls.sig_size}")
+        cls._count_sig += 1
+
+    @classmethod
+    def from_private_bytes(cls, data: bytes, name: str) -> "PQHashStatefulSigPrivateKey":
+        """Create a new private key object from the provided bytes."""
+        count_sig, rest = decoder.decode(data, asn1Spec=univ.Integer())[0]
+        key = cls(alg_name=name, private_bytes=rest, count_sig=count_sig)
+
+        if key.key_size != len(data):
+            raise ValueError(f"Invalid key size expected {key.key_size}, but got: {len(data)}")
+        return key
+
+    def sign(self, data: bytes, ctx: bytes = b""):
+        """Sign the provided data."""
+        self._check_sig_size()
+        return super().sign(data=data, ctx=ctx)
 
 
 class PQKEMPublicKey(PQPublicKey, ABC):

@@ -18,7 +18,7 @@ from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import ca_ra_utils, certutils, keyutils
 from resources.asn1_structures import PKIMessageTMP
 from resources.copyasn1utils import copy_subject_public_key_info
-from resources.oid_mapping import compute_hash, hash_name_to_instance
+from resources.oid_mapping import compute_hash
 from resources.typingutils import PrivateKeySig, PublicKey
 from unit_tests.utils_for_test import compare_pyasn1_objects, convert_to_crypto_lib_cert
 
@@ -45,7 +45,7 @@ class RevokedEntryList:
     def contains_hash(self, hashed_cert: bytes) -> bool:
         """Check if the list contains a certificate with the given hash."""
         for entry in self.entries:
-            if entry.hashed_cert is not None:
+            if entry.hashed_cert is None:
                 tmp = compute_hash("sha1", encoder.encode(entry.cert))
             else:
                 tmp = entry.hashed_cert
@@ -260,10 +260,6 @@ class CertRevStateDB:
             builder = builder.add_revoked_certificate(
                 x509.RevokedCertificateBuilder().serial_number(serial_number).revocation_date(datetime.now()).build()
             )
-
-        hash_inst = None
-        if hash_alg is not None:
-            hash_inst = hash_name_to_instance(hash_alg)
         return builder.sign(private_key=sign_key, algorithm=SHA256())
 
     def add_compromised_key(self, entry: Union[dict, RevokedEntry]) -> None:

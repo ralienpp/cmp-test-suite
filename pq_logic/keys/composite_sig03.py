@@ -20,8 +20,7 @@ from resources import oid_mapping
 from resources.exceptions import BadAsn1Data, InvalidKeyCombination
 from resources.oid_mapping import sha_alg_name_to_oid
 from resources.oidutils import (
-    CMS_COMPOSITE_NAME_2_OID,
-    CURVE_NAMES_TO_INSTANCES,
+    CMS_COMPOSITE03_NAME_2_OID,
 )
 from robot.api.deco import not_keyword
 
@@ -31,7 +30,7 @@ from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE03_OID_2_HASH,
     COMP_SIG03_PREHASH_OID_2_HASH,
-    HASH_COMPOSITE_SIG03_NAME_TO_OID,
+    COMPOSITE_SIG03_HASH_NAME_2_OID,
     PURE_COMPOSITE_SIG03_NAME_TO_OID,
 )
 
@@ -74,7 +73,7 @@ def get_names_from_oid(oid: univ.ObjectIdentifier) -> Tuple[str, str]:
         if oid == registered_oid:
             return split_name(name, prefix="composite-sig-")
 
-    for name, registered_oid in HASH_COMPOSITE_SIG03_NAME_TO_OID.items():
+    for name, registered_oid in COMPOSITE_SIG03_HASH_NAME_2_OID.items():
         if oid == registered_oid:
             return split_name(name, prefix="composite-sig-hash-")
 
@@ -151,7 +150,7 @@ def get_oid_cms_composite_signature(
     )
     pre_hash = "" if not pre_hash else "hash-"
     oid_base = f"composite-sig-{pre_hash}{ml_dsa_name}-{stringified_trad_name}"
-    oid = CMS_COMPOSITE_NAME_2_OID.get(oid_base)
+    oid = CMS_COMPOSITE03_NAME_2_OID.get(oid_base)
     if oid is None:
         raise InvalidKeyCombination(f"Invalid composite signature combination: {oid_base}")
 
@@ -198,33 +197,24 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey):
         """Return the algorithm name."""
         return b"COMPOSITE-SIG"
 
-    def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
-        """Return the Object Identifier for the composite signature."""
-        return get_oid_cms_composite_signature(
-            self.pq_key.name,
-            self.trad_key,  # type: ignore
-            use_pss=use_pss,
-            pre_hash=pre_hash,
-        )
-
-    def get_name(self, use_pss: bool = False, pre_hash: bool = False) -> str:
-        """Return the name of the composite signature."""
-        stringified_trad_name = _get_trad_name(self.trad_key, use_pss=use_pss)
+    def _get_name(self, use_pss: bool = False, pre_hash: bool = False) -> str:
+        """Retrieve the composite signature name."""
         to_add = "" if not pre_hash else "hash-"
-        oid_base = f"{to_add}{self.pq_key.name}-{stringified_trad_name}"
-        return oid_base
+        trad_name = self._get_trad_key_name(self.trad_key, use_pss=use_pss)
+        return f"composite-sig-{to_add}{self.pq_key.name}-{trad_name}"
+
+    def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
+        """Get the OID for the composite signature."""
+        _name = self._get_name(use_pss=use_pss, pre_hash=pre_hash)
+        try:
+            return CMS_COMPOSITE03_NAME_2_OID[_name]
+        except KeyError as e:
+            raise InvalidKeyCombination(f"Unsupported composite signature combination: {_name}") from e
 
     @property
     def name(self) -> str:
         """Return the name of the composite signature key."""
-        return f"composite-sig-{self.get_name()}"
-
-    def _get_hash_name(
-        self, domain_oid: Optional[univ.ObjectIdentifier] = None, use_pss: bool = False, pre_hash: bool = False
-    ) -> str:
-        """Retrieve the hash algorithm name for the given composite signature combination."""
-        domain_oid = domain_oid or self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
-        return CMS_COMPOSITE03_OID_2_HASH[domain_oid]
+        return self._get_name(False, False)
 
     def _verify_trad(
         self,
@@ -318,13 +308,7 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey):
         mldsa_sig = decoded_signature[0].asOctets()
         trad_sig = decoded_signature[1].asOctets()
 
-        # Determine the domain OID and hashing algorithm
-        domain_oid = get_oid_cms_composite_signature(
-            self.pq_key.name,
-            self.trad_key,  # type: ignore
-            use_pss=use_pss,
-            pre_hash=pre_hash,
-        )
+        domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
         m_prime = self._prepare_input(data=data, ctx=ctx, use_pss=use_pss, pre_hash=pre_hash)
         self.pq_key.verify(data=m_prime, signature=mldsa_sig, ctx=encoder.encode(domain_oid))
         self._verify_trad(data=m_prime, signature=trad_sig, use_pss=use_pss)
@@ -346,6 +330,7 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey):
 
     _pq_key: MLDSAPrivateKey
     _trad_key: Union[rsa.RSAPrivateKey, ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey, ec.EllipticCurvePrivateKey]
+    _name = "composite-sig"
 
     @property
     def pq_key(self) -> MLDSAPrivateKey:
@@ -386,42 +371,6 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey):
                 f"OID's traditional name '{trad_name}' does not match the key's traditional name '{expected_trad_name}'"
             )
 
-    @staticmethod
-    def generate(
-        pq_name: str = "ml-dsa-65", trad_param: Optional[Union[int, str]] = 3072
-    ) -> "CompositeSig03PrivateKey":
-        """Generate a new composite private key, consisting of a pq and traditional private key.
-
-        :param pq_name: The name of the post-quantum algorithm (default: "ml-dsa-65").
-        :param trad_param: The parameter for the traditional key generation. For RSA,
-                           this is the key size (e.g., 2048, 3072). For ECDSA, this is
-                           the curve name (e.g., "secp256r1"). Default is 3072 for RSA.
-        :return: A CompositeSigPrivateKey instance containing both private keys.
-        :raises ValueError: If the provided parameters are invalid.
-        """
-        if isinstance(trad_param, int) or trad_param.isdigit():
-            pq_name = pq_name or "ml-dsa-65"
-            trad_private_key = rsa.generate_private_key(public_exponent=65537, key_size=int(trad_param))
-        elif isinstance(trad_param, str):
-            if trad_param in ["ec", "ecc", "ecdsa"]:
-                pq_name = pq_name or "ml-dsa-44"
-                trad_private_key = ec.generate_private_key(ec.SECP256R1())
-
-            elif trad_param == "ed448":
-                pq_name = pq_name or "ml-dsa-87"
-                trad_private_key = ed448.Ed448PrivateKey.generate()
-            elif trad_param == "ed25519":
-                pq_name = pq_name or "ml-dsa-65"
-                trad_private_key = ed25519.Ed25519PrivateKey.generate()
-            else:
-                curve = CURVE_NAMES_TO_INSTANCES[trad_param]
-                trad_private_key = ec.generate_private_key(curve)
-        else:
-            raise ValueError("trad_param must be an integer (RSA key size) or a string (EC curve name).")
-
-        pq_private_key = MLDSAPrivateKey.generate(name=pq_name)
-        return CompositeSig03PrivateKey(pq_key=pq_private_key, trad_key=trad_private_key)
-
     def public_key(self) -> CompositeSig03PublicKey:
         """Generate the public key corresponding to this composite private key.
 
@@ -430,18 +379,25 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey):
         """
         return CompositeSig03PublicKey(self._pq_key.public_key(), self.trad_key.public_key())
 
-    def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
-        """Return the Object Identifier for the composite signature."""
-        length = None
+    def _get_trad_key_name(self, use_pss: bool = False) -> str:
+        """Retrieve the traditional algorithm name based on the key type."""
+        # to allow an invalid size for the RSA key.
+        to_add = ""
         if isinstance(self.trad_key, rsa.RSAPrivateKey):
-            length = self._get_rsa_size(self.trad_key.key_size)
-        return get_oid_cms_composite_signature(
-            self.pq_key.name,
-            self.trad_key,  # type: ignore
-            use_pss=use_pss,
-            pre_hash=pre_hash,
-            length=length,
-        )
+            to_add = "" if not use_pss else "-pss"
+        return super()._get_trad_key_name() + to_add
+
+    def _get_name(self, use_pss: bool = False, pre_hash: bool = False) -> str:
+        """Retrieve the composite signature name."""
+        to_add = "" if not pre_hash else "hash-"
+        return f"{self._name}-{to_add}{self.pq_key.name}-{self._get_trad_key_name(use_pss=use_pss)}"
+
+    def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
+        """Get the OID for the composite signature."""
+        _name = self._get_name(use_pss=use_pss, pre_hash=pre_hash)
+        if CMS_COMPOSITE03_NAME_2_OID.get(_name) is None:
+            raise InvalidKeyCombination(f"Unsupported composite signature v4 combination: {_name}")
+        return CMS_COMPOSITE03_NAME_2_OID[_name]
 
     def _prepare_input(self, data: bytes, ctx: bytes, use_pss: bool, pre_hash: bool) -> bytes:
         """Prepare the input for the composite signature.

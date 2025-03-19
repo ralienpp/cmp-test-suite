@@ -30,23 +30,13 @@ class TestGenerateKeyByName(unittest.TestCase):
         key = CombinedKeyFactory.generate_key_from_name(algorithm)
         self.assertEqual(key.name, algorithm)
 
-    def test_generate_key_by_name_composite_sig(self):
-        """
-        GIVEN the key name="composite-sig-ml-dsa-44-rsa2048".
-        WHEN the key is generated,
-        THEN the key is correctly generated.
-        """
-        algorithm = "composite-sig-ml-dsa-44-rsa2048"
-        key = CombinedKeyFactory.generate_key_from_name(algorithm)
-        self.assertEqual(key.name, algorithm)
-
     def test_generate_key_by_name_composite_kem(self):
         """
         GIVEN the key name="composite-kem-ml-kem-768-ecdh-secp384r1".
         WHEN the key is generated,
         THEN the key is correctly generated.
         """
-        algorithm = "composite-kem-ml-kem-768-ecdh-secp384r1"
+        algorithm = "composite-kem-05-ml-kem-768-ecdh-secp384r1"
         key = CombinedKeyFactory.generate_key_from_name(algorithm)
         self.assertEqual(key.name, algorithm)
 
@@ -57,6 +47,6 @@ class TestGenerateKeyByName(unittest.TestCase):
         THEN the InvalidKeyCombination exception is raised,
         because this combination is not allowed.
         """
-        algorithm = "composite-kem-ml-kem-768-ecdh-secp256r1"
+        algorithm = "composite-kem-05-ml-kem-768-ecdh-secp256r1"
         with self.assertRaises(InvalidKeyCombination):
             CombinedKeyFactory.generate_key_from_name(algorithm)

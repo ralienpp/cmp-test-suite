@@ -488,7 +488,7 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
         )
         return
 
-    elif isinstance(alt_pub_key, PQKEMPublicKey):
+    if isinstance(alt_pub_key, PQKEMPublicKey):
         alg_id = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
         data = encoder.encode(cert_req_msg["certReq"])
         pq_compute_utils.verify_signature_with_alg_id(
@@ -605,7 +605,10 @@ def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descr
         popo = cmputils.prepare_popo(signature=sig, signing_key=first_key, alg_oid=sig_alg["algorithm"])
 
     elif isinstance(alt_key, PQKEMPrivateKey) and isinstance(first_key, TradSigPrivKey):
-        extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)  # type: ignore
+        extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(
+            alt_key.public_key(),  # type: ignore
+            critical=False,
+        )
         cert_template["extensions"].append(extn)
         cert_req["certTemplate"] = cert_template
 
@@ -657,9 +660,9 @@ def _generate_catalyst_alt_sig_key(
         try:
             alt_key = keyutils.generate_key_based_on_alg_id(alt_sig_alg)
         except NotImplementedError as e:
-            raise BadAlg("The provided signature algorithm is not supported.", extra_details=str(e)) from e
+            raise BadAlg("The provided signature algorithm is not supported.", error_details=str(e)) from e
         except UnknownOID as e:
-            raise BadAlg("The provided signature algorithm is not supported.", extra_details=e.message) from e
+            raise BadAlg("The provided signature algorithm is not supported.", error_details=e.message) from e
 
         if alt_sig_alg["algorithm"] in PQ_SIG_PRE_HASH_OID_2_NAME:
             pq_hash_alg = PQ_SIG_PRE_HASH_OID_2_NAME[alt_sig_alg["algorithm"]].split("-")[-1]
@@ -866,7 +869,7 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
     use_rsa_pss: bool = True,
     allow_chosen_sig_alg: bool = True,
     hybrid_kem_key: Optional[Union[HybridKEMPrivateKey, ECDHPrivateKey]] = None,
-    **kwargs,
+    **kwargs,  # pylint: disable=unused-argument
 ) -> CA_RESPONSE:
     """Build a certificate from a Catalyst request.
 

@@ -31,7 +31,9 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey, CompositeSig04PublicKey
 from pq_logic.keys.key_pyasn1_utils import load_enc_key
+from pq_logic.tmp_oids import COMPOSITE_SIG04_OID_2_NAME
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc5480, rfc6664, rfc9480
 from robot.api.deco import keyword, not_keyword
@@ -41,7 +43,7 @@ from resources.convertutils import str_to_bytes
 from resources.exceptions import BadAlg, BadAsn1Data, BadCertTemplate, UnknownOID
 from resources.oid_mapping import KEY_CLASS_MAPPING, get_curve_instance, get_hash_from_oid
 from resources.oidutils import (
-    CMS_COMPOSITE_NAME_2_OID,
+    CMS_COMPOSITE03_NAME_2_OID,
     CMS_COMPOSITE_OID_2_NAME,
     CURVE_OIDS_2_NAME,
     MSG_SIG_ALG_NAME_2_OID,
@@ -511,11 +513,7 @@ def load_public_key_from_spki(data: Union[bytes, rfc5280.SubjectPublicKeyInfo]) 
         if rest != b"":
             raise ValueError("The decoded SubjectPublicKeyInfo structure had trailing data.")
 
-    try:
-        return CombinedKeyFactory.load_public_key_from_spki(spki=data)
-    except ValueError as e:
-        raise e
-        raise BadAlg("The OID is not valid/unknown.") from e
+    return CombinedKeyFactory.load_public_key_from_spki(spki=data)
 
 
 @not_keyword
@@ -552,7 +550,7 @@ def generate_key_based_on_alg_id(alg_id: rfc5280.AlgorithmIdentifier) -> Private
     elif str(oid) in TRAD_STR_OID_TO_KEY_NAME:
         return CombinedKeyFactory.generate_key(algorithm=TRAD_STR_OID_TO_KEY_NAME[str(oid)])
 
-    elif oid in CMS_COMPOSITE_NAME_2_OID:
+    elif oid in CMS_COMPOSITE03_NAME_2_OID:
         raise NotImplementedError("Composite keys are not supported yet.")
 
     raise UnknownOID(oid=oid, extra_info="For generating a private key.")
@@ -588,11 +586,20 @@ def load_public_key_from_cert_template(  # noqa: D417 undocumented param
     if not cert_template["publicKey"].isValue:
         return None
 
+    if cert_template["publicKey"]["subjectPublicKey"].asOctets() == b"" and must_be_present:
+        raise BadCertTemplate("The public key was for a KGA request.")
+
+    if cert_template["publicKey"]["subjectPublicKey"].asOctets() == b"":
+        return None
+
     spki = cert_template["publicKey"]
     old_spki = rfc5280.SubjectPublicKeyInfo()
     old_spki["algorithm"] = spki["algorithm"]
     old_spki["subjectPublicKey"] = spki["subjectPublicKey"]
-    return load_public_key_from_spki(old_spki)
+    try:
+        return load_public_key_from_spki(old_spki)
+    except BadAlg as e:
+        raise BadCertTemplate(f"Error loading public key from CertTemplate: {e}") from e
 
 
 def get_key_name(key: Union[PrivateKey, PublicKey]) -> str:  # noqa: D417 undocumented param
@@ -643,8 +650,21 @@ def check_consistency_alg_id_and_key(
 
     :param alg_id: The algorithm identifier for the key.
     :param key: The key to check.
+    :raises BadAlg: If the key is not of the same type as the algorithm identifier.
     """
     oid = alg_id["algorithm"]
+
+    if isinstance(key, (CompositeSig04PublicKey, CompositeSig04PrivateKey)):
+        if oid not in COMPOSITE_SIG04_OID_2_NAME:
+            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
+        name: str = COMPOSITE_SIG04_OID_2_NAME[oid]
+        use_pss = name.endswith("-pss")
+        pre_hash = True if "hash-" in name else False
+        if str(key.get_oid(use_pss=use_pss, pre_hash=pre_hash)) != str(oid):
+            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
+
+        return
+
     if isinstance(key, (CompositeSig03PublicKey, CompositeSig03PrivateKey)):
         if alg_id["algorithm"] not in CMS_COMPOSITE_OID_2_NAME:
             raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")

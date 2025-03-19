@@ -4,6 +4,7 @@
 
 """Factory class to generate and load post-quantum keys in various input formats."""
 
+import logging
 from typing import List, Optional, Type, Union
 
 import resources.oidutils
@@ -18,7 +19,7 @@ from resources.oidutils import (
     PQ_SIG_PRE_HASH_OID_2_NAME,
 )
 
-from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
 from pq_logic.keys.kem_keys import (
     FrodoKEMPrivateKey,
     FrodoKEMPublicKey,
@@ -106,6 +107,28 @@ def _load_key_from_one_asym_key(
 class PQKeyFactory:
     """Factory class for creating post-quantum keys from various input formats."""
 
+    _prefixes = ["ml-dsa", "ml-kem", "slh-dsa", "sntrup761", "mceliece", "falcon", "frodokem"]
+
+    _prefixes_2_pub_class = {
+        "ml-dsa": MLDSAPublicKey,
+        "slh-dsa": SLHDSAPublicKey,
+        "ml-kem": MLKEMPublicKey,
+        "sntrup761": Sntrup761PublicKey,
+        "mceliece": McEliecePublicKey,
+        "falcon": FalconPublicKey,
+        "frodokem": FrodoKEMPublicKey,
+    }
+
+    _prefixes_2_priv_class = {
+        "ml-dsa": MLDSAPrivateKey,
+        "slh-dsa": SLHDSAPrivateKey,
+        "ml-kem": MLKEMPrivateKey,
+        "sntrup761": Sntrup761PrivateKey,
+        "mceliece": McEliecePrivateKey,
+        "falcon": FalconPrivateKey,
+        "frodokem": FrodoKEMPrivateKey,
+    }
+
     @staticmethod
     def get_all_kem_algs() -> List[str]:
         """Return a list of all supported post-quantum KEM algorithms."""
@@ -141,10 +164,15 @@ class PQKeyFactory:
         """
         algorithm = algorithm.lower()
 
+        if algorithm in PQ_SIG_PRE_HASH_NAME_2_OID:
+            hash_alg = algorithm.split("-")[-1]
+            algorithm = algorithm.replace(f"-{hash_alg}", "")
+            logging.info("The Test-Suite treats PQ Signature algorithms with hash algorithms as the algorithm.")
+
         if algorithm in ["ml-kem-512", "ml-kem-768", "ml-kem-1024"]:
             return MLKEMPrivateKey(alg_name=algorithm)
 
-        if algorithm in ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]:
+        if algorithm.startswith("ml-dsa"):
             return MLDSAPrivateKey(alg_name=algorithm.upper())
 
         if algorithm == "slh-dsa" or algorithm in resources.oidutils.SLH_DSA_NAME_2_OID:
@@ -187,18 +215,28 @@ class PQKeyFactory:
         for x in PQ_NAME_2_OID:
             if x in algorithm:
                 return x
-        raise ValueError(f"Invalid algorithm name provided: '{algorithm}'.")
+        raise ValueError(f"Invalid PQ algorithm name provided: '{algorithm}'.")
 
     @staticmethod
-    def from_public_bytes(name: str, data: bytes):
+    def from_public_bytes(name: str, data: bytes, allow_rest: bool = False) -> Tuple[PQPublicKey, bytes]:
         """Load a PQ public key from the given public key bytes.
 
         :param name: The name of the algorithm.
         :param data: The public key bytes.
         :return: The public key instance.
         """
-        key = PQKeyFactory.generate_pq_key(name)
-        return key.public_key().from_public_bytes(data, name)
+
+        pq_name = PQKeyFactory.may_be_pq_alg(name)
+        pq_key = PQKeyFactory.generate_pq_key(pq_name)
+
+        pq_data = data[pq_key.key_size:]
+        key = class_inst.from_public_bytes(pq_data, pq_key.name)
+
+        if not allow_rest and len(data) != key.key_size:
+            raise InvalidKeyData()
+
+        rest = data[:key.key_size]
+        return key.public_key().from_public_bytes(data, name), rest
 
     @staticmethod
     def from_one_asym_key(
@@ -222,7 +260,10 @@ class PQKeyFactory:
 
         oid = one_asym_key["privateKeyAlgorithm"]["algorithm"]
         private_bytes = one_asym_key["privateKey"].asOctets()
-        public_bytes = one_asym_key["publicKey"].asOctets()
+        if one_asym_key["publicKey"].isValue:
+            public_bytes = one_asym_key["publicKey"].asOctets()
+        else:
+            public_bytes = None
 
         try:
             name = resources.oidutils.PQ_OID_2_NAME.get(oid)

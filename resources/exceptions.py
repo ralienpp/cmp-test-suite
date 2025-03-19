@@ -172,6 +172,9 @@ class BadDataFormat(CMPTestSuiteError):
         self.message = message
         super().__init__(f"Bad data format: {message}")
 
+class InvalidKeyData(BadDataFormat):
+    """Raised when the key cannot be loaded or decoded."""
+
 
 # This Exception is not in the protocol but would be more accurate.
 class BadAsn1Data(CMPTestSuiteError):

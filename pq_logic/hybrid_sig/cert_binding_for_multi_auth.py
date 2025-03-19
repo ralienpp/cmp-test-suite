@@ -119,7 +119,7 @@ def prepare_requester_certificate(  # noqa: D417 Missing argument descriptions i
 
     signature = cryptoutils.sign_data(data=data, key=cert_a_key, hash_alg=hash_alg)
 
-    logging.info(f"Signature: {signature}")
+    logging.info("Signature: %s", signature)
     if bad_pop:
         signature = utils.manipulate_first_byte(signature)
 
@@ -400,7 +400,7 @@ def validate_related_cert_pop(  # noqa: D417 Missing argument descriptions in th
     hash_alg = get_hash_from_oid(cert_a["tbsCertificate"]["signature"]["algorithm"], only_hash=True)
 
     sig_name = may_return_oid_to_name(cert_a["tbsCertificate"]["signature"]["algorithm"])
-    logging.info(f"Signature algorithm: {sig_name}")
+    logging.info("Signature algorithm: %s", sig_name)
 
     if hash_alg is None:
         raise ValueError(f"The hash algorithm could not be determined. Signature algorithm was: {sig_name}")

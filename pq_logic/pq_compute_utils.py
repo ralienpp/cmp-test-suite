@@ -37,13 +37,13 @@ from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, cham
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey
-from pq_logic.keys.composite_kem import CompositeKEMPublicKey
+from pq_logic.keys.composite_kem05 import CompositeKEMPublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
 from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey, SignKey, VerifyKey
 from pq_logic.tmp_oids import (
-    CMS_COMPOSITE04_OID_2_NAME,
+    COMPOSITE_SIG04_OID_2_NAME,
     id_altSubPubKeyExt,
     id_ce_deltaCertificateDescriptor,
     id_relatedCert,
@@ -79,14 +79,14 @@ def sign_data_with_alg_id(  # noqa: D417 Missing argument descriptions in the do
     oid = alg_id["algorithm"]
 
     if isinstance(key, CompositeSig04PrivateKey):
-        name: str = CMS_COMPOSITE04_OID_2_NAME[oid]
+        name: str = COMPOSITE_SIG04_OID_2_NAME[oid]
         use_pss = name.endswith("-pss")
-        pre_hash = True if "hash-" in name else False
+        pre_hash = "hash-" in name
         return key.sign(data=data, use_pss=use_pss, pre_hash=pre_hash)
     if isinstance(key, CompositeSig03PrivateKey):
         name: str = CMS_COMPOSITE_OID_2_NAME[oid]
         use_pss = name.endswith("-pss")
-        pre_hash = True if "hash-" in name else False
+        pre_hash = "hash-" in name
         key: CompositeSig03PrivateKey
         return key.sign(data=data, use_pss=use_pss, pre_hash=pre_hash)
     if oid in PQ_OID_2_NAME or oid in MSG_SIG_ALG or oid in RSASSA_PSS_OID_2_NAME or str(oid) in PQ_OID_2_NAME:
@@ -262,11 +262,11 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
     """
     oid = alg_id["algorithm"]
 
-    if oid in CMS_COMPOSITE_OID_2_NAME or oid in CMS_COMPOSITE04_OID_2_NAME:
-        name: str = CMS_COMPOSITE_OID_2_NAME[oid]
+    if oid in CMS_COMPOSITE_OID_2_NAME or oid in COMPOSITE_SIG04_OID_2_NAME:
+        name: str = CMS_COMPOSITE_OID_2_NAME.get(oid) or COMPOSITE_SIG04_OID_2_NAME[oid]
         use_pss = name.endswith("-pss")
         logging.debug(name)
-        pre_hash = True if "hash-" in name else False
+        pre_hash = "hash-" in name
         public_key: CompositeSig03PublicKey
         public_key.verify(data=data, signature=signature, use_pss=use_pss, pre_hash=pre_hash)
 

@@ -7,6 +7,7 @@ from typing import Optional
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import prepare_sun_hybrid_csr_attributes
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, get_oid_cms_composite_signature
 from pq_logic.pq_compute_utils import sign_data_with_alg_id
+from resources import keyutils
 from resources.certbuildutils import build_csr
 
 from pyasn1.codec.der import encoder, decoder
@@ -27,8 +28,7 @@ def build_sun_hybrid_composite_csr(
     sig_value_location: Optional[str] = None,
     use_rsa_pss: bool = True,
 ) -> rfc6402.CertificationRequest:
-    """
-    Create a CSR with composite signatures, supporting two public keys and multiple CSR attributes.
+    """Create a CSR with composite signatures, supporting two public keys and multiple CSR attributes.
 
     :param signing_key: CompositeSigCMSPrivateKey, which holds both traditional and post-quantum keys.
     :param common_name: The subject common name for the CSR.
@@ -39,14 +39,12 @@ def build_sun_hybrid_composite_csr(
     :param use_rsa_pss: Whether to use RSA-PSS for traditional keys.
     :return: CertificationRequest object with composite signature.
     """
-    signing_key = signing_key or CompositeSig03PrivateKey.generate(pq_name="ml-dsa-44", trad_param="ec")
 
     csr = build_csr(signing_key, common_name=common_name, exclude_signature=True, use_rsa_pss=use_rsa_pss)
     sig_alg_id = rfc5280.AlgorithmIdentifier()
 
-    domain_oid = get_oid_cms_composite_signature(
-        signing_key.pq_key.name,
-        signing_key.trad_key,  # type: ignore
+
+    domain_oid = signing_key.get_oid(
         use_pss=use_rsa_pss,
         pre_hash=False,
     )

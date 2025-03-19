@@ -44,7 +44,8 @@ class TestChempatLoadAndExportKey(unittest.TestCase):
         self.assertEqual(len(key_first.private_bytes_raw()), 1795)
         self.assertEqual(key_first.ct_length, 1071)
 
-        key_second = ChempatSntrup761PublicKey.from_public_bytes(key_first.public_key().public_bytes_raw(), "Chempat-X25519-sntrup761")
+        _name = "chempat-sntrup761-x25519"
+        key_second = ChempatSntrup761PublicKey.from_public_bytes(key_first.public_key().public_bytes_raw(), _name)
         key_third = load_public_key_from_spki(template["publicKey"])
         self.assertEqual(key_first.public_key(), key_second)
         self.assertEqual(key_first.public_key(), key_third)
@@ -55,14 +56,15 @@ class TestChempatLoadAndExportKey(unittest.TestCase):
         WHEN the public key is generated, exported and converted to spki.
         THEN the public key can be loaded from the exported public key.
         """
-        key_first = generate_key("chempat", pq_name="mceliece-348864", trad_name="x25519")
+        key_first = generate_key("chempat",
+                                 pq_name="mceliece-348864", trad_name="x25519")
         template = prepare_cert_template(key_first)
 
         self.assertEqual(key_first.public_key().key_size, 261152)
         self.assertEqual(len(key_first.private_bytes_raw()), 6524)
         self.assertEqual(key_first.ct_length, 128)
-
-        key_second = ChempatMcEliecePublicKey.from_public_bytes(key_first.public_key().public_bytes_raw(), "Chempat-X25519-mceliece348864")
+        _name = "chempat-mceliece-348864-x25519"
+        key_second = ChempatMcEliecePublicKey.from_public_bytes(key_first.public_key().public_bytes_raw(), _name)
         key_third = load_public_key_from_spki(template["publicKey"])
         self.assertEqual(key_first.public_key(), key_second)
         self.assertEqual(key_first.public_key(), key_third)
@@ -77,7 +79,8 @@ class TestChempatLoadAndExportKey(unittest.TestCase):
         key_first = generate_key("chempat", pq_name="frodokem-1344-aes", trad_name="x448")
         template = prepare_cert_template(key_first)
 
-        key_second = ChempatFrodoKEMPublicKey.from_public_bytes(key_first.public_key().public_bytes_raw(), "Chempat-X448-frodokem-1344-aes")
+        _name = "chempat-frodokem-1344-aes-x448"
+        key_second = ChempatFrodoKEMPublicKey.from_public_bytes(key_first.public_key().public_bytes_raw(), _name)
         key_third = load_public_key_from_spki(template["publicKey"])
         self.assertEqual(key_first.public_key(), key_second)
         self.assertEqual(key_first.public_key(), key_third)

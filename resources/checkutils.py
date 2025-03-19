@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pyasn1.error
 from cryptography.exceptions import InvalidSignature
-from pyasn1.codec.der import decoder, encoder
+from pyasn1.codec.der import decoder
 from pyasn1.type import univ, useful
 from pyasn1_alt_modules import rfc5280, rfc6664, rfc9480, rfc9481
 from pyasn1_alt_modules.rfc2437 import rsaEncryption
@@ -958,7 +958,10 @@ def check_implicitconfirm_in_generalinfo(pki_message: PKIMessageTMP) -> None:  #
     else:
         raise BadRequest(f"'implicitConfirm' is not allowed to be set for PKIBody type: {msg_type}")
 
-    if implicit_confirm != encoder.encode(univ.Null("")):
+    # Both are NULL values, one sent over the wire; the other is set by the user.
+    # Either remove and say the user must always en- and decode the `PKIMessage` or `generalInfo`,
+    # or allow this behavior.
+    if implicit_confirm not in [univ.Null(""), b"\x05\x00"]:
         logging.warning("implicit_confirm value is: %s", implicit_confirm.prettyPrint())
         raise BadRequest("The 'implicitConfirm' value must be NULL!")
 

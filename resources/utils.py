@@ -17,7 +17,7 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 import pyasn1
 import requests
 from pq_logic.hybrid_structures import CompositeCiphertextValue, CompositeSignatureValue
-from pq_logic.keys.composite_kem import CompositeKEMPrivateKey, CompositeKEMPublicKey
+from pq_logic.keys.composite_kem05 import CompositeKEMPrivateKey, CompositeKEMPublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey, CompositeSig04PublicKey
 from pyasn1.codec.der import decoder, encoder

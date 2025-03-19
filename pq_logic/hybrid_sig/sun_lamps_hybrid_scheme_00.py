@@ -328,7 +328,7 @@ def _extract_sun_hybrid_attrs_from_csr(csr: rfc6402.CertificationRequest) -> Dic
     for attribute in csr["certificationRequestInfo"]["attributes"]:
         oid = attribute["attrType"]
 
-        if oid == id_altSubPubKeyHashAlgAttr or oid == id_altSigValueHashAlgAttr:
+        if oid in [id_altSubPubKeyHashAlgAttr, id_altSigValueHashAlgAttr]:
             alg_id, _ = decoder.decode(attribute["attrValues"][0].asOctets(), rfc9480.AlgorithmIdentifier())
             key = attribute_map[oid]
             extracted_values[key] = alg_id
@@ -694,8 +694,8 @@ def validate_alt_pub_key_extn(  # noqa: D417 Missing argument descriptions in th
 
     hash_alg_oid = decoded_ext["hashAlg"]["algorithm"]
     hash_alg = get_hash_from_oid(hash_alg_oid)
-    logging.info(f"Alt Public key: {public_key}")
-    logging.info(f"hash alg: {hash_alg}")
+    logging.info("Alt Public key: %s", public_key)
+    logging.info("hash alg: %s", hash_alg)
 
     computed_hash = _hash_public_key(public_key, hash_alg=hash_alg)
 
@@ -772,8 +772,8 @@ def validate_alt_sig_extn(  # noqa: D417 Missing argument descriptions in the do
             if x["critical"]:
                 raise ValueError("The extension MUST not be critical.")
             continue
-        else:
-            new_extn.append(x)
+
+        new_extn.append(x)
 
     cert["tbsCertificate"]["extensions"] = new_extn
 
@@ -997,7 +997,7 @@ def validate_cert_contains_sun_hybrid_extensions(  # noqa: D417 Missing argument
         raise ValueError("The certificate is missing the AltSubPubKeyExt extension.")
 
     try:
-        obj2, rest = decoder.decode(extn["extnValue"].asOctets(), AltSubPubKeyExt())
+        _, rest = decoder.decode(extn["extnValue"].asOctets(), AltSubPubKeyExt())
         if rest != b"":
             raise BadAsn1Data("Decoding of the AltSubPubKeyExt extension had trailing data.")
     except pyasn1.error.PyAsn1Error:
@@ -1010,7 +1010,7 @@ def validate_cert_contains_sun_hybrid_extensions(  # noqa: D417 Missing argument
         raise ValueError("The certificate is missing the AltSignatureExt extension.")
 
     try:
-        obj2, rest = decoder.decode(extn["extnValue"].asOctets(), AltSignatureExt())
+        _, rest = decoder.decode(extn["extnValue"].asOctets(), AltSignatureExt())
         if rest != b"":
             raise BadAsn1Data("Decoding of the AltSubPubKeyExt extension had trailing data.")
     except pyasn1.error.PyAsn1Error:

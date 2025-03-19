@@ -40,10 +40,7 @@ CA MUST Accept Valid MAC Protected Issuing Process
     ...    sender=${SENDER}
     ...    recipient=${RECIPIENT}
     ...    for_mac=True
-    ${protected_cert_conf}=    Protect PKIMessage
-    ...    ${cert_conf}
-    ...    protection=${DEFAULT_MAC_ALGORITHM}
-    ...    password=${PRESHARED_SECRET}
+    ${protected_cert_conf}=    Default Protect With MAC    ${cert_conf}
     ${response}=    Exchange PKIMessage    ${protected_cert_conf}
     PKIMessage Body Type Must Be    ${response}    pkiconf
 

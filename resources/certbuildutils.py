@@ -14,9 +14,10 @@ from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey
-from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, get_oid_cms_composite_signature
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
+from pq_logic.migration_typing import SignKey
 from pq_logic.pq_utils import is_kem_public_key
-from pq_logic.tmp_oids import id_rsa_kem_spki
+from pq_logic.tmp_oids import COMPOSITE_SIG03_HASH_OID_2_NAME, COMPOSITE_SIG04_HASH_OID_2_NAME, id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ, useful
 from pyasn1.type.base import Asn1Type
@@ -43,7 +44,13 @@ from resources import (
 from resources.asn1utils import get_set_bitstring_names
 from resources.convertutils import subjectPublicKeyInfo_from_pubkey
 from resources.exceptions import BadAsn1Data, BadCertTemplate
-from resources.oidutils import CMP_EKU_OID_2_NAME, EXTENSION_OID_2_NAME, RSASSA_PSS_OID_2_NAME
+from resources.oid_mapping import may_return_oid_to_name
+from resources.oidutils import (
+    CMP_EKU_OID_2_NAME,
+    EXTENSION_OID_2_NAME,
+    PQ_SIG_PRE_HASH_OID_2_NAME,
+    RSASSA_PSS_OID_2_NAME,
+)
 from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey, PublicKeySig, Strint
 
 
@@ -152,14 +159,7 @@ def prepare_sig_alg_id(  # noqa D417 undocumented-param
         # TODO maybe make it better to get the oid from the key itself.
         # Left like this, because unknown how the cryptography library will
         # implement the CompositeSigPrivateKey (Probably for every key a new class).
-        domain_oid = get_oid_cms_composite_signature(
-            signing_key.pq_key.name,
-            signing_key.trad_key,  # type: ignore
-            use_pss=use_rsa_pss,
-            pre_hash=use_pre_hash,
-            allow_bad_rsa=True,
-        )
-        # domain_oid = signing_key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
+        domain_oid = signing_key.get_oid(use_pss=use_rsa_pss, pre_hash=use_pre_hash)
         alg_id["algorithm"] = domain_oid
 
     elif isinstance(signing_key, CompositeSig03PrivateKey):
@@ -259,7 +259,7 @@ def sign_csr(  # noqa D417 undocumented-param
 
 @keyword(name="Build CSR")
 def build_csr(  # noqa D417 undocumented-param
-    signing_key: PrivateKeySig,
+    signing_key: SignKey,
     common_name: str = "CN=Hans Mustermann",
     extensions: Optional[Sequence[rfc5280.Extension]] = None,
     hash_alg: Union[None, str] = "sha256",
@@ -1263,6 +1263,7 @@ def prepare_cert_template(  # noqa D417 undocumented-param
     validity: Optional[rfc5280.Validity] = None,
     extensions: Optional[Iterable[rfc5280.Extension]] = None,
     for_kga: bool = False,
+    sign_alg: Optional[rfc9480.AlgorithmIdentifier] = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     include_cert_extensions: bool = True,
     spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
@@ -1362,6 +1363,10 @@ def prepare_cert_template(  # noqa D417 undocumented-param
         cert_template["publicKey"] = _prepare_public_key_for_cert_template(
             key=key, for_kga=for_kga, asn1cert=cert, use_pre_hash=use_pre_hash
         )
+
+    if sign_alg is not None and "signingAlg" not in exclude_list:
+        cert_template["signingAlg"]["algorithm"] = sign_alg["algorithm"]
+        cert_template["signingAlg"]["parameters"] = sign_alg["parameters"]
 
     logging.info("%s", cert_template.prettyPrint())
     return cert_template
@@ -1625,7 +1630,7 @@ def prepare_subject_public_key_info(  # noqa D417 undocumented-param
                 spki["algorithm"]["parameters"] = univ.Null("")
 
             if add_params_rand_bytes:
-                spki["algorithm"]["algorithm"]["parameters"] = univ.BitString.fromOctetString(os.urandom(16))
+                spki["algorithm"]["parameters"] = univ.BitString.fromOctetString(os.urandom(16))
 
             return spki
 
@@ -1662,7 +1667,7 @@ def prepare_subject_public_key_info(  # noqa D417 undocumented-param
             spki["subjectPublicKey"] = univ.BitString.fromOctetString(tmp)
 
     if add_params_rand_bytes:
-        spki["algorithm"]["algorithm"]["parameters"] = univ.BitString.fromOctetString(os.urandom(16))
+        spki["algorithm"]["parameters"] = univ.BitString.fromOctetString(os.urandom(16))
 
     return spki
 
@@ -2404,6 +2409,24 @@ def verify_ca_basic_constraints(  # noqa D417 undocumented-param
             raise BadCertTemplate("A end entity certificate can not have a path length greater 0 set.")
 
     extn = certextractutils.get_extension(cert_template["extensions"], rfc5280.id_ce_basicConstraints)
+
+    if isinstance(cert_template, rfc9480.CertTemplate):
+        if cert_template["publicKey"].isValue:
+            is_ca = bool(basic_con["cA"])
+            oid = cert_template["publicKey"]["algorithm"]["algorithm"]
+            if oid in PQ_SIG_PRE_HASH_OID_2_NAME:
+                if is_ca:
+                    _name = may_return_oid_to_name(oid)
+                    raise BadCertTemplate(
+                        f"A CA certificate can not have a PQ PreHash signature algorithm.OID: {_name}"
+                    )
+
+            if oid in COMPOSITE_SIG04_HASH_OID_2_NAME or oid in COMPOSITE_SIG03_HASH_OID_2_NAME:
+                if is_ca:
+                    _name = may_return_oid_to_name(oid)
+                    raise BadCertTemplate(
+                        f"A CA certificate can not have a Composite Signature PreHash algorithm.OID: {_name}"
+                    )
 
     if set_crit:
         extn["critical"] = True

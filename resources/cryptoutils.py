@@ -21,16 +21,20 @@ from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives import padding as aes_padding
 from cryptography.hazmat.primitives.asymmetric import dh, dsa, ec, ed448, ed25519, padding, rsa, x448, x25519
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
-from pyasn1_alt_modules import rfc8018, rfc9480, rfc9481
+from pyasn1.codec.der import decoder
+from pyasn1_alt_modules import rfc3565, rfc8018, rfc9480, rfc9481
+from pyasn1_alt_modules.rfc5084 import GCMParameters
 from robot.api.deco import not_keyword
 
 from resources import convertutils, keyutils, oid_mapping
-from resources.exceptions import BadAlg
+from resources.exceptions import BadAlg, BadAsn1Data
 from resources.oid_mapping import compute_hash, get_hash_from_oid, hash_name_to_instance
+from resources.oidutils import AES_CBC_OID_2_NAME, AES_GCM_OID_2_NAME
 from resources.typingutils import ECDHPrivKeyTypes, ECDHPubKeyTypes, PrivateKeySig, PublicKeySig
 
 
@@ -603,3 +607,56 @@ def verify_signature(  # noqa D417 undocumented-param
 
     else:
         raise BadAlg(f"Unsupported public key type: {type(public_key).__name__}.")
+
+
+@not_keyword
+def decrypt_data_with_alg_id(
+    alg_id: rfc9480.AlgorithmIdentifier,
+    key: bytes,
+    data: bytes,
+    mac: Optional[bytes] = None,
+    auth_attrs: Optional[bytes] = None,
+    allow_bad_gcm_size: bool = False,
+) -> bytes:
+    """Decrypt data using the given AlgorithmIdentifier.
+
+    :param alg_id: The AlgorithmIdentifier for the content encryption algorithm.
+    :param key: The Content Encryption Key (CEK) for decryption.
+    :param data: The encrypted content to decrypt.
+    :param mac: The Message Authentication Code (MAC) for authenticated encryption algorithms.
+    :param auth_attrs: The authenticated attributes for authenticated encryption algorithms.
+    :param allow_bad_gcm_size: Whether to allow if the size is set to 12 bytes, but the nonce is not 12 bytes.
+    :return: The decrypted plaintext.
+    """
+    alg_oid = alg_id["algorithm"]
+    alg_params = alg_id["parameters"]
+
+    if alg_oid in AES_GCM_OID_2_NAME:
+        logging.info("Decrypting with AES-GCM using %s", AES_GCM_OID_2_NAME[alg_oid])
+        gcm_params, rest = decoder.decode(alg_params, asn1Spec=GCMParameters())
+
+        if rest:
+            raise BadAsn1Data("GCMParameters")
+
+        nonce = gcm_params["aes-nonce"].asOctets()
+
+        _length = int(gcm_params["aes-ICVlen"])
+        # The Default size is 12, for no it is accepted
+        # if the value was not set.
+        # Bad behavior!
+        if len(nonce) != _length and not allow_bad_gcm_size:
+            raise ValueError(f"Invalid nonce length: {len(nonce)}. Expected: {_length}")
+
+        aes_gcm = AESGCM(key)
+        return aes_gcm.decrypt(nonce, data + mac or b"", associated_data=auth_attrs)
+
+    elif alg_oid in AES_CBC_OID_2_NAME:
+        logging.info("Decrypting with AES-CBC using: %s", AES_CBC_OID_2_NAME[alg_oid])
+        params, rest = decoder.decode(alg_params, asn1Spec=rfc3565.AES_IV())
+        if rest:
+            raise BadAsn1Data("AES_IV")
+
+        nonce = params.asOctets()
+        return compute_aes_cbc(key=key, data=data, iv=nonce, decrypt=True)
+    else:
+        raise ValueError(f"Unsupported content encryption algorithm: {alg_oid}")

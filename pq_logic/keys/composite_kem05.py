@@ -46,11 +46,11 @@ from pq_logic.keys.abstract_wrapper_keys import (
     TradKEMPublicKey,
 )
 from pq_logic.keys.trad_keys import DHKEMPrivateKey, DHKEMPublicKey, RSADecapKey, RSAEncapKey
-from pq_logic.tmp_oids import COMPOSITE_KEM_NAME_2_OID
+from pq_logic.tmp_oids import COMPOSITE_KEM05_NAME_2_OID
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 
-def get_composite_kem_hash_alg(pq_name: str, trad_key, alternative: bool = False) -> str:
+def _get_composite_kem_hash_alg(pq_name: str, trad_key, alternative: bool = False) -> str:
     """Return the hash algorithm for a composite KEM.
 
     :param pq_name: The name of the post-quantum algorithm.
@@ -82,6 +82,7 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
     _trad_key = TradKEMPublicKey
     _pq_key = PQKEMPublicKey
     _alternative_hash: bool = False
+    _name = "composite-kem-05"
 
     def __init__(self, pq_key: PQKEMPublicKey, trad_key: Union[TradKEMPublicKey, ECDHPublicKey, RSAPublicKey]):
         """Initialize the composite KEM public key."""
@@ -101,7 +102,7 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
     @property
     def name(self) -> str:
         """Return the name of the composite KEM."""
-        return f"composite-kem-{self.pq_key.name}-{self.trad_key.get_trad_name}"
+        return f"{self._name}-{self.pq_key.name}-{self.trad_key.get_trad_name}"
 
     @property
     def key_size(self) -> int:
@@ -110,12 +111,9 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the composite KEM."""
-        _name = f"composite-kem-{self.pq_key.name}-{self.trad_key.get_trad_name}"
-
-        if COMPOSITE_KEM_NAME_2_OID.get(_name) is None:
-            raise InvalidKeyCombination(f"Unsupported composite KEM combination: {_name}")
-
-        return COMPOSITE_KEM_NAME_2_OID[_name]
+        if COMPOSITE_KEM05_NAME_2_OID.get(self.name) is None:
+            raise InvalidKeyCombination(f"Unsupported composite KEM combination: {self.name}")
+        return COMPOSITE_KEM05_NAME_2_OID[self.name]
 
     @property
     def trad_key(self) -> TradKEMPublicKey:
@@ -140,7 +138,7 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
         """
         concatenated_inputs = mlkem_ss + trad_ss + trad_ct + trad_pk + encoder.encode(self.get_oid())
         logging.info("CompositeKEM concatenated inputs: %s", concatenated_inputs)
-        kdf_name = get_composite_kem_hash_alg(self.pq_key.name, self.trad_key)
+        kdf_name = _get_composite_kem_hash_alg(self.pq_key.name, self.trad_key)
 
         if "hkdf" in kdf_name:
             hash_instance = hashes.SHA256() if not self._alternative_hash else hashes.SHA512()
@@ -166,6 +164,13 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
         logging.info("Traditional KEM encaps ct: %s", ct.hex())
         return ss, ct
 
+    def _prepare_ct_vals(self, mlkem_ct: bytes, trad_ct: bytes) -> bytes:
+        """Prepare the composite ciphertext values for encoding."""
+        ct_vals = CompositeCiphertextValue()
+        ct_vals.append(univ.OctetString(mlkem_ct))
+        ct_vals.append(univ.OctetString(trad_ct))
+        return encoder.encode(ct_vals)
+
     def encaps(self, private_key: Optional[ECDHPrivateKey] = None) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using the composite KEM algorithm.
 
@@ -181,10 +186,7 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
             trad_ct,
             trad_pk,
         )
-        ct_vals = CompositeCiphertextValue()
-        ct_vals.append(univ.OctetString(mlkem_ct))
-        ct_vals.append(univ.OctetString(trad_ct))
-        return combined_ss, encoder.encode(ct_vals)
+        return combined_ss, self._prepare_ct_vals(mlkem_ct, trad_ct)
 
 
 class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
@@ -193,6 +195,7 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
     _trad_key: TradKEMPrivateKey
     _pq_key: PQKEMPrivateKey
     _alternative_hash: bool = False
+    _name = "composite-kem-05"
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
@@ -205,7 +208,6 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
         :param trad_key: The traditional KEM private key.
         """
         super().__init__(pq_key, trad_key)
-
         if isinstance(trad_key, TradKEMPrivateKey):
             self._trad_key = trad_key
         elif isinstance(trad_key, ECDHPrivateKey):
@@ -230,14 +232,18 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
         if isinstance(self.trad_key, RSADecapKey):
             size = self._get_rsa_size(self.trad_key._private_key.key_size)  # pylint: disable=protected-access
             trad_name = f"rsa{size}"
-        else:
-            trad_name = self.trad_key.get_trad_name
-        _name = f"composite-kem-{self.pq_key.name}-{trad_name}"
 
-        if COMPOSITE_KEM_NAME_2_OID.get(_name) is None:
+        elif isinstance(self.trad_key, DHKEMPrivateKey):
+            trad_name = self.trad_key.get_trad_name
+
+        else:
+            trad_name = super()._get_trad_key_name()
+        _name = f"{self._name}-{self.pq_key.name}-{trad_name}"
+
+        if COMPOSITE_KEM05_NAME_2_OID.get(_name) is None:
             raise InvalidKeyCombination(f"Unsupported composite KEM combination: {_name}")
 
-        return COMPOSITE_KEM_NAME_2_OID[_name]
+        return COMPOSITE_KEM05_NAME_2_OID[_name]
 
     def public_key(self) -> CompositeKEMPublicKey:
         """Return the public key of the composite KEM."""
@@ -256,7 +262,7 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
         """
         concatenated_inputs = mlkem_ss + trad_ss + trad_ct + trad_pk + encoder.encode(self.get_oid())
         logging.info("CompositeKEM concatenated inputs: %s", concatenated_inputs)
-        kdf_name = get_composite_kem_hash_alg(self.pq_key.name, self.trad_key)
+        kdf_name = _get_composite_kem_hash_alg(self.pq_key.name, self.trad_key)
 
         if "hkdf" in kdf_name:
             hash_instance = hashes.SHA256() if not self._alternative_hash else hashes.SHA512()
@@ -311,37 +317,3 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
     def key_size(self) -> int:
         """Return the key size of the composite KEM."""
         return len(self._export_private_key())
-
-
-class CompositeDHKEMRFC9180PublicKey(CompositeKEMPublicKey):
-    """Composite DHKEMRFC9180 public key."""
-
-    def get_oid(self) -> univ.ObjectIdentifier:
-        """Return the OID of the DHKEM composite KEM."""
-        return univ.ObjectIdentifier(str(COMPOSITE_KEM_NAME_2_OID[self.name]))
-
-    @property
-    def name(self) -> str:
-        """Return the name of the composite KEM key."""
-        return f"dhkemrfc9180-{self.pq_key.name}-{self.trad_key.get_trad_name}"
-
-
-class CompositeDHKEMRFC9180PrivateKey(CompositeKEMPrivateKey):
-    """Composite DHKEMRFC9180 private key."""
-
-    def __init__(self, pq_key: PQKEMPrivateKey, trad_key: Union[TradKEMPrivateKey, ECDHPrivateKey]):
-        """Initialize the composite KEM private key."""
-        super().__init__(pq_key, trad_key)
-        self._trad_key = DHKEMPrivateKey(trad_key, use_rfc9180=True)
-
-    def _get_header_name(self) -> bytes:
-        """Return the algorithm name."""
-        return b"COMPOSITE-DHKEM"
-
-    def get_oid(self) -> univ.ObjectIdentifier:
-        """Return the OID of the composite KEM."""
-        return self.public_key().get_oid()
-
-    def public_key(self) -> CompositeDHKEMRFC9180PublicKey:
-        """Return the public key of the composite KEM."""
-        return CompositeDHKEMRFC9180PublicKey(self.pq_key.public_key(), self.trad_key.public_key())

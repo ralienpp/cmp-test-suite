@@ -253,6 +253,3 @@ CA MUST Issue A Composite Sig Certificate with cRLSign KeyUsage Bit
     ${response}=       Exchange Migration PKIMessage    ${protected_ir}   ${CA_BASE_URL}   ${COMPOSITE_URL_PREFIX}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}    accepted
-
-# disable too many lines
-# robocop: off=0506

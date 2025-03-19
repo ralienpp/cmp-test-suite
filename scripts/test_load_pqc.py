@@ -53,7 +53,7 @@ def _load_chameleon_cert(pem_file: str):
 def main():
     """Run the script."""
     repo_url = "https://github.com/IETF-Hackathon/pqc-certificates"
-    data_dir = "../data"
+    data_dir = "./data"
     providers_dir = os.path.join(data_dir, "pqc-certificates", "providers")
     pem_files = []
 
@@ -147,6 +147,7 @@ def verify_signature_with_alg_id(
 
 
 if __name__ == "__main__":
+    print("Starting verification of PQC certificates.")
     pem_files = []
 
     parser = argparse.ArgumentParser(
@@ -157,10 +158,11 @@ if __name__ == "__main__":
 
     if args.overwrite:
         print("Overwriting existing files.")
-        shutil.rmtree("../data/pqc-certificates")
+        shutil.rmtree("./data/pqc-certificates")
         main()
 
-    elif not os.path.isdir("../data/pqc-certificates"):
+    elif not os.path.isdir("./data/pqc-certificates"):
+        print("Cloning repository...")
         main()
     else:
         # for file in glob.iglob(f"{dir_path}/**/*.crl", recursive=True):

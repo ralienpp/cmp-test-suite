@@ -13,12 +13,13 @@ from pq_logic.tmp_oids import (
     CHEMPAT_OID_2_NAME,
     CMS_COMPOSITE03_OID_2_HASH,
     COMP_SIG03_PREHASH_OID_2_HASH,
-    COMPOSITE_KEM_OID_2_NAME,
-    COMPOSITE_SIG_OID_2_NAME,
+    COMPOSITE_KEM05_OID_2_NAME,
+    COMPOSITE_SIG03_HASH_NAME_2_OID,
+    COMPOSITE_SIG03_OID_2_NAME,
+    COMPOSITE_SIG04_OID_2_NAME,
     FALCON_NAME_2_OID,
     FRODOKEM_NAME_2_OID,
     FRODOKEM_OID_2_NAME,
-    HASH_COMPOSITE_SIG03_NAME_TO_OID,
     MCELIECE_NAME_2_OID,
     MCELIECE_OID_2_NAME,
     PURE_COMPOSITE_SIG03_NAME_TO_OID,
@@ -26,12 +27,13 @@ from pq_logic.tmp_oids import (
     id_altSignatureExt,
     id_altSubPubKeyExt,
     id_ce_deltaCertificateDescriptor,
-    id_sntrup761_str,
+    id_sntrup761_str, COMPOSITE_KEM06_NAME_2_OID, COMPOSITE_KEM06_OID_2_NAME,
 )
 from pyasn1.type import univ
 from pyasn1_alt_modules import (
     rfc3370,
     rfc3565,
+    rfc5084,
     rfc5280,
     rfc5480,
     rfc5639,
@@ -123,6 +125,22 @@ SHA3_OID_2_NAME = {
     univ.ObjectIdentifier(f"{id_hash_algs}.11"): "shake128",
     univ.ObjectIdentifier(f"{id_hash_algs}.12"): "shake256",
 }
+
+AES_CBC_NAME_2_OID = {
+    "aes128_cbc": rfc9481.id_aes128_CBC,
+    "aes192_cbc": rfc9481.id_aes192_CBC,
+    "aes256_cbc": rfc9481.id_aes256_CBC,
+}
+
+AES_CBC_OID_2_NAME = {v: k for k, v in AES_CBC_NAME_2_OID.items()}
+
+AES_GCM_NAME_2_OID = {
+    "aes128_gcm": rfc5084.id_aes128_GCM,
+    "aes192_gcm": rfc5084.id_aes192_GCM,
+    "aes256_gcm": rfc5084.id_aes256_GCM,
+}
+
+AES_GCM_OID_2_NAME = {v: k for k, v in AES_GCM_NAME_2_OID.items()}
 
 
 # map OIDs of signature algorithms to the names of the hash functions
@@ -378,12 +396,12 @@ KM_KW_ALG = {
 }  # As per Section 4.3 in RFC 9481
 
 
-ALL_KNOWN_PROTECTION_OIDS = {}
-ALL_KNOWN_PROTECTION_OIDS.update({rfc6664.id_ecPublicKey: "ecPubKey"})
-ALL_KNOWN_PROTECTION_OIDS.update(SUPPORTED_MAC_OID_2_NAME)
-ALL_KNOWN_PROTECTION_OIDS.update(SYMMETRIC_PROT_ALGO)
-ALL_KNOWN_PROTECTION_OIDS.update(KMAC_OID_2_NAME)
-ALL_KNOWN_PROTECTION_OIDS.update(RSASSA_PSS_OID_2_NAME)
+ALL_KNOWN_OIDS_2_NAME = {}
+ALL_KNOWN_OIDS_2_NAME.update({rfc6664.id_ecPublicKey: "ecPubKey"})
+ALL_KNOWN_OIDS_2_NAME.update(SUPPORTED_MAC_OID_2_NAME)
+ALL_KNOWN_OIDS_2_NAME.update(SYMMETRIC_PROT_ALGO)
+ALL_KNOWN_OIDS_2_NAME.update(KMAC_OID_2_NAME)
+ALL_KNOWN_OIDS_2_NAME.update(RSASSA_PSS_OID_2_NAME)
 
 
 ###########################
@@ -443,7 +461,7 @@ PQ_KEM_NAME_2_OID.update(ML_KEM_NAME_2_OID)
 
 PQ_KEM_OID_2_NAME = {y: x for x, y in PQ_KEM_NAME_2_OID.items()}
 
-ALL_KNOWN_PROTECTION_OIDS.update(PQ_KEM_NAME_2_OID)
+ALL_KNOWN_OIDS_2_NAME.update(PQ_KEM_NAME_2_OID)
 
 # ###################------
 # PQ Sig OIDs
@@ -501,7 +519,7 @@ SLH_DSA_NAME_2_OID = {
     "slh-dsa-shake-256f": univ.ObjectIdentifier(id_SLH_DSA_SHAKE_256F),
 }
 
-SLH_DSA_NAME_2_OID_PRE_HASH = {
+SLH_DSA_PRE_HASH_NAME_2_OID = {
     "slh-dsa-sha2-128s-sha256": sig_algorithms_oid + (35,),
     "slh-dsa-sha2-128f-sha256": sig_algorithms_oid + (36,),
     "slh-dsa-sha2-192s-sha512": sig_algorithms_oid + (37,),
@@ -516,9 +534,9 @@ SLH_DSA_NAME_2_OID_PRE_HASH = {
     "slh-dsa-shake-256f-shake256": sig_algorithms_oid + (46,),
 }
 
-SLH_DSA_OID_2_PRE_HASH_NAME = {y: x for x, y in SLH_DSA_NAME_2_OID_PRE_HASH.items()}
+SLH_DSA_PRE_HASH_OID_2_NAME = {y: x for x, y in SLH_DSA_PRE_HASH_NAME_2_OID.items()}
 
-SLH_DSA_NAME_2_OID.update(SLH_DSA_NAME_2_OID_PRE_HASH)
+SLH_DSA_NAME_2_OID.update(SLH_DSA_PRE_HASH_NAME_2_OID)
 
 SLH_DSA_OID_2_NAME = {y: x for x, y in SLH_DSA_NAME_2_OID.items()}
 
@@ -553,7 +571,7 @@ KEY_WRAP_OID_2_NAME = {v: k for k, v in KEY_WRAP_NAME_2_OID.items()}
 # ###################
 
 OID_HASH_MAP.update(ML_DSA_OID_2_NAME)
-ALL_KNOWN_PROTECTION_OIDS.update(ML_DSA_NAME_2_OID)
+ALL_KNOWN_OIDS_2_NAME.update(ML_DSA_NAME_2_OID)
 
 
 # ###################
@@ -594,11 +612,11 @@ ALL_COMPOSITE_SIG04_COMBINATIONS = ALL_COMPOSITE_SIG_COMBINATIONS + [
 CMS_COMPOSITE03_OID_2_HASH.update(PURE_OID_TO_HASH)
 CMS_COMPOSITE03_OID_2_HASH.update(COMP_SIG03_PREHASH_OID_2_HASH)
 
-CMS_COMPOSITE_NAME_2_OID = {}
-CMS_COMPOSITE_NAME_2_OID.update(PURE_COMPOSITE_SIG03_NAME_TO_OID)
-CMS_COMPOSITE_NAME_2_OID.update(HASH_COMPOSITE_SIG03_NAME_TO_OID)
+CMS_COMPOSITE03_NAME_2_OID = {}
+CMS_COMPOSITE03_NAME_2_OID.update(PURE_COMPOSITE_SIG03_NAME_TO_OID)
+CMS_COMPOSITE03_NAME_2_OID.update(COMPOSITE_SIG03_HASH_NAME_2_OID)
 
-CMS_COMPOSITE_OID_2_NAME: Dict[univ.ObjectIdentifier, str] = {y: x for x, y in CMS_COMPOSITE_NAME_2_OID.items()}
+CMS_COMPOSITE_OID_2_NAME: Dict[univ.ObjectIdentifier, str] = {y: x for x, y in CMS_COMPOSITE03_NAME_2_OID.items()}
 
 
 PQ_SIG_NAME_2_OID.update(FALCON_NAME_2_OID)
@@ -609,7 +627,7 @@ PQ_KEM_NAME_2_OID.update(MCELIECE_NAME_2_OID)
 
 PQ_SIG_PRE_HASH_OID_2_NAME = {}
 PQ_SIG_PRE_HASH_OID_2_NAME.update(ML_DSA_PRE_HASH_OID_2_NAME)
-PQ_SIG_PRE_HASH_OID_2_NAME.update(SLH_DSA_OID_2_PRE_HASH_NAME)
+PQ_SIG_PRE_HASH_OID_2_NAME.update(SLH_DSA_PRE_HASH_OID_2_NAME)
 
 PQ_SIG_PRE_HASH_NAME_2_OID = {y: x for x, y in PQ_SIG_PRE_HASH_OID_2_NAME.items()}
 
@@ -626,7 +644,8 @@ KEM_OID_2_NAME.update(FRODOKEM_OID_2_NAME)
 KEM_OID_2_NAME.update(MCELIECE_OID_2_NAME)
 KEM_OID_2_NAME.update(CHEMPAT_OID_2_NAME)
 KEM_OID_2_NAME.update({univ.ObjectIdentifier(XWING_OID_STR): "xwing"})
-KEM_OID_2_NAME.update(COMPOSITE_KEM_OID_2_NAME)
+KEM_OID_2_NAME.update(COMPOSITE_KEM05_OID_2_NAME)
+KEM_OID_2_NAME.update(COMPOSITE_KEM06_OID_2_NAME)
 KEM_OID_2_NAME.update({rfc5990.id_kem_rsa: "rsa-kem"})
 
 KEM_NAME_2_OID = {y: x for x, y in KEM_OID_2_NAME.items()}
@@ -641,18 +660,19 @@ TRAD_STR_OID_TO_KEY_NAME = {
 }
 
 HYBRID_OID_2_NAME = {}
-HYBRID_OID_2_NAME.update(COMPOSITE_KEM_OID_2_NAME)
+HYBRID_OID_2_NAME.update(COMPOSITE_KEM05_OID_2_NAME)
 HYBRID_OID_2_NAME.update(CHEMPAT_OID_2_NAME)
 HYBRID_OID_2_NAME.update({univ.ObjectIdentifier(XWING_OID_STR): "xwing"})
-HYBRID_OID_2_NAME.update(COMPOSITE_SIG_OID_2_NAME)
+HYBRID_OID_2_NAME.update(COMPOSITE_SIG03_OID_2_NAME)
+HYBRID_OID_2_NAME.update(COMPOSITE_SIG04_OID_2_NAME)
 
 HYBRID_NAME_2_OID = {y: x for x, y in HYBRID_OID_2_NAME.items()}
 
-ALL_KNOWN_PROTECTION_OIDS.update(PQ_OID_2_NAME)
-ALL_KNOWN_PROTECTION_OIDS.update(KEM_OID_2_NAME)
-ALL_KNOWN_PROTECTION_OIDS.update({rfc9481.rsaEncryption: "rsa_encryption"})
-ALL_KNOWN_PROTECTION_OIDS.update(TRAD_STR_OID_TO_KEY_NAME)
-ALL_KNOWN_PROTECTION_OIDS.update(HYBRID_OID_2_NAME)
+ALL_KNOWN_OIDS_2_NAME.update(PQ_OID_2_NAME)
+ALL_KNOWN_OIDS_2_NAME.update(KEM_OID_2_NAME)
+ALL_KNOWN_OIDS_2_NAME.update({rfc9481.rsaEncryption: "rsa_encryption"})
+ALL_KNOWN_OIDS_2_NAME.update(TRAD_STR_OID_TO_KEY_NAME)
+ALL_KNOWN_OIDS_2_NAME.update(HYBRID_OID_2_NAME)
 # Extension Object Identifiers (OIDs)
 id_ce_subjectAltPublicKeyInfo = rfc5280.id_ce + (72,)
 id_ce_altSignatureAlgorithm = rfc5280.id_ce + (73,)
@@ -679,5 +699,6 @@ EXTENSION_NAME_2_OID = {
 
 EXTENSION_OID_2_NAME = {y: x for x, y in EXTENSION_NAME_2_OID.items()}
 
-ALL_KNOWN_PROTECTION_OIDS.update(EXTENSION_OID_2_NAME)
-ALL_KNOWN_NAME_2_OID = {y: x for x, y in ALL_KNOWN_PROTECTION_OIDS.items()}
+ALL_KNOWN_OIDS_2_NAME.update(EXTENSION_OID_2_NAME)
+ALL_KNOWN_OIDS_2_NAME.update(COMPOSITE_KEM06_OID_2_NAME)
+ALL_KNOWN_NAMES_2_OID = {y: x for x, y in ALL_KNOWN_OIDS_2_NAME.items()}

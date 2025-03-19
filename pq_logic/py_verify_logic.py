@@ -665,7 +665,7 @@ def verify_crl_signature(  # noqa D417 undocumented-param
             )
         except InvalidSignature as e:
             key_name = alt_public_key.name if hasattr(alt_public_key, "name") else type(alt_public_key)
-            raise InvalidAltSignature("The alternative signature is invalid, for key: %s" % key_name) from e
+            raise InvalidAltSignature(f"The alternative signature is invalid, for key: {key_name}") from e
 
     elif must_be_catalyst_signed:
         raise ValueError("The CRL was not signed by the an alternative key.")

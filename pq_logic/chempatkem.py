@@ -11,7 +11,6 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, rsa, x448, x25519
 from pyasn1.type import univ
 from resources.exceptions import InvalidKeyCombination
-from robot.api.deco import not_keyword
 
 from pq_logic.kem_mechanism import DHKEMRFC9180
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
@@ -39,54 +38,6 @@ CURVE_NAME_2_CONTEXT_NAME = {
     "secp384r1": "P384",
     "brainpoolP384r1": "brainpoolP384",
 }
-
-
-@not_keyword
-def get_oid_for_chemnpat(
-    pq_key: Union[PQKEMPrivateKey, PQKEMPublicKey],
-    trad_key: Union[ECDHPrivateKey, ECDHPublicKey],
-    curve_name: Optional[str] = None,
-) -> univ.ObjectIdentifier:
-    """Return the OID for a Chempat key combination.
-
-    :param pq_key: The post-quantum key object.
-    :param trad_key: The traditional key object.
-    :param curve_name: The name of the elliptic curve.
-    :return: The Object Identifier.
-    :raises InvalidKeyCombination: If the traditional key type or the post-quantum key type is not supported,
-    or if the Chempat key combination is not supported.
-
-    """
-    if pq_key.name == "sntrup761":
-        pq_name = "sntrup761"
-
-    elif isinstance(pq_key, (McEliecePrivateKey, McEliecePublicKey)):
-        pq_name = pq_key.name.replace("-", "").lower()
-    elif isinstance(pq_key, (MLKEMPrivateKey, MLKEMPublicKey)):
-        pq_name = pq_key.name.upper()
-
-    elif isinstance(pq_key, (FrodoKEMPublicKey, FrodoKEMPrivateKey)):
-        pq_name = pq_key.name
-
-    else:
-        raise InvalidKeyCombination(f"Unsupported post-quantum key type for Chempat.: {pq_key.name}")
-
-    if isinstance(trad_key, (ec.EllipticCurvePrivateKey, ec.EllipticCurvePublicKey)):
-        curve_name = curve_name or trad_key.curve.name
-        trad_name = CURVE_NAME_2_CONTEXT_NAME[curve_name]
-
-    elif isinstance(trad_key, (x25519.X25519PrivateKey, x25519.X25519PublicKey)):
-        trad_name = "X25519"
-
-    elif isinstance(trad_key, (x448.X448PrivateKey, x448.X448PublicKey)):
-        trad_name = "X448"
-    else:
-        raise InvalidKeyCombination(f"Unsupported traditional key type.: {type(trad_key).__name__}")
-
-    try:
-        return CHEMPAT_NAME_2_OID[f"Chempat-{trad_name}-{pq_name}"]
-    except KeyError as e:
-        raise InvalidKeyCombination(f"Unsupported Chempat key combination: Chempat-{trad_name}-{pq_name}") from e
 
 
 def _get_trad_name(trad_key: Union[ECDHPrivateKey, ECDHPrivateKey]) -> str:
@@ -176,9 +127,9 @@ class ChempatKEM:
         """
         dhkem = DHKEMRFC9180(private_key=self.trad_key)
 
-        ss_T, ct_T = dhkem.encaps(trad_pk)
+        ss_t, ct_t = dhkem.encaps(trad_pk)
         self.trad_key = dhkem.private_key
-        ss_PQ, ct_PQ = peer_pq_key.encaps()
+        ss_pq, ct_pq = peer_pq_key.encaps()
 
         pk_trad = DHKEMRFC9180.encode_public_key(trad_pk)
         pk_pq = peer_pq_key.public_bytes_raw()
@@ -188,8 +139,8 @@ class ChempatKEM:
             self.context = self.get_context()
             self.pq_key = None
 
-        ss = self.kem_combiner(ss_T, ss_PQ, ct_T, ct_PQ, pk_trad, pk_pq)
-        return ss, b"".join([ct_T, ct_PQ])
+        ss = self.kem_combiner(ss_t, ss_pq, ct_t, ct_pq, pk_trad, pk_pq)
+        return ss, b"".join([ct_t, ct_pq])
 
     def decaps(self, ct: bytes) -> bytes:
         """Perform hybrid key decapsulation using the provided ciphertext.
@@ -254,6 +205,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
 
     _trad_key: Optional[ECDHPublicKey]
     _pq_key: PQKEMPublicKey
+    _name = "chempat"
 
     def __eq__(self, other):
         """Compare the ChempatPublicKey with another object."""
@@ -273,17 +225,31 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         if trad_key and not isinstance(trad_key, ECDHPublicKey):
             raise ValueError("Unsupported key type for Chempat the trad_key must be `None` or `ECDHPublicKey`")
 
-        self.chempat_kem = get_oid_for_chemnpat(pq_key, trad_key)
-
     def public_bytes_raw(self) -> bytes:
         """Return the raw bytes of the public key as concatenation of the post-quantum and traditional keys."""
         return self._pq_key.public_bytes_raw() + ChempatKEM.trad_public_bytes_raw(self._trad_key)
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID for the Chempat key."""
-        return get_oid_for_chemnpat(self._pq_key, self.trad_key)
+        return CHEMPAT_NAME_2_OID[self.name]
 
-    @classmethod
+    @staticmethod
+    def _from_public_bytes(data: bytes, name: str):
+
+        pq_key, rest = PQKeyFactory.from_public_bytes(name, allow_rest=True)
+        trad_key = _load_public_key(data=rest, name=name)
+        name = name.lower()
+        if "sntrup761" in name:
+            return ChempatSntrup761PublicKey(pq_key, trad_key)
+        if "mceliece" in name:
+            return ChempatMcEliecePublicKey(pq_key, trad_key)
+        if "ml-kem" in name:
+            return ChempatMLKEMPublicKey(pq_key, trad_key)
+        if "frodokem" in name:
+            return ChempatFrodoKEMPublicKey.from_public_bytes(data, name=name)
+        raise NotImplementedError(f"The ChempatPublicKey class does not support key generation. Got name: {name}")
+
+@classmethod
     def from_public_bytes(cls, data: bytes, name: str) -> "ChempatPublicKey":
         """Create a public key from the given byte string.
 
@@ -291,6 +257,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         :param name: The key name.
         :return: The public key.
         """
+        return self._from_public_bytes(data, name.lower())
         name = name.lower()
         if "sntrup761" in name:
             return ChempatSntrup761PublicKey.from_public_bytes(data, name=name)
@@ -318,7 +285,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
     def _get_trad_name(self) -> str:
         """Return the traditional name"""
         if isinstance(self.trad_key, ec.EllipticCurvePublicKey):
-            name = "ecdh-" + self.trad_key.curve.name
+            name = "ecdh-" + self.trad_key.curve.name.lower()
         elif isinstance(self.trad_key, x448.X448PublicKey):
             name = "x448"
         elif isinstance(self.trad_key, x25519.X25519PublicKey):
@@ -330,7 +297,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
     @property
     def name(self) -> str:
         """Return the name of the key."""
-        return "chempat-" + self.pq_key.name + "-" + self._get_trad_name()
+        return f"{self._name}-{self.pq_key.name}-{self._get_trad_name()}"
 
     def encaps(self, private_key: Optional[ECDHPrivateKey] = None) -> Tuple[bytes, bytes]:
         """Perform key encapsulation with a peer's private key.
@@ -400,7 +367,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
             return ChempatMcEliecePrivateKey._from_private_bytes(data, name=name)
 
         if "ml-kem" in name:
-            return ChempatMLKEMPrivateKey.from_private_bytes(data, name=name)  # pylint: disable=protected-access
+            return ChempatMLKEMPrivateKey.from_private_bytes(data, name=name)
 
         if "frodokem" in name:
             return ChempatFrodoKEMPrivateKey._from_private_bytes(data, name=name)
@@ -413,7 +380,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID for the Chempat key."""
-        return get_oid_for_chemnpat(self.pq_key, self.trad_key)
+        return CHEMPAT_NAME_2_OID[self.name]
 
     @staticmethod
     def parse_keys(pq_key, trad_key) -> "ChempatPrivateKey":
@@ -554,10 +521,9 @@ class ChempatMcEliecePublicKey(ChempatPublicKey):
         if "mceliece" not in name:
             raise InvalidKeyCombination(f"Unsupported key type for ChempatMcEliecePublicKey: {name}")
 
-        tmp = name.replace("chempat-x25519-", "")
-        tmp = tmp.replace("chempat-x448-", "")
-
-        tmp = "mceliece" + "-" + tmp.replace("mceliece", "")
+        tmp = name.replace("chempat-", "")
+        tmp = tmp.replace("-x25519", "")
+        tmp = tmp.replace("-x448", "")
 
         key = PQKeyFactory.generate_pq_key(tmp).public_key()
         key_size = key.key_size
@@ -724,19 +690,19 @@ def _load_trad_private_key(data: bytes, name: str) -> ECDHPrivateKey:
     if "x448" in name:
         return x448.X448PrivateKey.from_private_bytes(data)
 
-    if "p256" in name:
+    if "p256" in name or "secp256r1" in name:
         curve = ec.SECP256R1()
         return _ec_key_from_der(data, curve)
 
-    if "p384" in name:
+    if "p384" in name or "secp384r1" in name:
         curve = ec.SECP384R1()
         return _ec_key_from_der(data, curve)
 
-    if "brainpoolp256" in name:
+    if "brainpoolp256" in name.lower():
         curve = ec.BrainpoolP256R1()
         return _ec_key_from_der(data, curve)
 
-    if "brainpoolp384" in name:
+    if "brainpoolp384" in name.lower():
         curve = ec.BrainpoolP384R1()
         return _ec_key_from_der(data, curve)
 

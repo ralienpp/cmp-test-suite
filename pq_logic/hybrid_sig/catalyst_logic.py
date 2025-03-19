@@ -303,7 +303,7 @@ def validate_catalyst_extensions(  # noqa: D417 Missing a parameter in the Docst
 
     if len(extensions) == 0:
         return None
-    elif len(extensions) != 3:
+    if len(extensions) != 3:
         raise ValueError("Certificate must include either all or none of the catalyst extensions.")
 
     try:
@@ -335,7 +335,7 @@ def validate_catalyst_extensions(  # noqa: D417 Missing a parameter in the Docst
         }
 
     except pyasn1.error.PyAsn1Error as e:
-        raise BadAsn1Data(f"Invalid extension content or verification error: {e}")
+        raise BadAsn1Data(f"Invalid extension content or verification error: {e}")  # pylint: disable=raise-missing-from
 
 
 def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstring

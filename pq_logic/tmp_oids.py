@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2024 Siemens AG
 #
 # SPDX-License-Identifier: Apache-2.0
-
+# pylint: disable=invalid-name
 """Defines temporary OIDs for the test suite.
 
 Which may change in the future or are replaced be different OIDs or updated for the final
@@ -168,7 +168,7 @@ PURE_COMPOSITE_SIG03_NAME_TO_OID = {
 
 PURE_COMPOSITE_SIG03_OID_TO_NAME = {y: x for x, y in PURE_COMPOSITE_SIG03_NAME_TO_OID.items()}
 
-HASH_COMPOSITE_SIG03_NAME_TO_OID = {
+COMPOSITE_SIG03_HASH_NAME_2_OID = {
     "composite-sig-hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
     "composite-sig-hash-ml-dsa-44-rsa2048": id_hash_mldsa44_rsa2048_pkcs15_sha256,
     "composite-sig-hash-ml-dsa-44-ed25519": id_hash_mldsa44_ed25519_sha512,
@@ -184,7 +184,7 @@ HASH_COMPOSITE_SIG03_NAME_TO_OID = {
     "composite-sig-hash-ml-dsa-87-ecdsa-brainpoolp384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
     "composite-sig-hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
 }
-HASH_COMPOSITE_SIG03_OID_TO_NAME = {y: x for x, y in HASH_COMPOSITE_SIG03_NAME_TO_OID.items()}
+COMPOSITE_SIG03_HASH_OID_2_NAME = {y: x for x, y in COMPOSITE_SIG03_HASH_NAME_2_OID.items()}
 
 id_rsa_kem_spki = univ.ObjectIdentifier("1.2.840.113549.1.9.16.3")
 
@@ -304,23 +304,18 @@ COMPOSITE_SIG04_HASH_NAME_TO_OID = {
     "composite-sig-04-hash-ml-dsa-87-rsa4096-pss": composite_sig04_hash_ml_dsa_87_rsa4096_pss,
 }
 
+COMPOSITE_SIG04_HASH_OID_2_NAME = {y: x for x, y in COMPOSITE_SIG04_HASH_NAME_TO_OID.items()}
+
 COMP_SIG04_PREHASH_OID_2_HASH = {
     composite_sig04_hash_ml_dsa_44_rsa2048_pss: "sha256",
     composite_sig04_hash_ml_dsa_44_rsa2048_pkcs15: "sha256",
     composite_sig04_hash_ml_dsa_44_ecdsa_p256: "sha256",
 }
 
-CMS_COMPOSITE04_NAME_2_OID = {}
-CMS_COMPOSITE04_NAME_2_OID.update(COMPOSITE_SIG04_HASH_NAME_TO_OID)
-CMS_COMPOSITE04_NAME_2_OID.update(COMPOSITE_SIG04_PURE_NAME_TO_OID)
-
-CMS_COMPOSITE04_OID_2_NAME = {y: x for x, y in CMS_COMPOSITE04_NAME_2_OID.items()}
-
 
 ######################
 # Composite KEM
 ######################
-
 
 id_mlkem768_rsa2048 = univ.ObjectIdentifier(f"{id_CompKEM}.21")
 id_mlkem768_rsa3072 = univ.ObjectIdentifier(f"{id_CompKEM}.22")
@@ -399,70 +394,91 @@ FRODOKEM_OID_2_KDF_MAPPING = {
     id_frodokem_1344_shake_ecdh_brainpoolP384r1: "sha3-256",
     id_frodokem_1344_shake_x448: "sha3-256",
 }
+
+# Composite KEM v06
+
+# Composite KEM v06 OIDs
+id_comp_kem06_mlkem768_rsa2048 = univ.ObjectIdentifier(f"{id_CompKEM}.30")
+id_comp_kem06_mlkem768_rsa3072 = univ.ObjectIdentifier(f"{id_CompKEM}.31")
+id_comp_kem06_mlkem768_rsa4096 = univ.ObjectIdentifier(f"{id_CompKEM}.32")
+id_comp_kem06_mlkem768_x25519 = univ.ObjectIdentifier(f"{id_CompKEM}.33")
+id_comp_kem06_mlkem768_ecdh_p256 = univ.ObjectIdentifier(f"{id_CompKEM}.34")
+id_comp_kem06_mlkem768_ecdh_p384 = univ.ObjectIdentifier(f"{id_CompKEM}.35")
+id_comp_kem06_mlkem768_ecdh_brainpool_p256r1 = univ.ObjectIdentifier(f"{id_CompKEM}.36")
+id_comp_kem06_mlkem1024_ecdh_p384 = univ.ObjectIdentifier(f"{id_CompKEM}.37")
+id_comp_kem06_mlkem1024_ecdh_brainpool_p384r1 = univ.ObjectIdentifier(f"{id_CompKEM}.38")
+id_comp_kem06_mlkem1024_x448 = univ.ObjectIdentifier(f"{id_CompKEM}.39")
+
+COMPOSITE_KEM06_MLKEM_NAME_2_OID = {
+    "composite-kem-ml-kem-768-rsa2048": id_comp_kem06_mlkem768_rsa2048,
+    "composite-kem-ml-kem-768-rsa3072": id_comp_kem06_mlkem768_rsa3072,
+    "composite-kem-ml-kem-768-rsa4096": id_comp_kem06_mlkem768_rsa4096,
+    "composite-kem-ml-kem-768-x25519": id_comp_kem06_mlkem768_x25519,
+    "composite-kem-ml-kem-768-ecdh-secp256r1": id_comp_kem06_mlkem768_ecdh_p256,
+    "composite-kem-ml-kem-768-ecdh-secp384r1": id_comp_kem06_mlkem768_ecdh_p384,
+    "composite-kem-ml-kem-768-ecdh-brainpoolP256r1": id_comp_kem06_mlkem768_ecdh_brainpool_p256r1,
+    "composite-kem-ml-kem-1024-ecdh-secp384r1": id_comp_kem06_mlkem1024_ecdh_p384,
+    "composite-kem-ml-kem-1024-ecdh-brainpoolP384r1": id_comp_kem06_mlkem1024_ecdh_brainpool_p384r1,
+    "composite-kem-ml-kem-1024-x448": id_comp_kem06_mlkem1024_x448,
+}
+
+
 ##################################
 # Alternative DHKEM RFC9180 OIDs
 ##################################
 
-id_composite_mlkem768_dhkemrfc9180_X25519 = f"{id_composite_mlkem_dhkemrfc9180}.1"
-id_composite_mlkem768_dhkemrfc9180_P384 = f"{id_composite_mlkem_dhkemrfc9180}.2"
-id_composite_mlkem768_dhkemrfc9180_brainpoolP256r1 = f"{id_composite_mlkem_dhkemrfc9180}.3"
-id_composite_mlkem1024_dhkemrfc9180_P384 = f"{id_composite_mlkem_dhkemrfc9180}.4"
-id_composite_mlkem1024_dhkemrfc9180_brainpoolP384r1 = f"{id_composite_mlkem_dhkemrfc9180}.5"
-id_composite_mlkem1024_dhkemrfc9180_X448 = f"{id_composite_mlkem_dhkemrfc9180}.6"
+id_composite_mlkem768_dhkemrfc9180_X25519 = univ.ObjectIdentifier(f"{id_composite_mlkem_dhkemrfc9180}.1")
+id_composite_mlkem768_dhkemrfc9180_P384 = univ.ObjectIdentifier(f"{id_composite_mlkem_dhkemrfc9180}.2")
+id_composite_mlkem768_dhkemrfc9180_brainpoolP256r1 = univ.ObjectIdentifier(f"{id_composite_mlkem_dhkemrfc9180}.3")
+id_composite_mlkem1024_dhkemrfc9180_P384 = univ.ObjectIdentifier(f"{id_composite_mlkem_dhkemrfc9180}.4")
+id_composite_mlkem1024_dhkemrfc9180_brainpoolP384r1 = univ.ObjectIdentifier(f"{id_composite_mlkem_dhkemrfc9180}.5")
+id_composite_mlkem1024_dhkemrfc9180_X448 = univ.ObjectIdentifier(f"{id_composite_mlkem_dhkemrfc9180}.6")
 
-id_composite_frodokem_976_aes_dhkemrfc9180_X25519 = f"{id_composite_frodokem_dhkemrfc9180}.1"
-id_composite_frodokem_976_aes_dhkemrfc9180_P384 = f"{id_composite_frodokem_dhkemrfc9180}.2"
-id_composite_frodokem_976_aes_dhkemrfc9180_brainpoolP256r1 = f"{id_composite_frodokem_dhkemrfc9180}.3"
-id_composite_frodokem_976_shake_dhkemrfc9180_X25519 = f"{id_composite_frodokem_dhkemrfc9180}.4"
-id_composite_frodokem_976_shake_dhkemrfc9180_P384 = f"{id_composite_frodokem_dhkemrfc9180}.5"
-id_composite_frodokem_976_shake_dhkemrfc9180_brainpoolP256r1 = f"{id_composite_frodokem_dhkemrfc9180}.6"
+id_composite_frodokem_976_aes_dhkemrfc9180_X25519 = univ.ObjectIdentifier(f"{id_composite_frodokem_dhkemrfc9180}.1")
+id_composite_frodokem_976_aes_dhkemrfc9180_P384 = univ.ObjectIdentifier(f"{id_composite_frodokem_dhkemrfc9180}.2")
+id_composite_frodokem_976_aes_dhkemrfc9180_brainpoolP256r1 = univ.ObjectIdentifier(
+    f"{id_composite_frodokem_dhkemrfc9180}.3"
+)
+id_composite_frodokem_976_shake_dhkemrfc9180_X25519 = univ.ObjectIdentifier(f"{id_composite_frodokem_dhkemrfc9180}.4")
+id_composite_frodokem_976_shake_dhkemrfc9180_P384 = univ.ObjectIdentifier(f"{id_composite_frodokem_dhkemrfc9180}.5")
+id_composite_frodokem_976_shake_dhkemrfc9180_brainpoolP256r1 = univ.ObjectIdentifier(
+    f"{id_composite_frodokem_dhkemrfc9180}.6"
+)
 
-id_composite_frodokem_1344_aes_dhkemrfc9180_P384 = f"{id_composite_frodokem_dhkemrfc9180}.7"
-id_composite_frodokem_1344_aes_dhkemrfc9180_brainpoolP384r1 = f"{id_composite_frodokem_dhkemrfc9180}.8"
-id_composite_frodokem_1344_aes_dhkemrfc9180_X448 = f"{id_composite_frodokem_dhkemrfc9180}.9"
-id_composite_frodokem_1344_shake_dhkemrfc9180_P384 = f"{id_composite_frodokem_dhkemrfc9180}.10"
-id_composite_frodokem_1344_shake_dhkemrfc9180_brainpoolP384r1 = f"{id_composite_frodokem_dhkemrfc9180}.11"
-id_composite_frodokem_1344_shake_dhkemrfc9180_X448 = f"{id_composite_frodokem_dhkemrfc9180}.12"
+id_composite_frodokem_1344_aes_dhkemrfc9180_P384 = univ.ObjectIdentifier(f"{id_composite_frodokem_dhkemrfc9180}.7")
+id_composite_frodokem_1344_aes_dhkemrfc9180_brainpoolP384r1 = univ.ObjectIdentifier(
+    f"{id_composite_frodokem_dhkemrfc9180}.8"
+)
+id_composite_frodokem_1344_aes_dhkemrfc9180_X448 = univ.ObjectIdentifier(f"{id_composite_frodokem_dhkemrfc9180}.9")
+id_composite_frodokem_1344_shake_dhkemrfc9180_P384 = univ.ObjectIdentifier(f"{id_composite_frodokem_dhkemrfc9180}.10")
+id_composite_frodokem_1344_shake_dhkemrfc9180_brainpoolP384r1 = univ.ObjectIdentifier(
+    f"{id_composite_frodokem_dhkemrfc9180}.11"
+)
+id_composite_frodokem_1344_shake_dhkemrfc9180_X448 = univ.ObjectIdentifier(f"{id_composite_frodokem_dhkemrfc9180}.12")
 
 COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID = {
-    "dhkemrfc9180-ml-kem-768-x25519": id_composite_mlkem768_dhkemrfc9180_X25519,
-    "dhkemrfc9180-ml-kem-768-ecdh-secp384r1": id_composite_mlkem768_dhkemrfc9180_P384,
-    "dhkemrfc9180-ml-kem-768-ecdh-brainpoolP256r1": id_composite_mlkem768_dhkemrfc9180_brainpoolP256r1,
-    "dhkemrfc9180-ml-kem-1024-ecdh-secp384r1": id_composite_mlkem1024_dhkemrfc9180_P384,
-    "dhkemrfc9180-ml-kem-1024-ecdh-brainpoolP384r1": id_composite_mlkem1024_dhkemrfc9180_brainpoolP384r1,
-    "dhkemrfc9180-ml-kem-1024-x448": id_composite_mlkem1024_dhkemrfc9180_X448,
-    "dhkemrfc9180-frodokem-976-aes-x25519": id_composite_frodokem_976_aes_dhkemrfc9180_X25519,
-    "dhkemrfc9180-frodokem-976-aes-ecdh-secp384r1": id_composite_frodokem_976_aes_dhkemrfc9180_P384,
-    "dhkemrfc9180-frodokem-976-aes-brainpoolP256r1": id_composite_frodokem_976_aes_dhkemrfc9180_brainpoolP256r1,
-    "dhkemrfc9180-frodokem-976-shake-x25519": id_composite_frodokem_976_shake_dhkemrfc9180_X25519,
-    "dhkemrfc9180-frodokem-976-shake-ecdh-secp384r1": id_composite_frodokem_976_shake_dhkemrfc9180_P384,
-    "dhkemrfc9180-frodokem-976-shake-brainpoolP256r1": id_composite_frodokem_976_shake_dhkemrfc9180_brainpoolP256r1,
-    "dhkemrfc9180-frodokem-1344-aes-ecdh-secp384r1": id_composite_frodokem_1344_aes_dhkemrfc9180_P384,
-    "dhkemrfc9180-frodokem-1344-aes-ecdh-brainpoolP384r1": id_composite_frodokem_1344_aes_dhkemrfc9180_brainpoolP384r1,
-    "dhkemrfc9180-frodokem-1344-aes-x448": id_composite_frodokem_1344_aes_dhkemrfc9180_X448,
-    "dhkemrfc9180-frodokem-1344-shake-ecdh-secp384r1": id_composite_frodokem_1344_shake_dhkemrfc9180_P384,
-    "dhkemrfc9180-frodokem-1344-shake-ecdh-brainpoolP384r1":  # fmt: off
+    "composite-dhkem-ml-kem-768-x25519": id_composite_mlkem768_dhkemrfc9180_X25519,
+    "composite-dhkem-ml-kem-768-ecdh-secp384r1": id_composite_mlkem768_dhkemrfc9180_P384,
+    "composite-dhkem-ml-kem-768-ecdh-brainpoolP256r1": id_composite_mlkem768_dhkemrfc9180_brainpoolP256r1,
+    "composite-dhkem-ml-kem-1024-ecdh-secp384r1": id_composite_mlkem1024_dhkemrfc9180_P384,
+    "composite-dhkem-ml-kem-1024-ecdh-brainpoolP384r1": id_composite_mlkem1024_dhkemrfc9180_brainpoolP384r1,
+    "composite-dhkem-ml-kem-1024-x448": id_composite_mlkem1024_dhkemrfc9180_X448,
+    "composite-dhkem-frodokem-976-aes-x25519": id_composite_frodokem_976_aes_dhkemrfc9180_X25519,
+    "composite-dhkem-frodokem-976-aes-ecdh-secp384r1": id_composite_frodokem_976_aes_dhkemrfc9180_P384,
+    "composite-dhkem-frodokem-976-aes-ecdh-brainpoolP256r1": id_composite_frodokem_976_aes_dhkemrfc9180_brainpoolP256r1,
+    "composite-dhkem-frodokem-976-shake-x25519": id_composite_frodokem_976_shake_dhkemrfc9180_X25519,
+    "composite-dhkem-frodokem-976-shake-ecdh-secp384r1": id_composite_frodokem_976_shake_dhkemrfc9180_P384,
+    "composite-dhkem-frodokem-976-shake-ecdh-brainpoolP256r1":  # fmt: off
+    id_composite_frodokem_976_shake_dhkemrfc9180_brainpoolP256r1,
+    "composite-dhkem-frodokem-1344-aes-ecdh-secp384r1": id_composite_frodokem_1344_aes_dhkemrfc9180_P384,
+    "composite-dhkem-frodokem-1344-aes-ecdh-brainpoolP384r1":  # fmt: off
+    id_composite_frodokem_1344_aes_dhkemrfc9180_brainpoolP384r1,
+    "composite-dhkem-frodokem-1344-aes-x448": id_composite_frodokem_1344_aes_dhkemrfc9180_X448,
+    "composite-dhkem-frodokem-1344-shake-ecdh-secp384r1": id_composite_frodokem_1344_shake_dhkemrfc9180_P384,
+    "composite-dhkem-frodokem-1344-shake-ecdh-brainpoolP384r1":  # fmt: off
     id_composite_frodokem_1344_shake_dhkemrfc9180_brainpoolP384r1,
-    "dhkemrfc9180-frodokem-1344-shake-x448": id_composite_frodokem_1344_shake_dhkemrfc9180_X448,
+    "composite-dhkem-frodokem-1344-shake-x448": id_composite_frodokem_1344_shake_dhkemrfc9180_X448,
 }
-
-
-COMPOSITE_MLKEM_MAPPING = {
-    "ml-kem-768": {
-        "RSA2048": id_mlkem768_rsa2048,
-        "RSA3072": id_mlkem768_rsa3072,
-        "RSA4096": id_mlkem768_rsa4096,
-        "X25519": id_mlkem768_x25519,
-        "ECDH-P384": id_mlkem768_ecdh_p384,
-        "ECDH-brainpoolP256r1": id_mlkem768_ecdh_brainpool_p256r1,
-    },
-    "ml-kem-1024": {
-        "ECDH-P384": id_mlkem1024_ecdh_p384,
-        "ECDH-brainpoolP384r1": id_mlkem1024_ecdh_brainpool_p384r1,
-        "X448": id_mlkem1024_x448,
-    },
-}
-
 
 id_ce_deltaCertificateDescriptor = univ.ObjectIdentifier("2.16.840.1.114027.80.6.1")
 id_at_deltaCertificateRequestSignature = univ.ObjectIdentifier("2.16.840.1.114027.80.6.3")
@@ -501,40 +517,39 @@ id_chempat_brainpoolP256_frodokem_shake_976 = univ.ObjectIdentifier(f"{id_Chempa
 id_chempat_brainpoolP384_frodokem_aes_1344 = univ.ObjectIdentifier(f"{id_Chempat}.28")
 id_chempat_brainpoolP384_frodokem_shake_1344 = univ.ObjectIdentifier(f"{id_Chempat}.29")
 
-
 CHEMPAT_OID_2_NAME = {
-    id_chempat_x25519_sntrup761: "Chempat-X25519-sntrup761",
-    id_chempat_x25519_mceliece348864: "Chempat-X25519-mceliece348864",
-    id_chempat_x25519_mceliece460896: "Chempat-X25519-mceliece460896",
-    id_chempat_x25519_mceliece6688128: "Chempat-X25519-mceliece6688128",
-    id_chempat_x25519_mceliece6960119: "Chempat-X25519-mceliece6960119",
-    id_chempat_x25519_mceliece8192128: "Chempat-X25519-mceliece8192128",
-    id_chempat_x448_mceliece348864: "Chempat-X448-mceliece348864",
-    id_chempat_x448_mceliece460896: "Chempat-X448-mceliece460896",
-    id_chempat_x448_mceliece6688128: "Chempat-X448-mceliece6688128",
-    id_chempat_x448_mceliece6960119: "Chempat-X448-mceliece6960119",
-    id_chempat_x448_mceliece8192128: "Chempat-X448-mceliece8192128",
-    id_chempat_x25519_ml_kem_768: "Chempat-X25519-ML-KEM-768",
-    id_chempat_x448_ml_kem_1024: "Chempat-X448-ML-KEM-1024",
-    id_chempat_p256_ml_kem_768: "Chempat-P256-ML-KEM-768",
-    id_Chempat_P384_ML_KEM_1024: "Chempat-P384-ML-KEM-1024",
-    id_chempat_brainpool_p256_ml_kem_768: "Chempat-brainpoolP256-ML-KEM-768",
-    id_chempat_brainpool_p384_ml_kem_1024: "Chempat-brainpoolP384-ML-KEM-1024",
+    id_chempat_x25519_sntrup761: "chempat-sntrup761-x25519",
+    id_chempat_x25519_mceliece348864: "chempat-mceliece-348864-x25519",
+    id_chempat_x25519_mceliece460896: "chempat-mceliece-460896-x25519",
+    id_chempat_x25519_mceliece6688128: "chempat-mceliece-6688128-x25519",
+    id_chempat_x25519_mceliece6960119: "chempat-mceliece-6960119-x25519",
+    id_chempat_x25519_mceliece8192128: "chempat-mceliece-8192128-x25519",
+    id_chempat_x448_mceliece348864: "chempat-mceliece-348864-x448",
+    id_chempat_x448_mceliece460896: "chempat-mceliece-460896-x448",
+    id_chempat_x448_mceliece6688128: "chempat-mceliece-6688128-x448",
+    id_chempat_x448_mceliece6960119: "chempat-mceliece-6960119-x448",
+    id_chempat_x448_mceliece8192128: "chempat-mceliece-8192128-x448",
+    id_chempat_x25519_ml_kem_768: "chempat-ml-kem-768-x25519",
+    id_chempat_x448_ml_kem_1024: "chempat-ml-kem-1024-x448",
+    id_chempat_p256_ml_kem_768: "chempat-ml-kem-768-ecdh-secp256r1",
+    id_Chempat_P384_ML_KEM_1024: "chempat-ml-kem-1024-ecdh-secp384r1",
+    id_chempat_brainpool_p256_ml_kem_768: "chempat-ml-kem-768-ecdh-brainpoolp256r1",
+    id_chempat_brainpool_p384_ml_kem_1024: "chempat-ml-kem-1024-ecdh-brainpoolp384r1",
 }
 
 CHEMPAT_FRODOKEM_OID_2_NAME = {
-    id_chempat_x25519_frodokem_aes_976: "Chempat-X25519-frodokem-976-aes",
-    id_chempat_x25519_frodokem_shake_976: "Chempat-X25519-frodokem-976-shake",
-    id_chempat_p256_frodokem_aes_976: "Chempat-P256-frodokem-976-aes",
-    id_chempat_P256_frodokem_shake_976: "Chempat-P256-frodokem-976-shake",
-    id_chempat_brainpoolP256_frodokem_aes_976: "Chempat-brainpoolP256-frodokem-976-aes",
-    id_chempat_brainpoolP256_frodokem_shake_976: "Chempat-brainpoolP256-frodokem-976-shake",
-    id_chempat_brainpoolP384_frodokem_aes_1344: "Chempat-brainpoolP384-frodokem-1344-aes",
-    id_chempat_brainpoolP384_frodokem_shake_1344: "Chempat-brainpoolP384-frodokem-1344-shake",
-    id_chempat_P384_frodokem_aes_1344: "Chempat-P384-frodokem-1344-aes",
-    id_chempat_P384_frodokem_shake_1344: "Chempat-P384-frodokem-1344-shake",
-    id_chempat_x448_frodokem_aes_1344: "Chempat-X448-frodokem-1344-aes",
-    id_chempat_x448_frodokem_shake_1344: "Chempat-X448-frodokem-1344-shake",
+    id_chempat_x25519_frodokem_aes_976: "chempat-frodokem-976-aes-x25519",
+    id_chempat_x25519_frodokem_shake_976: "chempat-frodokem-976-shake-x25519",
+    id_chempat_p256_frodokem_aes_976: "chempat-frodokem-976-aes-ecdh-secp256r1",
+    id_chempat_P256_frodokem_shake_976: "chempat-frodokem-976-shake-ecdh-secp256r1",
+    id_chempat_brainpoolP256_frodokem_aes_976: "chempat-frodokem-976-aes-ecdh-brainpoolp256r1",
+    id_chempat_brainpoolP256_frodokem_shake_976: "chempat-frodokem-976-shake-ecdh-brainpoolp256r1",
+    id_chempat_brainpoolP384_frodokem_aes_1344: "chempat-frodokem-1344-aes-ecdh-brainpoolp384r1",
+    id_chempat_brainpoolP384_frodokem_shake_1344: "chempat-frodokem-1344-shake-ecdh-brainpoolp384r1",
+    id_chempat_P384_frodokem_aes_1344: "chempat-frodokem-1344-aes-ecdh-secp384r1",
+    id_chempat_P384_frodokem_shake_1344: "chempat-frodokem-1344-shake-ecdh-secp384r1",
+    id_chempat_x448_frodokem_aes_1344: "chempat-frodokem-1344-aes-x448",
+    id_chempat_x448_frodokem_shake_1344: "chempat-frodokem-1344-shake-x448",
 }
 
 CHEMPAT_OID_2_NAME.update(CHEMPAT_FRODOKEM_OID_2_NAME)
@@ -567,17 +582,18 @@ id_altSigValueLocAttr = univ.ObjectIdentifier(f"{id_hybrid_sun}.5")
 id_altSubPubKeyExt = univ.ObjectIdentifier(f"{id_hybrid_sun}.6")
 id_altSignatureExt = univ.ObjectIdentifier(f"{id_hybrid_sun}.7")
 
-COMPOSITE_MLKEM_NAME_2_OID = {
-    "composite-kem-ml-kem-768-rsa2048": id_mlkem768_rsa2048,
-    "composite-kem-ml-kem-768-rsa3072": id_mlkem768_rsa3072,
-    "composite-kem-ml-kem-768-rsa4096": id_mlkem768_rsa4096,
-    "composite-kem-ml-kem-768-ecdh-secp384r1": id_mlkem768_ecdh_p384,
-    "composite-kem-ml-kem-768-ecdh-brainpoolP256r1": id_mlkem768_ecdh_brainpool_p256r1,
-    "composite-kem-ml-kem-768-x25519": id_mlkem768_x25519,
-    "composite-kem-ml-kem-1024-ecdh-secp384r1": id_mlkem1024_ecdh_p384,
-    "composite-kem-ml-kem-1024-ecdh-brainpoolP384r1": id_mlkem1024_ecdh_brainpool_p384r1,
-    "composite-kem-ml-kem-1024-x448": id_mlkem1024_x448,
+COMPOSITE_KEM05_MLKEM_NAME_2_OID = {
+    "composite-kem-05-ml-kem-768-rsa2048": id_mlkem768_rsa2048,
+    "composite-kem-05-ml-kem-768-rsa3072": id_mlkem768_rsa3072,
+    "composite-kem-05-ml-kem-768-rsa4096": id_mlkem768_rsa4096,
+    "composite-kem-05-ml-kem-768-ecdh-secp384r1": id_mlkem768_ecdh_p384,
+    "composite-kem-05-ml-kem-768-ecdh-brainpoolP256r1": id_mlkem768_ecdh_brainpool_p256r1,
+    "composite-kem-05-ml-kem-768-x25519": id_mlkem768_x25519,
+    "composite-kem-05-ml-kem-1024-ecdh-secp384r1": id_mlkem1024_ecdh_p384,
+    "composite-kem-05-ml-kem-1024-ecdh-brainpoolP384r1": id_mlkem1024_ecdh_brainpool_p384r1,
+    "composite-kem-05-ml-kem-1024-x448": id_mlkem1024_x448,
 }
+# Allways added to the last version of the draft.
 COMPOSITE_FRODOKEM_NAME_2_OID = {
     "composite-kem-frodokem-976-aes-rsa2048": id_frodokem_976_aes_rsa2048,
     "composite-kem-frodokem-976-aes-rsa3072": id_frodokem_976_aes_rsa3072,
@@ -598,15 +614,31 @@ COMPOSITE_FRODOKEM_NAME_2_OID = {
     "composite-kem-frodokem-1344-shake-ecdh-brainpoolP384r1": id_frodokem_1344_shake_ecdh_brainpoolP384r1,
     "composite-kem-frodokem-1344-shake-x448": id_frodokem_1344_shake_x448,
 }
-COMPOSITE_KEM_NAME_2_OID = {}
-COMPOSITE_KEM_NAME_2_OID.update(COMPOSITE_MLKEM_NAME_2_OID)
-COMPOSITE_KEM_NAME_2_OID.update(COMPOSITE_FRODOKEM_NAME_2_OID)
-COMPOSITE_KEM_NAME_2_OID.update(COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID)
 
-COMPOSITE_KEM_OID_2_NAME = {str(oid): name for name, oid in COMPOSITE_KEM_NAME_2_OID.items()}
+COMPOSITE_KEM05_NAME_2_OID = {}
+COMPOSITE_KEM05_NAME_2_OID.update(COMPOSITE_KEM05_MLKEM_NAME_2_OID)
 
-COMPOSITE_SIG_OID_2_NAME = {}
-COMPOSITE_SIG_OID_2_NAME.update(PURE_COMPOSITE_SIG03_OID_TO_NAME)
-COMPOSITE_SIG_OID_2_NAME.update(HASH_COMPOSITE_SIG03_OID_TO_NAME)
 
-COMPOSITE_SIG_NAME_2_OID = {name: str(oid) for oid, name in COMPOSITE_SIG_OID_2_NAME.items()}
+COMPOSITE_KEM05_OID_2_NAME = {oid: name for name, oid in COMPOSITE_KEM05_NAME_2_OID.items()}
+
+
+COMPOSITE_KEM06_NAME_2_OID = {}
+COMPOSITE_KEM06_NAME_2_OID.update(COMPOSITE_KEM06_MLKEM_NAME_2_OID)
+COMPOSITE_KEM06_NAME_2_OID.update(COMPOSITE_FRODOKEM_NAME_2_OID)
+COMPOSITE_KEM06_NAME_2_OID.update(COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID)
+
+COMPOSITE_KEM06_OID_2_NAME = {oid: name for name, oid in COMPOSITE_KEM06_NAME_2_OID.items()}
+
+
+COMPOSITE_SIG03_OID_2_NAME = {}
+COMPOSITE_SIG03_OID_2_NAME.update(PURE_COMPOSITE_SIG03_OID_TO_NAME)
+COMPOSITE_SIG03_OID_2_NAME.update(COMPOSITE_SIG03_HASH_OID_2_NAME)
+
+COMPOSITE_SIG03_NAME_2_OID = {name: oid for oid, name in COMPOSITE_SIG03_OID_2_NAME.items()}
+
+
+COMPOSITE_SIG04_NAME_2_OID = {}
+COMPOSITE_SIG04_NAME_2_OID.update(COMPOSITE_SIG04_HASH_NAME_TO_OID)
+COMPOSITE_SIG04_NAME_2_OID.update(COMPOSITE_SIG04_PURE_NAME_TO_OID)
+
+COMPOSITE_SIG04_OID_2_NAME = {y: x for x, y in COMPOSITE_SIG04_NAME_2_OID.items()}

@@ -21,7 +21,8 @@ from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey, X448P
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from pq_logic import pq_compute_utils, py_verify_logic
 from pq_logic.combined_factory import CombinedKeyFactory
-from pq_logic.keys.abstract_pq import PQKEMPublicKey
+from pq_logic.keys.abstract_pq import PQHashStatefulSigPublicKey, PQKEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey, PQPublicKey
 from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey, KEMPublicKey
 from pq_logic.pq_compute_utils import sign_data_with_alg_id
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
@@ -280,13 +281,25 @@ def prepare_challenge_enc_rand(  # noqa: D417 Missing argument descriptions in t
     return challenge_obj
 
 
-@not_keyword
-def prepare_oob_cert_hash(ca_cert: rfc9480.CMPCertificate, hash_alg: str = "sha256") -> rfc9480.OOBCertHash:
+def prepare_oob_cert_hash(  # noqa: D417 Missing argument descriptions in the docstring
+    ca_cert: rfc9480.CMPCertificate, hash_alg: str = "sha256"
+) -> rfc9480.OOBCertHash:
     """Prepare an `OOBCertHash` from a CA certificate.
 
-    :param ca_cert: The OOB CA certificate.
-    :param hash_alg: The hash algorithm to use (e.g., "sha256").
-    :return: The populated `OOBCertHash` structure.
+    Arguments:
+    ---------
+        - `ca_cert`: The OOB CA certificate.
+        - `hash_alg`: The hash algorithm to use (e.g., "sha256"). Defaults to "sha256".
+
+    Returns:
+    -------
+        - The populated `OOBCertHash` structure.
+
+    Examples:
+    --------
+    | ${oob_cert_hash}= | Prepare OOBCertHash | ${ca_cert} |
+    | ${oob_cert_hash}= | Prepare OOBCertHash | ${ca_cert} | sha256 |
+
     """
     sig = compute_hash(hash_alg, encoder.encode(ca_cert))
 
@@ -295,6 +308,7 @@ def prepare_oob_cert_hash(ca_cert: rfc9480.CMPCertificate, hash_alg: str = "sha2
     oob_cert_hash["certId"] = rfc9480.CertId()
     oob_cert_hash["certId"]["issuer"] = ca_cert["tbsCertificate"]["issuer"]
     oob_cert_hash["certId"]["serialNumber"] = ca_cert["tbsCertificate"]["serialNumber"]
+
     oob_cert_hash["hashVal"] = univ.BitString.fromOctetString(sig)
 
     return oob_cert_hash
@@ -901,21 +915,26 @@ def verify_popo_for_cert_request(  # noqa: D417 Missing argument descriptions in
         )
 
 
-def _validate_cert_template(
+@not_keyword
+def validate_cert_template(
     cert_template: rfc9480.CertTemplate,
-    pop_alg_id: Optional[rfc9480.AlgorithmIdentifier] = None,
+    sig_popo_alg_id: Optional[rfc9480.AlgorithmIdentifier] = None,
     max_key_size: Optional[int] = None,
 ):
     """Validate that the certificate template has set the correct fields."""
     if not cert_template["subject"].isValue:
         raise BadCertTemplate("The `subject` field is not set inside the certificate template.")
 
-    public_key = keyutils.load_public_key_from_cert_template(cert_template=cert_template, must_be_present=False)
+    try:
+        public_key = keyutils.load_public_key_from_cert_template(cert_template=cert_template, must_be_present=False)
+    except ValueError as err:
+        raise BadAsn1Data("Failed to load the public key from the `CertTemplate`.", overwrite=True) from err
+
     if isinstance(public_key, DHPublicKey):
         raise BadCertTemplate("The `publicKey` inside the certificate template was a `DH` key, which is not allowed.")
 
     if isinstance(public_key, DSAPublicKey):
-        raise BadCertTemplate("The `publicKey` inside the certificate template was a `DSA` key, which is not allowed.")
+        raise BadAlg("The `publicKey` inside the certificate template was a `DSA` key, which is not allowed.")
 
     if isinstance(public_key, RSAPublicKey):
         if public_key.key_size < 2048:
@@ -923,6 +942,24 @@ def _validate_cert_template(
 
         if max_key_size is not None and public_key.key_size > max_key_size:
             raise BadCertTemplate(f"The RSA public key was longer then {max_key_size} bits")
+
+    if sig_popo_alg_id is not None:
+        keyutils.check_consistency_alg_id_and_key(sig_popo_alg_id, public_key)
+
+    if cert_template["publicKey"].isValue:
+        if cert_template["publicKey"]["subjectPublicKey"].asOctets() != b"":
+            spki = cert_template["publicKey"]["subjectPublicKey"].asOctets()
+            alg_id = cert_template["publicKey"]["algorithm"]
+
+            if isinstance(public_key, PQHashStatefulSigPublicKey):
+                raise NotImplementedError("PQHashStatefulSigPublicKey is not supported yet, to be validated.")
+
+            if isinstance(public_key, (PQPublicKey, HybridPublicKey)):
+                if alg_id["parameters"].isValue:
+                    raise BadCertTemplate("The `parameters` field is not allowed for PQ public keys.")
+
+                if public_key.key_size != len(spki):
+                    raise BadAsn1Data("The public key was invalid inside the `CertTemplate`.", overwrite=True)
 
 
 def respond_to_key_agreement(  # noqa: D417 Missing argument descriptions in the docstring
@@ -1062,9 +1099,15 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
     """
     cert_template = cert_req_msg["certReq"]["certTemplate"]
 
-    _validate_cert_template(
+    alg_id = None
+    if cert_req_msg["popo"].isValue:
+        if cert_req_msg["popo"].getName() == "signature":
+            alg_id = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
+
+    validate_cert_template(
         cert_template,
         max_key_size=4096 * 2,
+        sig_popo_alg_id=alg_id,
     )
 
     if not cert_req_msg["popo"].isValue:
@@ -1330,7 +1373,7 @@ def _process_one_cert_request(
                 "But the request is not for KGA (key generation authority)."
             )
 
-    _validate_cert_template(cert_req_msg["certReq"]["certTemplate"], max_key_size=4096 * 2)
+    validate_cert_template(cert_req_msg["certReq"]["certTemplate"], max_key_size=4096 * 2)
 
     verify_popo_for_cert_request(
         pki_message=request,
@@ -3134,6 +3177,9 @@ def _validate_ccr_cert_template(cert_template: rfc9480.CertTemplate) -> rfc9480.
         if int(cert_template["version"]) == int(rfc5280.Version("v2")):
             raise BadCertTemplate("The certificate template version is allowed to be `v2`.")
 
+    else:
+        raise BadCertTemplate("The certificate template must contain a `version`.")
+
     if not cert_template["validity"]["notBefore"].isValue:
         raise BadCertTemplate("For the CA cross certificate request, the `notBefore` field must be set.")
 
@@ -3159,6 +3205,9 @@ def _validate_ccr_cert_template(cert_template: rfc9480.CertTemplate) -> rfc9480.
     if cert_template["signingAlg"].isValue:
         logging.debug("The signature algorithm is set in the certificate template.But currently not supported.")
 
+    else:
+        raise BadCertTemplate("The signature algorithm is not set in the cross certificate template.")
+
     return cert_template
 
 
@@ -3172,11 +3221,18 @@ def _process_crr_single(
     """Process a single CRR message."""
     popo = get_popo_from_pkimessage(request=request, index=index)
 
-    if not popo.isValue:
-        raise BadRequest("The CA cross certificate request message must contain a POP structure.")
-
     cert_req_msg = get_cert_req_msg_from_pkimessage(pki_message=request, index=index)
-    public_key = keyutils.load_public_key_from_cert_template(cert_req_msg["certReq"]["certTemplate"])
+
+    try:
+        public_key = keyutils.load_public_key_from_cert_template(
+            cert_req_msg["certReq"]["certTemplate"], must_be_present=True
+        )
+    except ValueError as e:
+        raise BadCertTemplate(
+            f"The public key in the cross Certificate request is not a signing key.Got: {type(public_key)}",
+            error_details=str(e),
+        )
+
     try:
         _ = ensure_is_verify_key(public_key)
     except ValueError as e:
@@ -3185,8 +3241,11 @@ def _process_crr_single(
             error_details=str(e),
         )
 
+    if not popo.isValue:
+        raise BadPOP("The CA cross certificate request message must contain a POP structure.")
+
     if popo.getName() == "raVerified":
-        raise BadRequest("The `raVerified` POP structure is not supported for CA cross certification request.")
+        raise BadPOP("The `raVerified` POP structure is not supported for CA cross certification request.")
 
     if popo["signature"].isValue:
         _verify_pop_signature(pki_message=request, request_index=index)
@@ -3237,7 +3296,7 @@ def build_ccp_from_ccr(  # noqa D417 undocumented-param
         raise ValueError("Request must be a `ccr` message.")
 
     if len(request["body"]["ccr"]) != 1:
-        raise BadRequest("Invalid number of entries in CCR message. Expected 1.")
+        raise BadRequest(f"Invalid number of entries in CCR message. Expected 1. Got: {len(request['body']['ccr'])}")
 
     if not cert:
         # ONLY 1 is allowed, please refer to RFC4210bis-18!

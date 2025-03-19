@@ -13,6 +13,7 @@ from pyasn1_alt_modules import rfc9480
 from resources.asn1_structures import PKIMessageTMP
 from resources.ca_ra_utils import build_pki_conf_from_cert_conf
 from resources.checkutils import validate_pkimessage_header
+from resources.convertutils import copy_asn1_certificate
 from resources.exceptions import (
     BadDataFormat,
     BadMessageCheck,
@@ -50,6 +51,7 @@ class CertConfState:
             del self.requests[tx_id]
         if tx_id in self.ca_responses:
             del self.ca_responses[tx_id]
+        _ = self.to_be_confirmed_certs.pop(tx_id)
 
     def add_response(self, pki_message: PKIMessageTMP, issued_certs: List[rfc9480.CMPCertificate]):
         """Add the CA response to the state."""
@@ -70,10 +72,20 @@ class CertConfState:
         if tx_id in self.already_confirmed_certs:
             raise CertConfirmed("The certificates are already confirmed.")
 
+    def is_not_confirmed(self, cert: rfc9480.CMPCertificate) -> bool:
+        """Check if the certificate is to be confirmed."""
+        der_data = encoder.encode(cert)
+        for certs in self.to_be_confirmed_certs.values():
+            for cert_to_confirm in certs:
+                if der_data == encoder.encode(cert_to_confirm):
+                    return True
+
+        return False
+
     def get_confirmable_certs(self, pki_message: PKIMessageTMP) -> List[rfc9480.CMPCertificate]:
         """Get the certificates that can be confirmed."""
         if not pki_message["header"]["transactionID"].isValue:
-            raise BadRequest("The transaction ID is not set.")
+            raise BadDataFormat("The transaction ID is not set.")
 
         tx_id = pki_message["header"]["transactionID"].asOctets()
         if self.to_be_confirmed_certs.get(tx_id) is None:
@@ -156,6 +168,10 @@ class CertConfHandler:
         """Add the certificate confirmation request to the state."""
         self.conf_state.add_request(pki_message)
 
+    def is_not_confirmed(self, cert: rfc9480.CMPCertificate) -> bool:
+        """Check if the certificate is to be confirmed."""
+        return self.conf_state.is_not_confirmed(cert)
+
     def add_response(self, pki_message: PKIMessageTMP, certs: List[rfc9480.CMPCertificate]):
         """Add the CA response to the state."""
         self.conf_state.add_response(pki_message, certs)
@@ -223,6 +239,10 @@ class CertConfHandler:
         )
 
         issued_certs = self.conf_state.get_confirmable_certs(pki_message)
+
+        if not issued_certs:
+            raise CertConfirmed("No certificates to confirm.")
+
         response = build_pki_conf_from_cert_conf(
             request=pki_message,
             issued_certs=issued_certs,

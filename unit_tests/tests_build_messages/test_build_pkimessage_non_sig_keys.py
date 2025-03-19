@@ -6,7 +6,8 @@ import unittest
 
 from pyasn1_alt_modules import rfc9480, rfc5280, rfc4211
 
-from pq_logic.tmp_oids import COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID, id_chempat_x25519_sntrup761, id_mlkem768_rsa2048
+from pq_logic.tmp_oids import COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID, id_chempat_x25519_sntrup761, id_mlkem768_rsa2048, \
+    id_comp_kem06_mlkem768_rsa2048
 from resources.ca_ra_utils import get_popo_from_pkimessage
 from resources.cmputils import build_ir_from_key
 from resources.keyutils import generate_key, load_public_key_from_spki
@@ -108,7 +109,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
         ir = build_ir_from_key(key)
         obj = de_and_encode_pkimessage(ir)
         spki = get_cert_template_from_pkimessage(obj)["publicKey"]
-        self.assertEqual(str(spki["algorithm"]["algorithm"]), str(id_mlkem768_rsa2048))
+        self.assertEqual(str(spki["algorithm"]["algorithm"]), str(id_comp_kem06_mlkem768_rsa2048))
         pub_key = load_public_key_from_spki(spki)
         self.assertEqual(pub_key, key.public_key())
         popo = get_popo_from_pkimessage(obj)
@@ -131,8 +132,8 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
 
         spki_new["algorithm"] = spki["algorithm"]
         spki_new["subjectPublicKey"] = spki["subjectPublicKey"]
-        oid = COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID["dhkemrfc9180-ml-kem-768-x25519"]
-        self.assertEqual(str(spki["algorithm"]["algorithm"]), oid)
+        oid = COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID["composite-dhkem-ml-kem-768-x25519"]
+        self.assertEqual(str(spki["algorithm"]["algorithm"]), str(oid))
         pub_key = load_public_key_from_spki(spki_new)
         self.assertEqual(pub_key, key.public_key())
         popo = get_popo_from_pkimessage(obj)

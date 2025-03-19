@@ -22,7 +22,7 @@ class TestCompositeKEMToSPKI(unittest.TestCase):
         WHEN converting the key to a SubjectPublicKeyInfo structure.
         THEN the structure should be valid.
         """
-        composite_kem = generate_key("composite-kem",
+        composite_kem = generate_key("composite-kem-05",
                                           pq_name="ml-kem-768",
                                           trad_name="rsa")
 
@@ -48,7 +48,7 @@ class TestCompositeKEMToSPKI(unittest.TestCase):
         WHEN converting the key to a SubjectPublicKeyInfo structure.
         THEN the structure should be valid.
         """
-        composite_kem = generate_key("composite-kem", pq_name="ml-kem-768", 
+        composite_kem = generate_key("composite-kem-05", pq_name="ml-kem-768",
                                      trad_name="x25519")
         der_data = composite_kem.public_key().public_bytes(
             encoding=Encoding.DER, format=PublicFormat.SubjectPublicKeyInfo

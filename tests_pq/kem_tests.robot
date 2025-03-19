@@ -33,6 +33,14 @@ ${KEM_CERT_PATH}   ${None}
 
 *** Keywords ***
 
+Request With PQ KEM Key
+    [Documentation]  Send a valid Initialization Request for a PQ KEM key.
+    [Arguments]    ${alg_name}     ${invalid_key_size}
+    ${response}    ${key}=   Build And Exchange KEM Certificate Request    ${alg_name}    ${invalid_key_size}
+    ${cert}=   Validate EncrCert For KEM    ${response}    ${key}
+    Certificate Must Be Valid    ${cert}
+
+
 Build And Exchange KEM Certificate Request
     [Documentation]    Build a KEM certificate request and exchange it with the CA to get a certificate.
     ...

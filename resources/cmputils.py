@@ -1028,7 +1028,7 @@ def prepare_cert_request(  # noqa D417 undocumented-param
 def prepare_signature_popo(  # noqa: D417 undocumented-param
     signing_key: PrivateKeySig,
     cert_request: rfc4211.CertRequest,
-    hash_alg: str = "sha256",
+    hash_alg: Optional[str] = "sha256",
     bad_pop: bool = False,
     use_rsa_pss: bool = False,
     use_pre_hash: bool = False,
@@ -1552,7 +1552,7 @@ def build_ccr_from_key(  # noqa D417 undocumented-param
     common_name: str = "CN=Hans Mustermann",
     sender: str = "tests@example.com",
     recipient: str = "testr@example.com",
-    exclude_fields: Optional[str] = None,
+    exclude_fields: Optional[str] = "sender,senderKID",
     cert_req_msg: Optional[Union[List[rfc4211.CertReqMsg], rfc4211.CertReqMsg]] = None,
     bad_pop: bool = False,
     **params,
@@ -1602,7 +1602,7 @@ def build_ccr_from_key(  # noqa D417 undocumented-param
     | ${crr}= | Build Ir From Key | ${signing_key} | exclude_fields=transactionID,senderNonce |
 
     """
-    cert_request_msg = prepare_cert_req_msg(
+    cert_request_msg = cert_req_msg or prepare_cert_req_msg(
         private_key=signing_key,
         common_name=common_name,
         cert_req_id=params.get("cert_req_id", 0),
@@ -1624,8 +1624,7 @@ def build_ccr_from_key(  # noqa D417 undocumented-param
         pvno = int(params.get("pvno"))
 
     pki_body = _prepare_cert_req_msg_body("ccr")
-    pki_body["ccr"].append(cert_request_msg)
-    pki_body["ccr"].extend(utils.ensure_list(cert_req_msg))
+    pki_body["ccr"].extend(utils.ensure_list(cert_request_msg))
 
     # To ensure that the prepared messageTime is newer.
     pki_message = prepare_pki_message(
@@ -2318,11 +2317,14 @@ def build_cert_conf_from_resp(  # noqa D417 undocumented-param
     if cert_status is None:
         cert_resp_msg: rfc9480.CertRepMessage = ca_message["body"][message_type]["response"]
         entry: rfc9480.CertResponse
-        for _, entry in enumerate(cert_resp_msg):
+        for i, entry in enumerate(cert_resp_msg):
             # remove the tagging.
             cert_req_id = cert_req_id or entry["certReqId"]
             cert_req_id = int(cert_req_id)
-            cert = copy_asn1_certificate(cert=entry["certifiedKeyPair"]["certOrEncCert"]["certificate"])
+
+            tmp_cert = get_cert_from_pkimessage(ca_message, cert_number=i)
+            # to remove the tagging.
+            cert = copy_asn1_certificate(cert=tmp_cert)
             cert_status = prepare_certstatus(
                 hash_alg=hash_alg,
                 cert=cert,
@@ -2645,9 +2647,17 @@ def get_cert_from_pkimessage(  # noqa D417 undocumented-param
 
     """
     response = get_cert_response_from_pkimessage(pki_message, response_index=cert_number)
+
+    if not response["certifiedKeyPair"].isValue:
+        raise ValueError("The provided PKIMessage did not had the `certifiedKeyPair` field set.")
+
+    if not response["certifiedKeyPair"]["certOrEncCert"].isValue:
+        raise ValueError("The provided PKIMessage did not had the `certOrEncCert` field set.")
+
     cert = response["certifiedKeyPair"]["certOrEncCert"]["certificate"]
     if not cert.isValue:
         raise ValueError("The provided PKIMessage does not contain a certificate.")
+    # To remove the tagging.
     cert = convertutils.copy_asn1_certificate(cert)
     return cert
 

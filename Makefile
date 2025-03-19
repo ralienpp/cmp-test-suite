@@ -103,7 +103,7 @@ start-mock-ca:
 	python ./mock_ca/ca_handler.py
 
 test-mock-ca:
-	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests_pq/composite_sig04_alg.robot
+	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests_pq
 
 codespell:
 	codespell . --check-filenames --skip=*.html,*.pem,*.xml,*venv*,*fips/*.py,*data/*,*/liboqs-python/*,*doc/*,*data/pqc-certificates/*,*data/stats,*/tests_rsa_kem/*
@@ -112,7 +112,7 @@ dev-unit-tests:
 	python -m unittest discover -s work_in_progress
 
 rf-dev:
-	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests/kga.robot
+	robot --pythonpath=./ --outputdir=reports --variable environment:mock_ca tests/cert_conf_tests.robot
 
 rf-lint:
 	robocop --report rules_by_error_type tests/lwcmp.robot

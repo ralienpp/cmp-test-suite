@@ -49,8 +49,6 @@ from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa, x448, x25519
-from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey, DHPublicKey
-from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey, DSAPublicKey
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey, Ed448PublicKey
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -73,20 +71,6 @@ HybridTradPrivComp = Union["TradKEMPrivateKey", ECDHPrivateKey, rsa.RSAPrivateKe
 # TODO decide if the comparison function should raise a error if a public key and
 # a None public key are compared.
 
-_PUBLIC_KEY = Union[
-    rsa.RSAPublicKey,
-    HybridTradPubComp,
-    DSAPublicKey,
-    DHPublicKey,
-]
-
-_PRIVATE_KEY = Union[
-    rsa.RSAPrivateKey,
-    HybridTradPrivComp,
-    DSAPrivateKey,
-    DHPrivateKey,
-]
-
 
 # Base Key Class
 # to add functionality and properties to all key types.
@@ -99,7 +83,7 @@ class BaseKey(ABC):
     # this name is used if a library uses a different name style for the algorithm.
     _other_name: Optional[str]
 
-    def __eq__(self, other: Union[_PUBLIC_KEY, _PRIVATE_KEY, "BaseKey"]) -> bool:
+    def __eq__(self, other) -> bool:
         """Compare two keys."""
         if not isinstance(other, BaseKey):
             return False
@@ -588,12 +572,6 @@ class HybridSigPublicKey(HybridPublicKey, ABC):
     _trad_key: ECVerifyKey
     _name: str = "hybrid-sig"
 
-    def __init__(self, trad_key: ECVerifyKey, pq_key):
-        """Create a new instance."""
-        super().__init__(trad_key, pq_key)  # type: ignore
-        self._trad_key = trad_key
-        self._pq_key = pq_key
-
     def __eq__(self, other: "HybridSigPublicKey") -> bool:
         """Compare two hybrid public keys."""
         if not isinstance(other, HybridSigPublicKey):
@@ -618,17 +596,29 @@ class HybridSigPublicKey(HybridPublicKey, ABC):
     def verify(self, signature: bytes, data: bytes, hash_alg: Optional[str] = None) -> bool:
         """Verify the signature."""
 
+    def _get_trad_key_name(self) -> str:
+        """Return the name of the traditional key."""
+        if isinstance(self._trad_key, ec.EllipticCurvePublicKey):
+            return "ecdsa-" + self._trad_key.curve.name
+        if isinstance(self._trad_key, ed25519.Ed25519PublicKey):
+            return "ed25519"
+        if isinstance(self._trad_key, ed448.Ed448PrivateKey):
+            return "ed448"
+        if isinstance(self._trad_key, rsa.RSAPublicKey):
+            return f"rsa-{self._trad_key.key_size}"
+        raise ValueError("Unsupported key type: " + str(type(self._trad_key)))
+
+    @property
+    def name(self) -> str:
+        """Return the name of the key."""
+        return f"{self._name}-{self._pq_key.name}-{self._get_trad_key_name()}"
+
 
 class HybridSigPrivateKey(HybridPrivateKey, ABC):
     """A private key for a hybrid signature scheme."""
 
     _trad_key: ECSignKey
     _name: str = "hybrid-sig"
-
-    def __init__(self, pq_key, trad_key):
-        """Create a new instance."""
-        self._pq_key = pq_key
-        self._trad_key = trad_key
 
     @property
     def trad_key(self) -> ECSignKey:
@@ -639,10 +629,6 @@ class HybridSigPrivateKey(HybridPrivateKey, ABC):
     def pq_key(self):
         """Return the pq key."""
         return self._pq_key  # type: ignore
-
-    def public_key(self) -> HybridPublicKey:
-        """Return the public key."""
-        return HybridSigPublicKey(self.trad_key.public_key(), self.pq_key.public_key())
 
     @abstractmethod
     def sign(self, data: bytes, hash_alg: Optional[str] = None) -> bytes:
@@ -663,7 +649,7 @@ class HybridSigPrivateKey(HybridPrivateKey, ABC):
     @property
     def name(self) -> str:
         """Return the name of the key."""
-        return self._name + "-" + self._pq_key.name + "-" + self._get_trad_key_name()
+        return f"{self._name}-{self._pq_key.name}-{self._get_trad_key_name()}"
 
 
 class HybridKEMPublicKey(HybridPublicKey, ABC):
@@ -707,6 +693,22 @@ class HybridKEMPrivateKey(HybridPrivateKey, ABC):
         """Return the length of the ciphertext."""
         return self.public_key().ct_length
 
+    def _get_trad_key_name(self) -> str:
+        """Return the name of the traditional key."""
+        if isinstance(self._trad_key, TradKEMPrivateKey):
+            return self._trad_key.get_trad_name
+
+        if isinstance(self._trad_key, ec.EllipticCurvePublicKey):
+            return f"ecdh-{self._trad_key.curve.name.lower()}"
+
+        if isinstance(self._trad_key, x25519.X25519PrivateKey):
+            return "x25519"
+
+        if isinstance(self._trad_key, x448.X448PrivateKey):
+            return "x448"
+
+        raise ValueError(f"Unsupported Hybrid KEM key type: {type(self._trad_key).__name__}")
+
 
 class AbstractCompositePublicKey(HybridPublicKey, ABC):
     """Abstract class for Composite public keys."""
@@ -746,6 +748,31 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         MUST not include the BIT STRING encoding.
         """
         return self._export_public_key()
+
+    @staticmethod
+    def _get_trad_key_name(
+        trad_key: Union[
+            ec.EllipticCurvePublicKey,
+            rsa.RSAPublicKey,
+            ed25519.Ed25519PublicKey,
+            ed448.Ed448PublicKey,
+        ],
+        use_pss: bool = False,
+    ) -> str:
+        """Retrieve the traditional algorithm name based on the key type."""
+        if isinstance(trad_key, ec.EllipticCurvePublicKey):
+            trad_name = f"ecdsa-{trad_key.curve.name.lower()}"
+        elif isinstance(trad_key, rsa.RSAPublicKey):
+            trad_name = f"rsa{trad_key.key_size}"
+            if use_pss:
+                trad_name += "-pss"
+        elif isinstance(trad_key, ed25519.Ed25519PublicKey):
+            trad_name = "ed25519"
+        elif isinstance(trad_key, ed448.Ed448PublicKey):
+            trad_name = "ed448"
+        else:
+            raise ValueError(f"Unsupported key type: {type(trad_key).__name__}")
+        return trad_name
 
     @abstractmethod
     def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
@@ -845,10 +872,32 @@ class AbstractCompositePrivateKey(HybridPrivateKey, ABC):
         """Get the size of the key."""
         return len(self._export_private_key())
 
-    def _get_rsa_size(self, value: int):
+    @classmethod
+    def _get_rsa_size(cls, value: int):
         """Return the closest size to the allowed RSA key."""
         predefined_values = [2048, 3072, 4096]
         return min(predefined_values, key=lambda x: abs(x - value))
+
+    def _get_trad_key_name(self) -> str:
+        """Return the name of the traditional key."""
+        if isinstance(self.trad_key, rsa.RSAPrivateKey):
+            return f"rsa{self._get_rsa_size(self.trad_key.key_size)}"
+        if isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
+            _curve = self.trad_key.curve.name.lower()
+            if "kem" in self.name:
+                return f"ecdh-{_curve}"
+            return f"ecdsa-{_curve}"
+
+        if isinstance(self.trad_key, ed25519.Ed25519PrivateKey):
+            return "ed25519"
+        if isinstance(self.trad_key, ed448.Ed448PrivateKey):
+            return "ed448"
+        if isinstance(self.trad_key, x25519.X25519PrivateKey):
+            return "x25519"
+        if isinstance(self.trad_key, x448.X448PrivateKey):
+            return "x448"
+
+        raise ValueError("Unsupported key type: " + str(type(self.trad_key)))
 
 
 class AbstractHybridRawPublicKey(HybridKEMPublicKey, ABC):
@@ -894,15 +943,6 @@ class AbstractHybridRawPrivateKey(HybridKEMPrivateKey, ABC):
 
     _pq_key: PQPrivateKey
     _trad_key: ECDHPrivateKey
-
-    def __init__(self, pq_key: PQPrivateKey, trad_key: ECDHPrivateKey):
-        """Initialize the HybridRawPrivateKey.
-
-        :param pq_key: The post-quantum private key object.
-        :param trad_key: The traditional private key object.
-        """
-        self._pq_key = pq_key
-        self._trad_key = trad_key
 
     def _encode_trad_part(self) -> bytes:
         """Encode the traditional part of the private key.

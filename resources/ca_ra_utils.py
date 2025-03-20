@@ -22,8 +22,8 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from pq_logic import pq_compute_utils, py_verify_logic
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.keys.abstract_pq import PQHashStatefulSigPublicKey, PQKEMPublicKey
-from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey, PQPublicKey
-from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey, KEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey, PQPublicKey, KEMPublicKey
+from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
 from pq_logic.pq_compute_utils import sign_data_with_alg_id
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import CA_RESPONSE, ECDHPrivateKey, ECDHPublicKey
@@ -1733,11 +1733,11 @@ def prepare_cert_response(
     cert_req_id: Union[str, int] = 0,
     status: str = "accepted",
     text: Union[List[str], str] = None,
-    failinfo: str = None,
+    failinfo: Optional[str] = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
     enc_cert: Optional[rfc9480.EnvelopedData] = None,
     private_key: Optional[rfc9480.EnvelopedData] = None,
-    rspInfo: Optional[bytes] = None,
+    rsp_info: Optional[bytes] = None,
 ) -> CertResponseTMP:
     """Prepare a CertResponse structure for responding to a certificate request.
 
@@ -1748,7 +1748,7 @@ def prepare_cert_response(
     :param cert: An optional certificate object.
     :param enc_cert: Optional encrypted certificate as EnvelopedData.
     :param private_key: A private key inside the `EnvelopedData` structure
-    :param rspInfo: Optional response information. Defaults to `None`.
+    :param rsp_info: Optional response information. Defaults to `None`.
     :return: A populated CertResponse structure.
     """
     cert_response = CertResponseTMP()
@@ -1758,8 +1758,8 @@ def prepare_cert_response(
     if cert or enc_cert or private_key:
         cert_response["certifiedKeyPair"] = prepare_certified_key_pair(cert, enc_cert, private_key)
 
-    if rspInfo:
-        cert_response["rspInfo"] = univ.OctetString(rspInfo)
+    if rsp_info is not None:
+        cert_response["rspInfo"] = univ.OctetString(rsp_info)
 
     return cert_response
 
@@ -3307,7 +3307,7 @@ def build_ccp_from_ccr(  # noqa D417 undocumented-param
         cert_req_id=kwargs.get("cert_req_id", 0),
         text=kwargs.get("text", "Certificate issued"),
         status=kwargs.get("status", "accepted"),
-        rspInfo=kwargs.get("rspInfo", None),
+        rsp_info=kwargs.get("rspInfo", None),
     )
 
     body = prepare_ca_body(body_name="ccp", responses=responses)

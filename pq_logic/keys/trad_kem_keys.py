@@ -16,14 +16,13 @@ from cryptography.hazmat.primitives.serialization import (
 )
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
-from pyasn1_alt_modules import rfc5280, rfc5958, rfc9481
+from pyasn1_alt_modules import rfc5280, rfc5958, rfc6664, rfc9481
 from resources.oid_mapping import get_curve_instance
 
-from pq_logic.chempatkem import get_trad_key_length
 from pq_logic.kem_mechanism import DHKEMRFC9180, ECDHKEM, RSAKem, RSAOaepKem
 from pq_logic.keys.abstract_wrapper_keys import TradKEMPrivateKey, TradKEMPublicKey
 from pq_logic.tmp_oids import id_rsa_kem_spki
-from pq_logic.trad_typing import ECDHPrivateKey
+from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 
 class RSAEncapKey(TradKEMPublicKey):
@@ -173,8 +172,8 @@ class RSADecapKey(TradKEMPrivateKey):
 
     @property
     def key_size(self) -> int:
-        """Return the size of the decapsulation key."""
-        return get_trad_key_length(self._private_key)
+        """Return the size of the decapsulation key in bits."""
+        return self._private_key.key_size
 
     def public_key(self) -> RSAEncapKey:
         """Return the public encapsulation key.
@@ -223,9 +222,22 @@ class RSADecapKey(TradKEMPrivateKey):
 class DHKEMPublicKey(TradKEMPublicKey):
     """Wrapper class for Diffie-Hellman Key Encapsulation Mechanism (DHKEM) public keys."""
 
+    def __eq__(self, other: object) -> bool:
+        """Check if the public keys are equal."""
+        if isinstance(other, ECDHPublicKey):
+            return DHKEMPublicKey(other) == self
+
+        if not isinstance(other, DHKEMPublicKey):
+            return False
+        return self.encode() == other.encode()
+
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the encapsulation key."""
-        raise NotImplementedError("This method is not implemented for DHKEMPublicKey.")
+        if isinstance(self._public_key, x25519.X25519PublicKey):
+            return rfc9481.id_X25519
+        if isinstance(self._public_key, x448.X448PublicKey):
+            return rfc9481.id_X448
+        return rfc6664.id_ecPublicKey
 
     def _export_public_key(self) -> bytes:
         """Export the public key as bytes.
@@ -235,7 +247,10 @@ class DHKEMPublicKey(TradKEMPublicKey):
         return self.encode()
 
     def _get_subject_public_key(self) -> bytes:
-        raise NotImplementedError("This method is not implemented for DHKEMPublicKey. Use the encode method instead.")
+        """Return the subject public key."""
+        data = self._public_key.public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+        obj, _ = decoder.decode(data, asn1Spec=rfc5280.SubjectPublicKeyInfo())
+        return obj["subjectPublicKey"].asOctets()
 
     def __init__(
         self,
@@ -285,6 +300,7 @@ class DHKEMPublicKey(TradKEMPublicKey):
 
     @property
     def ct_length(self) -> int:
+        """Return the length of the ciphertext."""
         return self.key_size
 
     @property
@@ -297,6 +313,18 @@ class DHKEMPublicKey(TradKEMPublicKey):
         if isinstance(self._public_key, x448.X448PublicKey):
             return "x448"
         raise ValueError("Unsupported public key type.")
+
+    @property
+    def curve_name(self) -> str:
+        """Return the name of the curve.
+
+        return: The name of the curve or x25519/x448.
+        """
+        if isinstance(self._public_key, x25519.X25519PublicKey):
+            return "x25519"
+        if isinstance(self._public_key, x448.X448PublicKey):
+            return "x448"
+        return self._public_key.curve.name
 
     @property
     def public_numbers(self):
@@ -464,7 +492,6 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
             trad_key = x25519.X25519PrivateKey.from_private_bytes(data)
         elif name == "x448":
             trad_key = x448.X448PrivateKey.from_private_bytes(data)
-
         else:
             curve_inst = get_curve_instance(curve)
             trad_key = cls._ec_key_from_der(data, curve_inst)
@@ -487,3 +514,11 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
                 serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()
             )
         return self._private_key.private_bytes_raw()
+
+    @property
+    def curve_name(self) -> str:
+        """Return the name of the curve.
+
+        return: The name of the curve or x25519/x448.
+        """
+        return self.public_key().curve_name

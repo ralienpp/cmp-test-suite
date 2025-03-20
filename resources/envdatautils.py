@@ -15,8 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
-from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, HybridKEMPublicKey
-from pq_logic.migration_typing import KEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, HybridKEMPublicKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
@@ -37,7 +36,7 @@ from pyasn1_alt_modules import (
 from robot.api.deco import keyword, not_keyword
 
 from resources import certbuildutils, certextractutils, cryptoutils, keyutils, utils
-from resources.convertutils import copy_asn1_certificate, str_to_bytes
+from resources.convertutils import copy_asn1_certificate, str_to_bytes, ensure_is_kem_pub_key
 from resources.copyasn1utils import copy_name
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_alg_name_to_oid
@@ -738,7 +737,7 @@ def prepare_key_transport_recipient_info(
         cert=cmp_protection_cert,
         issuer_and_ser=kwargs.get("issuer_and_ser"),
         ski=kwargs.get("ski"),
-        bad_ski=kwargs.get("bad_ski"),
+        bad_ski=kwargs.get("bad_ski", False),
     )
 
     ktri_structure["rid"] = rid
@@ -773,7 +772,7 @@ def _get_kari_ephemeral_oid(hash_alg: Optional[str]) -> univ.ObjectIdentifier:
         raise KeyError(f"The ECMQV ECC supports only the hash algorithms: {hash_alg}")
 
 
-def _get_ecc_dh_oid(public_key: EllipticCurvePublicKey, hash_alg: Optional[str]) -> univ.ObjectIdentifier:
+def _get_ecc_dh_oid(public_key: EllipticCurvePublicKey, hash_alg: str) -> univ.ObjectIdentifier:
     """Get the ECC KARI oid"""
     if public_key.curve.name.startswith("brainpoolP"):
         name = f"cofactorDH-{hash_alg.upper()}"
@@ -1003,9 +1002,9 @@ def prepare_recip_info(  # noqa D417 undocumented-param
 @keyword(name="Prepare EncryptedKey For POPO")
 def prepare_enc_key_for_popo(  # noqa D417 undocumented-param
     enc_key_with_id: rfc4211.EncKeyWithID,
+    rid: Optional[rfc5652.RecipientIdentifier],
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     recip_info: Optional[rfc5652.RecipientInfo] = None,
-    rid: Optional[rfc5652.RecipientIdentifier] = None,
     for_agreement: bool = None,
     version: Optional[int] = None,
     cek: Optional[bytes] = None,
@@ -1045,26 +1044,34 @@ def prepare_enc_key_for_popo(  # noqa D417 undocumented-param
 
 
     """
-    if version is None:
-        version = 0 if recip_info.getName() in ["ori", "pwri"] else 2
+
 
     cek = cek or os.urandom(32)
     env_data = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))
 
     if recip_info is None:
+
+        if ca_cert is None:
+            raise ValueError("A CA certificate must be provided, if the recipient info structure is not provided.")
+
+        spki = ca_cert["tbsCertificate"]["subjectPublicKeyInfo"]
+        public_key_recip = keyutils.load_public_key_from_spki(spki)
         recip_info = prepare_recip_info(
-            public_key_recip=None,
+            public_key_recip=public_key_recip,
             private_key=private_key,
             cek=cek,
             cert_recip=ca_cert,
             rid=rid,
         )
 
+    if version is None and recip_info:
+        version = 0 if recip_info.getName() in ["ori", "pwri"] else 2
+
     env_data = prepare_enveloped_data(
         cek=cek,
         recipient_infos=recip_info,
         target=env_data,
-        enc_oid=rfc4211.id_ct_encKeyWithID,
+        enc_oid=rfc5652.id_data,
         version=version,
         data_to_protect=encoder.encode(enc_key_with_id),
     )
@@ -1177,14 +1184,13 @@ def _handle_kem_encapsulation(
     if public_key_recip:
         kem_pub_key = public_key_recip
     elif recip_cert is not None:
-        kem_pub_key = keyutils.load_public_key_from_spki(recip_cert["tbsCertificate"]["subjectPublicKeyInfo"])  # type: KEMPublicKey
+        kem_pub_key = keyutils.load_public_key_from_spki( # type: ignore
+            recip_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+
     else:
         raise ValueError("No valid KEM public key or certificate provided.")
 
-    if not is_kem_public_key(kem_pub_key):
-        raise ValueError(f"Expected KEMPublicKey, got {type(kem_pub_key).__name__}.")
-
-    kem_pub_key: KEMPublicKey
+    kem_pub_key = ensure_is_kem_pub_key(kem_pub_key)
 
     if hybrid_key_recip is None:
         shared_secret, kemct = kem_pub_key.encaps()
@@ -1457,7 +1463,7 @@ def prepare_originator_identifier_or_key(  # noqa D417 undocumented-param
     if cert is None and issuer_and_ser is None:
         raise ValueError("Either a certificate or issuer and serial number must be provided.")
 
-    ski = None
+    ski: Optional[bytes] = None
     if cert is not None:
         ski = certextractutils.get_field_from_certificate(cert, extension="ski")
 
@@ -1470,7 +1476,7 @@ def prepare_originator_identifier_or_key(  # noqa D417 undocumented-param
 
     elif ski is not None:
         if invalid_ski:
-            ski = utils.manipulate_first_byte(ski)
+            ski = utils.manipulate_first_byte(ski) # type: ignore
         val = rfc5652.SubjectKeyIdentifier(ski).subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
         )

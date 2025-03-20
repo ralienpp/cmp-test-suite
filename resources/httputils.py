@@ -197,7 +197,7 @@ def start_unsafe_tcp_server(  # noqa: D417 Missing argument descriptions in the 
         # Accept a client connection
         conn, addr = sock.accept()
         logging.debug("Accepted connection from %s", str(addr))
-        conn.settimeout(timeout)
+        conn.settimeout(int(timeout))
 
         try:
             # Continuously receive data until the client closes the connection or timeout occurs

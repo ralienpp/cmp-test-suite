@@ -1,9 +1,9 @@
 import unittest
 
 from resources.asn1_structures import PKIMessageTMP
-from resources.ca_ra_utils import build_kup_from_kur, get_popo_from_pkimessage
+from resources.ca_ra_utils import build_kup_from_kur
 from resources.certutils import parse_certificate
-from resources.cmputils import build_key_update_request, prepare_popo, prepare_signature_popo, prepare_cert_request, \
+from resources.cmputils import build_key_update_request, prepare_popo, \
     prepare_cert_req_msg
 from resources.exceptions import BadPOP
 from resources.keyutils import load_private_key_from_file

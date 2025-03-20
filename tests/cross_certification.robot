@@ -15,6 +15,7 @@ Library             ../resources/cmputils.py
 Library             ../resources/protectionutils.py
 Library             ../resources/checkutils.py
 Library             ../resources/extra_issuing_logic.py
+Library             ../resources/envdatautils.py
 
 Suite Setup    Set Up CMP Test Cases
 Test Tags           cmp   advanced   crr
@@ -37,7 +38,8 @@ Set Up CMP Test Cases
 Default Protect PKIMessage With Trusted Cert
     [Documentation]    Protects the PKIMessage with the trusted CA certificate.
     [Arguments]    ${pki_message}
-    ${response}=  Protect PKIMessage    ${pki_message}    signature    private_key=${TRUSTED_CA_KEY}    cert=${TRUSTED_CA_CERT}
+    ${response}=  Protect PKIMessage    ${pki_message}    signature
+    ...           private_key=${TRUSTED_CA_KEY}    cert=${TRUSTED_CA_CERT}
     RETURN    ${response}
 
 *** Test Cases ***
@@ -76,21 +78,20 @@ CA MUST Reject Cross Certification Request with private key
     ${cert_template}    ${key}=  Generate CertTemplate For Testing
     # ${data}=   Prepare Private Key For POP
     ${enc_key_id}=   Prepare EncKeyWithID    ${key}   sender=${SENDER}   use_string=False
-    ${popo}=    Prepare POPO Env Data  ${key}   sender=${SENDER}  password=${PASSWORD}   server_cert=${TRUSTED_CA_CERT}
+    ${rid}=   Prepare Recipient Identifier    ${TRUSTED_CA_CERT}   
+    ${popo}=   Prepare EncryptedKey For POPO    ${enc_key_id}   ${rid}   ${TRUSTED_CA_CERT}   for_agreement=False
     ${crr}=     Build CCR From Key
     ...    ${key}
     ...    cert_template=${cert_template}
-    ...    popo_structure=${popo}
+    ...    popo=${popo}
     ...    recipient=${RECIPIENT}
     ...    implicit_confirm=${True}
     ${protected_crr}=     Default Protect PKIMessage With Trusted Cert    ${crr}
     ${response}=    Exchange PKIMessage    ${protected_crr}
     PKIMessage Body Type Must Be    ${response}    error
     PKIStatus Must Be    ${response}   rejection
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    badRequest
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badRequest, badCertTemplate
 
-
-    
 CA MUST Reject Cross Certification Request without POP
    [Documentation]    According to RFC4210bis-15 Section Section 5.3.11 the private key **MUST** not be
    ...                disclosed to the other CA. We send a Crr message without a key, basically asking the
@@ -111,7 +112,6 @@ CA MUST Reject Cross Certification Request without POP
    PKIMessage Body Type Must Be    ${response}    error
    PKIStatus Must Be    ${response}   rejection
    PKIStatusInfo Failinfo Bit Must Be    ${response}    badPOP,badRequest
-
 
 CA MUST Reject Cross Certification Request With V2
     [Documentation]   According to RFC4210bis-18 Appendix D.6 the version field of the `CertTemplate` must be v3

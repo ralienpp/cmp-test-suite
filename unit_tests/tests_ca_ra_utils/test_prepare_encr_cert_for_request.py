@@ -5,11 +5,11 @@
 import unittest
 from typing import Union, Tuple
 
-from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag
 from pyasn1_alt_modules import rfc9480
 
-from pq_logic.migration_typing import HybridKEMPrivateKey, KEMPublicKey, KEMPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey
+from pq_logic.migration_typing import HybridKEMPrivateKey
 from pq_logic.trad_typing import ECDHPrivateKey
 from resources.ca_kga_logic import validate_enveloped_data
 from resources.ca_ra_utils import prepare_encr_cert_for_request

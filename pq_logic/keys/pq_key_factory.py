@@ -219,6 +219,27 @@ class PQKeyFactory:
         raise ValueError(f"Invalid PQ algorithm name provided: '{algorithm}'.")
 
     @staticmethod
+    def from_private_bytes(name: str, data: bytes, allow_rest: bool = False) -> Tuple[PQPrivateKey, bytes]:
+        """Load a PQ private key from the given private key bytes.
+
+        :param name: The name of the algorithm.
+        :param data: The private key bytes.
+        :param allow_rest: If True, allow additional data after the private key. Defaults to `False`.
+        :return: The private key instance.
+        """
+        pq_name = PQKeyFactory.get_pq_alg_name(name)
+        pq_key = PQKeyFactory.generate_pq_key(pq_name)
+        key_size = pq_key.key_size
+
+        pq_data = data[:key_size]
+        key = pq_key.from_private_bytes(data=pq_data, name=pq_key.name)
+
+        if not allow_rest and len(data) != key_size:
+            raise InvalidKeyData(f"Invalid key data length, for the provided {pq_name} key.")
+
+        return key, data[key_size:]
+
+    @staticmethod
     def from_public_bytes(name: str, data: bytes, allow_rest: bool = False) -> Tuple[PQPublicKey, bytes]:
         """Load a PQ public key from the given public key bytes.
 
@@ -237,8 +258,7 @@ class PQKeyFactory:
         if not allow_rest and len(data) != key_size:
             raise InvalidKeyData(f"Invalid key data length, for the provided {pq_name} key.")
 
-        rest = data[key_size:]
-        return key, rest
+        return key, data[key_size:]
 
     @staticmethod
     def from_one_asym_key(

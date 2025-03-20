@@ -14,7 +14,8 @@ from cryptography.hazmat.primitives import hashes
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 
-from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
+from pq_logic.keys.abstract_wrapper_keys import (PQPrivateKey, PQPublicKey,
+                                                 KEMPublicKey, KEMPrivateKey)
 
 if importlib.util.find_spec("oqs") is not None:
     import oqs  # pylint: disable=import-error
@@ -168,6 +169,11 @@ class PQSignaturePrivateKey(PQPrivateKey, ABC):
 class PQHashStatefulSigPublicKey(PQSignaturePublicKey, ABC):
     """Abstract base class for Post-Quantum Hash Stateful Signature Public Keys."""
 
+    @abstractmethod
+    def check_sig_num(self, signature: bytes) -> None:
+        """Check the signature number."""
+
+
     def verify(
         self,
         signature: bytes,
@@ -175,6 +181,9 @@ class PQHashStatefulSigPublicKey(PQSignaturePublicKey, ABC):
         ctx: bytes = b"",
     ) -> None:
         """Verify a signature of the provided data."""
+
+        self.check_sig_num(signature)
+
         return super().verify(signature=signature, data=data, ctx=ctx)
 
 
@@ -225,7 +234,7 @@ class PQHashStatefulSigPrivateKey(PQSignaturePrivateKey, ABC):
         return super().sign(data=data, ctx=ctx)
 
 
-class PQKEMPublicKey(PQPublicKey, ABC):
+class PQKEMPublicKey(PQPublicKey, KEMPublicKey, ABC):
     """Abstract base class for Post-Quantum KEM Public Keys."""
 
     _kem_method: Optional["oqs.KeyEncapsulation"]
@@ -270,7 +279,7 @@ class PQKEMPublicKey(PQPublicKey, ABC):
         return self._kem_method.details["claimed_nist_level"]
 
 
-class PQKEMPrivateKey(PQPrivateKey, ABC):
+class PQKEMPrivateKey(PQPrivateKey, KEMPrivateKey, ABC):
     """Concrete implementation of a Post-Quantum KEM Private Key.
 
     This class provides functionality to manage, serialize, and use KEM private keys.

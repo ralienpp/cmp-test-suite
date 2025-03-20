@@ -25,7 +25,8 @@ from resources.oidutils import (
 from robot.api.deco import not_keyword
 
 from pq_logic.hybrid_structures import CompositeSignatureValue
-from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, AbstractCompositePublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, AbstractCompositePublicKey, \
+    HybridTradPrivComp
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE03_OID_2_HASH,
@@ -126,37 +127,6 @@ def _get_trad_name(
     return trad_name.lower().replace("_", "-")
 
 
-def get_oid_cms_composite_signature(
-    ml_dsa_name: str,
-    trad_key: Union[ed25519.Ed25519PrivateKey, ed448.Ed448PrivateKey, ec.EllipticCurvePrivateKey, rsa.RSAPrivateKey],
-    use_pss: bool = False,
-    pre_hash: bool = False,
-    length: Optional[int] = None,
-    allow_bad_rsa: bool = False,
-) -> univ.ObjectIdentifier:
-    """Retrieve the OID for a composite signature, using a stringified version of the key name.
-
-    :param ml_dsa_name: The ML-DSA name, such as 'ml-dsa-65'.
-    :param trad_key: The traditional key object.
-    :param use_pss: Indicates whether RSA-PSS padding is used.
-    :param pre_hash: Indicates if the data is pre-hashed before signing.
-    :param length: Optional key length for RSA keys.
-    :param allow_bad_rsa: Allow the use of bad RSA key.
-    :return: The OID representing the composite signature configuration.
-    :raises KeyError: If the OID cannot be resolved.
-    """
-    stringified_trad_name = _get_trad_name(
-        trad_key=trad_key, use_pss=use_pss, length=length, allow_bad_rsa=allow_bad_rsa
-    )
-    pre_hash = "" if not pre_hash else "hash-"
-    oid_base = f"composite-sig-{pre_hash}{ml_dsa_name}-{stringified_trad_name}"
-    oid = CMS_COMPOSITE03_NAME_2_OID.get(oid_base)
-    if oid is None:
-        raise InvalidKeyCombination(f"Invalid composite signature combination: {oid_base}")
-
-    return oid
-
-
 def _prepare_composite_sig(pq_sig: bytes, trad_sig: bytes) -> bytes:
     """Prepare the composite signature.
 
@@ -215,6 +185,17 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey):
     def name(self) -> str:
         """Return the name of the composite signature key."""
         return self._get_name(False, False)
+
+    @property
+    def pq_key(self) -> MLDSAPublicKey:
+        """Return the post-quantum public key."""
+        return self._pq_key
+
+    @property
+    def trad_key(self) -> Union[rsa.RSAPublicKey, ed448.Ed448PublicKey,
+    ed25519.Ed25519PublicKey, ec.EllipticCurvePublicKey]:
+        """Return the traditional public key."""
+        return self._trad_key
 
     def _verify_trad(
         self,
@@ -310,7 +291,7 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey):
 
         domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
         m_prime = self._prepare_input(data=data, ctx=ctx, use_pss=use_pss, pre_hash=pre_hash)
-        self.pq_key.verify(data=m_prime, signature=mldsa_sig, ctx=encoder.encode(domain_oid))
+        self._pq_key.verify(data=m_prime, signature=mldsa_sig, ctx=encoder.encode(domain_oid))
         self._verify_trad(data=m_prime, signature=trad_sig, use_pss=use_pss)
 
     @staticmethod
@@ -336,6 +317,11 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey):
     def pq_key(self) -> MLDSAPrivateKey:
         """Return the post-quantum private key."""
         return self._pq_key
+
+    @property
+    def trad_key(self) -> HybridTradPrivComp:
+        """Return the traditional private key."""
+        return self._trad_key
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""

@@ -68,28 +68,28 @@ FALCON_NAME_2_OID = {
 FALCON_OID_2_NAME = {y: x for x, y in FALCON_NAME_2_OID.items()}
 
 id_ntru = f"{id_kem_test_suite}.1"
-id_sntrup761_str = f"{id_ntru}.1"
+id_sntrup761_str = univ.ObjectIdentifier(f"{id_ntru}.1")
 
 
 id_mceliece = f"{id_kem_test_suite}.2"
 
 MCELIECE_NAME_2_OID = {
-    "mceliece-348864": f"{id_mceliece}.1",
-    "mceliece-460896": f"{id_mceliece}.2",
-    "mceliece-6688128": f"{id_mceliece}.3",
-    "mceliece-6960119": f"{id_mceliece}.4",
-    "mceliece-8192128": f"{id_mceliece}.5",
+    "mceliece-348864": univ.ObjectIdentifier(f"{id_mceliece}.1"),
+    "mceliece-460896": univ.ObjectIdentifier(f"{id_mceliece}.2"),
+    "mceliece-6688128": univ.ObjectIdentifier(f"{id_mceliece}.3"),
+    "mceliece-6960119": univ.ObjectIdentifier(f"{id_mceliece}.4"),
+    "mceliece-8192128": univ.ObjectIdentifier(f"{id_mceliece}.5"),
 }
 
 id_frodokem = f"{id_kem_test_suite}.3"
 
 FRODOKEM_NAME_2_OID = {
-    "frodokem-640-aes": f"{id_frodokem}.1",
-    "frodokem-640-shake": f"{id_frodokem}.2",
-    "frodokem-976-aes": f"{id_frodokem}.3",
-    "frodokem-976-shake": f"{id_frodokem}.4",
-    "frodokem-1344-aes": f"{id_frodokem}.5",
-    "frodokem-1344-shake": f"{id_frodokem}.6",
+    "frodokem-640-aes": univ.ObjectIdentifier(f"{id_frodokem}.1"),
+    "frodokem-640-shake": univ.ObjectIdentifier(f"{id_frodokem}.2"),
+    "frodokem-976-aes": univ.ObjectIdentifier(f"{id_frodokem}.3"),
+    "frodokem-976-shake": univ.ObjectIdentifier(f"{id_frodokem}.4"),
+    "frodokem-1344-aes": univ.ObjectIdentifier(f"{id_frodokem}.5"),
+    "frodokem-1344-shake": univ.ObjectIdentifier(f"{id_frodokem}.6"),
 }
 
 FRODOKEM_OID_2_NAME = {y: x for x, y in FRODOKEM_NAME_2_OID.items()}
@@ -159,10 +159,10 @@ PURE_COMPOSITE_SIG03_NAME_TO_OID = {
     "composite-sig-ml-dsa-65-rsa4096-pss": id_mldsa65_rsa4096_pss,
     "composite-sig-ml-dsa-65-rsa4096": id_mldsa65_rsa4096_pkcs15,
     "composite-sig-ml-dsa-65-ecdsa-secp384r1": id_mldsa65_ecdsa_p384,
-    "composite-sig-ml-dsa-65-ecdsa-brainpoolp256r1": id_mldsa65_ecdsa_brainpool_p256r1,
+    "composite-sig-ml-dsa-65-ecdsa-brainpoolP256r1": id_mldsa65_ecdsa_brainpool_p256r1,
     "composite-sig-ml-dsa-65-ed25519": id_mldsa65_ed25519,
     "composite-sig-ml-dsa-87-ecdsa-secp384r1": id_mldsa87_ecdsa_p384,
-    "composite-sig-ml-dsa-87-ecdsa-brainpoolp384r1": id_mldsa87_ecdsa_brainpool_p384r1,
+    "composite-sig-ml-dsa-87-ecdsa-brainpoolP384r1": id_mldsa87_ecdsa_brainpool_p384r1,
     "composite-sig-ml-dsa-87-ed448": id_mldsa87_ed448,
 }
 
@@ -178,10 +178,10 @@ COMPOSITE_SIG03_HASH_NAME_2_OID = {
     "composite-sig-hash-ml-dsa-65-rsa4096-pss": id_hash_mldsa65_rsa4096_pss_sha512,
     "composite-sig-hash-ml-dsa-65-rsa4096": id_hash_mldsa65_rsa4096_pkcs15_sha512,
     "composite-sig-hash-ml-dsa-65-ecdsa-secp384r1": id_hash_mldsa65_ecdsa_p384_sha512,
-    "composite-sig-hash-ml-dsa-65-ecdsa-brainpoolp256r1": id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512,
+    "composite-sig-hash-ml-dsa-65-ecdsa-brainpoolP256r1": id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512,
     "composite-sig-hash-ml-dsa-65-ed25519": id_hash_mldsa65_ed25519_sha512,
     "composite-sig-hash-ml-dsa-87-ecdsa-secp384r1": id_hash_mldsa87_ecdsa_p384_sha512,
-    "composite-sig-hash-ml-dsa-87-ecdsa-brainpoolp384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
+    "composite-sig-hash-ml-dsa-87-ecdsa-brainpoolP384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
     "composite-sig-hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
 }
 COMPOSITE_SIG03_HASH_OID_2_NAME = {y: x for x, y in COMPOSITE_SIG03_HASH_NAME_2_OID.items()}
@@ -253,11 +253,11 @@ COMPOSITE_SIG04_PURE_NAME_TO_OID = {
     "composite-sig-04-ml-dsa-65-rsa4096": id_compSig04_mldsa65_rsa4096_pkcs15,
     "composite-sig-04-ml-dsa-65-ecdsa-secp256r1": id_compSig04_mldsa65_ecdsa_p256,
     "composite-sig-04-ml-dsa-65-ecdsa-secp384r1": id_compSig04_mldsa65_ecdsa_p384,
-    "composite-sig-04-ml-dsa-65-ecdsa-brainpoolp256r1": id_compSig04_mldsa65_ecdsa_brainpool_p256r1,
+    "composite-sig-04-ml-dsa-65-ecdsa-brainpoolP256r1": id_compSig04_mldsa65_ecdsa_brainpool_p256r1,
     "composite-sig-04-ml-dsa-65-ed25519": id_compSig04_mldsa65_ed25519,
     # ML-DSA-87
     "composite-sig-04-ml-dsa-87-ecdsa-secp384r1": id_compSig04_mldsa87_ecdsa_p384,
-    "composite-sig-04-ml-dsa-87-ecdsa-brainpoolp384r1": id_compSig04_mldsa87_ecdsa_brainpool_p384r1,
+    "composite-sig-04-ml-dsa-87-ecdsa-brainpoolP384r1": id_compSig04_mldsa87_ecdsa_brainpool_p384r1,
     "composite-sig-04-ml-dsa-87-ed448": id_compSig04_mldsa87_ed448,
     "composite-sig-04-ml-dsa-87-rsa4096-pss": id_compSig04_mldsa87_rsa4096_pss,
 }
@@ -296,10 +296,10 @@ COMPOSITE_SIG04_HASH_NAME_TO_OID = {
     "composite-sig-04-hash-ml-dsa-65-rsa4096": composite_sig04_hash_ml_dsa_65_rsa4096_pkcs15,
     "composite-sig-04-hash-ml-dsa-65-ecdsa-secp256r1": composite_sig04_hash_ml_dsa_65_ecdsa_p256,
     "composite-sig-04-hash-ml-dsa-65-ecdsa-secp384r1": composite_sig04_hash_ml_dsa_65_ecdsa_p384,
-    "composite-sig-04-hash-ml-dsa-65-ecdsa-brainpoolp256r1": composite_sig04_hash_ml_dsa_65_ecdsa_brainpoolp256r1,
+    "composite-sig-04-hash-ml-dsa-65-ecdsa-brainpoolP256r1": composite_sig04_hash_ml_dsa_65_ecdsa_brainpoolp256r1,
     "composite-sig-04-hash-ml-dsa-65-ed25519": composite_sig04_hash_ml_dsa_65_ed25519,
     "composite-sig-04-hash-ml-dsa-87-ecdsa-secp384r1": composite_sig04_hash_ml_dsa_87_ecdsa_p384,
-    "composite-sig-04-hash-ml-dsa-87-ecdsa-brainpoolp384r1": composite_sig04_hash_ml_dsa_87_ecdsa_brainpoolp384r1,
+    "composite-sig-04-hash-ml-dsa-87-ecdsa-brainpoolP384r1": composite_sig04_hash_ml_dsa_87_ecdsa_brainpoolp384r1,
     "composite-sig-04-hash-ml-dsa-87-ed448": composite_sig04_hash_ml_dsa_87_ed448,
     "composite-sig-04-hash-ml-dsa-87-rsa4096-pss": composite_sig04_hash_ml_dsa_87_rsa4096_pss,
 }
@@ -536,16 +536,16 @@ CHEMPAT_OID_2_NAME = {
     id_chempat_x448_ml_kem_1024: "chempat-ml-kem-1024-x448",
     id_chempat_p256_ml_kem_768: "chempat-ml-kem-768-ecdh-secp256r1",
     id_Chempat_P384_ML_KEM_1024: "chempat-ml-kem-1024-ecdh-secp384r1",
-    id_chempat_brainpool_p256_ml_kem_768: "chempat-ml-kem-768-ecdh-brainpoolp256r1",
-    id_chempat_brainpool_p384_ml_kem_1024: "chempat-ml-kem-1024-ecdh-brainpoolp384r1",
+    id_chempat_brainpool_p256_ml_kem_768: "chempat-ml-kem-768-ecdh-brainpoolP256r1",
+    id_chempat_brainpool_p384_ml_kem_1024: "chempat-ml-kem-1024-ecdh-brainpoolP384r1",
     id_chempat_x25519_frodokem_aes_976: "chempat-frodokem-976-aes-x25519",
     id_chempat_x25519_frodokem_shake_976: "chempat-frodokem-976-shake-x25519",
-    id_chempat_brainpoolP256_frodokem_aes_640: "chempat-frodokem-640-aes-ecdh-brainpoolp256r1",
-    id_chempat_brainpoolP256_frodokem_shake_640: "chempat-frodokem-640-shake-ecdh-brainpoolp256r1",
-    id_chempat_brainpoolP384_frodokem_aes_976: "chempat-frodokem-976-aes-ecdh-brainpoolp384r1",
-    id_chempat_brainpoolP384_frodokem_shake_976: "chempat-frodokem-976-shake-ecdh-brainpoolp384r1",
-    id_chempat_brainpoolP512_frodokem_aes_1344: "chempat-frodokem-1344-aes-ecdh-brainpoolp512r1",
-    id_chempat_brainpoolP512_frodokem_shake_1344: "chempat-frodokem-1344-shake-ecdh-brainpoolp512r1",
+    id_chempat_brainpoolP256_frodokem_aes_640: "chempat-frodokem-640-aes-ecdh-brainpoolP256r1",
+    id_chempat_brainpoolP256_frodokem_shake_640: "chempat-frodokem-640-shake-ecdh-brainpoolP256r1",
+    id_chempat_brainpoolP384_frodokem_aes_976: "chempat-frodokem-976-aes-ecdh-brainpoolP384r1",
+    id_chempat_brainpoolP384_frodokem_shake_976: "chempat-frodokem-976-shake-ecdh-brainpoolP384r1",
+    id_chempat_brainpoolP512_frodokem_aes_1344: "chempat-frodokem-1344-aes-ecdh-brainpoolP512r1",
+    id_chempat_brainpoolP512_frodokem_shake_1344: "chempat-frodokem-1344-shake-ecdh-brainpoolP512r1",
     id_chempat_x448_frodokem_aes_1344: "chempat-frodokem-1344-aes-x448",
     id_chempat_x448_frodokem_shake_1344: "chempat-frodokem-1344-shake-x448",
 }

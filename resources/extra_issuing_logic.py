@@ -15,9 +15,8 @@ from typing import Optional, Union
 
 import pyasn1.error
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
-from pq_logic.keys.abstract_pq import PQKEMPrivateKey
-from pq_logic.migration_typing import HybridKEMPrivateKey, KEMPrivateKey, KEMPublicKey
+
+from pq_logic.keys.abstract_wrapper_keys import KEMPublicKey, KEMPrivateKey
 from pq_logic.pq_utils import is_kem_private_key, is_kem_public_key
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
@@ -35,7 +34,7 @@ from resources.cryptoutils import compute_aes_cbc, perform_ecdh
 from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
 from resources.prepareutils import prepare_name
 from resources.protectionutils import compute_and_prepare_mac
-from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, PrivateKey, Strint
+from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, PrivateKey, Strint, EnvDataPublicKey
 from resources.utils import get_openssl_name_notation
 
 
@@ -138,7 +137,6 @@ def prepare_enc_key_with_id(  # noqa D417 undocumented-param
 
     logging.debug("Private key for PoP:  %s", data.prettyPrint())
     return data
-
 
 @keyword(name="Prepare KEM EnvelopedData For POPO")
 def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
@@ -561,7 +559,7 @@ def _process_encrypted_rand(
     env_data: rfc9480.EnvelopedData,
     pki_message: PKIMessageTMP,
     password: Optional[Union[str, bytes]],
-    ee_key: Optional[Union[PQKEMPrivateKey, ECDHPrivateKey, RSAPrivateKey, HybridKEMPrivateKey]],
+    ee_key: Optional[EnvDataPublicKey],
     recip_index: int,
     cert_req_id: int,
     expected_size: int,
@@ -634,7 +632,7 @@ def process_simple_challenge(
         return rand_obj
 
     if isinstance(ee_key, ECDHPrivateKey):
-        ss = perform_ecdh(ee_key, ca_pub_key)
+        ss = perform_ecdh(ee_key, ca_pub_key) # type: ignore
     elif is_kem_private_key(ee_key):
         ss = ee_key.decaps(kemct)  # type: ignore
     else:

@@ -26,7 +26,7 @@ from resources.oidutils import (
     XWING_OID_STR,
 )
 
-from pq_logic.chempatkem import ChempatPublicKey
+from pq_logic.chempat_key import ChempatPublicKey
 from pq_logic.hybrid_structures import (
     CompositeSignaturePrivateKeyAsn1,
     CompositeSignaturePublicKeyAsn1,
@@ -52,7 +52,7 @@ from pq_logic.keys.kem_keys import FrodoKEMPublicKey, MLKEMPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.keys.trad_key_factory import generate_trad_key, parse_trad_key_from_one_asym_key
-from pq_logic.keys.trad_keys import DHKEMPrivateKey, DHKEMPublicKey, RSADecapKey, RSAEncapKey
+from pq_logic.keys.trad_kem_keys import DHKEMPrivateKey, DHKEMPublicKey, RSADecapKey, RSAEncapKey
 from pq_logic.keys.xwing import XWingPublicKey
 from pq_logic.tmp_oids import (
     CHEMPAT_OID_2_NAME,
@@ -90,6 +90,7 @@ class CombinedKeyFactory:
         :return: A generated key object.
         :raises InvalidKeyCombination: If the key type is not supported.
         """
+        algorithm = algorithm.lower()
         prefix = _any_string_in_string(algorithm, ["kem-06", "kem-05", "dhkem", "kem", "sig-04", "sig-03", "sig"])
         pq_name = PQKeyFactory.get_pq_alg_name(algorithm=algorithm)
         pq_key = PQKeyFactory.generate_pq_key(pq_name)
@@ -735,7 +736,6 @@ class CombinedKeyFactory:
             one_asym_key = data
 
         oid = one_asym_key["privateKeyAlgorithm"]["algorithm"]
-        alg_oid = str(one_asym_key["privateKeyAlgorithm"]["algorithm"])
         private_bytes = one_asym_key["privateKey"].asOctets()
         public_bytes = one_asym_key["publicKey"].asOctets() if one_asym_key["publicKey"].isValue else None
 
@@ -755,13 +755,13 @@ class CombinedKeyFactory:
             name = CMS_COMPOSITE_OID_2_NAME[oid]
             return CombinedKeyFactory._decode_keys_for_composite(name, private_bytes, public_bytes)
 
-        if alg_oid == str(id_rsa_kem_spki):
+        if oid == id_rsa_kem_spki:
             return RSADecapKey.from_pkcs8(data)
 
         if oid in TRAD_STR_OID_TO_KEY_NAME or oid == rfc6664.id_ecPublicKey:
             return parse_trad_key_from_one_asym_key(one_asym_key=one_asym_key, must_be_version_2=must_be_version_2)
 
-        if oid in PQ_OID_2_NAME or str(oid) in PQ_OID_2_NAME:
+        if oid in PQ_OID_2_NAME:
             return PQKeyFactory.from_one_asym_key(one_asym_key)
 
         return HybridKeyFactory.from_one_asym_key(one_asym_key)

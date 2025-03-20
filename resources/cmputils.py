@@ -16,7 +16,7 @@ from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
 from cryptography.hazmat.primitives.asymmetric import dh, x448, x25519
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
-from pq_logic.migration_typing import HybridKEMPublicKey, KEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import KEMPublicKey, HybridKEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_private_key, is_kem_public_key
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.error import PyAsn1Error
@@ -1186,7 +1186,7 @@ def prepare_cert_req_msg(  # noqa D417 undocumented-param
     elif exclude_popo:
         return cert_request_msg
 
-    elif isinstance(private_key, PQKEMPrivateKey) or is_kem_private_key(private_key):
+    elif is_kem_private_key(private_key):
         popo = prepare_popo_challenge_for_non_signing_key(use_encr_cert=use_encr_cert, use_key_enc=True)
         cert_request_msg["popo"] = popo
 

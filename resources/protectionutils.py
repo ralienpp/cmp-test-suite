@@ -13,8 +13,7 @@ import pyasn1.error
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import dh, padding, rsa, x448, x25519
 from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey, DHPublicKey
-from pq_logic.keys.abstract_pq import PQKEMPrivateKey
-from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey
+
 from pq_logic.pq_utils import get_kem_oid_from_key
 from pq_logic.tmp_oids import id_it_KemCiphertextInfo
 from pyasn1.codec.der import decoder, encoder
@@ -54,7 +53,7 @@ from resources.asn1_structures import (
     PKIMessageTMP,
     ProtectedPartTMP,
 )
-from resources.convertutils import str_to_bytes
+from resources.convertutils import str_to_bytes, ensure_is_kem_priv_key, ensure_is_kem_pub_key
 from resources.exceptions import UnknownOID
 from resources.oid_mapping import (
     get_alg_oid_from_key_hash,
@@ -82,7 +81,7 @@ from resources.oidutils import (
     id_KemBasedMac,
 )
 from resources.suiteenums import ProtectionAlgorithm
-from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKeySig
+from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKeySig, KEMPrivateKey, KEMPublicKey
 
 
 def _compare_alg_id(
@@ -516,6 +515,9 @@ def _compute_pbmac1_from_param(
         prot_params, rest = decoder.decode(prot_params, rfc8018.PBMAC1_params())
         if rest != b"" and not unsafe_decoding:
             raise ValueError("The decoding of `PBMAC1_params` structure had a remainder!")
+
+    prot_params: rfc8018.PBMAC1_params # type: reportRedeclaration
+
 
     if not isinstance(prot_params["keyDerivationFunc"]["parameters"], rfc8018.PBKDF2_params):
         pbkdf2_param, rest = decoder.decode(prot_params["keyDerivationFunc"]["parameters"], rfc8018.PBKDF2_params())
@@ -1357,7 +1359,9 @@ def verify_pkimessage_protection(  # noqa: D417 undocumented-param
     protection_type_oid = pki_message["header"]["protectionAlg"]["algorithm"]
 
     if protection_type_oid == id_KemBasedMac:
-        verify_kem_based_mac_protection(pki_message=pki_message, private_key=private_key, shared_secret=shared_secret)
+        verify_kem_based_mac_protection(pki_message=pki_message,
+                                        private_key=private_key, # type: ignore
+                                        shared_secret=shared_secret)
         return
 
     if protection_type_oid == rfc9480.id_DHBasedMac:
@@ -2069,6 +2073,7 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
     :param length: The length of the derived key.
     :param ukm: The user keying material to use.
     :return: The derived key.
+    :raises ValueError: If the KDF algorithm is not supported, or if the hash algorithm is not recognized.
     """
     if kdf_alg_id["algorithm"] in HKDF_OID_2_NAME:
         hash_alg = HKDF_OID_2_NAME[kdf_alg_id["algorithm"]].split("-")[1]
@@ -2081,6 +2086,9 @@ def compute_kdf_from_alg_id(kdf_alg_id: rfc9480.AlgorithmIdentifier, ss: bytes, 
             sha_alg_id = kdf_alg_id["parameters"]
 
         hash_alg = get_hash_from_oid(sha_alg_id["algorithm"])
+        if hash_alg is None:
+            _name = may_return_oid_to_name(sha_alg_id["algorithm"])
+            raise ValueError(f"Unsupported hash algorithm: {_name}")
 
         return cryptoutils.compute_ansi_x9_63_kdf(
             shared_secret=ss,
@@ -2441,12 +2449,12 @@ def protect_pkimessage_kem_based_mac(  # noqa: D417 Missing argument description
         shared_secret = str_to_bytes(shared_secret)
 
     elif kem_ct_info is not None:
+        private_key = ensure_is_kem_priv_key(private_key)
         ct = kem_ct_info["ct"].asOctets()
         shared_secret = private_key.decaps(ct)
     else:
         public_key = keyutils.load_public_key_from_spki(peer_cert["tbsCertificate"]["subjectPublicKeyInfo"])  # type: ignore
-        public_key: KEMPublicKey
-        _ = get_kem_oid_from_key(public_key)
+        public_key = ensure_is_kem_pub_key(public_key)
         shared_secret, kem_ct = public_key.encaps()
         info_val = prepare_kem_ciphertextinfo(key=public_key, ct=kem_ct)
         pki_message["header"]["generalInfo"].append(info_val)
@@ -2495,7 +2503,7 @@ def _process_kem_other_info(kem_other_info: bytes, expected_tx_id: Optional[byte
 @not_keyword
 def verify_kem_based_mac_protection(
     pki_message: PKIMessageTMP,
-    private_key: Optional[PQKEMPrivateKey] = None,
+    private_key: Optional[KEMPrivateKey] = None,
     shared_secret: Optional[bytes] = None,
 ) -> None:
     """Verify the KEMBasedMac protection of a `PKIMessage`.
@@ -2510,6 +2518,9 @@ def verify_kem_based_mac_protection(
     """
     if private_key is None and shared_secret is None:
         raise ValueError("Either `private_key` or `shared_secret` must be provided.")
+
+    if private_key is not None:
+        private_key = convertutils.ensure_is_kem_priv_key(private_key)
 
     if shared_secret is not None:
         pass

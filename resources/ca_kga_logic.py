@@ -17,8 +17,8 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey, X448PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey
-from pq_logic.keys.trad_keys import RSADecapKey
-from pq_logic.migration_typing import KEMPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey
+from pq_logic.keys.trad_kem_keys import RSADecapKey
 from pq_logic.tmp_oids import COMPOSITE_SIG_SIGNED_DATA_OID_HASH, id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import (
@@ -524,6 +524,9 @@ def extract_content_encryption_key(
 
     recip_info: rfc5652.RecipientInfo = recip_infos[recip_index]
 
+    #if recip_info.getName() != "pwri" and cmp_protection_cert is None:
+    #    cmp_protection_cert = pki_message["extraCerts"][0]
+
     if recip_info.getName() == "pwri":
         if password is None:
             raise ValueError("Password is required for `pwri` RecipientInfo.")
@@ -588,6 +591,7 @@ def validate_enveloped_data(
     It is used to extract the protection salt in the case of `pwri`, or to validate the `senderKID` otherwise.
     :param password: Optional password for password-based recipient decryption.
     :param cmp_protection_cert: Optional CMP protection certificate for decryption of the content-encryption-key.
+    :param kari_cert: Optional certificate for `KARI` recipient decryption.
     :param expected_type: Expected `RecipientInfo` type (`ktri`, `kari`, or `pwri`).
     :param recip_info_index: The index of the private key to extract.
     :param expected_size: The expected size of the entries inside the `RecipientInfos` structure.
@@ -651,9 +655,6 @@ def validate_encrypted_content_info(
     if expected_raw_data:
         if enc_content_info["contentType"] != rfc5652.id_data:
             raise ValueError("The `contentType` MUST be id_data")
-
-    elif for_pop and enc_content_info["contentType"] != rfc4211.id_ct_encKeyWithID:
-        raise ValueError("The `contentType` MUST be id_ct_encKeyWithID!")
 
     elif enc_content_info["contentType"] != rfc5652.id_signedData:
         raise ValueError("The `contentType` MUST be id-signedData!")

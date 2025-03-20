@@ -18,7 +18,9 @@ import logging
 from typing import List, Optional, Set, Tuple, Union
 
 import pyasn1.error
-from pq_logic.migration_typing import HybridKEMPublicKey, KEMPrivateKey, KEMPublicKey
+
+from pq_logic.keys.abstract_wrapper_keys import KEMPublicKey, KEMPrivateKey
+from pq_logic.migration_typing import HybridKEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_private_key, is_kem_public_key
 from pq_logic.tmp_oids import id_it_KemCiphertextInfo
 from pq_logic.trad_typing import ECDHPrivateKey
@@ -36,7 +38,8 @@ from resources.asn1_structures import (
     PKIMessageTMP,
 )
 from resources.cmputils import prepare_pki_message
-from resources.convertutils import copy_asn1_certificate, pyasn1_time_obj_to_py_datetime
+from resources.convertutils import copy_asn1_certificate, pyasn1_time_obj_to_py_datetime, ensure_is_kem_priv_key, \
+    ensure_is_kem_pub_key
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import may_return_oid, may_return_oid_to_name
 from resources.oidutils import CURVE_OIDS_2_NAME
@@ -125,7 +128,7 @@ def validate_get_ca_certs(  # noqa D417 undocumented-param
 
     """
     validate_general_response(pki_message, expected_size=expected_size)
-    genp_content: rfc9480.GenRepContent() = pki_message["body"][pki_message["body"].getName()]
+    genp_content: rfc9480.GenRepContent = pki_message["body"][pki_message["body"].getName()]
     if len(genp_content) != expected_size:
         logging.info("General Response: \n%s", genp_content.prettyPrint())
 
@@ -467,7 +470,7 @@ def validate_get_certificate_request_template(  # noqa D417 undocumented-param
     """
     validate_general_response(pki_message, expected_size=expected_size)
     body_name = pki_message["body"].getName()
-    genp_content: rfc9480.GenRepContent() = pki_message["body"][body_name]
+    genp_content: rfc9480.GenRepContent = pki_message["body"][body_name]
 
     value = cmputils.get_value_from_seq_of_info_value_field(genp_content, oid=rfc9480.id_it_certReqTemplate)
     if value is None:
@@ -711,7 +714,7 @@ def validate_crl_update_retrieval(  # noqa D417 undocumented-param
     """
     validate_general_response(pki_message, expected_size=expected_size)
     body_name = pki_message["body"].getName()
-    genp_content: rfc9480.GenRepContent() = pki_message["body"][body_name]
+    genp_content: rfc9480.GenRepContent = pki_message["body"][body_name]
 
     value = cmputils.get_value_from_seq_of_info_value_field(genp_content, oid=rfc9480.id_it_crls)
     if value is None:
@@ -789,7 +792,7 @@ def validate_current_crl(pki_message: PKIMessageTMP, expected_size: Strint = 1):
     """
     validate_general_response(pki_message, expected_size)
     body_name = pki_message["body"].getName()
-    genp_content: rfc9480.GenRepContent() = pki_message["body"][body_name]
+    genp_content: rfc9480.GenRepContent = pki_message["body"][body_name]
 
     val = cmputils.get_value_from_seq_of_info_value_field(genp_content, oid=rfc9480.id_it_currentCRL)
     if val is None:
@@ -826,7 +829,7 @@ def validate_general_response(  # noqa D417 undocumented-param
         logging.info("General Message got Response body: \n%s", pki_message["body"].prettyPrint())
         raise ValueError(f"Expected to get a general Response but got type: {pki_message['body'].getName()}")
 
-    genp_content: rfc9480.GenRepContent() = pki_message["body"][body_name]
+    genp_content: rfc9480.GenRepContent = pki_message["body"][body_name]
     if len(genp_content) != expected_size:
         logging.info("General Response: \n%s", genp_content.prettyPrint())
 
@@ -1376,12 +1379,10 @@ def build_genp_kem_ct_info_from_genm(  # noqa: D417 Missing argument description
         raise ValueError("The response did not contain the extraCerts field.")
 
     cert: rfc9480.CMPCertificate = genm["extraCerts"][0]
-    public_key = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])  # type: ignore
+    public_key = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
 
-    if not is_kem_public_key(public_key):
-        raise ValueError("The public key was not a KEM public key.")
+    public_key = ensure_is_kem_pub_key(public_key)
 
-    public_key: KEMPublicKey
     if isinstance(public_key, HybridKEMPublicKey):
         ss, ct = public_key.encaps(ca_key)
     else:
@@ -1455,8 +1456,7 @@ def validate_genp_kem_ct_info(  # noqa: D417 Missing argument description in the
     if rest != b"":
         raise BadAsn1Data("KEMCiphertextInfo")
 
-    if not is_kem_private_key(client_private_key):
-        raise ValueError("The private key was not a KEM private key.")
+    client_private_key = ensure_is_kem_priv_key(client_private_key)
 
     ss = client_private_key.decaps(kem_ct_info["ct"].asOctets())
 

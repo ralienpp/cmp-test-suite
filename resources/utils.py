@@ -236,7 +236,7 @@ def pem_to_der(pem_data: Union[str, bytes]) -> bytes:
 
 
 @not_keyword
-def filter_options(  # type: ignore
+def filter_options(
     options: List[str], include: Optional[str] = None, exclude: Optional[str] = None
 ) -> List[str]:
     """Return the option to exclude with the provided string representations.
@@ -515,7 +515,8 @@ def may_load_cert_and_key(  # noqa D417 undocumented-param
 
 
 def is_certificate_and_key_set(  # noqa D417 undocumented-param
-    cert: Optional[Union[str, rfc9480.CMPCertificate]] = None, key: Optional[Union[PrivateKey, str]] = None
+    cert: Optional[Union[str, rfc9480.CMPCertificate]] = None,
+    key: Optional[Union[PrivateKey, str]] = None
 ) -> bool:
     """Check if a certificate and its corresponding private key are valid and set.
 
@@ -533,6 +534,7 @@ def is_certificate_and_key_set(  # noqa D417 undocumented-param
     Raises:
     ------
         - `ValueError`: If the provided private key does not match the public key in the certificate.
+        - `ValueError`: If only one of `cert` or `key` is provided.
 
     Examples:
     --------
@@ -542,6 +544,9 @@ def is_certificate_and_key_set(  # noqa D417 undocumented-param
     """
     if cert is None and key is None:
         return False
+
+    if cert is None or key is None:
+        raise ValueError("Both certificate and key must be provided or both must be None!")
 
     if isinstance(key, str):
         key = keyutils.load_private_key_from_file(key)

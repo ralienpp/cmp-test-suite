@@ -45,7 +45,7 @@ from pq_logic.keys.abstract_wrapper_keys import (
     TradKEMPrivateKey,
     TradKEMPublicKey,
 )
-from pq_logic.keys.trad_keys import DHKEMPrivateKey, DHKEMPublicKey, RSADecapKey, RSAEncapKey
+from pq_logic.keys.trad_kem_keys import DHKEMPrivateKey, DHKEMPublicKey, RSADecapKey, RSAEncapKey
 from pq_logic.tmp_oids import COMPOSITE_KEM05_NAME_2_OID
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 

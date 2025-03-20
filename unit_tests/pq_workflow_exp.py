@@ -5,9 +5,8 @@
 from typing import Optional
 
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import prepare_sun_hybrid_csr_attributes
-from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, get_oid_cms_composite_signature
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
 from pq_logic.pq_compute_utils import sign_data_with_alg_id
-from resources import keyutils
 from resources.certbuildutils import build_csr
 
 from pyasn1.codec.der import encoder, decoder

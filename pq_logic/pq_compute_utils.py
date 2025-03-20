@@ -36,12 +36,12 @@ from pq_logic import py_verify_logic
 from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, chameleon_logic
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey, KEMPublicKey, KEMPrivateKey
 from pq_logic.keys.composite_kem05 import CompositeKEMPublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
-from pq_logic.keys.trad_keys import RSADecapKey, RSAEncapKey
-from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey, SignKey, VerifyKey
+from pq_logic.keys.trad_kem_keys import RSADecapKey, RSAEncapKey
+from pq_logic.migration_typing import SignKey, VerifyKey
 from pq_logic.tmp_oids import (
     COMPOSITE_SIG04_OID_2_NAME,
     id_altSubPubKeyExt,

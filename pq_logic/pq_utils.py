@@ -16,8 +16,9 @@ from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
 from pq_logic.keys.abstract_wrapper_keys import (
     HybridKEMPrivateKey,
     HybridKEMPublicKey,
+    KEMPublicKey,
+    KEMPrivateKey
 )
-from pq_logic.migration_typing import KEMPrivateKey, KEMPublicKey
 
 
 @not_keyword
@@ -44,18 +45,9 @@ def get_kem_oid_from_key(
 @not_keyword
 def is_kem_public_key(key: Any) -> bool:
     """Check whether a parsed key is a KEM public key."""
-    allowed_types = get_args(KEMPublicKey)
-    if any(isinstance(key, x) for x in allowed_types):
-        return True
-
-    return False
-
+    return isinstance(key, KEMPublicKey)
 
 @not_keyword
 def is_kem_private_key(key: Any) -> bool:
     """Check whether a parsed key is a KEM private key."""
-    allowed_types = get_args(KEMPrivateKey)
-    if any(isinstance(key, x) for x in allowed_types):
-        return True
-
-    return False
+    return isinstance(key, KEMPrivateKey)

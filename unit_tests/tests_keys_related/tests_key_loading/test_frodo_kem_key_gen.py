@@ -14,7 +14,7 @@ from pq_logic.keys.kem_keys import FrodoKEMPrivateKey, FrodoKEMPublicKey
 class TestFrodoKEMKeyGen(unittest.TestCase):
 
 
-    def test_load_from_seed_asym_one(self):
+    def test_load_from_seed_asym_one_frodokem(self):
         """
         GIVEN a seed and a `OneAsymmetricKey` structure.
         WHEN a key is generated from the seed and loaded from the `OneAsymmetricKey` structure.
@@ -31,7 +31,7 @@ class TestFrodoKEMKeyGen(unittest.TestCase):
         one_asym_key, rest = decoder.decode(private_bytes, asn1Spec=rfc5958.OneAsymmetricKey())
         self.assertEqual(rest, b"")
 
-        priv_key2 = FrodoKEMPrivateKey.from_private_bytes(
+        _ = FrodoKEMPrivateKey.from_private_bytes(
             data=one_asym_key["privateKey"].asOctets(),
             name="frodokem-640-aes",
         )

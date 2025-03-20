@@ -20,12 +20,12 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPubl
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey, X448PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from pq_logic.keys.abstract_pq import (
-    PQKEMPublicKey,
     PQSignaturePrivateKey,
     PQSignaturePublicKey,
 )
-from pq_logic.keys.abstract_wrapper_keys import WrapperPrivateKey, WrapperPublicKey
+from pq_logic.keys.abstract_wrapper_keys import WrapperPrivateKey, WrapperPublicKey, KEMPublicKey, KEMPrivateKey
 from pyasn1_alt_modules import rfc9480
+
 
 TradSigPrivKey = Union[
     RSAPrivateKey,
@@ -96,11 +96,7 @@ Strint = Union[str, int]
 CertObjOrPath = Union[rfc9480.Certificate, str]
 
 
-# The `KGAKeyTypes` includes all private key types supported
-# for operations in the Key Generation Authority (KGA) logic.
-# This type ensures that only compatible private keys are used
-# for key exchange and key encipherment.
-EnvDataPrivateKey = Union[RSAPrivateKey, Ed25519PrivateKey, Ed448PrivateKey, EllipticCurvePrivateKey, PQKEMPublicKey]
+
 
 # The `ECDHPrivKeyTypes` includes all private key types supported
 # for ECDH operations. This type ensures that only compatible
@@ -115,3 +111,14 @@ ECDHPrivKeyTypes = Union[EllipticCurvePrivateKey, X25519PrivateKey, X448PrivateK
 # Used in Key Generation Authority logic to make sure the key agreement
 # used the correct type.
 ECDHPubKeyTypes = Union[EllipticCurvePublicKey, X25519PublicKey, X448PublicKey]
+
+
+# The `KGAKeyTypes` includes all private key types supported
+# for operations in the Key Generation Authority (KGA) logic.
+# This type ensures that only compatible private keys are used
+# for key exchange and key encipherment.
+EnvDataPrivateKey = Union[RSAPrivateKey,
+ECDHPubKeyTypes, KEMPrivateKey
+]
+
+EnvDataPublicKey = Union[RSAPublicKey, ECDHPrivKeyTypes, KEMPublicKey]

@@ -108,22 +108,7 @@ class BaseKey(ABC):
         return b"BASE"
 
 
-class KEMPublicKey(BaseKey, ABC):
-    """Abstract class for KEM public keys."""
 
-    @classmethod
-    @abstractmethod
-    def encaps(cls, **kwargs) -> Tuple[bytes, bytes]:
-        """Encapsulate a shared secret and the ciphertext.
-
-        :param kwargs: Additional arguments for encapsulation.
-        :return: The shared secret and the ciphertext.
-        """
-
-    @property
-    def ct_length(self):
-        """Get the length of the ciphertext."""
-        return len(self.encaps()[1])
 
 
 class WrapperPublicKey(BaseKey):
@@ -262,6 +247,43 @@ class WrapperPrivateKey(BaseKey):
 
         raise NotImplementedError(f"The encoding is not supported. Encoding: {encoding} .Format: {format}.")
 
+
+class KEMPublicKey(WrapperPublicKey, ABC):
+    """Abstract class for KEM public keys."""
+
+    @classmethod
+    @abstractmethod
+    def encaps(cls, **kwargs) -> Tuple[bytes, bytes]:
+        """Encapsulate a shared secret and the ciphertext.
+
+        :param kwargs: Additional arguments for encapsulation.
+        :return: The shared secret and the ciphertext.
+        """
+
+    @property
+    def ct_length(self):
+        """Get the length of the ciphertext."""
+        return len(self.encaps()[1])
+
+class KEMPrivateKey(WrapperPrivateKey, ABC):
+    """Abstract class for KEM private keys."""
+
+    @abstractmethod
+    def decaps(self, ct: bytes) -> bytes:
+        """Decapsulate a shared secret.
+
+        :param ct: The ciphertext.
+        :return: The shared secret.
+        """
+
+    @abstractmethod
+    def public_key(self) -> KEMPublicKey:
+        """Derive the public key from the private key."""
+
+    @property
+    def ct_length(self):
+        """Get the length of the ciphertext."""
+        return self.public_key().ct_length
 
 class PQPublicKey(WrapperPublicKey, ABC):
     """Post-Quantum Public Key class."""
@@ -431,7 +453,7 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         """Get the public key."""
 
 
-class TradKEMPublicKey(WrapperPublicKey, KEMPublicKey, ABC):
+class TradKEMPublicKey(KEMPublicKey, ABC):
     """Abstract class for traditional KEM public keys."""
 
     _public_key: Union[ECDHPublicKey, rsa.RSAPublicKey]
@@ -465,7 +487,7 @@ class TradKEMPublicKey(WrapperPublicKey, KEMPublicKey, ABC):
         """Encode the public key."""
 
 
-class TradKEMPrivateKey(WrapperPrivateKey, ABC):
+class TradKEMPrivateKey(KEMPrivateKey, ABC):
     """Abstract class for traditional KEM private keys."""
 
     @abstractmethod
@@ -652,7 +674,7 @@ class HybridSigPrivateKey(HybridPrivateKey, ABC):
         return f"{self._name}-{self._pq_key.name}-{self._get_trad_key_name()}"
 
 
-class HybridKEMPublicKey(HybridPublicKey, ABC):
+class HybridKEMPublicKey(HybridPublicKey, KEMPublicKey, ABC):
     """Abstract class for KEM public keys."""
 
     @abstractmethod
@@ -673,7 +695,7 @@ class HybridKEMPublicKey(HybridPublicKey, ABC):
         return len(self.encaps()[1])
 
 
-class HybridKEMPrivateKey(HybridPrivateKey, ABC):
+class HybridKEMPrivateKey(HybridPrivateKey, KEMPrivateKey, ABC):
     """Abstract class for KEM private keys."""
 
     @abstractmethod
@@ -761,7 +783,7 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
     ) -> str:
         """Retrieve the traditional algorithm name based on the key type."""
         if isinstance(trad_key, ec.EllipticCurvePublicKey):
-            trad_name = f"ecdsa-{trad_key.curve.name.lower()}"
+            trad_name = f"ecdsa-{trad_key.curve.name}"
         elif isinstance(trad_key, rsa.RSAPublicKey):
             trad_name = f"rsa{trad_key.key_size}"
             if use_pss:
@@ -883,7 +905,7 @@ class AbstractCompositePrivateKey(HybridPrivateKey, ABC):
         if isinstance(self.trad_key, rsa.RSAPrivateKey):
             return f"rsa{self._get_rsa_size(self.trad_key.key_size)}"
         if isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
-            _curve = self.trad_key.curve.name.lower()
+            _curve = self.trad_key.curve.name
             if "kem" in self.name:
                 return f"ecdh-{_curve}"
             return f"ecdsa-{_curve}"
@@ -949,6 +971,9 @@ class AbstractHybridRawPrivateKey(HybridKEMPrivateKey, ABC):
 
         :return: The traditional part of the private key as bytes.
         """
+        if isinstance(self._trad_key, TradKEMPrivateKey):
+            return self._trad_key.encode()
+
         if isinstance(self._trad_key, (x25519.X25519PrivateKey, x448.X448PrivateKey)):
             return self._trad_key.private_bytes_raw()
         private_numbers = self._trad_key.private_numbers()

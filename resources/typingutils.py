@@ -9,7 +9,7 @@ Type aliases are used to create descriptive names for commonly used types, makin
 easier to understand and work with.
 """
 
-from typing import Union
+from typing import Union, Iterable
 
 from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey, DHPublicKey
 from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey, DSAPublicKey
@@ -22,8 +22,10 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from pq_logic.keys.abstract_pq import (
     PQSignaturePrivateKey,
     PQSignaturePublicKey,
+    PQHashStatefulSigPrivateKey,
+    PQHashStatefulSigPublicKey,
 )
-from pq_logic.keys.abstract_wrapper_keys import WrapperPrivateKey, WrapperPublicKey, KEMPublicKey, KEMPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey, KEMPublicKey, WrapperPrivateKey, WrapperPublicKey, HybridSigPrivateKey, HybridSigPublicKey
 from pyasn1_alt_modules import rfc9480
 
 
@@ -54,20 +56,16 @@ PublicKey = Union[TradSigPubKey, DHPublicKey, X25519PublicKey, X448PublicKey, Wr
 # Keys which can be used for signing and verification of a signature.
 # They are used to ensure that only authorized keys are used for signing.
 PrivateKeySig = Union[
-    RSAPrivateKey,
-    EllipticCurvePrivateKey,
-    DSAPrivateKey,
-    Ed25519PrivateKey,
-    Ed448PrivateKey,
+    TradSigPrivKey,
     PQSignaturePrivateKey,
+    PQHashStatefulSigPrivateKey,
+    HybridSigPrivateKey,
 ]
 PublicKeySig = Union[
-    RSAPublicKey,
-    EllipticCurvePublicKey,
-    DSAPublicKey,
-    Ed25519PublicKey,
-    Ed448PublicKey,
+    TradSigPubKey,
     PQSignaturePublicKey,
+    PQHashStatefulSigPublicKey,
+    HybridSigPublicKey,
 ]
 
 # These `cryptography` keys can be used to sign a certificate.
@@ -75,11 +73,9 @@ PublicKeySig = Union[
 # first position of the `pyasn1 rfc9480.PKIMessage` `extraCerts` field.
 # To ensure the correct keys are used, this type is introduced.
 PrivSignCertKey = Union[
-    RSAPrivateKey,
-    EllipticCurvePrivateKey,
-    DSAPrivateKey,
-    Ed25519PrivateKey,
-    Ed448PrivateKey,
+    TradSigPrivKey,
+    PQSignaturePrivateKey,
+    HybridSigPrivateKey
 ]
 
 # This is a "stringified integer", to make it easier to pass numeric data
@@ -93,9 +89,7 @@ Strint = Union[str, int]
 # certificates in forms, e.g., pyasn1 structures, or filepaths. This type
 # is used in functions that can accept either of these formats
 # and will transform them internally, as required.
-CertObjOrPath = Union[rfc9480.Certificate, str]
-
-
+CertObjOrPath = Union[rfc9480.CMPCertificate, str]
 
 
 # The `ECDHPrivKeyTypes` includes all private key types supported
@@ -117,8 +111,7 @@ ECDHPubKeyTypes = Union[EllipticCurvePublicKey, X25519PublicKey, X448PublicKey]
 # for operations in the Key Generation Authority (KGA) logic.
 # This type ensures that only compatible private keys are used
 # for key exchange and key encipherment.
-EnvDataPrivateKey = Union[RSAPrivateKey,
-ECDHPubKeyTypes, KEMPrivateKey
-]
+EnvDataPrivateKey = Union[RSAPrivateKey, ECDHPubKeyTypes, KEMPrivateKey]
 
 EnvDataPublicKey = Union[RSAPublicKey, ECDHPrivKeyTypes, KEMPublicKey]
+CertOrCerts = Union[rfc9480.CMPCertificate, Iterable[rfc9480.CMPCertificate]]

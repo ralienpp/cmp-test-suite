@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Composite Signature Implementation for Draft v04.
 
 available at: https://www.ietf.org/archive/id/draft-ietf-lamps-pq-composite-sigs-04.html
@@ -14,9 +18,6 @@ from pyasn1.type import univ
 from resources.exceptions import InvalidKeyCombination
 from resources.oid_mapping import sha_alg_name_to_oid
 
-from pq_logic.keys.abstract_wrapper_keys import (
-    HybridSigPrivateKey,
-)
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey, _compute_hash
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import COMP_SIG04_PREHASH_OID_2_HASH, COMPOSITE_SIG04_NAME_2_OID
@@ -137,7 +138,7 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
         self.pq_key.verify(data=m_prime, signature=mldsa_sig, ctx=encoder.encode(domain_oid))
 
 
-class CompositeSig04PrivateKey(CompositeSig03PrivateKey, HybridSigPrivateKey):
+class CompositeSig04PrivateKey(CompositeSig03PrivateKey):
     """Composite Signature Implementation for Draft v04.
 
     https://www.ietf.org/archive/id/draft-ietf-lamps-pq-composite-sigs-04.html

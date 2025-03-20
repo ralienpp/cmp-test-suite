@@ -524,7 +524,7 @@ def extract_content_encryption_key(
 
     recip_info: rfc5652.RecipientInfo = recip_infos[recip_index]
 
-    #if recip_info.getName() != "pwri" and cmp_protection_cert is None:
+    # if recip_info.getName() != "pwri" and cmp_protection_cert is None:
     #    cmp_protection_cert = pki_message["extraCerts"][0]
 
     if recip_info.getName() == "pwri":

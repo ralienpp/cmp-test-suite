@@ -15,6 +15,7 @@ SPDX-License-Identifier: Apache-2.0
     - [Traditional Mechanisms](#traditional)
     - [PQ Combined Mechanisms](#pq-combined)
 
+
 ---
 
 ## Installation & Usage
@@ -156,9 +157,96 @@ The following post-quantum combined mechanisms are supported:
 
 The current implementation is reliable and stable, with the following considerations:
 1. Test-Vectors are taken from the relevant RFCs.
-2. The `pqc-certificate` repository is used for testing of certificates and extracting public keys.
+2. The `pqc-certificates` repository is used for testing of certificates and extracting public keys.
 
 ---
+
+
+### Keys Related
+
+The [combined_factory.py](pq_logic/combined_factory.py)
+contains the logic to generate and load keys.
+
+If a unique or new logic to load or generate a key is needed,
+then the logic should be added to the `CombinedKeyFactory` class.
+
+#### Key Generation
+
+All keys **MUST** be able to be generated 
+with the `generate_key` function inside `keyutils`.
+
+For adding a new single key is a entry supposed to 
+be generated in PQKeyFactory.
+
+For adding a new hybrid key is a entry supposed to
+be generated in HybridKeyFactory.
+
+Those keys should be able to be generated either 
+`only` by or by provding a dictionary with the
+`pq_name` and `trad_name` and the `key_size` or 
+`curve` if needed.
+
+Please add `ecdh-` in front of the curve name,
+if it is a signature key please add `ecdsa-` in front
+of the curve name.
+
+For RSA is the key size in bits e.g. `rsa2048`.
+
+If the `.key_size` property is called, **MUST** 
+the key byte size be returned.
+
+Please add appropriate tests for the new key.
+As an example, have a look at: ([test_hybrid_key_gen_by_name.py](unit_tests/test_hybrid_key_gen_by_name.py))
+
+#### Key Export
+
+The key export is done via the `export_*_key` functions.
+To ensure that seeds and non-seeds are exported correctly.
+
+The Key API is so designed that A key becomes exportable
+by implementing the `_export_*_key` functions and everything else
+is done by the super class.
+
+To add a new key inside a x509 certificate, 
+is the `_get_subject_public_key` function used.
+
+#### Make KEM keys usable
+
+The KEM keys are directly usable, 
+for all KEM related functions, if the correct
+key is derived from `HybridKEMPublicKey` and `HybridKEMPrivateKey`
+or `PQKEMPublicKey` and `PQKEMPrivateKey`.
+
+There is no additional logic needed to use the key in KEM related functions.
+
+#### Make Signature keys usable
+
+The Signature keys are not entirely usable,
+because the `sign_data_with_alg_id` and 
+the `verify_data_with_alg_id` functions have to be updated,
+to support the new key. This is not done,
+because it is expected that the user will choose 
+the correct parameters. This is only true,
+if the `sign` and `verify` functions are 
+overwritten in the key class. Otherwise, will 
+the key be directly usable.
+
+#### Create New Hybrid Combinations or Schemes
+
+If an existing hybrid combination is not sufficient,
+then a new combination can be created by adding a new
+only the name is required and a `OID` to identify the
+key combination.
+
+For new hybrid combinations **MUST** a new entry 
+dictionary be added in the `tmp_oids` file. 
+The dictionary should contain the `OID` and the
+`name` of the new hybrid combination and vice versa.
+
+For the easiness of creating the `name` property 
+can the `_name` class variable be used and the 
+other parts of the name can be automatically created.
+
 
 
 

@@ -4,7 +4,7 @@
 
 import unittest
 
-from pq_logic.chempat_key import ChempatMLKEMPublicKey, ChempatSntrup761PrivateKey, ChempatMcEliecePublicKey, \
+from pq_logic.keys.chempat_key import ChempatMLKEMPublicKey, ChempatSntrup761PrivateKey, ChempatMcEliecePublicKey, \
     ChempatSntrup761PublicKey, ChempatFrodoKEMPublicKey, ChempatMLKEMPrivateKey, ChempatMcEliecePrivateKey, \
     ChempatFrodoKEMPrivateKey
 from resources.certbuildutils import prepare_cert_template

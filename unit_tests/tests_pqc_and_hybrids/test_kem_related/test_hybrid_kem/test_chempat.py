@@ -5,7 +5,7 @@
 
 import unittest
 
-from pq_logic.chempat_key import ChempatMLKEMPrivateKey, ChempatMcEliecePrivateKey, ChempatFrodoKEMPrivateKey
+from pq_logic.keys.chempat_key import ChempatMLKEMPrivateKey, ChempatMcEliecePrivateKey, ChempatFrodoKEMPrivateKey
 from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from resources.keyutils import generate_key
 

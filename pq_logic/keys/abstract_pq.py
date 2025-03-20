@@ -14,8 +14,7 @@ from cryptography.hazmat.primitives import hashes
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 
-from pq_logic.keys.abstract_wrapper_keys import (PQPrivateKey, PQPublicKey,
-                                                 KEMPublicKey, KEMPrivateKey)
+from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey, KEMPublicKey, PQPrivateKey, PQPublicKey
 
 if importlib.util.find_spec("oqs") is not None:
     import oqs  # pylint: disable=import-error
@@ -173,7 +172,6 @@ class PQHashStatefulSigPublicKey(PQSignaturePublicKey, ABC):
     def check_sig_num(self, signature: bytes) -> None:
         """Check the signature number."""
 
-
     def verify(
         self,
         signature: bytes,
@@ -181,7 +179,6 @@ class PQHashStatefulSigPublicKey(PQSignaturePublicKey, ABC):
         ctx: bytes = b"",
     ) -> None:
         """Verify a signature of the provided data."""
-
         self.check_sig_num(signature)
 
         return super().verify(signature=signature, data=data, ctx=ctx)

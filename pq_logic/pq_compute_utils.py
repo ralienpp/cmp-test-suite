@@ -36,12 +36,11 @@ from pq_logic import py_verify_logic
 from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, chameleon_logic
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey, KEMPublicKey, KEMPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import AbstractHybridRawPublicKey, KEMPrivateKey, KEMPublicKey
 from pq_logic.keys.composite_kem05 import CompositeKEMPublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from pq_logic.keys.trad_kem_keys import RSADecapKey, RSAEncapKey
-from pq_logic.migration_typing import SignKey, VerifyKey
 from pq_logic.tmp_oids import (
     COMPOSITE_SIG04_OID_2_NAME,
     id_altSubPubKeyExt,
@@ -53,7 +52,7 @@ from pq_logic.trad_typing import ECDHPrivateKey
 
 @keyword(name="Sign Data With Alg ID")
 def sign_data_with_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
-    key: SignKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes
+    key: PrivateKeySig, alg_id: rfc9480.AlgorithmIdentifier, data: bytes
 ) -> bytes:
     """Sign the provided data using the given algorithm identifier.
 
@@ -192,14 +191,14 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
             cert["tbsCertificate"]["extensions"]
         )
         if public_key is not None:
-            return public_key
+            return public_key # type: ignore
         raise ValueError("Could not extract the Sun-Hybrid alternative public key.")
 
     if extn_rel_cert is not None and other_certs is not None:
         logging.info("Validate signature with related certificate.")
         related_cert = cert_binding_for_multi_auth.get_related_cert_from_list(other_certs, cert)
         pq_key = keyutils.load_public_key_from_spki(related_cert["tbsCertificate"]["subjectPublicKeyInfo"])
-        return pq_key
+        return pq_key # type: ignore
 
     if extn_rel_cert is not None and other_certs is None:
         logging.warning("Related certificate extension found but no other certificates provided.")
@@ -210,7 +209,7 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
         if rest:
             raise BadAsn1Data("The alternative public key extension contains remainder data.", overwrite=True)
         alt_issuer_key = keyutils.load_public_key_from_spki(spki)
-        return alt_issuer_key
+        return alt_issuer_key # type: ignore
 
     if rel_cert_desc is not None:
         logging.info("Validate signature with cert discovery.")
@@ -220,23 +219,23 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
         other_cert = other_certs[0]
         certdiscovery.validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc=rel_cert_desc)
         pq_key = keyutils.load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
-        return pq_key
+        return pq_key # type: ignore
 
     if extn_chameleon is not None:
         spki = chameleon_logic.get_chameleon_delta_public_key(cert)
-        return keyutils.load_public_key_from_spki(spki)
+        return keyutils.load_public_key_from_spki(spki) # type: ignore
 
     if oid in CMS_COMPOSITE_OID_2_NAME:
         public_key = keyutils.load_public_key_from_spki(spki)
         CompositeSig03PublicKey.validate_oid(oid, public_key)
-        return public_key.pq_key
+        return public_key.pq_key # type: ignore
 
     return None
 
 
 @keyword(name="Verify Signature With Alg ID")
 def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
-    public_key: VerifyKey, alg_id: rfc9480.AlgorithmIdentifier, data: bytes, signature: bytes
+    public_key: PublicKeySig, alg_id: rfc9480.AlgorithmIdentifier, data: bytes, signature: bytes
 ) -> None:
     """Verify the provided data and signature using the given algorithm identifier.
 
@@ -392,7 +391,7 @@ def _patch_extra_certs(
 @keyword(name="Protect Hybrid PKIMessage")
 def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in the docstring
     pki_message: PKIMessageTMP,
-    private_key: SignKey,
+    private_key: PrivateKeySig,
     protection: str = "signature",
     do_patch: bool = True,
     alt_signing_key: Optional[PrivateKeySig] = None,

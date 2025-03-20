@@ -18,7 +18,7 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import constraint, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from resources import certutils, compareutils, keyutils
-from resources.asn1_structures import ProtectedPartTMP
+from resources.asn1_structures import ProtectedPartTMP, PKIMessageTMP
 from resources.exceptions import BadAsn1Data, BadMessageCheck, InvalidAltSignature, UnknownOID
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import (
@@ -30,7 +30,7 @@ from resources.oidutils import (
     id_ce_altSignatureValue,
     id_ce_subjectAltPublicKeyInfo,
 )
-from resources.typingutils import PublicKeySig
+from resources.typingutils import PublicKeySig, CertOrCerts
 from robot.api.deco import keyword
 
 import pq_logic
@@ -39,7 +39,6 @@ from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
 from pq_logic.keys.abstract_pq import PQSignaturePublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
-from pq_logic.migration_typing import CertOrCerts
 
 
 def verify_cert_hybrid_signature(  # noqa D417 undocumented-param
@@ -459,7 +458,7 @@ def _get_catalyst_info_vals(
 
 
 def prepare_protected_part(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
 ) -> bytes:
     """Prepare the parts of the PKIMessage for verification.
 
@@ -480,7 +479,7 @@ def prepare_protected_part(  # noqa D417 undocumented-param
 
 @keyword(name="Verify Hybrid PKIMessage Protection")
 def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
-    pki_message: rfc9480.PKIMessage,
+    pki_message: PKIMessageTMP,
     public_key: Optional[PublicKeySig] = None,
     must_be_catalyst_signed: bool = False,
 ) -> None:

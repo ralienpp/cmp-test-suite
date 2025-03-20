@@ -36,7 +36,7 @@ from pyasn1_alt_modules import (
 from robot.api.deco import keyword, not_keyword
 
 from resources import certbuildutils, certextractutils, cryptoutils, keyutils, utils
-from resources.convertutils import copy_asn1_certificate, str_to_bytes, ensure_is_kem_pub_key
+from resources.convertutils import copy_asn1_certificate, ensure_is_kem_pub_key, str_to_bytes
 from resources.copyasn1utils import copy_name
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_alg_name_to_oid
@@ -210,9 +210,9 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
         return recip_id
 
     if key is not None:
-        if not isinstance(key, (PublicKey, KEMPublicKey)):
+        if not isinstance(key, PublicKey):
             key = key.public_key()
-        ski = x509.SubjectKeyIdentifier.from_public_key(key).digest
+        ski = x509.SubjectKeyIdentifier.from_public_key(key).digest # type: ignore
 
     elif cert is not None:
         ski = ski or certextractutils.get_field_from_certificate(cert, extension="ski")  # type: ignore
@@ -1044,13 +1044,10 @@ def prepare_enc_key_for_popo(  # noqa D417 undocumented-param
 
 
     """
-
-
     cek = cek or os.urandom(32)
     env_data = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))
 
     if recip_info is None:
-
         if ca_cert is None:
             raise ValueError("A CA certificate must be provided, if the recipient info structure is not provided.")
 
@@ -1184,8 +1181,9 @@ def _handle_kem_encapsulation(
     if public_key_recip:
         kem_pub_key = public_key_recip
     elif recip_cert is not None:
-        kem_pub_key = keyutils.load_public_key_from_spki( # type: ignore
-            recip_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        kem_pub_key = keyutils.load_public_key_from_spki(  # type: ignore
+            recip_cert["tbsCertificate"]["subjectPublicKeyInfo"]
+        )
 
     else:
         raise ValueError("No valid KEM public key or certificate provided.")
@@ -1476,7 +1474,7 @@ def prepare_originator_identifier_or_key(  # noqa D417 undocumented-param
 
     elif ski is not None:
         if invalid_ski:
-            ski = utils.manipulate_first_byte(ski) # type: ignore
+            ski = utils.manipulate_first_byte(ski)  # type: ignore
         val = rfc5652.SubjectKeyIdentifier(ski).subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
         )

@@ -12,9 +12,10 @@ from typing import List, Optional, Union
 from cryptography import x509
 from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.x509 import CertificateRevocationList, ocsp
-from pq_logic.migration_typing import HybridPublicKey
 from pyasn1.codec.der import encoder
 from pyasn1_alt_modules import rfc5280, rfc9480
+
+from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey
 from resources import ca_ra_utils, certutils, keyutils
 from resources.asn1_structures import PKIMessageTMP
 from resources.copyasn1utils import copy_subject_public_key_info

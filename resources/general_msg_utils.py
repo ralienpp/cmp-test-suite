@@ -18,10 +18,8 @@ import logging
 from typing import List, Optional, Set, Tuple, Union
 
 import pyasn1.error
-
-from pq_logic.keys.abstract_wrapper_keys import KEMPublicKey, KEMPrivateKey
-from pq_logic.migration_typing import HybridKEMPublicKey
-from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_private_key, is_kem_public_key
+from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey, HybridKEMPublicKey
+from pq_logic.pq_utils import get_kem_oid_from_key
 from pq_logic.tmp_oids import id_it_KemCiphertextInfo
 from pq_logic.trad_typing import ECDHPrivateKey
 from pyasn1.codec.der import decoder, encoder
@@ -38,8 +36,12 @@ from resources.asn1_structures import (
     PKIMessageTMP,
 )
 from resources.cmputils import prepare_pki_message
-from resources.convertutils import copy_asn1_certificate, pyasn1_time_obj_to_py_datetime, ensure_is_kem_priv_key, \
-    ensure_is_kem_pub_key
+from resources.convertutils import (
+    copy_asn1_certificate,
+    ensure_is_kem_priv_key,
+    ensure_is_kem_pub_key,
+    pyasn1_time_obj_to_py_datetime,
+)
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import may_return_oid, may_return_oid_to_name
 from resources.oidutils import CURVE_OIDS_2_NAME

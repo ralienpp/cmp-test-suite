@@ -13,7 +13,6 @@ import pyasn1.error
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import dh, padding, rsa, x448, x25519
 from cryptography.hazmat.primitives.asymmetric.dh import DHPrivateKey, DHPublicKey
-
 from pq_logic.pq_utils import get_kem_oid_from_key
 from pq_logic.tmp_oids import id_it_KemCiphertextInfo
 from pyasn1.codec.der import decoder, encoder
@@ -53,7 +52,7 @@ from resources.asn1_structures import (
     PKIMessageTMP,
     ProtectedPartTMP,
 )
-from resources.convertutils import str_to_bytes, ensure_is_kem_priv_key, ensure_is_kem_pub_key
+from resources.convertutils import ensure_is_kem_priv_key, ensure_is_kem_pub_key, str_to_bytes
 from resources.exceptions import UnknownOID
 from resources.oid_mapping import (
     get_alg_oid_from_key_hash,
@@ -81,7 +80,7 @@ from resources.oidutils import (
     id_KemBasedMac,
 )
 from resources.suiteenums import ProtectionAlgorithm
-from resources.typingutils import CertObjOrPath, PrivateKey, PrivateKeySig, PublicKeySig, KEMPrivateKey, KEMPublicKey
+from resources.typingutils import CertObjOrPath, KEMPrivateKey, KEMPublicKey, PrivateKey, PrivateKeySig, PublicKeySig
 
 
 def _compare_alg_id(
@@ -516,8 +515,7 @@ def _compute_pbmac1_from_param(
         if rest != b"" and not unsafe_decoding:
             raise ValueError("The decoding of `PBMAC1_params` structure had a remainder!")
 
-    prot_params: rfc8018.PBMAC1_params # type: reportRedeclaration
-
+    prot_params: rfc8018.PBMAC1_params  # type: reportRedeclaration
 
     if not isinstance(prot_params["keyDerivationFunc"]["parameters"], rfc8018.PBKDF2_params):
         pbkdf2_param, rest = decoder.decode(prot_params["keyDerivationFunc"]["parameters"], rfc8018.PBKDF2_params())
@@ -1158,8 +1156,11 @@ def patch_sender_and_sender_kid(
         else:
             logging.info("Certificate does not have a Subject Key Identifier (SKI) field!")
             if not pki_message["header"]["senderKID"].isValue:
-                cm = utils.get_openssl_name_notation(cert["tbsCertificate"]["subject"])
-                pki_message = cmputils.patch_senderkid(pki_message=pki_message, sender_kid=cm.encode("utf-8"))
+                cm = utils.get_openssl_name_notation(cert["tbsCertificate"]["subject"]) # type: ignore
+                cm: str
+                pki_message = cmputils.patch_senderkid(pki_message=pki_message,
+                                                       sender_kid=cm.encode("utf-8")
+                                                       )
 
         pki_message = cmputils.patch_sender(pki_message, cert=cert)
 
@@ -1265,7 +1266,8 @@ def protect_pkimessage(  # noqa: D417
 
     if protection in ["signature", "rsassa-pss", "rsassa_pss"]:
         pki_message = patch_sender_and_sender_kid(
-            do_patch=params.get("do_patch", True), pki_message=pki_message, cert=cert
+            do_patch=params.get("do_patch", True),
+            pki_message=pki_message, cert=cert
         )
 
     pki_message["header"]["protectionAlg"] = _prepare_prot_alg_id(
@@ -1359,9 +1361,11 @@ def verify_pkimessage_protection(  # noqa: D417 undocumented-param
     protection_type_oid = pki_message["header"]["protectionAlg"]["algorithm"]
 
     if protection_type_oid == id_KemBasedMac:
-        verify_kem_based_mac_protection(pki_message=pki_message,
-                                        private_key=private_key, # type: ignore
-                                        shared_secret=shared_secret)
+        verify_kem_based_mac_protection(
+            pki_message=pki_message,
+            private_key=private_key,  # type: ignore
+            shared_secret=shared_secret,
+        )
         return
 
     if protection_type_oid == rfc9480.id_DHBasedMac:

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 
 from resources.asn1utils import is_bit_set, asn1_get_named_value, get_set_bitstring_names

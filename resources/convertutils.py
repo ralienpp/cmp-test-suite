@@ -12,9 +12,8 @@ from typing import Any, Optional, Union
 
 from cryptography.hazmat.primitives import serialization
 from pq_logic.keys.abstract_pq import PQSignaturePublicKey
-from pq_logic.keys.abstract_wrapper_keys import KEMPublicKey, KEMPrivateKey
-from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
-from pq_logic.migration_typing import VerifyKey
+from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey, KEMPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480
@@ -28,7 +27,7 @@ from resources.typingutils import PrivateKeySig, PublicKey
 @not_keyword
 def ensure_is_sign_key(key: Any) -> PrivateKeySig:
     """Ensure provided key is allowed to sign."""
-    if not isinstance(key, (PrivateKeySig, CompositeSig03PrivateKey)):
+    if not isinstance(key, PrivateKeySig):
         raise ValueError(f"the provided key is not allowed to be used for signing: {type(key)}")
     return key
 
@@ -36,7 +35,7 @@ def ensure_is_sign_key(key: Any) -> PrivateKeySig:
 @not_keyword
 def ensure_is_verify_key(key: Any) -> PQSignaturePublicKey:
     """Ensure provided key is allowed to verify signatures."""
-    if not isinstance(key, VerifyKey):
+    if not isinstance(key, PublicKey):
         raise ValueError(f"the provided key is not allowed to be used for verifying signatures: {type(key)}")
     return key
 

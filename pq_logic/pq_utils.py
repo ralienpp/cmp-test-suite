@@ -4,7 +4,7 @@
 
 """Utility to handle extra functionality which is only used for "./pq_logic"."""
 
-from typing import Any, Union, get_args
+from typing import Any, Union
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pyasn1.type import univ
@@ -13,12 +13,7 @@ from resources.oidutils import KEM_NAME_2_OID
 from robot.api.deco import not_keyword
 
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
-from pq_logic.keys.abstract_wrapper_keys import (
-    HybridKEMPrivateKey,
-    HybridKEMPublicKey,
-    KEMPublicKey,
-    KEMPrivateKey
-)
+from pq_logic.keys.abstract_wrapper_keys import HybridKEMPrivateKey, HybridKEMPublicKey, KEMPrivateKey, KEMPublicKey
 
 
 @not_keyword
@@ -46,6 +41,7 @@ def get_kem_oid_from_key(
 def is_kem_public_key(key: Any) -> bool:
     """Check whether a parsed key is a KEM public key."""
     return isinstance(key, KEMPublicKey)
+
 
 @not_keyword
 def is_kem_private_key(key: Any) -> bool:

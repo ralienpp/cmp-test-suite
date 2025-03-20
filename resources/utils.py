@@ -236,9 +236,7 @@ def pem_to_der(pem_data: Union[str, bytes]) -> bytes:
 
 
 @not_keyword
-def filter_options(
-    options: List[str], include: Optional[str] = None, exclude: Optional[str] = None
-) -> List[str]:
+def filter_options(options: List[str], include: Optional[str] = None, exclude: Optional[str] = None) -> List[str]:
     """Return the option to exclude with the provided string representations.
 
     :param options: All possible options to parse.
@@ -515,8 +513,7 @@ def may_load_cert_and_key(  # noqa D417 undocumented-param
 
 
 def is_certificate_and_key_set(  # noqa D417 undocumented-param
-    cert: Optional[Union[str, rfc9480.CMPCertificate]] = None,
-    key: Optional[Union[PrivateKey, str]] = None
+    cert: Optional[Union[str, rfc9480.CMPCertificate]] = None, key: Optional[Union[PrivateKey, str]] = None
 ) -> bool:
     """Check if a certificate and its corresponding private key are valid and set.
 

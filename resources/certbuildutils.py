@@ -15,7 +15,6 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
-from pq_logic.migration_typing import SignKey
 from pq_logic.pq_utils import is_kem_public_key
 from pq_logic.tmp_oids import COMPOSITE_SIG03_HASH_OID_2_NAME, COMPOSITE_SIG04_HASH_OID_2_NAME, id_rsa_kem_spki
 from pyasn1.codec.der import decoder, encoder
@@ -259,7 +258,7 @@ def sign_csr(  # noqa D417 undocumented-param
 
 @keyword(name="Build CSR")
 def build_csr(  # noqa D417 undocumented-param
-    signing_key: SignKey,
+    signing_key: PrivateKeySig,
     common_name: str = "CN=Hans Mustermann",
     extensions: Optional[Sequence[rfc5280.Extension]] = None,
     hash_alg: Union[None, str] = "sha256",

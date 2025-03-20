@@ -21,6 +21,8 @@ from cryptography.hazmat.primitives import serialization
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc2986, rfc4211, rfc5280, rfc6402, rfc9480
+
+from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey
 from resources import certbuildutils, certextractutils, convertutils, cryptoutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate
 from resources.copyasn1utils import copy_subject_public_key_info
@@ -31,13 +33,12 @@ from resources.typingutils import PrivateKeySig, PublicKey
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic import pq_compute_utils
-from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.hybrid_structures import AltSignatureExt, AltSubPubKeyExt, UniformResourceIdentifier
 from pq_logic.keys.composite_sig03 import (
     CompositeSig03PublicKey,
     _compute_hash,
 )
-from pq_logic.migration_typing import HybridPublicKey
+
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE03_OID_2_HASH,
     id_altSignatureExt,
@@ -646,7 +647,7 @@ def prepare_sun_hybrid_pre_tbs_certificate(
 @keyword("Validate AltSubPubKeyExt")
 def validate_alt_pub_key_extn(  # noqa: D417 Missing argument descriptions in the docstring
     cert: rfc9480.CMPCertificate,
-) -> PrivateKeySig:
+) -> PublicKey:
     """Validate the `AltSubPubKeyExt` extension in a certificate.
 
     Ensures that the AltSubPubKeyExt extension in the certificate is valid
@@ -711,7 +712,7 @@ def validate_alt_pub_key_extn(  # noqa: D417 Missing argument descriptions in th
     if spki["algorithm"] != decoded_ext["altAlgorithm"]:
         raise ValueError("The algorithm is not the same as inside the `AltSubPubKeyExt` structure")
 
-    return CombinedKeyFactory.load_public_key_from_spki(spki)
+    return keyutils.load_public_key_from_spki(spki) # type: ignore
 
 
 @not_keyword

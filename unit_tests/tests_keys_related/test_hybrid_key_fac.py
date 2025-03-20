@@ -4,7 +4,7 @@
 
 import unittest
 
-from pq_logic.chempat_key import ChempatMLKEMPrivateKey, ChempatSntrup761PrivateKey, \
+from pq_logic.keys.chempat_key import ChempatMLKEMPrivateKey, ChempatSntrup761PrivateKey, \
     ChempatMcEliecePrivateKey
 from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.keys.trad_kem_keys import RSADecapKey, DHKEMPrivateKey

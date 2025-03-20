@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 from pq_logic.tmp_oids import COMPOSITE_SIG04_NAME_2_OID, COMPOSITE_SIG03_NAME_2_OID, COMPOSITE_KEM05_NAME_2_OID, \
     CHEMPAT_NAME_2_OID, CHEMPAT_OID_2_NAME, COMPOSITE_KEM05_OID_2_NAME, COMPOSITE_SIG03_OID_2_NAME, \

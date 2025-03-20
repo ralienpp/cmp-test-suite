@@ -61,6 +61,10 @@ for dir_path in ["./"]:
     for file in glob.iglob(f"{dir_path}/**/*.robot", recursive=True):
         add_header_to_file(file)
 
+print("Robot files done")
+
 for dir_path in ["./"]:
     for file in glob.iglob(f"{dir_path}/**/*.resources", recursive=True):
         add_header_to_file(file)
+
+print("Resource files done")

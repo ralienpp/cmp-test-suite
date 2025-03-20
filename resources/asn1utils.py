@@ -174,7 +174,7 @@ def get_asn1_value(asn1_obj: base.Asn1Type, query: str):  # noqa D417 undocument
                         asn1_obj = asn1_obj[part]
                     traversed_so_far += f"/{part}"
             else:
-                asn1_obj = asn1_obj[key] # type: ignore
+                asn1_obj = asn1_obj[key]  # type: ignore
             traversed_so_far += f".{key}" if traversed_so_far else key
     except Exception as err:
         # except KeyError as err:
@@ -274,8 +274,8 @@ def get_asn1_value_as_bytes(asn1_obj: base.Asn1Type, query: str) -> bytes:  # no
     | ${bytes_val}= | Get Asn1 Value As Bytes | ${asn1_obj} | query=header.transactionID |
 
     """
-    result = get_asn1_value(asn1_obj, query) # type: ignore
-    return result.asOctets() # type: ignore
+    result = get_asn1_value(asn1_obj, query)  # type: ignore
+    return result.asOctets()  # type: ignore
 
 
 def get_asn1_value_as_datetime(  # noqa D417 undocumented-param

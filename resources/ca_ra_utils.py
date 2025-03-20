@@ -22,8 +22,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from pq_logic import pq_compute_utils, py_verify_logic
 from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.keys.abstract_pq import PQHashStatefulSigPublicKey, PQKEMPublicKey
-from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey, PQPublicKey, KEMPublicKey
-from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey, KEMPublicKey, PQPublicKey, HybridKEMPrivateKey, HybridKEMPublicKey
 from pq_logic.pq_compute_utils import sign_data_with_alg_id
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import CA_RESPONSE, ECDHPrivateKey, ECDHPublicKey
@@ -192,12 +191,9 @@ def prepare_challenge(
 
     if isinstance(public_key, ECDHPublicKey):
         shared_secret = perform_ecdh(ca_key, public_key)
-    elif isinstance(public_key, PQKEMPublicKey):
-        shared_secret, ct = public_key.encaps()
-        info_val = protectionutils.prepare_kem_ciphertextinfo(key=public_key, ct=ct)
     elif is_kem_public_key(public_key):
         public_key: KEMPublicKey
-        shared_secret, ct = public_key.encaps(ca_key)
+        shared_secret, ct = public_key.encaps()
         info_val = protectionutils.prepare_kem_ciphertextinfo(key=public_key, ct=ct)
     else:
         raise ValueError(f"Invalid public key type, to prepare a challenge: {type(public_key).__name__}")

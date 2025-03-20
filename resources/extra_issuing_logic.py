@@ -15,8 +15,7 @@ from typing import Optional, Union
 
 import pyasn1.error
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
-
-from pq_logic.keys.abstract_wrapper_keys import KEMPublicKey, KEMPrivateKey
+from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey, KEMPublicKey
 from pq_logic.pq_utils import is_kem_private_key, is_kem_public_key
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
@@ -34,7 +33,7 @@ from resources.cryptoutils import compute_aes_cbc, perform_ecdh
 from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
 from resources.prepareutils import prepare_name
 from resources.protectionutils import compute_and_prepare_mac
-from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, PrivateKey, Strint, EnvDataPublicKey
+from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, EnvDataPublicKey, PrivateKey, Strint
 from resources.utils import get_openssl_name_notation
 
 
@@ -138,6 +137,7 @@ def prepare_enc_key_with_id(  # noqa D417 undocumented-param
     logging.debug("Private key for PoP:  %s", data.prettyPrint())
     return data
 
+
 @keyword(name="Prepare KEM EnvelopedData For POPO")
 def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
     ca_cert: rfc9480.CMPCertificate,
@@ -177,17 +177,19 @@ def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
     | ${popo}= | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} | rid_sender=${rid} |
 
     """
+
+    if data is None and client_key is None:
+       raise ValueError("Either the data to encrypt is required, or the client key.")
+
+
     if data is not None:
         if isinstance(data, Asn1Type):
             data = encoder.encode(data)
-
         data = str_to_bytes(data)
 
-    elif data is None and client_key is None:
-        raise ValueError("Either the data to encrypt is required, or the client key.")
-
     else:
-        data = prepare_enc_key_with_id(private_key=client_key, sender=enc_key_sender)
+        data = prepare_enc_key_with_id(private_key=client_key,  # type: ignore
+                                       sender=enc_key_sender)
         data = encoder.encode(data)
 
     issuer_and_ser = envdatautils.prepare_issuer_and_serial_number(serial_number=int(cert_req_id), issuer=rid_sender)
@@ -632,7 +634,7 @@ def process_simple_challenge(
         return rand_obj
 
     if isinstance(ee_key, ECDHPrivateKey):
-        ss = perform_ecdh(ee_key, ca_pub_key) # type: ignore
+        ss = perform_ecdh(ee_key, ca_pub_key)  # type: ignore
     elif is_kem_private_key(ee_key):
         ss = ee_key.decaps(kemct)  # type: ignore
     else:
@@ -656,7 +658,8 @@ def _compute_ss(client_key: ECDHPrivateKey, ca_cert: rfc9480.CMPCertificate) -> 
     :return: The computed shared secret.
     :raises ValueError: If the client key is of an unsupported type.
     """
-    pub_key = load_public_key_from_cert(ca_cert)  # type: ECDHPublicKey
+    pub_key = load_public_key_from_cert(ca_cert)  # type: ignore
+    pub_key: ECDHPublicKey
     if isinstance(client_key, ECDHPrivateKey):
         return perform_ecdh(client_key, pub_key)  # type: ignore
 

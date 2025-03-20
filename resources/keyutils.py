@@ -643,32 +643,8 @@ def _check_trad_alg_id(public_key, oid: str, hash_alg: Optional[str]) -> None:
     raise BadAlg(msg)
 
 
-"""
-if isinstance(key, (CompositeSig04PublicKey, CompositeSig04PrivateKey,
-                        CompositeSig03PublicKey, CompositeSig03PrivateKey)):
-
-        if oid not in COMPOSITE_SIG04_OID_2_NAME and isinstance(key, (CompositeSig04PublicKey, CompositeSig04PrivateKey)):
-            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
-
-        if oid not in CMS_COMPOSITE03_NAME_2_OID and isinstance(key, (CompositeSig03PublicKey, CompositeSig03PrivateKey)):
-            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
-
-        if isinstance(key, (CompositeSig04PublicKey, CompositeSig04PrivateKey)):
-            name: str = COMPOSITE_SIG04_OID_2_NAME[oid]
-        else:
-            name: str = CMS_COMPOSITE_OID_2_NAME[oid]
-            
-        use_pss = name.endswith("-pss")
-        pre_hash = True if "hash-" in name else False
-        if str(key.get_oid(use_pss=use_pss, pre_hash=pre_hash)) != str(oid):
-            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
-
-        return
-"""
-
 def check_consistency_alg_id_and_key(
-    alg_id: rfc9480.AlgorithmIdentifier,
-    key: Union[PrivateKeySig, PublicKeySig]
+    alg_id: rfc9480.AlgorithmIdentifier, key: Union[PrivateKeySig, PublicKeySig]
 ) -> None:
     """Check the consistency of the algorithm identifier and the key.
 
@@ -678,27 +654,29 @@ def check_consistency_alg_id_and_key(
     """
     oid = alg_id["algorithm"]
 
+    if isinstance(
+        key, (CompositeSig04PublicKey, CompositeSig04PrivateKey, CompositeSig03PublicKey, CompositeSig03PrivateKey)
+    ):
+        if oid not in COMPOSITE_SIG04_OID_2_NAME and isinstance(
+            key, (CompositeSig04PublicKey, CompositeSig04PrivateKey)
+        ):
+            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied."
+                         "Expected CompositeSig04PublicKey or CompositeSig04PrivateKey.")
 
+        if oid not in CMS_COMPOSITE03_NAME_2_OID and isinstance(
+            key, (CompositeSig03PublicKey, CompositeSig03PrivateKey)
+        ):
+            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied."
+                         "Expected CompositeSig03PublicKey or CompositeSig03PrivateKey.")
 
+        if isinstance(key, (CompositeSig04PublicKey, CompositeSig04PrivateKey)):
+            name: str = COMPOSITE_SIG04_OID_2_NAME[oid]
+        else:
+            name: str = CMS_COMPOSITE_OID_2_NAME[oid]
 
-    if isinstance(key, (CompositeSig04PublicKey, CompositeSig04PrivateKey)):
-        if oid not in COMPOSITE_SIG04_OID_2_NAME:
-            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
-        name: str = COMPOSITE_SIG04_OID_2_NAME[oid]
         use_pss = name.endswith("-pss")
-        pre_hash = True if "hash-" in name else False
-        if str(key.get_oid(use_pss=use_pss, pre_hash=pre_hash)) != str(oid):
-            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
+        pre_hash = "hash-" in name
 
-        return
-
-
-    if isinstance(key, (CompositeSig03PublicKey, CompositeSig03PrivateKey)):
-        if alg_id["algorithm"] not in CMS_COMPOSITE_OID_2_NAME:
-            raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
-        name: str = CMS_COMPOSITE_OID_2_NAME[oid]
-        use_pss = name.endswith("-pss")
-        pre_hash = True if "hash-" in name else False
         if str(key.get_oid(use_pss=use_pss, pre_hash=pre_hash)) != str(oid):
             raise BadAlg("The public key was not of the same type as the,algorithm identifier implied.")
 

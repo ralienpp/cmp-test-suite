@@ -25,8 +25,13 @@ from resources.oidutils import (
 from robot.api.deco import not_keyword
 
 from pq_logic.hybrid_structures import CompositeSignatureValue
-from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, AbstractCompositePublicKey, \
-    HybridTradPrivComp
+from pq_logic.keys.abstract_wrapper_keys import (
+    AbstractCompositePrivateKey,
+    AbstractCompositePublicKey,
+    HybridTradPrivComp,
+    HybridSigPublicKey,
+    HybridSigPrivateKey,
+)
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE03_OID_2_HASH,
@@ -157,7 +162,7 @@ def _get_hash(param: Union[str, int]) -> hashes.HashAlgorithm:
     return curve_to_hash[param]
 
 
-class CompositeSig03PublicKey(AbstractCompositePublicKey):
+class CompositeSig03PublicKey(AbstractCompositePublicKey, HybridSigPublicKey):
     """Composite signature public key."""
 
     _pq_key: MLDSAPublicKey
@@ -192,8 +197,9 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey):
         return self._pq_key
 
     @property
-    def trad_key(self) -> Union[rsa.RSAPublicKey, ed448.Ed448PublicKey,
-    ed25519.Ed25519PublicKey, ec.EllipticCurvePublicKey]:
+    def trad_key(
+        self,
+    ) -> Union[rsa.RSAPublicKey, ed448.Ed448PublicKey, ed25519.Ed25519PublicKey, ec.EllipticCurvePublicKey]:
         """Return the traditional public key."""
         return self._trad_key
 
@@ -306,7 +312,7 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey):
         CompositeSig03PrivateKey.validate_oid(oid, key)
 
 
-class CompositeSig03PrivateKey(AbstractCompositePrivateKey):
+class CompositeSig03PrivateKey(AbstractCompositePrivateKey, HybridSigPrivateKey):
     """Composite signature private key."""
 
     _pq_key: MLDSAPrivateKey

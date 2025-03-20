@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Composite KEM 06 implementation.
 
 Based on: https://www.ietf.org/archive/id/draft-ietf-lamps-pq-composite-kem-06.html.

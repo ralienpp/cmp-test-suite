@@ -18,7 +18,7 @@ from resources.oidutils import (
 )
 from resources.typingutils import Strint
 
-from pq_logic.chempat_key import ChempatPrivateKey, ChempatPublicKey
+from pq_logic.keys.chempat_key import ChempatPrivateKey, ChempatPublicKey
 from pq_logic.keys.abstract_wrapper_keys import HybridPrivateKey, PQPrivateKey
 from pq_logic.keys.composite_kem05 import (
     CompositeKEMPrivateKey,

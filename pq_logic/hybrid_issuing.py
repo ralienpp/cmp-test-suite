@@ -21,8 +21,10 @@ from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
+
+from pq_logic.keys.abstract_wrapper_keys import HybridKEMPublicKey, HybridKEMPrivateKey
 from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, utils
-from resources.asn1_structures import PKIMessagesTMP
+from resources.asn1_structures import PKIMessagesTMP, PKIMessageTMP
 from resources.ca_ra_utils import build_ca_message
 from resources.certbuildutils import build_cert_from_csr
 from resources.certextractutils import extract_extension_from_csr, get_extension
@@ -47,13 +49,12 @@ from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
-from pq_logic.migration_typing import HybridKEMPrivateKey, HybridKEMPublicKey
 from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONSE, ECDHPrivateKey
 
 
 def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descriptions in the docstring
     request: PKIMessagesTMP,
-    ca_key: Union[CompositeSig03PublicKey, HybridKEMPublicKey],
+    ca_key: Union[CompositeSig03PublicKey],
     pub_key_loc: str,
     sig_loc: str,
     serial_number: Optional[int] = None,
@@ -108,8 +109,8 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
         pq_compute_utils.verify_csr_signature(csr=request["body"]["p10cr"])
         cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_csr_to_cert(
             csr=request["body"]["p10cr"],
-            issuer_private_key=ca_key.trad_key,
-            alt_private_key=ca_key.pq_key,
+            issuer_private_key=ca_key.trad_key, # type: ignore
+            alt_private_key=ca_key.pq_key, # type: ignore
             serial_number=serial_number,
             ca_cert=ca_cert,
             extensions=kwargs.get("extensions"),
@@ -126,9 +127,9 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
             cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_cert_template_to_cert(
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
                 ca_cert=ca_cert,
-                ca_key=ca_key.trad_key,
+                ca_key=ca_key.trad_key, # type: ignore
                 serial_number=serial_number,
-                alt_private_key=ca_key.pq_key,
+                alt_private_key=ca_key.pq_key, # type: ignore
                 pub_key_loc=pub_key_loc,
                 sig_loc=sig_loc,
                 extensions=kwargs.get("extensions"),
@@ -807,7 +808,7 @@ def _process_single_catalyst_request(
 
 
 def _process_catalyst_requests(
-    requests: PKIMessagesTMP,
+    requests: PKIMessageTMP,
     ca_cert: rfc9480.CMPCertificate,
     ca_key: PrivateKey,
     alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey] = None,

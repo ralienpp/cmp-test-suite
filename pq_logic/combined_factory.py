@@ -26,7 +26,7 @@ from resources.oidutils import (
     XWING_OID_STR,
 )
 
-from pq_logic.chempat_key import ChempatPublicKey
+from pq_logic.keys.chempat_key import ChempatPublicKey
 from pq_logic.hybrid_structures import (
     CompositeSignaturePrivateKeyAsn1,
     CompositeSignaturePublicKeyAsn1,
@@ -51,8 +51,8 @@ from pq_logic.keys.hybrid_key_factory import HybridKeyFactory
 from pq_logic.keys.kem_keys import FrodoKEMPublicKey, MLKEMPublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
-from pq_logic.keys.trad_key_factory import generate_trad_key, parse_trad_key_from_one_asym_key
 from pq_logic.keys.trad_kem_keys import DHKEMPrivateKey, DHKEMPublicKey, RSADecapKey, RSAEncapKey
+from pq_logic.keys.trad_key_factory import generate_trad_key, parse_trad_key_from_one_asym_key
 from pq_logic.keys.xwing import XWingPublicKey
 from pq_logic.tmp_oids import (
     CHEMPAT_OID_2_NAME,

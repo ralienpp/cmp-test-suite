@@ -15,8 +15,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
 from cryptography.hazmat.primitives.asymmetric import dh, x448, x25519
-from pq_logic.keys.abstract_pq import PQKEMPrivateKey
-from pq_logic.keys.abstract_wrapper_keys import KEMPublicKey, HybridKEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import HybridKEMPublicKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_private_key, is_kem_public_key
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.error import PyAsn1Error

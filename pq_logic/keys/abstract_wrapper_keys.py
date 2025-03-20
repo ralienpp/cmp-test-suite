@@ -108,9 +108,6 @@ class BaseKey(ABC):
         return b"BASE"
 
 
-
-
-
 class WrapperPublicKey(BaseKey):
     """Abstract class for public keys."""
 
@@ -265,6 +262,7 @@ class KEMPublicKey(WrapperPublicKey, ABC):
         """Get the length of the ciphertext."""
         return len(self.encaps()[1])
 
+
 class KEMPrivateKey(WrapperPrivateKey, ABC):
     """Abstract class for KEM private keys."""
 
@@ -284,6 +282,7 @@ class KEMPrivateKey(WrapperPrivateKey, ABC):
     def ct_length(self):
         """Get the length of the ciphertext."""
         return self.public_key().ct_length
+
 
 class PQPublicKey(WrapperPublicKey, ABC):
     """Post-Quantum Public Key class."""

@@ -24,14 +24,14 @@ and format.
 import importlib.util
 import logging
 import os
-from typing import Optional, Tuple
+from typing import Tuple
 
 from pq_logic.fips.fips203 import ML_KEM
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
 from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
 
 if importlib.util.find_spec("oqs") is not None:
-    import oqs  # pylint: disable=import-error
+    import oqs  # pylint: disable=import-error # type: ignore[import]
 else:
     logging.warning("oqs module is not installed. Some functionalities may be disabled.")
     oqs = None  # pylint: disable=invalid-name
@@ -116,6 +116,16 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         if oqs is not None:
             self._kem_method = oqs.KeyEncapsulation(self._other_name, secret_key=self._private_key_bytes)
 
+    def private_numbers(self) -> bytes:
+        """Return the private key seed, if available.
+
+        :return: The private key seed as 64 bytes.
+        :raises ValueError: If the private key seed is not available.
+        """
+        if self._seed is None:
+            raise ValueError("Private key seed is not available.")
+        return self._seed
+
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"ML-KEM"
@@ -165,7 +175,7 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         :return: An instance of `MLKEMPublicKey`.
         """
         if len(data) == 64:
-            return cls.from_seed(alg_name=name, seed=data)
+            return cls.from_seed(alg_name=name, seed=data)  # type: ignore
 
         key = cls(alg_name=name, private_bytes=data)
         if key.key_size != len(data):
@@ -202,7 +212,7 @@ class MLKEMPrivateKey(PQKEMPrivateKey):
         return {"ml-kem-768": 3, "ml-kem-512": 1, "ml-kem-1024": 5}[self.name]
 
     @staticmethod
-    def _from_seed(alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, bytes]:
+    def _from_seed(alg_name: str, seed: bytes) -> Tuple[bytes, bytes, bytes]:
         """Generate a new ML-KEM private key from a seed.
 
         :param alg_name: The algorithm name (e.g., "ml-kem-512").
@@ -226,6 +236,8 @@ class McEliecePublicKey(PQKEMPublicKey):
 
     This class provides functionality for validating and managing McEliece public keys.
     """
+
+    _other_name: str
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
@@ -257,6 +269,19 @@ class McEliecePublicKey(PQKEMPublicKey):
     def from_public_bytes(cls, data: bytes, name: str) -> "McEliecePublicKey":
         """Load a McEliece public key from raw bytes."""
         return super().from_public_bytes(data, name)  # type: ignore
+
+    def _initialize_key(self):
+        """Initialize the KEM method, defaults to liboqs."""
+        # chooses to use the fast version of McEliece,
+        # if available, otherwise uses the default one.
+
+        if oqs is None:
+            raise ImportError("oqs module is not installed. Cannot initialize McEliece.")
+
+        try:
+            self._kem_method = oqs.KeyEncapsulation(self._other_name + "f")
+        except Exception:  # pylint: disable=broad-except
+            self._kem_method = oqs.KeyEncapsulation(self._other_name)
 
 
 class McEliecePrivateKey(PQKEMPrivateKey):

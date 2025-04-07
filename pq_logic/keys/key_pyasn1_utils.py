@@ -6,7 +6,7 @@
 
 import base64
 import os
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import padding as aes_padding
@@ -143,7 +143,9 @@ def load_enc_key(password: str, data: bytes) -> bytes:
 
 
 @not_keyword
-def derive_and_encrypt_key(password: str, data: bytes, decrypt: bool, iv: Optional[bytes] = None) -> (bytes, bytes):
+def derive_and_encrypt_key(
+    password: str, data: bytes, decrypt: bool, iv: Optional[bytes] = None
+) -> Tuple[bytes, bytes]:
     """Derive an encryption key using PBKDF2 and encrypts data using AES-CBC.
 
     :param password: Password to derive the encryption key.

@@ -18,8 +18,8 @@ from resources.oidutils import (
 )
 from resources.typingutils import Strint
 
-from pq_logic.keys.chempat_key import ChempatPrivateKey, ChempatPublicKey
 from pq_logic.keys.abstract_wrapper_keys import HybridPrivateKey, PQPrivateKey
+from pq_logic.keys.chempat_key import ChempatPrivateKey, ChempatPublicKey
 from pq_logic.keys.composite_kem05 import (
     CompositeKEMPrivateKey,
 )
@@ -145,7 +145,7 @@ def get_valid_hybrid_combination(
     algorithm: str,
     pq_name: Optional[str] = None,
     trad_name: Optional[str] = None,
-    length: Optional[str] = None,
+    length: Optional[Strint] = None,
     curve: Optional[str] = None,
 ) -> dict:
     """Return the first valid matching combination based on provided criteria.
@@ -195,11 +195,11 @@ def _parse_private_keys(hybrid_type: str, pq_key, trad_key) -> HybridPrivateKey:
     key_class_mappings = {
         "sig-04": CompositeSig04PrivateKey,
         "sig-03": CompositeSig03PrivateKey,
-        "kem": CompositeKEM06PrivateKey,
+        "kem": CompositeKEM06PrivateKey,  # always the latest version
         "kem-06": CompositeKEM06PrivateKey,
         "kem-05": CompositeKEMPrivateKey,
-        "dhkem": CompositeDHKEMRFC9180PrivateKey,
-        "sig": CompositeSig03PrivateKey,  # only for now to avoid errors.
+        "dhkem": CompositeDHKEMRFC9180PrivateKey,  # always the latest version
+        "sig": CompositeSig04PrivateKey,  # always the latest version
     }
     key_class = key_class_mappings[hybrid_type]
     return key_class(pq_key, trad_key)
@@ -211,7 +211,7 @@ class HybridKeyFactory:
     hybrid_mappings = {
         "sig-04": ALL_COMPOSITE_SIG04_COMBINATIONS,
         "sig-03": ALL_COMPOSITE_SIG_COMBINATIONS,
-        "sig": ALL_COMPOSITE_SIG_COMBINATIONS,
+        "sig": ALL_COMPOSITE_SIG04_COMBINATIONS,
         "kem-05": ALL_COMPOSITE_KEM05_COMBINATIONS,
         "kem": ALL_COMPOSITE_KEM06_COMBINATIONS,
         "kem-06": ALL_COMPOSITE_KEM06_COMBINATIONS,
@@ -221,9 +221,9 @@ class HybridKeyFactory:
     }
 
     default_comb = {
+        "sig": {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"},
         "sig-04": {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"},
         "sig-03": {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"},
-        "sig": {"pq_name": "ml-dsa-44", "trad_name": "rsa", "length": "2048"},
         "kem": {"pq_name": "ml-kem-768", "trad_name": "x25519"},
         "chempat": {"pq_name": "ml-kem-768", "trad_name": "x25519"},
         "dhkem": {"pq_name": "ml-kem-768", "trad_name": "x25519"},
@@ -281,7 +281,7 @@ class HybridKeyFactory:
                 pq_key = PQKeyFactory.generate_pq_key("ml-kem-768")
             if trad_key is None:
                 trad_key = generate_trad_key("x25519")
-            return XWingPrivateKey(pq_key=pq_key, trad_key=trad_key)
+            return XWingPrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
 
         algo = algorithm.lower()
         pq_name = trad_name = length = curve = None
@@ -291,6 +291,7 @@ class HybridKeyFactory:
                 "composite-kem": ["rsa", "ecdh", "x25519", "x448"],
                 "composite-sig": ["rsa", "ecdsa", "ed25519", "ed448"],
                 "composite-sig-04": ["rsa", "ecdsa", "ed25519", "ed448"],
+                "composite-sig-03": ["rsa", "ecdsa", "ed25519", "ed448"],
                 "xwing": ["x25519"],
             }.get(algo, [])
 
@@ -383,6 +384,7 @@ class HybridKeyFactory:
         if isinstance(one_asym_key, bytes):
             one_asym_key = decoder.decode(one_asym_key, asn1Spec=rfc5958.OneAsymmetricKey())[0]
 
+        one_asym_key: rfc5958.OneAsymmetricKey
         oid = one_asym_key["privateKeyAlgorithm"]["algorithm"]
         alg_oid = str(oid)
 

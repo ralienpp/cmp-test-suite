@@ -79,16 +79,13 @@ def _get_composite_kem_hash_alg(pq_name: str, trad_key, alternative: bool = Fals
 class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
     """A composite key for a KEM public key."""
 
-    _trad_key = TradKEMPublicKey
-    _pq_key = PQKEMPublicKey
+    _trad_key: TradKEMPublicKey
     _alternative_hash: bool = False
     _name = "composite-kem-05"
 
     def __init__(self, pq_key: PQKEMPublicKey, trad_key: Union[TradKEMPublicKey, ECDHPublicKey, RSAPublicKey]):
         """Initialize the composite KEM public key."""
         super().__init__(pq_key, trad_key)
-        self._pq_key = pq_key
-        self._trad_key = trad_key
 
         if isinstance(trad_key, TradKEMPublicKey):
             self._trad_key = trad_key
@@ -118,12 +115,12 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
     @property
     def trad_key(self) -> TradKEMPublicKey:
         """Return the traditional KEM public key."""
-        return self._trad_key
+        return self._trad_key  # type: ignore
 
     @property
     def pq_key(self) -> PQKEMPublicKey:
         """Return the post-quantum KEM public key."""
-        return self._pq_key
+        return self._pq_key  # type: ignore
 
     def kem_combiner(self, mlkem_ss: bytes, trad_ss: bytes, trad_ct: bytes, trad_pk: bytes) -> bytes:
         """Combine the shared secrets and encapsulation artifacts into a single shared secret.
@@ -209,7 +206,7 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
         """
         super().__init__(pq_key, trad_key)
         if isinstance(trad_key, TradKEMPrivateKey):
-            self._trad_key = trad_key
+            self._trad_key = DHKEMPrivateKey(trad_key._private_key, use_rfc9180=False)  # type: ignore
         elif isinstance(trad_key, ECDHPrivateKey):
             self._trad_key = DHKEMPrivateKey(trad_key, use_rfc9180=False)
         elif isinstance(trad_key, RSAPrivateKey):
@@ -290,13 +287,14 @@ class CompositeKEMPrivateKey(HybridKEMPrivateKey, AbstractCompositePrivateKey):
         :return: The computed combined shared secret as bytes.
         :raises BadAsn1Data: If the ciphertext structure is invalid or cannot be decoded.
         """
-        ct, rest = decoder.decode(ct, CompositeCiphertextValue())
-
+        ct_val, rest = decoder.decode(ct, CompositeCiphertextValue())  # type: ignore
         if rest:
             raise BadAsn1Data("CompositeCiphertextValue")
 
-        mlkem_ct = ct[0].asOctets()
-        trad_ct = ct[1].asOctets()
+        ct_val: CompositeCiphertextValue
+
+        mlkem_ct = ct_val[0].asOctets()
+        trad_ct = ct_val[1].asOctets()
         mlkem_ss = self.pq_key.decaps(mlkem_ct)
         trad_ss = self._perform_trad_decaps(trad_ct)
         trad_pk = self.encode_trad_part()

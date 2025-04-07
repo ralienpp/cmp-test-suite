@@ -21,9 +21,9 @@ from resources.exceptions import InvalidKeyCombination
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
 from pq_logic.keys.abstract_wrapper_keys import TradKEMPrivateKey, TradKEMPublicKey
 from pq_logic.keys.composite_kem05 import CompositeKEMPrivateKey, CompositeKEMPublicKey
-from pq_logic.keys.trad_kem_keys import DHKEMPrivateKey
+from pq_logic.keys.trad_kem_keys import DHKEMPrivateKey, DHKEMPublicKey
 from pq_logic.tmp_oids import COMPOSITE_KEM06_NAME_2_OID
-from pq_logic.trad_typing import ECDHPrivateKey
+from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 
 def _get_composite_kem_hash_alg(pq_name: str, trad_key, alternative: bool = False) -> str:
@@ -60,15 +60,15 @@ def _get_composite_kem_hash_alg(pq_name: str, trad_key, alternative: bool = Fals
 class CompositeKEM06PublicKey(CompositeKEMPublicKey):
     """A Composite KEM public key for the Composite KEM 06."""
 
-    _trad_key = TradKEMPublicKey
-    _pq_key = PQKEMPublicKey
+    _trad_key: TradKEMPublicKey
+    _pq_key: PQKEMPublicKey
     _alternative_hash: bool = False
     _name = "composite-kem"
 
     def _export_public_key(self) -> bytes:
         """Export the public key."""
-        _pq_export = self.pq_key._export_public_key()  # pylint: disable=protected-access
-        _length = len(_pq_export).to_bytes(4, byteorder="big", signed=False)
+        _pq_export = self.pq_key.public_bytes_raw()
+        _length = len(_pq_export).to_bytes(4, byteorder="little", signed=False)
         return _length + _pq_export + self.encode_trad_part()
 
     def get_oid(self) -> univ.ObjectIdentifier:
@@ -109,15 +109,15 @@ class CompositeKEM06PublicKey(CompositeKEMPublicKey):
         :param trad_ct: The traditional ciphertext.
         :return: The combined ciphertext.
         """
-        _length = len(mlkem_ct).to_bytes(4, byteorder="big", signed=False)
+        _length = len(mlkem_ct).to_bytes(4, byteorder="little", signed=False)
         return _length + mlkem_ct + trad_ct
 
 
 class CompositeKEM06PrivateKey(CompositeKEMPrivateKey):
     """A Composite KEM private key for the Composite KEM 06."""
 
-    _trad_key = TradKEMPrivateKey
-    _pq_key = PQKEMPrivateKey
+    _trad_key: TradKEMPrivateKey
+    _pq_key: PQKEMPrivateKey
     _name = "composite-kem"
 
     def public_key(self) -> CompositeKEM06PublicKey:
@@ -137,7 +137,7 @@ class CompositeKEM06PrivateKey(CompositeKEMPrivateKey):
         :return: The computed combined shared secret as bytes.
         :raises BadAsn1Data: If the ciphertext structure is invalid or cannot be decoded.
         """
-        _length = int.from_bytes(ct[:4], byteorder="big", signed=False)
+        _length = int.from_bytes(ct[:4], byteorder="little", signed=False)
 
         data = ct[4:]
         pq_ct = data[:_length]
@@ -154,10 +154,11 @@ class CompositeKEM06PrivateKey(CompositeKEMPrivateKey):
         return combined_ss
 
     def _export_private_key(self) -> bytes:
+        """Export the private key to be stored inside the `OneAsymmetricKey` structure."""
         _pq_data = self.pq_key._export_private_key()  # pylint: disable=protected-access
         pq_data = univ.OctetString(_pq_data)
         pq_data = encoder.encode(pq_data)
-        _length = len(pq_data).to_bytes(4, byteorder="big", signed=False)
+        _length = len(pq_data).to_bytes(4, byteorder="little", signed=False)
         trad_data = univ.OctetString(self.trad_key.encode())
         return _length + pq_data + encoder.encode(trad_data)
 
@@ -166,6 +167,12 @@ class CompositeDHKEMRFC9180PublicKey(CompositeKEM06PublicKey):
     """Composite DHKEMRFC9180 public key."""
 
     _name = "composite-dhkem"
+    _trad_key: DHKEMPublicKey
+
+    def __init__(self, pq_key: PQKEMPublicKey, trad_key: Union[DHKEMPublicKey, ECDHPublicKey]):
+        """Initialize the composite KEM private key."""
+        super().__init__(pq_key, trad_key)
+        self._trad_key = DHKEMPublicKey(trad_key, use_rfc9180=True)
 
     @property
     def name(self) -> str:
@@ -177,8 +184,14 @@ class CompositeDHKEMRFC9180PrivateKey(CompositeKEM06PrivateKey):
     """Composite DHKEMRFC9180 private key."""
 
     _name = "composite-dhkem"
+    _trad_key: DHKEMPrivateKey
 
-    def __init__(self, pq_key: PQKEMPrivateKey, trad_key: Union[TradKEMPrivateKey, ECDHPrivateKey]):
+    @property
+    def trad_key(self) -> DHKEMPrivateKey:
+        """Return the traditional key."""
+        return self._trad_key
+
+    def __init__(self, pq_key: PQKEMPrivateKey, trad_key: Union[DHKEMPrivateKey, ECDHPrivateKey]):
         """Initialize the composite KEM private key."""
         super().__init__(pq_key, trad_key)
         self._trad_key = DHKEMPrivateKey(trad_key, use_rfc9180=True)

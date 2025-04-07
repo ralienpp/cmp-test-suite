@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.serialization import (
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc5958, rfc6664, rfc9481
+from resources.exceptions import InvalidKeyData
 from resources.oid_mapping import get_curve_instance
 
 from pq_logic.kem_mechanism import DHKEMRFC9180, ECDHKEM, RSAKem, RSAOaepKem
@@ -27,6 +28,8 @@ from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 
 class RSAEncapKey(TradKEMPublicKey):
     """Wrapper class to support encaps method using RSA-OAEP or RSA-KEM."""
+
+    _public_key: rsa.RSAPublicKey
 
     def __init__(self, public_key: Union[rsa.RSAPublicKey, "RSAEncapKey"]):
         """Initialize the encapsulation class with a given RSA public key.
@@ -47,6 +50,10 @@ class RSAEncapKey(TradKEMPublicKey):
         spki["algorithm"]["algorithm"] = rfc9481.rsaEncryption
         der_data = encoder.encode(spki)
         public_key = serialization.load_der_public_key(der_data)
+
+        if not isinstance(public_key, rsa.RSAPublicKey):
+            raise InvalidKeyData("Invalid RSA public key.")
+
         return cls(public_key)
 
     def _export_public_key(self) -> bytes:
@@ -114,6 +121,8 @@ class RSAEncapKey(TradKEMPublicKey):
 class RSADecapKey(TradKEMPrivateKey):
     """Wrapper class to support decaps method using RSA-OAEP or RSA-KEM."""
 
+    _private_key: rsa.RSAPrivateKey
+
     def __init__(self, private_key: Optional[Union[rsa.RSAPrivateKey, "RSADecapKey"]] = None):
         """Initialize the decryption class with a given RSA private key.
 
@@ -121,7 +130,7 @@ class RSADecapKey(TradKEMPrivateKey):
         Defaults to `None`, in which case a new key is generated.
         """
         if isinstance(private_key, RSADecapKey):
-            private_key = private_key._private_key
+            private_key = private_key._private_key  # pylint: disable=protected-access
         self._private_key = private_key or rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
     def _get_header_name(self) -> bytes:
@@ -129,7 +138,7 @@ class RSADecapKey(TradKEMPrivateKey):
         return b"RSA-KEM"
 
     @classmethod
-    def from_pkcs8(cls, data: bytes) -> "RSADecapKey":
+    def from_pkcs8(cls, data: Union[bytes, rfc5958.OneAsymmetricKey]) -> "RSADecapKey":
         """Create an RSADecapKey from a PKCS8 structure, load a private key from bytes.
 
         Does not support encrypted private keys.
@@ -137,12 +146,25 @@ class RSADecapKey(TradKEMPrivateKey):
         :param data: The PKCS8 bytes, containing the private key.
         :return: The RSADecapKey instance.
         """
-        obj, _ = decoder.decode(data, asn1Spec=rfc5958.OneAsymmetricKey())
-        obj["privateKeyAlgorithm"]["algorithm"] = rfc9481.rsaEncryption
-        obj["privateKeyAlgorithm"]["parameters"] = univ.Null("")
+        if isinstance(data, rfc5958.OneAsymmetricKey):
+            obj = data
+        else:
+            obj, rest = decoder.decode(data, asn1Spec=rfc5958.OneAsymmetricKey())
+            if rest:
+                raise InvalidKeyData("Invalid PKCS8 structure, got a remainder.")
 
-        der_data = encoder.encode(obj)
-        private_key = serialization.load_der_private_key(der_data, password=None)
+        private_key = serialization.load_der_private_key(obj["privateKey"].asOctets(), password=None)
+
+        if not isinstance(private_key, rsa.RSAPrivateKey):
+            raise InvalidKeyData("Invalid RSA private key.")
+
+        if obj["publicKey"].isValue:
+            public_key = serialization.load_der_public_key(obj["publicKey"].asOctets())
+            if not isinstance(public_key, rsa.RSAPublicKey):
+                raise InvalidKeyData("Invalid RSA public key.")
+            if public_key != private_key.public_key():
+                raise InvalidKeyData("Public key does not match the private key.")
+
         return cls(private_key)
 
     def _export_private_key(self) -> bytes:
@@ -164,10 +186,7 @@ class RSADecapKey(TradKEMPrivateKey):
 
     @property
     def name(self) -> str:
-        """Return the name of the encapsulation key.
-
-        :return: The name of the key.
-        """
+        """Return the name of the encapsulation key."""
         return "rsa-kem"
 
     @property
@@ -212,15 +231,20 @@ class RSADecapKey(TradKEMPrivateKey):
 
     def encode(self) -> bytes:
         """Encode the private key as PKCS8 bytes."""
-        return self._private_key.private_bytes(
+        der_data = self._private_key.private_bytes(
             serialization.Encoding.DER,
             serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
+        decoded, _ = decoder.decode(der_data, asn1Spec=rfc5958.OneAsymmetricKey())
+        return decoded["privateKey"].asOctets()
 
 
 class DHKEMPublicKey(TradKEMPublicKey):
     """Wrapper class for Diffie-Hellman Key Encapsulation Mechanism (DHKEM) public keys."""
+
+    _use_rfc9180: bool
+    _public_key: Union[ec.EllipticCurvePublicKey, x25519.X25519PublicKey, x448.X448PublicKey]
 
     def __eq__(self, other: object) -> bool:
         """Check if the public keys are equal."""
@@ -263,17 +287,17 @@ class DHKEMPublicKey(TradKEMPublicKey):
         :param use_rfc9180: Whether to use DHKEM as per RFC 9180 (True) or ECDH-KEM (False).
         """
         if isinstance(public_key, DHKEMPublicKey):
-            public_key = public_key._public_key
+            public_key = public_key._public_key  # pylint: disable=protected-access
 
-        self._public_key = public_key
-        self.use_rfc9180 = use_rfc9180
+        self._public_key = public_key  # type: ignore
+        self.use_rfc9180 = use_rfc9180  # type: ignore
 
     def encaps(self, private_key: Union["DHKEMPrivateKey", "ECDHPrivateKey"]) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using DHKEM (RFC 9180) or ECDH-KEM.
 
         :return: A tuple of (shared secret, encapsulated public key).
         """
-        private_key = DHKEMPrivateKey(private_key)
+        private_key = DHKEMPrivateKey(private_key, self.use_rfc9180)  # type: ignore
         if self.use_rfc9180:
             kem = DHKEMRFC9180(private_key._private_key)  # pylint: disable=protected-access
         else:
@@ -324,7 +348,11 @@ class DHKEMPublicKey(TradKEMPublicKey):
             return "x25519"
         if isinstance(self._public_key, x448.X448PublicKey):
             return "x448"
-        return self._public_key.curve.name
+
+        if isinstance(self._public_key, ec.EllipticCurvePublicKey):
+            return self._public_key.curve.name
+
+        raise ValueError(f"Unsupported public key type, got: {self._public_key.__class__.__name__}.")
 
     @property
     def public_numbers(self):
@@ -380,6 +408,8 @@ class DHKEMPublicKey(TradKEMPublicKey):
 class DHKEMPrivateKey(TradKEMPrivateKey):
     """Wrapper class for Diffie-Hellman Key Encapsulation Mechanism (DHKEM) private keys."""
 
+    _private_key: Union[ec.EllipticCurvePrivateKey, x25519.X25519PrivateKey, x448.X448PrivateKey]
+
     def __init__(
         self,
         private_key: Union["DHKEMPrivateKey", ec.EllipticCurvePrivateKey, x25519.X25519PrivateKey, x448.X448PrivateKey],
@@ -424,6 +454,7 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
 
     @property
     def ct_length(self) -> int:
+        """Return the length of the ciphertext."""
         return self.public_key().ct_length
 
     @property
@@ -493,6 +524,8 @@ class DHKEMPrivateKey(TradKEMPrivateKey):
         elif name == "x448":
             trad_key = x448.X448PrivateKey.from_private_bytes(data)
         else:
+            if curve is None:
+                raise ValueError("Curve name must be provided for ECDH keys.")
             curve_inst = get_curve_instance(curve)
             trad_key = cls._ec_key_from_der(data, curve_inst)
 

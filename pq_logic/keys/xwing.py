@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # pylint: disable=invalid-name
+
 """XWing key classes."""
 
 import logging
@@ -30,8 +31,8 @@ _XWING_OID_STR = "1.3.6.1.4.1.62253.25722"
 class XWingPublicKey(AbstractHybridRawPublicKey):
     """Class representing a XWing public key."""
 
-    _pq_key: MLKEMPublicKey
-    _trad_key: x25519.X25519PublicKey
+    _pq_key: MLKEMPublicKey  # type: ignore
+    _trad_key: x25519.X25519PublicKey  # type: ignore
 
     def __init__(self, pq_key: MLKEMPublicKey, trad_key: x25519.X25519PublicKey):
         """Initialize the XWing public key.
@@ -39,9 +40,13 @@ class XWingPublicKey(AbstractHybridRawPublicKey):
         :param pq_key: The ML-KEM public key.
         :param trad_key: The X25519 public key.
         """
-        super().__init__(pq_key, trad_key)
-        self._pq_key = pq_key
-        self._trad_key = trad_key
+        super().__init__(pq_key, trad_key)  # type: ignore
+
+        if not isinstance(pq_key, MLKEMPublicKey):
+            raise ValueError("pq_key must be an instance of MLKEMPublicKey.")
+
+        if not isinstance(trad_key, x25519.X25519PublicKey):
+            raise ValueError("trad_key must be an instance of X25519PublicKey.")
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the key."""
@@ -129,7 +134,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         :param trad_key: The X25519 private key.
         :param seed: The seed to derive the keys from.
         """
-        super().__init__(pq_key, trad_key)
+        super().__init__(pq_key, trad_key)  # type: ignore
         if pq_key is None and trad_key is None:
             _key = XWingPrivateKey.expand(seed)
             pq_key = _key.pq_key
@@ -138,9 +143,20 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         elif pq_key is None or trad_key is None:
             raise ValueError("Both keys must be provided or none.")
 
-        self._pq_key = pq_key
-        self._trad_key = trad_key
-        self._seed = seed
+        self._pq_key = pq_key  # type: ignore
+        self._trad_key = trad_key  # type: ignore
+        self._seed = seed  # type: ignore
+
+    def private_numbers(self) -> bytes:
+        """Return the private key seed.
+
+        :return: The private key seed as 32 bytes, unless the provided seed is 96 bytes,
+        in which case it returns as 96 bytes.
+        :raises ValueError: If the private key does not have a seed.
+        """
+        if self._seed is None:
+            raise ValueError("The private key does not have a seed.")
+        return self._seed
 
     def get_oid(self) -> univ.ObjectIdentifier:
         """Return the OID of the key."""
@@ -183,7 +199,7 @@ class XWingPrivateKey(AbstractHybridRawPrivateKey):
         logging.info("XWing ss: %s", ss)
         return ss
 
-    def encaps(self, public_key: XWingPublicKey) -> (bytes, bytes):
+    def encaps(self, public_key: XWingPublicKey) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret and ciphertext for the given public key.
 
         :param public_key: The public key to encapsulate the shared secret for.

@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple, Type, Union
 import resources.oidutils
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc5280, rfc5958
-from resources.exceptions import InvalidKeyData
+from resources.exceptions import BadAlg, InvalidKeyData
 from resources.oid_mapping import may_return_oid_to_name
 from resources.oidutils import (
     FRODOKEM_NAME_2_OID,
@@ -59,7 +59,7 @@ def _load_and_validate(
     :param private_bytes: The private key data.
     :param public_bytes: The public key data. If None, the public key is not validated.
     """
-    key = private_cls.from_private_bytes(data=private_bytes, name=name)
+    key = private_cls.from_private_bytes(data=private_bytes, name=name)  # type: ignore
 
     if public_bytes:
         pub = key.public_key().from_public_bytes(data=public_bytes, name=name)
@@ -262,7 +262,8 @@ class PQKeyFactory:
 
     @staticmethod
     def from_one_asym_key(
-        one_asym_key: Union[rfc5958.OneAsymmetricKey, bytes], must_be_version_2: bool = False
+        one_asym_key: Union[rfc5958.OneAsymmetricKey, bytes],  # type: ignore
+        must_be_version_2: bool = False,
     ) -> PQPrivateKey:
         """Create a post-quantum private key from an `rfc5958.OneAsymmetricKey` object.
 
@@ -275,7 +276,9 @@ class PQKeyFactory:
         :raises KeyError: If the algorithm identifier from the provided key is not recognized.
         """
         if isinstance(one_asym_key, bytes):
-            one_asym_key = decoder.decode(one_asym_key, asn1Spec=rfc5958.OneAsymmetricKey())[0]
+            one_asym_key = decoder.decode(one_asym_key, asn1Spec=rfc5958.OneAsymmetricKey())[0]  # type: ignore
+
+        one_asym_key: rfc5958.OneAsymmetricKey
 
         if must_be_version_2 and one_asym_key["version"] != 1:
             raise ValueError("The provided key must be a version 2 key.")
@@ -326,11 +329,10 @@ class PQKeyFactory:
         public_bytes = spki["subjectPublicKey"].asOctets()
         oid = spki["algorithm"]["algorithm"]
 
-        name = resources.oidutils.PQ_OID_2_NAME.get(str(oid))
-        name = name or resources.oidutils.PQ_OID_2_NAME.get(oid)
+        name = resources.oidutils.PQ_OID_2_NAME.get(oid)
 
         if name is None:
-            raise KeyError(f"Unrecognized algorithm identifier: {oid}")
+            raise BadAlg(f"Unrecognized PQ algorithm identifier: {oid}")
 
         if name.startswith("ml-dsa-"):
             hash_alg = PQ_SIG_PRE_HASH_OID_2_NAME.get(oid)
@@ -363,5 +365,11 @@ class PQKeyFactory:
 
         else:
             raise NotImplementedError(f"Unimplemented algorithm identifier: {name}")
+
+        if len(public_bytes) != public_key.key_size:
+            raise InvalidKeyData(
+                f"Invalid key data length, for the provided {name} key."
+                f"Expected {public_key.key_size}, but got {len(public_bytes)}."
+            )
 
         return public_key

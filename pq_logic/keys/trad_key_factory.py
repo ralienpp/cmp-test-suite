@@ -33,6 +33,8 @@ def generate_ec_key(algorithm: str, curve: Optional[str] = None) -> PrivateKey:
     :raises ValueError: If the provided algorithm is not supported.
     """
     if algorithm in ["ecdh", "ecdsa", "ecc", "ec"]:
+        if curve is None:
+            curve = "secp256r1"
         curve_instance = get_curve_instance(curve_name=curve)
         return ec.generate_private_key(curve=curve_instance)
 
@@ -138,7 +140,7 @@ def generate_trad_key(algorithm="rsa", **params) -> PrivateKey:  # noqa: D417 fo
             openssl as rust_openssl,
         )
 
-        private_key = rust_openssl.rsa.generate_private_key(65537, 512)
+        private_key = rust_openssl.rsa.generate_private_key(65537, 512)  # type: ignore
 
     elif algorithm == "rsa":
         length = int(params.get("length") or 2048)
@@ -168,7 +170,8 @@ def generate_trad_key(algorithm="rsa", **params) -> PrivateKey:  # noqa: D417 fo
 
 @not_keyword
 def parse_trad_key_from_one_asym_key(
-    one_asym_key: Union[rfc5958.OneAsymmetricKey, bytes], must_be_version_2: bool = True
+    one_asym_key: Union[rfc5958.OneAsymmetricKey, bytes, rfc4211.PrivateKeyInfo],  # type: ignore
+    must_be_version_2: bool = True,
 ):
     """Parse a traditional key from a single asymmetric key.
 
@@ -179,37 +182,39 @@ def parse_trad_key_from_one_asym_key(
     :raises ValueError: If the key is not a version 2 key.
     """
     if isinstance(one_asym_key, bytes):
-        one_asym_key, rest = decoder.decode(one_asym_key, rfc5958.OneAsymmetricKey())[0]
+        one_asym_key, rest = decoder.decode(one_asym_key, rfc5958.OneAsymmetricKey())  # type: ignore
+        one_asym_key: rfc5958.OneAsymmetricKey
         if rest:
             raise BadAsn1Data("OneAsymmetricKey")
 
     version = int(one_asym_key["version"])
-    private_key = one_asym_key["privateKey"].asOctets()
+    private_key_bytes = one_asym_key["privateKey"].asOctets()
     if version != 1 and must_be_version_2:
         raise ValueError("The provided key is not a version 2 key.")
 
-    public_key_extracted = one_asym_key["publicKey"].asOctets() if one_asym_key["publicKey"].isValue else None
-
-    if public_key_extracted is None:
-        return serialization.load_der_private_key(private_key, password=None)
+    public_key_bytes = one_asym_key["publicKey"].asOctets() if one_asym_key["publicKey"].isValue else None
 
     oid = one_asym_key["privateKeyAlgorithm"]["algorithm"]
-    private_key_bytes = private_key.asOctets()
-    public_key_bytes = public_key_extracted.asOctets()
+
+    # the `cryptography` library does not support v2.
+    tmp = rfc4211.PrivateKeyInfo()
+    tmp["privateKeyAlgorithm"]["algorithm"] = oid
+    tmp["privateKeyAlgorithm"]["parameters"] = one_asym_key["privateKeyAlgorithm"]["parameters"]
+    tmp["privateKey"] = one_asym_key["privateKey"]
+    tmp["version"] = 0
+
+    private_info = encoder.encode(tmp)
+    if public_key_bytes is None:
+        return serialization.load_der_private_key(private_info, password=None)
 
     private_len = len(private_key_bytes)
     pub_len = len(public_key_bytes)
 
-    # the `cryptography` library does not support v2.
-    tmp = rfc4211.PrivateKeyInfo()
-    tmp["privateKeyAlgorithm"] = oid
-    tmp["privateKeyAlgorithm"]["parameters"] = one_asym_key["privateKeyAlgorithm"]["parameters"]
-    tmp["privateKey"] = private_key
-    tmp["version"] = 0
-    private_info = encoder.encode(tmp)
-
     logging.info("The Private Key size is: %d bytes", private_len)
     logging.info("The Public Key size is: %d bytes", pub_len)
+
+    private_key = serialization.load_der_private_key(private_info, password=None)
+
     if oid == rfc9481.id_Ed25519:
         # is saved as decoded OctetString, is done by the `cryprography` library.
         # maybe verify if this is correct.
@@ -228,7 +233,18 @@ def parse_trad_key_from_one_asym_key(
 
     elif oid == rfc6664.id_ecPublicKey:
         private_key = serialization.load_der_private_key(private_info, password=None)
+        if not isinstance(private_key, ec.EllipticCurvePrivateKey):
+            raise ValueError("The private key is not an Elliptic Curve private key.")
         public_key = ec.EllipticCurvePublicKey.from_encoded_point(data=public_key_bytes, curve=private_key.curve)
+
+    elif oid == rfc9481.id_X25519:
+        public_key = x25519.X25519PublicKey.from_public_bytes(public_key_bytes)
+
+    elif oid == rfc9481.id_X448:
+        public_key = x448.X448PublicKey.from_public_bytes(public_key_bytes)
+
+    elif oid == rfc9481.id_Ed448:
+        public_key = ed448.Ed448PublicKey.from_public_bytes(public_key_bytes)
 
     else:
         _name = may_return_oid_to_name(oid)

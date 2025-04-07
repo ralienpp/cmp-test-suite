@@ -148,41 +148,40 @@ id_mldsa87_ecdsa_p384 = univ.ObjectIdentifier(f"{id_CompSig}.31")
 id_mldsa87_ecdsa_brainpool_p384r1 = univ.ObjectIdentifier(f"{id_CompSig}.32")
 id_mldsa87_ed448 = univ.ObjectIdentifier(f"{id_CompSig}.33")
 
-
 PURE_COMPOSITE_SIG03_NAME_TO_OID = {
-    "composite-sig-ml-dsa-44-rsa2048-pss": id_mldsa44_rsa2048_pss,
-    "composite-sig-ml-dsa-44-rsa2048": id_mldsa44_rsa2048_pkcs15,
-    "composite-sig-ml-dsa-44-ed25519": id_mldsa44_ed25519,
-    "composite-sig-ml-dsa-44-ecdsa-secp256r1": id_mldsa44_ecdsa_p256,
-    "composite-sig-ml-dsa-65-rsa3072-pss": id_mldsa65_rsa3072_pss,
-    "composite-sig-ml-dsa-65-rsa3072": id_mldsa65_rsa3072_pkcs15,
-    "composite-sig-ml-dsa-65-rsa4096-pss": id_mldsa65_rsa4096_pss,
-    "composite-sig-ml-dsa-65-rsa4096": id_mldsa65_rsa4096_pkcs15,
-    "composite-sig-ml-dsa-65-ecdsa-secp384r1": id_mldsa65_ecdsa_p384,
-    "composite-sig-ml-dsa-65-ecdsa-brainpoolP256r1": id_mldsa65_ecdsa_brainpool_p256r1,
-    "composite-sig-ml-dsa-65-ed25519": id_mldsa65_ed25519,
-    "composite-sig-ml-dsa-87-ecdsa-secp384r1": id_mldsa87_ecdsa_p384,
-    "composite-sig-ml-dsa-87-ecdsa-brainpoolP384r1": id_mldsa87_ecdsa_brainpool_p384r1,
-    "composite-sig-ml-dsa-87-ed448": id_mldsa87_ed448,
+    "composite-sig-03-ml-dsa-44-rsa2048-pss": id_mldsa44_rsa2048_pss,
+    "composite-sig-03-ml-dsa-44-rsa2048": id_mldsa44_rsa2048_pkcs15,
+    "composite-sig-03-ml-dsa-44-ed25519": id_mldsa44_ed25519,
+    "composite-sig-03-ml-dsa-44-ecdsa-secp256r1": id_mldsa44_ecdsa_p256,
+    "composite-sig-03-ml-dsa-65-rsa3072-pss": id_mldsa65_rsa3072_pss,
+    "composite-sig-03-ml-dsa-65-rsa3072": id_mldsa65_rsa3072_pkcs15,
+    "composite-sig-03-ml-dsa-65-rsa4096-pss": id_mldsa65_rsa4096_pss,
+    "composite-sig-03-ml-dsa-65-rsa4096": id_mldsa65_rsa4096_pkcs15,
+    "composite-sig-03-ml-dsa-65-ecdsa-secp384r1": id_mldsa65_ecdsa_p384,
+    "composite-sig-03-ml-dsa-65-ecdsa-brainpoolP256r1": id_mldsa65_ecdsa_brainpool_p256r1,
+    "composite-sig-03-ml-dsa-65-ed25519": id_mldsa65_ed25519,
+    "composite-sig-03-ml-dsa-87-ecdsa-secp384r1": id_mldsa87_ecdsa_p384,
+    "composite-sig-03-ml-dsa-87-ecdsa-brainpoolP384r1": id_mldsa87_ecdsa_brainpool_p384r1,
+    "composite-sig-03-ml-dsa-87-ed448": id_mldsa87_ed448,
 }
 
 PURE_COMPOSITE_SIG03_OID_TO_NAME = {y: x for x, y in PURE_COMPOSITE_SIG03_NAME_TO_OID.items()}
 
 COMPOSITE_SIG03_HASH_NAME_2_OID = {
-    "composite-sig-hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
-    "composite-sig-hash-ml-dsa-44-rsa2048": id_hash_mldsa44_rsa2048_pkcs15_sha256,
-    "composite-sig-hash-ml-dsa-44-ed25519": id_hash_mldsa44_ed25519_sha512,
-    "composite-sig-hash-ml-dsa-44-ecdsa-secp256r1": id_hash_mldsa44_ecdsa_p256_sha256,
-    "composite-sig-hash-ml-dsa-65-rsa3072-pss": id_hash_mldsa65_rsa3072_pss_sha512,
-    "composite-sig-hash-ml-dsa-65-rsa3072": id_hash_mldsa65_rsa3072_pkcs15_sha512,
-    "composite-sig-hash-ml-dsa-65-rsa4096-pss": id_hash_mldsa65_rsa4096_pss_sha512,
-    "composite-sig-hash-ml-dsa-65-rsa4096": id_hash_mldsa65_rsa4096_pkcs15_sha512,
-    "composite-sig-hash-ml-dsa-65-ecdsa-secp384r1": id_hash_mldsa65_ecdsa_p384_sha512,
-    "composite-sig-hash-ml-dsa-65-ecdsa-brainpoolP256r1": id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512,
-    "composite-sig-hash-ml-dsa-65-ed25519": id_hash_mldsa65_ed25519_sha512,
-    "composite-sig-hash-ml-dsa-87-ecdsa-secp384r1": id_hash_mldsa87_ecdsa_p384_sha512,
-    "composite-sig-hash-ml-dsa-87-ecdsa-brainpoolP384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
-    "composite-sig-hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
+    "composite-sig-03-hash-ml-dsa-44-rsa2048-pss": id_hash_mldsa44_rsa2048_pss_sha256,
+    "composite-sig-03-hash-ml-dsa-44-rsa2048": id_hash_mldsa44_rsa2048_pkcs15_sha256,
+    "composite-sig-03-hash-ml-dsa-44-ed25519": id_hash_mldsa44_ed25519_sha512,
+    "composite-sig-03-hash-ml-dsa-44-ecdsa-secp256r1": id_hash_mldsa44_ecdsa_p256_sha256,
+    "composite-sig-03-hash-ml-dsa-65-rsa3072-pss": id_hash_mldsa65_rsa3072_pss_sha512,
+    "composite-sig-03-hash-ml-dsa-65-rsa3072": id_hash_mldsa65_rsa3072_pkcs15_sha512,
+    "composite-sig-03-hash-ml-dsa-65-rsa4096-pss": id_hash_mldsa65_rsa4096_pss_sha512,
+    "composite-sig-03-hash-ml-dsa-65-rsa4096": id_hash_mldsa65_rsa4096_pkcs15_sha512,
+    "composite-sig-03-hash-ml-dsa-65-ecdsa-secp384r1": id_hash_mldsa65_ecdsa_p384_sha512,
+    "composite-sig-03-hash-ml-dsa-65-ecdsa-brainpoolP256r1": id_hash_mldsa65_ecdsa_brainpool_p256r1_sha512,
+    "composite-sig-03-hash-ml-dsa-65-ed25519": id_hash_mldsa65_ed25519_sha512,
+    "composite-sig-03-hash-ml-dsa-87-ecdsa-secp384r1": id_hash_mldsa87_ecdsa_p384_sha512,
+    "composite-sig-03-hash-ml-dsa-87-ecdsa-brainpoolP384r1": id_hash_mldsa87_ecdsa_brainpool_p384r1_sha512,
+    "composite-sig-03-hash-ml-dsa-87-ed448": id_hash_mldsa87_ed448_sha512,
 }
 COMPOSITE_SIG03_HASH_OID_2_NAME = {y: x for x, y in COMPOSITE_SIG03_HASH_NAME_2_OID.items()}
 

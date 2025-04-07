@@ -14,6 +14,7 @@ from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, padding, rsa
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from resources import oid_mapping
@@ -21,6 +22,7 @@ from resources.exceptions import BadAsn1Data, InvalidKeyCombination
 from resources.oid_mapping import sha_alg_name_to_oid
 from resources.oidutils import (
     CMS_COMPOSITE03_NAME_2_OID,
+    CMS_COMPOSITE_OID_2_NAME,
 )
 from robot.api.deco import not_keyword
 
@@ -28,9 +30,10 @@ from pq_logic.hybrid_structures import CompositeSignatureValue
 from pq_logic.keys.abstract_wrapper_keys import (
     AbstractCompositePrivateKey,
     AbstractCompositePublicKey,
-    HybridTradPrivComp,
-    HybridSigPublicKey,
+    ECSignKey,
+    ECVerifyKey,
     HybridSigPrivateKey,
+    HybridSigPublicKey,
 )
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import (
@@ -165,8 +168,8 @@ def _get_hash(param: Union[str, int]) -> hashes.HashAlgorithm:
 class CompositeSig03PublicKey(AbstractCompositePublicKey, HybridSigPublicKey):
     """Composite signature public key."""
 
-    _pq_key: MLDSAPublicKey
-    _trad_key: Union[rsa.RSAPublicKey, ed448.Ed448PublicKey, ed25519.Ed25519PublicKey, ec.EllipticCurvePublicKey]
+    _pq_key: MLDSAPublicKey  # type: ignore
+    _trad_key: Union[rsa.RSAPublicKey, ECVerifyKey]  # type: ignore
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
@@ -176,7 +179,7 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey, HybridSigPublicKey):
         """Retrieve the composite signature name."""
         to_add = "" if not pre_hash else "hash-"
         trad_name = self._get_trad_key_name(self.trad_key, use_pss=use_pss)
-        return f"composite-sig-{to_add}{self.pq_key.name}-{trad_name}"
+        return f"composite-sig-03-{to_add}{self.pq_key.name}-{trad_name}"
 
     def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:
         """Get the OID for the composite signature."""
@@ -199,7 +202,7 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey, HybridSigPublicKey):
     @property
     def trad_key(
         self,
-    ) -> Union[rsa.RSAPublicKey, ed448.Ed448PublicKey, ed25519.Ed25519PublicKey, ec.EllipticCurvePublicKey]:
+    ) -> Union[rsa.RSAPublicKey, ECVerifyKey]:
         """Return the traditional public key."""
         return self._trad_key
 
@@ -254,7 +257,7 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey, HybridSigPublicKey):
             raise ValueError("Context length exceeds 255 bytes")
 
         domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
-        length_bytes = len(ctx).to_bytes(1, "big", signed=False)
+        length_bytes = len(ctx).to_bytes(1, "little", signed=False)
 
         if pre_hash:
             hash_alg = CMS_COMPOSITE03_OID_2_HASH[domain_oid]
@@ -316,8 +319,8 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey, HybridSigPrivateKey)
     """Composite signature private key."""
 
     _pq_key: MLDSAPrivateKey
-    _trad_key: Union[rsa.RSAPrivateKey, ed448.Ed448PrivateKey, ed25519.Ed25519PrivateKey, ec.EllipticCurvePrivateKey]
-    _name = "composite-sig"
+    _trad_key: Union[ECSignKey, RSAPrivateKey]
+    _name = "composite-sig-03"
 
     @property
     def pq_key(self) -> MLDSAPrivateKey:
@@ -325,7 +328,7 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey, HybridSigPrivateKey)
         return self._pq_key
 
     @property
-    def trad_key(self) -> HybridTradPrivComp:
+    def trad_key(self) -> Union[ECSignKey, RSAPrivateKey]:
         """Return the traditional private key."""
         return self._trad_key
 
@@ -342,26 +345,15 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey, HybridSigPrivateKey)
         validation is performed.
         :raises ValueError: If the OID is not compatible with the key.
         """
-        try:
-            pq_name, trad_name = get_names_from_oid(oid)
-        except ValueError as e:
-            raise ValueError(f"Invalid OID: {oid}") from e
+        if isinstance(key, CompositeSig03PrivateKey):
+            key = key.public_key()
 
-        if not pq_name.startswith(key.pq_key.name):
-            raise ValueError(f"OID's PQ name '{pq_name}' does not match the key's PQ name '{key.pq_key.name}'")
-
-        expected_trad_name = _get_trad_name(key.trad_key)
-        if isinstance(key.trad_key, (rsa.RSAPrivateKey, rsa.RSAPublicKey)):
-            if trad_name.startswith(f"rsa{key.trad_key.key_size}"):
-                return
-            raise ValueError(
-                f"OID's traditional name '{trad_name}' does not match the key's traditional name '{expected_trad_name}'"
-            )
-
-        if trad_name != expected_trad_name:
-            raise ValueError(
-                f"OID's traditional name '{trad_name}' does not match the key's traditional name '{expected_trad_name}'"
-            )
+        name = CMS_COMPOSITE_OID_2_NAME[oid]
+        use_pre_hash = "hash-" in name
+        use_pss = "-pss" in name
+        loaded_oid = key.get_oid(use_pss=use_pss, pre_hash=use_pre_hash)
+        if loaded_oid != oid:
+            raise ValueError(f"OID mismatch. Got: {oid}. Key was:{loaded_oid}")
 
     def public_key(self) -> CompositeSig03PublicKey:
         """Generate the public key corresponding to this composite private key.
@@ -404,7 +396,7 @@ class CompositeSig03PrivateKey(AbstractCompositePrivateKey, HybridSigPrivateKey)
             raise ValueError("Context length exceeds 255 bytes")
 
         domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
-        length_bytes = len(ctx).to_bytes(1, "big", signed=False)
+        length_bytes = len(ctx).to_bytes(1, "little", signed=False)
 
         if pre_hash:
             hash_alg = COMP_SIG03_PREHASH_OID_2_HASH[domain_oid]

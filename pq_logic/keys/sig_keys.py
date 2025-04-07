@@ -21,9 +21,6 @@ and format.
 - `_check_name(name: str)`: Validate the provided algorithm name.
 """
 
-##########################
-# ML-DSA
-##########################
 import importlib.util
 import logging
 import os
@@ -41,7 +38,7 @@ from pq_logic.fips.fips205 import SLH_DSA, integer_to_bytes
 from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 
 if importlib.util.find_spec("oqs") is not None:
-    import oqs  # pylint: disable=import-error
+    import oqs  # pylint: disable=import-error # type: ignore[import]
 else:
     logging.warning("oqs module is not installed. Some functionalities may be disabled.")
     oqs = None  # pylint: disable=invalid-name
@@ -51,7 +48,7 @@ ML_DSA_NAMES = ["ml-dsa-44", "ml-dsa-65", "ml-dsa-87"]
 
 
 def _extract_minor_patch() -> bool:
-    version = oqs.oqs_python_version()
+    version = oqs.oqs_python_version()  # type: ignore
     parts = version.split(".")
     minor = int(parts[1])  # Middle number
     patch = int(parts[2])  # Last number
@@ -122,7 +119,9 @@ class MLDSAPublicKey(PQSignaturePublicKey):
 
         return None
 
-    def check_hash_alg(self, hash_alg: Optional[str], allow_failure: bool = True) -> Optional[str]:
+    def check_hash_alg(
+        self, hash_alg: Optional[Union[str, hashes.HashAlgorithm]], allow_failure: bool = True
+    ) -> Optional[str]:
         """Check if the hash algorithm is valid.
 
         :param hash_alg: The hash algorithm to check.
@@ -134,13 +133,13 @@ class MLDSAPublicKey(PQSignaturePublicKey):
         if isinstance(hash_alg, hashes.SHA512):
             return "sha512"
 
-        if hash_alg not in [None, "sha512"]:
+        if hash_alg != "sha512":
             if not allow_failure:
                 raise ValueError(f"The provided hash algorithm is not supported for ML-DSA. Provided: {hash_alg}")
             logging.info("%s does not support the hash algorithm: %s", self.name, hash_alg)
             return None
 
-        return hash_alg
+        return hash_alg  # type: ignore
 
     def _check_name(self, name: str) -> Tuple[str, str]:
         """Check if the parsed name is valid.
@@ -203,6 +202,16 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         pk = self.ml_class.pk_encode(rho, t1)
         return pk
 
+    def private_numbers(self) -> bytes:
+        """Return the private key seed, if available.
+
+        :return: The private key seed as bytes.
+        :raises ValueError: If the private key seed is not available.
+        """
+        if self._seed is None:
+            raise ValueError("The private key seed is not available.")
+        return self._seed
+
     def _initialize_key(self) -> None:
         """Initialize the ML-DSA private key."""
         self.ml_class = ML_DSA(self.name)
@@ -235,7 +244,7 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         return _private_key, _public_key, seed
 
     @classmethod
-    def from_seed(cls, alg_name: str, seed: bytes = None) -> "MLDSAPrivateKey":
+    def from_seed(cls, alg_name: str, seed: Optional[bytes] = None) -> "MLDSAPrivateKey":
         """Generate a MLDSAPrivateKey.
 
         :param alg_name: The name of the ML-DSA parameter set (e.g., "ml-dsa-44").
@@ -287,7 +296,7 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         return key_size[self.name]
 
     @property
-    def sig_size(self) -> bytes:
+    def sig_size(self) -> int:
         """Return the size of the signature."""
         sig_size = {"ml-dsa-44": 2420, "ml-dsa-65": 3309, "ml-dsa-87": 4627}
         return sig_size[self.name]
@@ -331,7 +340,10 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
         else:
             ml_ = fips204.ML_DSA(self.name)
             hash_alg = self.check_hash_alg(hash_alg=hash_alg)
-            oid = encoder.encode(sha_alg_name_to_oid(hash_alg))
+            oid = encoder.encode(sha_alg_name_to_oid(hash_alg))  # type: ignore
+
+            if hash_alg is None:
+                raise ValueError(f"The provided hash algorithm is not supported for ML-DSA. Provided: {hash_alg}")
 
             if not is_prehashed:
                 pre_hashed = compute_hash(hash_alg, data)
@@ -354,6 +366,11 @@ class MLDSAPrivateKey(PQSignaturePrivateKey):
 
 class SLHDSAPublicKey(PQSignaturePublicKey):
     """Represent an SLH-DSA public key."""
+
+    @property
+    def key_size(self) -> int:
+        """Return the size of the private key."""
+        return self._slh_class.n * 2
 
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
@@ -435,6 +452,13 @@ class SLHDSAPublicKey(PQSignaturePublicKey):
 class SLHDSAPrivateKey(PQSignaturePrivateKey):
     """Represents an SLH-DSA private key."""
 
+    _other_name: str  # type: ignore
+
+    @property
+    def key_size(self) -> int:
+        """Return the size of the private key."""
+        return self._slh_class.n * 4
+
     def _derive_public_key(self, private_key: bytes) -> bytes:
         """Derive the public key from the SLH-DSA private key.
 
@@ -453,6 +477,12 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
         pk_seed = private_key[2 * _n : 3 * _n]
         pk_root = private_key[3 * _n : 4 * _n]
         return pk_seed + pk_root
+
+    def private_numbers(self) -> bytes:
+        """Return the private key seed, if available."""
+        if self._seed is None:
+            raise ValueError("The private key seed is not available.")
+        return self._seed
 
     @staticmethod
     def _from_seed(alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, bytes]:
@@ -510,7 +540,13 @@ class SLHDSAPrivateKey(PQSignaturePrivateKey):
         """
         return SLHDSAPublicKey(alg_name=self.name, public_key=self._public_key_bytes)
 
-    def sign(self, data: bytes, hash_alg: Optional[str] = None, ctx: bytes = b"", is_prehashed: bool = False) -> bytes:
+    def sign(
+        self,
+        data: bytes,
+        hash_alg: Union[None, str, hashes.HashAlgorithm] = None,
+        ctx: bytes = b"",
+        is_prehashed: bool = False,
+    ) -> bytes:
         """Sign the data with SLH-DSA private key.
 
         :param data: The data to sign.

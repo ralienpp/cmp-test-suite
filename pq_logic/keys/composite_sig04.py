@@ -19,6 +19,7 @@ from resources.exceptions import InvalidKeyCombination
 from resources.oid_mapping import sha_alg_name_to_oid
 
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey, _compute_hash
+from pq_logic.keys.serialize_utils import prepare_rsa_private_key
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import COMP_SIG04_PREHASH_OID_2_HASH, COMPOSITE_SIG04_NAME_2_OID
 
@@ -41,8 +42,8 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
     _name = "composite-sig-04"
 
     def _export_public_key(self) -> bytes:
-        _pq_export = self.pq_key._export_public_key()  # pylint: disable=protected-access
-        _length = len(_pq_export).to_bytes(4, byteorder="big")
+        _pq_export = self.pq_key.public_bytes_raw()
+        _length = len(_pq_export).to_bytes(4, byteorder="little", signed=False)
         return _length + _pq_export + self.encode_trad_part()
 
     @property
@@ -95,7 +96,7 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
             raise ValueError("Context length exceeds 255 bytes")
 
         domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
-        length_bytes = len(ctx).to_bytes(1, "big", signed=False)
+        length_bytes = len(ctx).to_bytes(1, "little", signed=False)
 
         if pre_hash:
             hash_alg = COMP_SIG04_PREHASH_OID_2_HASH.get(domain_oid, "sha512")
@@ -122,7 +123,7 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
         # currently unsure what the length is for
         # inside the pqc-certificates, the length is 2495
         # for HashMLDSA44-ECDSA-P256-SHA256-2.16.840.1.114027.80.8.1.83_ta.der
-        _length = int.from_bytes(signature[:4], "big")
+        _length = int.from_bytes(signature[:4], "little")
         signature = signature[4:]
         mldsa_sig = signature[: self._pq_key.sig_size]
         if self._pq_key.sig_size != len(mldsa_sig):
@@ -156,11 +157,7 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey):
     def _export_trad_key(self) -> bytes:
         """Export the traditional private key."""
         if isinstance(self.trad_key, rsa.RSAPrivateKey):
-            return self.trad_key.private_bytes(
-                encoding=Encoding.DER,
-                format=PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
+            return prepare_rsa_private_key(self.trad_key)
         if isinstance(self.trad_key, ec.EllipticCurvePrivateKey):
             return self.trad_key.private_bytes(
                 encoding=Encoding.DER,
@@ -175,8 +172,7 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey):
         pq_ele = univ.OctetString(self.pq_key._export_private_key())  # pylint: disable=protected-access
         pq_ele = encoder.encode(pq_ele)
         trad_ele = univ.OctetString(self._export_trad_key())
-
-        _length = len(pq_ele).to_bytes(4, byteorder="big")
+        _length = len(pq_ele).to_bytes(4, byteorder="little", signed=False)
         return _length + pq_ele + encoder.encode(trad_ele)
 
     def public_key(self) -> "CompositeSig04PublicKey":
@@ -203,7 +199,7 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey):
             raise ValueError("Context length exceeds 255 bytes")
 
         domain_oid = self.get_oid(use_pss=use_pss, pre_hash=pre_hash)
-        length_bytes = len(ctx).to_bytes(1, "big", signed=False)
+        length_bytes = len(ctx).to_bytes(1, "little", signed=False)
 
         if pre_hash:
             hash_alg = COMP_SIG04_PREHASH_OID_2_HASH.get(domain_oid, "sha512")
@@ -225,7 +221,7 @@ class CompositeSig04PrivateKey(CompositeSig03PrivateKey):
         if len(pq_sig) > (2**32 - 1):
             raise ValueError("ML-DSA signature too long to encode in 4 bytes.")
 
-        mldsa_length_encoded = len(pq_sig).to_bytes(4, byteorder="big")
+        mldsa_length_encoded = len(pq_sig).to_bytes(4, byteorder="little")
         # the cryptography library directly returns the DER-encoded signature.
         # and the PQ signature is raw, so now additional encoding is needed.
         return mldsa_length_encoded + pq_sig + trad_sig

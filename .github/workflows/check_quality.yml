@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - pq_migration2
+      - latest*
       - pre-merge-* # Triggered by the pre-merge request, if a state should be checked before merging.
   pull_request:
     branches:

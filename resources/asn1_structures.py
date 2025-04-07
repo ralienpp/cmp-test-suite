@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright 2024 Siemens AG
 #
 # SPDX-License-Identifier: Apache-2.0
-
+# type: ignore
 """Defines ASN.1 structures which are updated or newly defined.
 
 Will be removed as soon as the draft becomes an RFC.
@@ -47,8 +47,8 @@ class KemCiphertextInfoAsn1(univ.Sequence):
     """Defines the ASN.1 structure for the `KemCiphertextInfo`.
 
     KemCiphertextInfo ::= SEQUENCE {
-      kem               AlgorithmIdentifier{KEM-ALGORITHM {...}},
-      ct                OCTET STRING
+      kem AlgorithmIdentifier{KEM-ALGORITHM {...}},
+      ct OCTET STRING
     }
     """
 
@@ -132,7 +132,7 @@ class CAKeyUpdContent(univ.Choice):
 
 # Needs to be here, because of the `InfoTypeAndValue` class,
 # cms opentype map.
-class InfoTypeAndValueAsn1(univ.Sequence):
+class InfoTypeAndValue(univ.Sequence):
     """`InfoTypeAndValue` structure.
 
     InfoTypeAndValue ::= SEQUENCE {
@@ -153,7 +153,7 @@ class GenRepContentAsn1(univ.SequenceOf):
     GenRepContent ::= SEQUENCE OF InfoTypeAndValue
     """
 
-    componentType = InfoTypeAndValueAsn1()
+    componentType = InfoTypeAndValue()
 
 
 # TODO inform about the bug of using the wrong `CertifiedKeyPair` structure.
@@ -398,3 +398,46 @@ CatalystPreTBSCertificate.componentType = namedtype.NamedTypes(
         "extensions", rfc5280.Extensions().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 3))
     ),
 )
+
+
+class CRLSourceAsn1(univ.Choice):
+    """Defines the ASN.1 structure for the `CRLSource`.
+
+    CRLSource ::= CHOICE {
+     dpn          [0] DistributionPointName,
+     issuer       [1] GeneralNames }
+    """
+
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType(
+            "dpn",
+            rfc5280.DistributionPointName().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)),
+        ),
+        namedtype.NamedType(
+            "issuer", rfc5280.GeneralNames().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1))
+        ),
+    )
+
+
+class CRLStatusAsn1(univ.Sequence):
+    """Defines the ASN.1 structure for the `CRLStatus`.
+
+    CRLStatus ::= SEQUENCE {
+        source CRLSource,
+        thisUpdate Time OPTIONAL
+    }
+    """
+
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType("source", CRLSourceAsn1()), namedtype.OptionalNamedType("thisUpdate", rfc9480.Time())
+    )
+
+
+class CRLStatusListValueAsn1(univ.SequenceOf):
+    """Defines the ASN.1 structure for the `CRLStatusListValue`.
+
+    CRLStatusListValue ::= SEQUENCE OF CRLStatus SIZE (1..MAX)
+    """
+
+    componentType = CRLStatusAsn1()
+    subtypeSpec = constraint.ValueSizeConstraint(1, MAX)

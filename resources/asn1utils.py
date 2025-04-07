@@ -58,7 +58,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, univ
-from pyasn1.type.base import Asn1Type
+from pyasn1.type.base import Asn1Item, Asn1Type
 from pyasn1.type.univ import BitString
 from robot.api.deco import not_keyword
 
@@ -89,12 +89,12 @@ def asn1_must_have_values_set(asn1_obj: base.Asn1Type, queries: str):  # noqa D4
     for entry in fields_entries:
         try:
             tmp = get_asn1_value(asn1_obj, entry)
-            if not tmp.isValue:
+            if not tmp.isValue:  # type: ignore
                 obj_name = type(tmp).__name__
                 logging.debug("%s", asn1_obj.prettyPrint())
                 raise ValueError(f"The pyasn1 object: `{obj_name}` did not had a value set for the query: '{entry}'.")
         except KeyError:
-            raise ValueError(f"The query '{entry}' is not present in the structure.")
+            raise ValueError(f"The query '{entry}' is not present in the structure.")  # pylint: disable=raise-missing-from
 
 
 def asn1_must_contain_fields(data: base.Asn1Type, fields: str):  # noqa D417 undocumented-param
@@ -129,7 +129,7 @@ def asn1_must_contain_fields(data: base.Asn1Type, fields: str):  # noqa D417 und
         raise ValueError(f"The following required fields were absent: {absent_fields}")
 
 
-def get_asn1_value(asn1_obj: base.Asn1Type, query: str):  # noqa D417 undocumented-param
+def get_asn1_value(asn1_obj: base.Asn1Item, query: str) -> base.Asn1Item:  # noqa D417 undocumented-param
     """Extract a value from a complex `pyasn1` structure by specifying its path in ASN1Path notation.
 
     This function allows you to extract a value from a nested pyasn1 object by specifying the path
@@ -169,16 +169,16 @@ def get_asn1_value(asn1_obj: base.Asn1Type, query: str):  # noqa D417 undocument
                 for part in parts:
                     current_piece = part
                     if part.isdigit():
-                        asn1_obj = asn1_obj[int(part)]
+                        asn1_obj = asn1_obj[int(part)]  # type: ignore
                     else:
-                        asn1_obj = asn1_obj[part]
+                        asn1_obj = asn1_obj[part]  # type: ignore
                     traversed_so_far += f"/{part}"
             else:
                 asn1_obj = asn1_obj[key]  # type: ignore
             traversed_so_far += f".{key}" if traversed_so_far else key
     except Exception as err:
         # except KeyError as err:
-        available_keys = list(asn1_obj.keys())
+        available_keys = list(asn1_obj.keys())  # type: ignore
         report = (
             f"> Traversal ERROR, got this far: `{traversed_so_far}`,"
             f" issue at `{current_piece}`, the query was `{query}`"
@@ -192,7 +192,7 @@ def get_asn1_value(asn1_obj: base.Asn1Type, query: str):  # noqa D417 undocument
     return asn1_obj
 
 
-def get_asn1_value_as_string(asn1_obj: base.Asn1Type, query: str, decode: bool = False):  # noqa D417 undocumented-param
+def get_asn1_value_as_string(asn1_obj: base.Asn1Item, query: str, decode: bool = False):  # noqa D417 undocumented-param
     """Retrieve a value from a pyasn1 object and return it as a string.
 
     :Arguments:
@@ -222,7 +222,7 @@ def get_asn1_value_as_string(asn1_obj: base.Asn1Type, query: str, decode: bool =
     result = get_asn1_value(asn1_obj, query)
     if decode:
         result, _rest = decoder.decode(result)
-    return result.prettyPrint()
+    return result.prettyPrint()  # type: ignore
 
 
 def get_asn1_value_as_number(asn1_obj: base.Asn1Type, query: str) -> int:  # noqa D417 undocumented-param
@@ -603,7 +603,7 @@ def asn1_compare_named_values(  # noqa D417 undocumented-param
 
 
 def encode_to_der(  # noqa D417 undocumented-param
-    asn1_structure: base.Asn1ItemBase,
+    asn1_structure: base.Asn1Item,
 ) -> bytes:
     """DER-encode a `pyasn1` data structure.
 
@@ -625,7 +625,7 @@ def encode_to_der(  # noqa D417 undocumented-param
 
 
 @not_keyword
-def try_decode_pyasn1(data: bytes, asn1_spec: Asn1Type, for_nested: bool = False) -> Tuple[Asn1Type, bytes]:
+def try_decode_pyasn1(data: bytes, asn1_spec: Asn1Type, for_nested: bool = False) -> Tuple[Asn1Item, bytes]:
     """Try to decode a DER-encoded data using the provided ASN.1 specification.
 
     :param data: The DER-encoded data to decode.
@@ -633,7 +633,7 @@ def try_decode_pyasn1(data: bytes, asn1_spec: Asn1Type, for_nested: bool = False
     :param for_nested: If True, the function will return the decoded data and not the rest of the data.
     :return: The decoded PyASN1 object.
     """
-    from resources.cmputils import parse_pkimessage
+    from resources.cmputils import parse_pkimessage  # pylint: disable=import-outside-toplevel
 
     try:
         if for_nested:
@@ -641,5 +641,8 @@ def try_decode_pyasn1(data: bytes, asn1_spec: Asn1Type, for_nested: bool = False
             _, rest = decoder.decode(data, PKIMessageTMP())
             return out, rest
         return decoder.decode(data, asn1_spec)
-    except Exception:
-        raise BadAsn1Data(f"Error decoding data for {type(asn1_spec)}", overwrite=True)
+    except Exception:  # pylint: disable=broad-except
+        raise BadAsn1Data(
+            f"Error decoding data for {type(asn1_spec)}",  # pylint: disable=raise-missing-from
+            overwrite=True,
+        )

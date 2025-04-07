@@ -17,18 +17,24 @@ mechanisms to issue a certificate.
 
 from typing import Optional, Sequence, Tuple, Union
 
+import resources.certutils
+import resources.prepare_alg_ids
+import resources.protectionutils
 from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
-
-from pq_logic.keys.abstract_wrapper_keys import HybridKEMPublicKey, HybridKEMPrivateKey
 from resources import ca_ra_utils, certbuildutils, cmputils, keyutils, utils
-from resources.asn1_structures import PKIMessagesTMP, PKIMessageTMP
+from resources.asn1_structures import PKIMessageTMP
 from resources.ca_ra_utils import build_ca_message
 from resources.certbuildutils import build_cert_from_csr
-from resources.certextractutils import extract_extension_from_csr, get_extension
-from resources.convertutils import copy_asn1_certificate
+from resources.certextractutils import extract_extensions_from_csr, get_extension
+from resources.convertutils import (
+    copy_asn1_certificate,
+    ensure_is_pq_verify_key,
+    ensure_is_single_sign_key,
+    ensure_is_verify_key, ensure_is_single_verify_key,
+)
 from resources.exceptions import BadAlg, BadAsn1Data, InvalidAltSignature, InvalidKeyCombination, UnknownOID
 from resources.oidutils import (
     CMS_COMPOSITE_OID_2_NAME,
@@ -36,10 +42,9 @@ from resources.oidutils import (
     id_ce_altSignatureAlgorithm,
     id_ce_altSignatureValue,
 )
-from resources.typingutils import PrivateKey, TradSigPrivKey
+from resources.typingutils import SignKey, Strint, TradSignKey, TradVerifyKey
 from robot.api.deco import keyword, not_keyword
 
-from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig import catalyst_logic, cert_binding_for_multi_auth, chameleon_logic, sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig.cert_binding_for_multi_auth import (
     prepare_related_cert_extension,
@@ -48,13 +53,15 @@ from pq_logic.hybrid_sig.cert_binding_for_multi_auth import (
 from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax_extension
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
+from pq_logic.keys.abstract_wrapper_keys import HybridKEMPrivateKey, HybridKEMPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PublicKey
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONSE, ECDHPrivateKey
 
 
 def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descriptions in the docstring
-    request: PKIMessagesTMP,
-    ca_key: Union[CompositeSig03PublicKey],
+    request: PKIMessageTMP,
+    ca_key: CompositeSig03PublicKey,
     pub_key_loc: str,
     sig_loc: str,
     serial_number: Optional[int] = None,
@@ -62,7 +69,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
     cert_chain: Optional[Sequence[rfc9480.CMPCertificate]] = None,
     cert_index: Optional[int] = None,
     **kwargs,
-) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessageTMP, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Build a Sun-Hybrid certificate from a request.
 
     The certificate in form 1 is at the second position in the `extraCerts` list.
@@ -103,20 +110,20 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
         raise ValueError("Either ca_cert or cert_chain must be provided.")
 
     if ca_cert is None:
-        ca_cert = cert_chain[0]
+        ca_cert = cert_chain[0]  # type: ignore
 
     if request["body"].getName() == "p10cr":
-        pq_compute_utils.verify_csr_signature(csr=request["body"]["p10cr"])
+        resources.certutils.verify_csr_signature(csr=request["body"]["p10cr"])
         cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_csr_to_cert(
             csr=request["body"]["p10cr"],
-            issuer_private_key=ca_key.trad_key, # type: ignore
-            alt_private_key=ca_key.pq_key, # type: ignore
+            issuer_private_key=ca_key.trad_key,  # type: ignore
+            alt_private_key=ca_key.pq_key,  # type: ignore
             serial_number=serial_number,
             ca_cert=ca_cert,
             extensions=kwargs.get("extensions"),
             bad_alt_sig=kwargs.get("bad_alt_sig", False),
         )
-        pki_message = ca_ra_utils.build_cp_from_p10cr(request=request, cert=cert4, cert_req_id=-1)
+        pki_message, _ = ca_ra_utils.build_cp_from_p10cr(request=request, cert=cert4, cert_req_id=-1)
 
     elif request["body"].getName() in ["ir", "cr", "kur", "crr"]:
         cert_index = cert_index if cert_index is not None else 0
@@ -127,9 +134,9 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
             cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_cert_template_to_cert(
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
                 ca_cert=ca_cert,
-                ca_key=ca_key.trad_key, # type: ignore
+                ca_key=ca_key.trad_key,  # type: ignore
                 serial_number=serial_number,
-                alt_private_key=ca_key.pq_key, # type: ignore
+                alt_private_key=ca_key.pq_key,  # type: ignore
                 pub_key_loc=pub_key_loc,
                 sig_loc=sig_loc,
                 extensions=kwargs.get("extensions"),
@@ -147,8 +154,8 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
                 ca_cert=ca_cert,
                 serial_number=serial_number,
-                ca_key=ca_key.trad_key,
-                alt_private_key=ca_key.pq_key,
+                ca_key=ca_key.trad_key,  # type: ignore
+                alt_private_key=ca_key.pq_key,  # type: ignore
                 pub_key_loc=pub_key_loc,
                 sig_loc=sig_loc,
                 extensions=kwargs.get("extensions"),
@@ -158,7 +165,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
                 new_ee_cert=cert4,
                 ca_cert=ca_cert,
                 request=request,
-                client_pub_key=public_key,
+                client_pub_key=public_key.pq_key,  # type: ignore
             )
         else:
             raise ValueError(f"Invalid key type: {type(public_key).__name__}")
@@ -171,22 +178,22 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
 
 @not_keyword
 def build_enc_cert_response(
-    request: PKIMessagesTMP,
+    request: PKIMessageTMP,
     ca_cert: rfc9480.CMPCertificate,
-    signing_key: Optional[PrivateKey] = None,
+    ca_key: Optional[SignKey] = None,
     new_ee_cert: Optional[rfc9480.CMPCertificate] = None,
     hash_alg: str = "sha256",
-    cert_index: Optional[int] = None,
-    cert_req_id: Optional[int] = None,
+    cert_index: Optional[Strint] = None,
+    cert_req_id: Optional[Strint] = None,
     hybrid_kem_key: Optional[Union[HybridKEMPrivateKey, ECDHPrivateKey]] = None,
     client_pub_key: Optional[PQKEMPublicKey] = None,
-) -> PKIMessagesTMP:
+) -> PKIMessageTMP:
     """Build an encrypted certificate response.
 
     :param request: The certificate request.
     :param new_ee_cert: The newly created end-entity certificate.
     :param ca_cert: The CA certificate.
-    :param signing_key: The key to sign the certificate with.
+    :param ca_key: The key to sign the certificate with.
     :param hash_alg: The hash algorithm to use for signing the certificate. Defaults to "sha256".
     :param cert_index: The index of the certificate request to use. Defaults to 0.
     :param cert_req_id: The certificate request ID. Defaults to the ID inside the request.
@@ -205,12 +212,13 @@ def build_enc_cert_response(
         # TODO fix for multiple request.
         pass
 
-    cert_req_msg: rfc4211.CertReqMsg = request["body"]["ir"][cert_index]
+    cert_req_msg: rfc4211.CertReqMsg = request["body"]["ir"][int(cert_index)]
     cert_req_id = cert_req_id or cert_req_msg["certReq"]["certReqId"]
+    cert_req_id = int(cert_req_id)
 
-    enc_cert = ca_ra_utils.prepare_encr_cert_for_request(
+    enc_cert = ca_ra_utils.prepare_encr_cert_from_request(
         cert_req_msg=cert_req_msg,
-        signing_key=signing_key,
+        ca_key=ca_key,
         hash_alg=hash_alg,
         ca_cert=ca_cert,
         new_ee_cert=new_ee_cert,
@@ -235,15 +243,15 @@ def build_enc_cert_response(
 
 
 def build_cert_from_catalyst_request(  # noqa: D417 Missing argument descriptions in the docstring
-    request: PKIMessagesTMP,
+    request: PKIMessageTMP,
     ca_cert: rfc9480.CMPCertificate,
-    ca_key: PrivateKey,
+    ca_key: SignKey,
     cert_index: Union[str, int] = 0,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
     bad_sig: bool = False,
     **kwargs,
-) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessageTMP, rfc9480.CMPCertificate]:
     """Build a certificate from a Catalyst request.
 
     This is an experimental approach to show how to build a certificate from a Catalyst request.
@@ -307,6 +315,9 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
     if kwargs.get("extensions"):
         tbs_certs["extensions"].extend(kwargs.get("extensions"))
 
+    if not isinstance(second_key, PQSignaturePublicKey):
+        raise ValueError(f"Invalid key type: {type(second_key).__name__}. Only PQSignaturePublicKey are allowed.")
+
     alt_spki_extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(key=second_key, critical=False)
 
     tbs_certs["extensions"].append(alt_spki_extn)
@@ -329,9 +340,9 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
         pki_message = build_enc_cert_response(
             new_ee_cert=cert,
             ca_cert=ca_cert,
-            signing_key=ca_key,
+            ca_key=ca_key,
             request=request,
-            cert_index=cert_index,
+            cert_index=int(cert_index),
             hash_alg=hash_alg,
             client_pub_key=public_key,
         )
@@ -355,15 +366,17 @@ def _prepare_sig_popo(signing_key, data, hash_alg: str, use_rsa_pss: bool) -> rf
     :return: The populated `ProofOfPossession` structure.
     """
     popo: rfc4211.ProofOfPossession
-    sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=signing_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
-    sig = pq_compute_utils.sign_data_with_alg_id(key=signing_key, alg_id=sig_alg, data=data)
+    sig_alg = resources.prepare_alg_ids.prepare_sig_alg_id(
+        signing_key=signing_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg
+    )
+    sig = resources.protectionutils.sign_data_with_alg_id(key=signing_key, alg_id=sig_alg, data=data)
     popo = cmputils.prepare_popo(signature=sig, signing_key=signing_key)
     popo["signature"]["signature"] = univ.BitString.fromOctetString(sig)
     return popo
 
 
 def _compute_second_pop_catalyst(
-    alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey],
+    alt_key: Union[PQSignaturePrivateKey, TradSignKey],
     cert_request: rfc4211.CertRequest,
     hash_alg: str,
     use_rsa_pss: bool,
@@ -378,14 +391,19 @@ def _compute_second_pop_catalyst(
     :param bad_alt_pop: Whether to manipulate the first byte of the POP.
     :return: The updated `CertRequest`.
     """
-    sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=alt_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
+    sig_alg = resources.prepare_alg_ids.prepare_sig_alg_id(
+        signing_key=alt_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg
+    )
     alt_sig_id_extn = catalyst_logic.prepare_alt_sig_alg_id_extn(alg_id=sig_alg, critical=False)
-    alt_spki = catalyst_logic.prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
+    alt_spki = catalyst_logic.prepare_subject_alt_public_key_info_extn(
+        alt_key.public_key(),  # type: ignore
+        critical=False,
+    )
     cert_request["certTemplate"]["extensions"].append(alt_sig_id_extn)
     cert_request["certTemplate"]["extensions"].append(alt_spki)
 
     data = encoder.encode(cert_request)
-    sig = pq_compute_utils.sign_data_with_alg_id(key=alt_key, alg_id=sig_alg, data=data)
+    sig = resources.protectionutils.sign_data_with_alg_id(key=alt_key, alg_id=sig_alg, data=data)
     if bad_alt_pop:
         sig = utils.manipulate_first_byte(sig)
     extn = catalyst_logic.prepare_alt_signature_value_extn(signature=sig, critical=False)
@@ -394,7 +412,7 @@ def _compute_second_pop_catalyst(
 
 
 def _verify_alt_sig_for_pop(
-    alt_pub_key: Union[PQSignaturePublicKey],
+    alt_pub_key: Union[PQSignaturePublicKey, TradVerifyKey],
     cert_req_msg: rfc4211.CertReqMsg,
     alt_sig_alg_id: rfc5280.Extension,
     alt_sig: rfc5280.Extension,
@@ -426,7 +444,7 @@ def _verify_alt_sig_for_pop(
     alt_signature_algorithm = decoder.decode(alt_sig_alg_id["extnValue"], asn1Spec=rfc5280.AlgorithmIdentifier())[0]
     alt_signature_value, _ = decoder.decode(alt_sig["extnValue"], asn1Spec=AltSignatureValueExt())
     try:
-        pq_compute_utils.verify_signature_with_alg_id(
+        resources.protectionutils.verify_signature_with_alg_id(
             public_key=alt_pub_key,
             signature=alt_signature_value.asOctets(),
             alg_id=alt_signature_algorithm,
@@ -465,6 +483,17 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
     first_key = ca_ra_utils.get_public_key_from_cert_req_msg(cert_req_msg)
 
     if cert_req_msg["popo"].getName() == "keyEncipherment":
+        if alt_sig is None:
+            raise ValueError(
+                "Alternative signature is missing, if the public key inside the `CertTemplate` is a KEM key."
+            )
+        alt_pub_key = ensure_is_single_verify_key(alt_pub_key)
+
+        if alt_sig_alg_id is None:
+            raise ValueError(
+                "Alternative signature algorithm is missing, if the public key inside the `CertTemplate` is a KEM key."
+            )
+
         _verify_alt_sig_for_pop(
             alt_pub_key=alt_pub_key,
             cert_req_msg=cert_req_msg,
@@ -479,9 +508,9 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
         if not isinstance(first_key, PQSignaturePublicKey):
             first_key, alt_pub_key = alt_pub_key, first_key
 
-        public_key = CompositeSig03PublicKey(pq_key=first_key, trad_key=alt_pub_key)
+        public_key = CompositeSig03PublicKey(pq_key=first_key, trad_key=alt_pub_key)  # type: ignore
         CompositeSig03PublicKey.validate_oid(oid, public_key)
-        pq_compute_utils.verify_signature_with_alg_id(
+        resources.protectionutils.verify_signature_with_alg_id(
             public_key=public_key,
             alg_id=sig_alg_oid,
             data=encoder.encode(cert_req_msg["certReq"]),
@@ -492,7 +521,8 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
     if isinstance(alt_pub_key, PQKEMPublicKey):
         alg_id = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
         data = encoder.encode(cert_req_msg["certReq"])
-        pq_compute_utils.verify_signature_with_alg_id(
+        first_key = ensure_is_verify_key(first_key)
+        resources.protectionutils.verify_signature_with_alg_id(
             public_key=first_key,
             alg_id=alg_id,
             data=data,
@@ -500,9 +530,9 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
         )
     else:
         alg_id = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
-
+        first_key = ensure_is_verify_key(first_key)
         try:
-            pq_compute_utils.verify_signature_with_alg_id(
+            resources.protectionutils.verify_signature_with_alg_id(
                 public_key=first_key,
                 signature=cert_req_msg["popo"]["signature"]["signature"].asOctets(),
                 alg_id=alg_id,
@@ -511,8 +541,18 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
         except InvalidSignature as e:
             raise InvalidSignature("Invalid signature for the `POP`.") from e
 
+        if alt_sig is None:
+            raise ValueError(
+                "Alternative signature is present, if the public key inside the `CertTemplate` is a KEM key."
+            )
+
+        if alt_sig_alg_id is None:
+            raise ValueError(
+                "Alternative signature algorithm is present, if the public key inside the `CertTemplate` is a KEM key."
+            )
+
         _verify_alt_sig_for_pop(
-            alt_pub_key=alt_pub_key,
+            alt_pub_key=alt_pub_key,  # type: ignore
             cert_req_msg=cert_req_msg,
             alt_sig_alg_id=alt_sig_alg_id,
             alt_sig=alt_sig,
@@ -521,8 +561,8 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
 
 @keyword(name="Prepare Catalyst CertReqMsg Approach")
 def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descriptions in the docstring
-    first_key: Union[PQKEMPrivateKey, TradSigPrivKey, PQSignaturePrivateKey],
-    alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey, PQKEMPrivateKey],
+    first_key: Union[PQKEMPrivateKey, TradSignKey, PQSignaturePrivateKey],
+    alt_key: Union[PQSignaturePrivateKey, TradSignKey, PQKEMPrivateKey],
     cert_req_id: Union[int, str] = 0,
     hash_alg: str = "sha256",
     subject: str = "CN=CMP Catalyst Test",
@@ -566,23 +606,26 @@ def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descr
         if not isinstance(first_key, PQSignaturePrivateKey):
             first_key, alt_key = alt_key, first_key
 
-        comp_key = CompositeSig03PrivateKey(first_key, alt_key)
-        extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(alt_key.public_key(), critical=False)
+        comp_key = CompositeSig04PrivateKey(first_key, alt_key)
+        extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(
+            alt_key.public_key(),  # type: ignore
+            critical=False,
+        )
         cert_req["certTemplate"]["extensions"].append(extn)
         data = encoder.encode(cert_req)
-        sig_alg = certbuildutils.prepare_sig_alg_id(
+        sig_alg = resources.prepare_alg_ids.prepare_sig_alg_id(
             signing_key=comp_key,  # type: ignore
             use_rsa_pss=True,
             hash_alg=hash_alg,
         )
-        sig = pq_compute_utils.sign_data_with_alg_id(key=comp_key, alg_id=sig_alg, data=data)
+        sig = resources.protectionutils.sign_data_with_alg_id(key=comp_key, alg_id=sig_alg, data=data)
 
         if bad_pop:
             sig = utils.manipulate_bytes_based_on_key(sig, comp_key)
 
         popo = cmputils.prepare_popo(signature=sig, alg_oid=sig_alg["algorithm"])
 
-    elif isinstance(first_key, PQKEMPrivateKey) and isinstance(alt_key, TradSigPrivKey):
+    elif isinstance(first_key, PQKEMPrivateKey) and isinstance(alt_key, TradSignKey):
         popo = cmputils.prepare_popo_challenge_for_non_signing_key(use_encr_cert=True)
         cert_req = _compute_second_pop_catalyst(
             alt_key=alt_key,
@@ -592,20 +635,25 @@ def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descr
             bad_alt_pop=bad_alt_pop,
         )
 
-    elif isinstance(alt_key, (PQSignaturePrivateKey, TradSigPrivKey)) and isinstance(
-        first_key, (PQSignaturePrivateKey, TradSigPrivKey)
+    elif isinstance(alt_key, (PQSignaturePrivateKey, TradSignKey)) and isinstance(
+        first_key, (PQSignaturePrivateKey, TradSignKey)
     ):
         # means that both are signature keys.
+        alt_key = ensure_is_single_sign_key(alt_key)
+        signing_key = ensure_is_single_sign_key(first_key)
         cert_req = _compute_second_pop_catalyst(
             alt_key=alt_key, cert_request=cert_req, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss, bad_alt_pop=bad_alt_pop
         )
 
         data = encoder.encode(cert_req)
-        sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=first_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg)
-        sig = pq_compute_utils.sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
-        popo = cmputils.prepare_popo(signature=sig, signing_key=first_key, alg_oid=sig_alg["algorithm"])
 
-    elif isinstance(alt_key, PQKEMPrivateKey) and isinstance(first_key, TradSigPrivKey):
+        sig_alg = resources.prepare_alg_ids.prepare_sig_alg_id(
+            signing_key=signing_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg
+        )
+        sig = resources.protectionutils.sign_data_with_alg_id(key=signing_key, alg_id=sig_alg, data=data)
+        popo = cmputils.prepare_popo(signature=sig, signing_key=signing_key, alg_oid=sig_alg["algorithm"])
+
+    elif isinstance(alt_key, PQKEMPrivateKey) and isinstance(first_key, TradSignKey):
         extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(
             alt_key.public_key(),  # type: ignore
             critical=False,
@@ -614,8 +662,10 @@ def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descr
         cert_req["certTemplate"] = cert_template
 
         data = encoder.encode(cert_req)
-        sig_alg = certbuildutils.prepare_sig_alg_id(signing_key=first_key, use_rsa_pss=True, hash_alg=hash_alg)
-        sig = pq_compute_utils.sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
+        sig_alg = resources.prepare_alg_ids.prepare_sig_alg_id(
+            signing_key=first_key, use_rsa_pss=True, hash_alg=hash_alg
+        )
+        sig = resources.protectionutils.sign_data_with_alg_id(key=first_key, alg_id=sig_alg, data=data)
 
         if bad_pop:
             sig = utils.manipulate_first_byte(sig)
@@ -637,10 +687,10 @@ def prepare_catalyst_cert_req_msg_approach(  # noqa: D417 Missing argument descr
 
 def _generate_catalyst_alt_sig_key(
     alt_sig_alg: Optional[rfc5280.Extension],
-    alt_key: Optional[Union[PQSignaturePrivateKey, TradSigPrivKey]],
+    alt_key: Optional[Union[PQSignaturePrivateKey, TradSignKey]],
     allow_chosen_sig_alg: bool,
     extensions: Optional[rfc9480.Extensions] = None,
-):
+) -> Tuple[PQSignaturePrivateKey, Optional[str]]:
     """Generate an alternative key for the Catalyst signed certificate.
 
     :param alt_sig_alg: The alternative signature algorithm.
@@ -655,36 +705,42 @@ def _generate_catalyst_alt_sig_key(
 
     pq_hash_alg = None
     if alt_sig_alg is not None and allow_chosen_sig_alg:
-        alt_sig_alg, rest = decoder.decode(alt_sig_alg["extnValue"], asn1Spec=rfc5280.AlgorithmIdentifier())
+        alt_sig_alg_id, rest = decoder.decode(alt_sig_alg["extnValue"], asn1Spec=rfc5280.AlgorithmIdentifier())
         if rest:
             raise BadAsn1Data("AltSignatureAlgorithm")
         try:
-            alt_key = keyutils.generate_key_based_on_alg_id(alt_sig_alg)
+            alt_key = keyutils.generate_key_based_on_alg_id(alt_sig_alg_id)  # type: ignore
         except NotImplementedError as e:
             raise BadAlg("The provided signature algorithm is not supported.", error_details=str(e)) from e
         except UnknownOID as e:
             raise BadAlg("The provided signature algorithm is not supported.", error_details=e.message) from e
 
-        if alt_sig_alg["algorithm"] in PQ_SIG_PRE_HASH_OID_2_NAME:
-            pq_hash_alg = PQ_SIG_PRE_HASH_OID_2_NAME[alt_sig_alg["algorithm"]].split("-")[-1]
+        if alt_sig_alg_id["algorithm"] in PQ_SIG_PRE_HASH_OID_2_NAME:
+            pq_hash_alg = PQ_SIG_PRE_HASH_OID_2_NAME[alt_sig_alg_id["algorithm"]].split("-")[-1]
 
     elif alt_key is None:
-        alt_key = keyutils.generate_key("ml-dsa-65")
+        alt_key = keyutils.generate_key("ml-dsa-65")  # type: ignore
+
+    if not isinstance(alt_key, PQSignaturePrivateKey):
+        raise BadAlg(
+            "The provided signature algorithm is not supported."
+            f"Got: {type(alt_key).__name__} instead of PQSignaturePrivateKey."
+        )
 
     return alt_key, pq_hash_alg
 
 
 @not_keyword
 def build_catalyst_signed_cert_from_p10cr(
-    request: PKIMessagesTMP,
-    ca_key: PrivateKey,
+    request: PKIMessageTMP,
+    ca_key: SignKey,
     ca_cert: rfc9480.CMPCertificate,
-    alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey] = None,
+    alt_key: Optional[Union[PQSignaturePrivateKey, TradSignKey]] = None,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
     cert_req_id: Optional[Union[int, str]] = None,
     allow_chosen_sig_alg: bool = True,
-) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessageTMP, rfc9480.CMPCertificate]:
     """Build a certificate from a request, which want to be signed with an alternative key.
 
     :param request: The `p10cr` request.
@@ -699,8 +755,8 @@ def build_catalyst_signed_cert_from_p10cr(
     (indicated by the `AltSignatureAlgorithm` extension.)
     :return:
     """
-    pq_compute_utils.verify_csr_signature(csr=request["body"]["p10cr"])
-    crs_extensions = extract_extension_from_csr(request["body"]["p10cr"])
+    resources.certutils.verify_csr_signature(csr=request["body"]["p10cr"])
+    crs_extensions = extract_extensions_from_csr(request["body"]["p10cr"])
 
     alt_sig_alg = None
     if crs_extensions is not None:
@@ -719,6 +775,9 @@ def build_catalyst_signed_cert_from_p10cr(
         include_csr_extensions=False,
     )
 
+    if not isinstance(ca_key, TradSignKey):
+        raise ValueError("The CA key must be a traditional signing key.")
+
     cert = catalyst_logic.sign_cert_catalyst(
         cert=cert, trad_key=ca_key, pq_key=alt_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg, pq_hash_alg=pq_hash_alg
     )
@@ -732,8 +791,8 @@ def build_catalyst_signed_cert_from_p10cr(
 def _process_single_catalyst_request(
     cert_req_msg: rfc4211.CertReqMsg,
     ca_cert: rfc9480.CMPCertificate,
-    ca_key: PrivateKey,
-    alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey] = None,
+    ca_key: SignKey,
+    alt_key: Optional[Union[PQSignaturePrivateKey, TradSignKey]] = None,
     allow_chosen_sig_alg: bool = True,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
@@ -776,7 +835,7 @@ def _process_single_catalyst_request(
     )
     new_ee_cert = catalyst_logic.sign_cert_catalyst(
         cert=new_ee_cert,
-        trad_key=ca_key,
+        trad_key=ca_key,  # type: ignore
         pq_key=alt_key,
         use_rsa_pss=use_rsa_pss,
         hash_alg=hash_alg,
@@ -788,9 +847,9 @@ def _process_single_catalyst_request(
 
     enc_cert = None
     if cert_req_msg["popo"].getName() == "keyEncipherment":
-        enc_cert = ca_ra_utils.prepare_encr_cert_for_request(
+        enc_cert = ca_ra_utils.prepare_encr_cert_from_request(
             cert_req_msg=cert_req_msg,
-            signing_key=ca_key,
+            ca_key=ca_key,
             hash_alg=hash_alg,
             ca_cert=ca_cert,
             new_ee_cert=new_ee_cert,
@@ -810,8 +869,8 @@ def _process_single_catalyst_request(
 def _process_catalyst_requests(
     requests: PKIMessageTMP,
     ca_cert: rfc9480.CMPCertificate,
-    ca_key: PrivateKey,
-    alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey] = None,
+    ca_key: SignKey,
+    alt_key: Optional[Union[PQSignaturePrivateKey, TradSignKey]] = None,
     allow_chosen_sig_alg: bool = True,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
@@ -861,10 +920,10 @@ def _process_catalyst_requests(
 
 
 def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descriptions in the docstring
-    request: PKIMessagesTMP,
+    request: PKIMessageTMP,
     ca_cert: rfc9480.CMPCertificate,
-    ca_key: PrivateKey,
-    alt_key: Union[PQSignaturePrivateKey, TradSigPrivKey] = None,
+    ca_key: SignKey,
+    alt_key: Optional[Union[PQSignaturePrivateKey, TradSignKey]] = None,
     cert_index: Optional[Union[str, int]] = None,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = True,
@@ -900,7 +959,7 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
 
     """
     if request["body"].getName() == "p10cr":
-        cert_responses, cert = build_catalyst_signed_cert_from_p10cr(
+        responses, cert = build_catalyst_signed_cert_from_p10cr(
             request=request,
             ca_cert=ca_cert,
             ca_key=ca_key,
@@ -909,6 +968,7 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
             use_rsa_pss=use_rsa_pss,
         )
         certs = [cert]
+        return responses, certs
 
     elif request["body"].getName() in ["ir", "cr", "kur", "ccr"]:
         if cert_index is not None:
@@ -950,11 +1010,11 @@ def build_catalyst_signed_cert_from_req(  # noqa: D417 Missing argument descript
 
 
 def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in the docstring
-    request: PKIMessagesTMP,
+    request: PKIMessageTMP,
     ca_cert: rfc9480.CMPCertificate,
-    ca_key: PrivateKey,
+    ca_key: SignKey,
     **kwargs,
-) -> Tuple[PKIMessagesTMP, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
+) -> Tuple[PKIMessageTMP, rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Build a Chameleon certificate from a `p10cr` request.
 
     Arguments:
@@ -996,9 +1056,9 @@ def build_chameleon_from_p10cr(  # noqa: D417 Missing argument descriptions in t
 
 
 def build_cert_discovery_cert_from_p10cr(  # noqa: D417 Missing argument descriptions in the docstring
-    request: PKIMessagesTMP,
+    request: PKIMessageTMP,
     ca_cert: rfc9480.CMPCertificate,
-    ca_key: PrivateKey,
+    ca_key: SignKey,
     url: str,
     serial_number: Union[int, str],
     max_freshness_seconds: Union[int, str] = 500,
@@ -1051,7 +1111,7 @@ def build_cert_discovery_cert_from_p10cr(  # noqa: D417 Missing argument descrip
 
     extn = [extn]
     if kwargs.get("extensions"):
-        extn.extend(kwargs.get("extensions"))
+        extn.extend(kwargs.get("extensions"))  # type: ignore
 
     cert = certbuildutils.build_cert_from_csr(
         csr=request["body"]["p10cr"],
@@ -1069,7 +1129,7 @@ def build_cert_discovery_cert_from_p10cr(  # noqa: D417 Missing argument descrip
 @keyword(name="Build Related Cert From CSR")
 def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
-    ca_key: PrivateKey,
+    ca_key: SignKey,
     ca_cert: rfc9480.CMPCertificate,
     related_cert: Optional[rfc9480.CMPCertificate] = None,
     critical: bool = False,
@@ -1123,7 +1183,7 @@ def build_related_cert_from_csr(  # noqa: D417 Missing argument descriptions in 
 
     extn = [extn]
     if kwargs.get("extensions"):
-        extn.extend(kwargs.get("extensions"))
+        extn.extend(kwargs.get("extensions"))  # type: ignore
 
     # build the certificate
     cert = build_cert_from_csr(

@@ -1,12 +1,17 @@
+# SPDX-FileCopyrightText: Copyright 2024 Siemens AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Stateful Hash Signature Key Classes."""
 
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
 from pyasn1.codec.der import decoder
 from pyasn1.type import univ
+
+from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
 
 
 class PQHashStatefulSigPublicKey(PQPublicKey, ABC):

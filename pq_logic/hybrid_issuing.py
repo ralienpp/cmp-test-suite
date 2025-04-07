@@ -54,7 +54,7 @@ from pq_logic.hybrid_sig.cert_binding_for_multi_auth import (
 from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax_extension
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
-from pq_logic.keys.abstract_wrapper_keys import HybridKEMPrivateKey, HybridKEMPublicKey
+from pq_logic.keys.abstract_wrapper_keys import HybridKEMPrivateKey, HybridKEMPublicKey, KEMPrivateKey, KEMPublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
 from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey, CompositeSig04PublicKey
 from pq_logic.keys.sig_keys import MLDSAPublicKey
@@ -168,7 +168,7 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
                 new_ee_cert=cert4,
                 ca_cert=ca_cert,
                 request=request,
-                client_pub_key=public_key.pq_key,  # type: ignore
+                client_pub_key=public_key,
             )
         else:
             raise ValueError(f"Invalid key type: {type(public_key).__name__}")
@@ -189,7 +189,7 @@ def build_enc_cert_response(
     cert_index: Optional[Strint] = None,
     cert_req_id: Optional[Strint] = None,
     hybrid_kem_key: Optional[Union[HybridKEMPrivateKey, ECDHPrivateKey]] = None,
-    client_pub_key: Optional[PQKEMPublicKey] = None,
+    client_pub_key: Optional[KEMPublicKey] = None,
 ) -> PKIMessageTMP:
     """Build an encrypted certificate response.
 

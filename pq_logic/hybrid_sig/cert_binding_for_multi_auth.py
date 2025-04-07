@@ -26,15 +26,21 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc5652, rfc6402, rfc9480
 from pyasn1_alt_modules.rfc7906 import BinaryTime
-from resources import certextractutils, certutils, cmputils, cryptoutils, envdatautils, utils
+from resources import (
+    ca_kga_logic,
+    certextractutils,
+    certutils,
+    cmputils,
+    cryptoutils,
+    envdatautils,
+    utils,
+)
 from resources.asn1utils import get_set_bitstring_names
-from resources.ca_kga_logic import validate_issuer_and_serial_number_field
-from resources.convertutils import pyasn1_time_obj_to_py_datetime
+from resources.convertutils import ensure_is_verify_key, pyasn1_time_obj_to_py_datetime
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
-from resources.typingutils import PrivateKey, Strint
+from resources.typingutils import SignKey, Strint
 from robot.api.deco import keyword, not_keyword
-from unit_tests.utils_for_test import convert_to_crypto_lib_cert
 
 from pq_logic.hybrid_structures import RelatedCertificate, RequesterCertificate
 from pq_logic.tmp_oids import id_aa_relatedCertRequest, id_relatedCert
@@ -43,7 +49,7 @@ from pq_logic.tmp_oids import id_aa_relatedCertRequest, id_relatedCert
 @keyword(name="Prepare RequesterCertificate")
 def prepare_requester_certificate(  # noqa: D417 Missing argument descriptions in the docstring
     cert_a: rfc9480.CMPCertificate,
-    cert_a_key: PrivateKey,
+    cert_a_key: SignKey,
     uri: str,
     bad_pop: bool = False,
     hash_alg: Optional[str] = None,
@@ -292,10 +298,16 @@ def validate_ku_and_eku_related_cert(  # noqa: D417 Missing argument description
     # MUST ensure that the related certificate at least contains the KU bits and EKU
     # OIDs being asserted in the certificate being issued
 
-    eku_cert_a = certextractutils.get_field_from_certificate(cert_a, extension="eku")
-    eku_cert_b = certextractutils.get_field_from_certificate(cert_a, extension="eku")
+    eku_cert_a = certextractutils.get_field_from_certificate(cert_a, extension="eku")  # type: ignore
+    eku_cert_b = certextractutils.get_field_from_certificate(cert_a, extension="eku")  # type: ignore
+
+    eku_cert_a: Optional[rfc5280.ExtKeyUsageSyntax]
+    eku_cert_b: Optional[rfc5280.ExtKeyUsageSyntax]
 
     if eku_cert_a is not None:
+        if eku_cert_b is None:
+            raise ValueError("The related certificate does not contain the EKU extension.")
+
         for eku_oid in eku_cert_b:
             if eku_oid not in related_cert:
                 raise ValueError()
@@ -405,11 +417,19 @@ def validate_related_cert_pop(  # noqa: D417 Missing argument descriptions in th
     if hash_alg is None:
         raise ValueError(f"The hash algorithm could not be determined. Signature algorithm was: {sig_name}")
 
-    validate_issuer_and_serial_number_field(attributes["certID"], cert_a)
+    ca_kga_logic.validate_issuer_and_serial_number_field(attributes["certID"], cert_a)
     # extra the bound value to verify the signature
     data = encoder.encode(attributes["requestTime"]) + encoder.encode(attributes["certID"])
 
-    cryptoutils.verify_signature(data=data, hash_alg=hash_alg, public_key=public_key, signature=signature)
+    verify_key = ensure_is_verify_key(public_key)
+
+    cryptoutils.verify_signature(
+        data=data,
+        signature=signature,
+        hash_alg=hash_alg,
+        public_key=verify_key,
+    )
+
     return cert_chain
 
 
@@ -452,10 +472,11 @@ def validate_multi_auth_binding_csr(  # noqa: D417 Missing argument descriptions
     | ${related_cert}= | Validate Multi Auth Binding CSR | ${csr} |
 
     """
-    extensions = certextractutils.extract_extension_from_csr(csr)
+    extensions = certextractutils.extract_extensions_from_csr(csr)
     # For certificate chains, this extension MUST only be included in the end-entity certificate.
     if extensions is not None:
-        ca_extn = certextractutils.get_extension(extensions, rfc5280.id_ce_basicConstraints)
+        ca_extn = certextractutils.get_extension(extensions, rfc5280.id_ce_basicConstraints)  # type: ignore
+        ca_extn: rfc5280.BasicConstraints
         if ca_extn["cA"]:
             raise ValueError("The `Cert B` MUST be an end entity certificate.")
 
@@ -529,7 +550,7 @@ def generate_certs_only_message(cert_path: str, cert_dir: str) -> bytes:
 
     cms_message = pkcs7.PKCS7SignatureBuilder().set_data(b"")
     for cert in cert_chain:
-        cms_message = cms_message.add_certificate(convert_to_crypto_lib_cert(cert))
+        cms_message = cms_message.add_certificate(_convert_to_crypto_lib_cert(cert))
 
     cms_der = cms_message.sign(serialization.Encoding.DER, [])
     return cms_der

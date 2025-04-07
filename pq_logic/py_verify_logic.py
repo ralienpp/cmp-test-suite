@@ -11,14 +11,16 @@ Either has functionality to verify signatures of PKIMessages or certificates.
 """
 
 import logging
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
+import resources.protectionutils
 from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import constraint, tag, univ
 from pyasn1_alt_modules import rfc5280, rfc9480
-from resources import certutils, compareutils, keyutils
-from resources.asn1_structures import ProtectedPartTMP, PKIMessageTMP
+from resources import certutils, compareutils, convertutils, keyutils, utils
+from resources.asn1_structures import PKIMessageTMP, ProtectedPartTMP
+from resources.certextractutils import get_extension
 from resources.exceptions import BadAsn1Data, BadMessageCheck, InvalidAltSignature, UnknownOID
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import (
@@ -30,22 +32,29 @@ from resources.oidutils import (
     id_ce_altSignatureValue,
     id_ce_subjectAltPublicKeyInfo,
 )
-from resources.typingutils import PublicKeySig, CertOrCerts
+from resources.typingutils import CertOrCerts, VerifyKey
 from robot.api.deco import keyword
 
-import pq_logic
-from pq_logic import pq_compute_utils
-from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
+import pq_logic.hybrid_sig
+from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, chameleon_logic, sun_lamps_hybrid_scheme_00
+from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
+from pq_logic.keys.composite_sig04 import CompositeSig04PublicKey
 from pq_logic.keys.pq_key_factory import PQKeyFactory
+from pq_logic.tmp_oids import (
+    COMPOSITE_SIG04_OID_2_NAME,
+    id_altSubPubKeyExt,
+    id_ce_deltaCertificateDescriptor,
+    id_relatedCert,
+)
 
 
 def verify_cert_hybrid_signature(  # noqa D417 undocumented-param
     ee_cert: rfc9480.CMPCertificate,
     issuer_cert: rfc9480.CMPCertificate,
     other_cert: rfc9480.CMPCertificate,
-    catalyst_key: PQSignaturePublicKey = None,
+    catalyst_key: Optional[PQSignaturePublicKey] = None,
 ) -> None:
     """Verify the hybrid signature of an end-entity (EE) certificate using the appropriate composite method.
 
@@ -83,16 +92,18 @@ def verify_cert_hybrid_signature(  # noqa D417 undocumented-param
         elif other_cert is not None:
             trad_key = keyutils.load_public_key_from_spki(issuer_cert["tbsCertificate"]["subjectPublicKeyInfo"])
             pq_key = PQKeyFactory.load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
-            composite_key = CompositeSig03PublicKey(pq_key, trad_key=trad_key)
+            composite_key = CompositeSig03PublicKey(pq_key, trad_key=trad_key)  # type: ignore
 
         else:
             trad_key = keyutils.load_public_key_from_spki(issuer_cert["tbsCertificate"]["subjectPublicKeyInfo"])
-            composite_key = CompositeSig03PublicKey(catalyst_key, trad_key=trad_key)
+            composite_key = CompositeSig03PublicKey(catalyst_key, trad_key=trad_key)  # type: ignore
 
         data = encoder.encode(ee_cert["tbsCertificate"])
         signature = ee_cert["signature"].asOctets()
         CompositeSig03PrivateKey.validate_oid(oid, composite_key)
-        pq_compute_utils.verify_signature_with_alg_id(composite_key, alg_id=alg_id, signature=signature, data=data)
+        resources.protectionutils.verify_signature_with_alg_id(
+            composite_key, alg_id=alg_id, signature=signature, data=data
+        )
 
     else:
         raise UnknownOID(oid=oid)
@@ -119,13 +130,13 @@ def _verify_signature_with_other_cert(
     """
     sig_alg_oid = sig_alg["algorithm"]
 
-    if sig_alg_oid not in CMS_COMPOSITE_OID_2_NAME:
+    if sig_alg_oid not in CMS_COMPOSITE_OID_2_NAME and sig_alg_oid not in COMPOSITE_SIG04_OID_2_NAME:
         raise ValueError("The signature algorithm is not a composite signature one.")
 
     if other_certs is not None:
         other_certs = other_certs if not isinstance(other_certs, rfc9480.CMPCertificate) else [other_certs]
 
-    pq_key = pq_compute_utils.may_extract_alt_key_from_cert(cert=cert, other_certs=other_certs)
+    pq_key = may_extract_alt_key_from_cert(cert=cert, other_certs=other_certs)  # type: ignore
     if pq_key is None:
         raise ValueError("No alternative issuer key found.")
 
@@ -134,14 +145,17 @@ def _verify_signature_with_other_cert(
     if not isinstance(pq_key, PQSignaturePublicKey):
         trad_key, pq_key = pq_key, trad_key
 
-    if sig_alg_oid in CMS_COMPOSITE_OID_2_NAME:
-        public_key = CompositeSig03PublicKey(pq_key=pq_key, trad_key=trad_key)
+    if sig_alg_oid in COMPOSITE_SIG04_OID_2_NAME:
+        public_key = CompositeSig04PublicKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
+
+    elif sig_alg_oid in CMS_COMPOSITE_OID_2_NAME:
+        public_key = CompositeSig03PublicKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
         CompositeSig03PublicKey.validate_oid(sig_alg_oid, public_key)
 
     else:
         raise UnknownOID(sig_alg_oid, extra_info="Composite signature can not be verified, with 2-certs.")
 
-    pq_compute_utils.verify_signature_with_alg_id(public_key, sig_alg, data, signature)
+    resources.protectionutils.verify_signature_with_alg_id(public_key, sig_alg, data, signature)
 
 
 def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
@@ -179,7 +193,9 @@ def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
     | Verify Composite Signature with Hybrid Cert | ${data} | ${signature} | ${sig_alg} | ${cert} | ${other_certs} |
 
     """
-    if sig_alg["algorithm"] not in CMS_COMPOSITE_OID_2_NAME:
+    oid = sig_alg["algorithm"]
+
+    if oid not in CMS_COMPOSITE_OID_2_NAME and oid not in COMPOSITE_SIG04_OID_2_NAME:
         raise ValueError("The signature algorithm is not a composite signature.")
 
     cert_sig_alg = cert["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]
@@ -197,11 +213,13 @@ def verify_composite_signature_with_hybrid_cert(  # noqa D417 undocumented-param
             "having the certificate with traditional signature algorithm."
         )
 
-    if cert_sig_alg in CMS_COMPOSITE_OID_2_NAME or str(cert_sig_alg) in CMS_COMPOSITE_OID_2_NAME:
+    if cert_sig_alg in CMS_COMPOSITE_OID_2_NAME or cert_sig_alg in COMPOSITE_SIG04_OID_2_NAME:
         logging.info("The certificate contains a composite signature algorithm.")
         public_key = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
-        CompositeSig03PublicKey.validate_oid(cert_sig_alg, public_key)
-        pq_compute_utils.verify_signature_with_alg_id(public_key, sig_alg, data, signature)
+        public_key = convertutils.ensure_is_verify_key(public_key)
+        resources.protectionutils.verify_signature_with_alg_id(
+            public_key=public_key, alg_id=sig_alg, data=data, signature=signature
+        )
 
     else:
         raise UnknownOID(cert_sig_alg, extra_info="Composite signature can not be verified.")
@@ -280,8 +298,8 @@ def build_migration_cert_chain(  # noqa D417 undocumented-param
             continue
 
         try:
-            pq_compute_utils.verify_signature_with_alg_id(
-                public_key=certutils.load_public_key_from_cert(poss_issuer),
+            resources.protectionutils.verify_signature_with_alg_id(
+                public_key=certutils.load_public_key_from_cert(poss_issuer),  # type: ignore
                 data=encoder.encode(cert["tbsCertificate"]),
                 signature=cert["signature"].asOctets(),
                 alg_id=cert["tbsCertificate"]["signature"],
@@ -351,16 +369,19 @@ def _verify_sun_hybrid_trad_sig(
     cert4 = sun_lamps_hybrid_scheme_00.convert_sun_hybrid_cert_to_target_form(cert, "Form4")
 
     public_key = certutils.load_public_key_from_cert(issuer_cert)
+    public_key = convertutils.ensure_is_verify_key(public_key)
     data = encoder.encode(cert4["tbsCertificate"])
     alg_id = cert4["tbsCertificate"]["signature"]
     signature = cert4["signature"].asOctets()
-    pq_compute_utils.verify_signature_with_alg_id(public_key=public_key, data=data, signature=signature, alg_id=alg_id)
+    resources.protectionutils.verify_signature_with_alg_id(
+        public_key=public_key, data=data, signature=signature, alg_id=alg_id
+    )
 
 
 def verify_sun_hybrid_cert(  # noqa D417 undocumented-param
     cert: rfc9480.CMPCertificate,
     issuer_cert: rfc9480.CMPCertificate,
-    alt_issuer_key: Optional[PublicKeySig] = None,
+    alt_issuer_key: Optional[VerifyKey] = None,
     check_alt_sig: bool = True,
     other_certs: Optional[List[rfc9480.CMPCertificate]] = None,
 ) -> None:
@@ -394,7 +415,7 @@ def verify_sun_hybrid_cert(  # noqa D417 undocumented-param
 
     _verify_sun_hybrid_trad_sig(cert, issuer_cert)
     if alt_issuer_key is None:
-        alt_issuer_key = pq_compute_utils.may_extract_alt_key_from_cert(issuer_cert, other_certs=other_certs)
+        alt_issuer_key = may_extract_alt_key_from_cert(issuer_cert, other_certs=other_certs)
         if alt_issuer_key is None:
             raise ValueError("No alternative issuer key found.")
 
@@ -421,7 +442,7 @@ def _get_catalyst_info_vals(
     alt_sig = None
 
     other_fields = (
-        univ.SequenceOf(componentType=rfc9480.InfoTypeAndValue())
+        univ.SequenceOf(componentType=rfc9480.InfoTypeAndValue())  # type: ignore
         .subtype(subtypeSpec=constraint.ValueSizeConstraint(1, float("inf")))
         .subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 8))
     )
@@ -480,7 +501,7 @@ def prepare_protected_part(  # noqa D417 undocumented-param
 @keyword(name="Verify Hybrid PKIMessage Protection")
 def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
     pki_message: PKIMessageTMP,
-    public_key: Optional[PublicKeySig] = None,
+    public_key: Optional[VerifyKey] = None,
     must_be_catalyst_signed: bool = False,
 ) -> None:
     """Verify the protection of a PKIMessage with a hybrid protection scheme.
@@ -521,15 +542,18 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
     data = prepare_protected_part(pki_message)
 
     oid = prot_alg_id["algorithm"]
-    if isinstance(public_key, CompositeSig03PublicKey) and oid in CMS_COMPOSITE_OID_2_NAME:
-        pq_compute_utils.verify_signature_with_alg_id(
+
+    if isinstance(public_key, CompositeSig03PublicKey) and (
+        oid in CMS_COMPOSITE_OID_2_NAME or oid in COMPOSITE_SIG04_OID_2_NAME
+    ):
+        resources.protectionutils.verify_signature_with_alg_id(
             public_key=public_key,
             alg_id=prot_alg_id,
             data=data,
             signature=pki_message["protection"].asOctets(),
         )
 
-    elif oid in CMS_COMPOSITE_OID_2_NAME:
+    elif oid in CMS_COMPOSITE_OID_2_NAME or oid in COMPOSITE_SIG04_OID_2_NAME:
         other_certs = None
         if len(pki_message) > 1:
             other_certs = pki_message["extraCerts"][1:]
@@ -547,8 +571,11 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
         if len(pki_message) > 1:
             other_certs = pki_message["extraCerts"][1:]
 
-        pq_compute_utils.verify_signature_with_alg_id(
-            public_key=certutils.load_public_key_from_cert(pki_message["extraCerts"][0]),
+        public_key = convertutils.ensure_is_verify_key(
+            certutils.load_public_key_from_cert(pki_message["extraCerts"][0])
+        )
+        resources.protectionutils.verify_signature_with_alg_id(
+            public_key=public_key,
             alg_id=prot_alg_id,
             data=data,
             signature=pki_message["protection"].asOctets(),
@@ -565,12 +592,12 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
         if public_key_info is not None:
             other_key = keyutils.load_public_key_from_spki(public_key_info)
         else:
-            other_key = pq_compute_utils.may_extract_alt_key_from_cert(cert=cert, other_certs=other_certs)
+            other_key = may_extract_alt_key_from_cert(cert=cert, other_certs=other_certs)
 
         pki_message["header"]["generalInfo"] = other_fields
         data = prepare_protected_part(pki_message)
-
-        pq_compute_utils.verify_signature_with_alg_id(
+        other_key = convertutils.ensure_is_verify_key(other_key)
+        resources.protectionutils.verify_signature_with_alg_id(
             public_key=other_key,
             alg_id=sig_alg_id,
             data=data,
@@ -582,7 +609,7 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
 def verify_crl_signature(  # noqa D417 undocumented-param
     crl: rfc5280.CertificateList,
     ca_cert: rfc9480.CMPCertificate,
-    alt_public_key: Optional[PublicKeySig] = None,
+    alt_public_key: Optional[VerifyKey] = None,
     must_be_catalyst_signed: bool = False,
 ) -> None:
     """Verify the signature of a CRL with a CA certificate.
@@ -637,7 +664,7 @@ def verify_crl_signature(  # noqa D417 undocumented-param
                     raise BadAsn1Data("AltSubjectAltPublicKeyInfo")
 
                 if alt_public_key is None:
-                    alt_public_key = keyutils.load_public_key_from_spki(alt_spki)
+                    alt_public_key = keyutils.load_public_key_from_spki(alt_spki)  # type: ignore
                 else:
                     logging.debug("Found an alternative public key in the CRL.")
 
@@ -655,16 +682,116 @@ def verify_crl_signature(  # noqa D417 undocumented-param
             raise ValueError("The CRL does not contain an alternative signature.")
 
         data = encoder.encode(crl["tbsCertList"]) + encoder.encode(crl["signatureAlgorithm"])
+        alt_public_key = convertutils.ensure_is_verify_key(alt_public_key)
         try:
-            pq_logic.pq_compute_utils.verify_signature_with_alg_id(
+            resources.protectionutils.verify_signature_with_alg_id(
                 public_key=alt_public_key,
                 alg_id=alt_sig_alg,
                 signature=alt_sig_value,
                 data=data,
             )
         except InvalidSignature as e:
-            key_name = alt_public_key.name if hasattr(alt_public_key, "name") else type(alt_public_key)
+            key_name = keyutils.get_key_name(alt_public_key)
             raise InvalidAltSignature(f"The alternative signature is invalid, for key: {key_name}") from e
 
     elif must_be_catalyst_signed:
         raise ValueError("The CRL was not signed by the an alternative key.")
+
+
+def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate,
+    other_certs: Optional[List[rfc9480.CMPCertificate]] = None,
+    load_chain: bool = False,
+    timeout: Union[int, str] = 20,
+) -> Optional[PQSignaturePublicKey]:
+    """May extract the alternative public key from a certificate.
+
+    Either extracts the alternative public key from the issuer's certificate or from the certificate discovery
+    extension. Alternative extracts the pq_key of the related certificate from the issuer's certificate or
+    if the issuer's certificate is a composite signature certificate, extracts the pq_key from the composite signature
+    keys.
+
+    Arguments:
+    ---------
+        - `cert`: The certificate from which to extract the alternative public key.
+        - `other_certs`: A list of other certificates to search for the related certificate.
+        - `load_chain`: Whether to load the chain of certificates. Defaults to `False`.
+        (relevant for the related certificate extension).
+        - `timeout`: The timeout for loading the certificate. Defaults to `20` seconds.
+
+    Returns:
+    -------
+        - The extracted alternative public key or `None` if not found.
+
+    Examples:
+    --------
+    | ${alt_key} = | May Extract Alt Key From Cert | ${cert} |
+    | ${alt_key} = | May Extract Alt Key From Cert | ${cert} | ${other_certs} |
+
+    """
+    extensions = cert["tbsCertificate"]["extensions"]
+    extn_rel_cert = get_extension(extensions, id_relatedCert)
+    extn_sia = get_extension(extensions, rfc5280.id_pe_subjectInfoAccess)
+    extn_alt_spki = get_extension(extensions, id_ce_subjectAltPublicKeyInfo)
+    extn_chameleon = get_extension(extensions, id_ce_deltaCertificateDescriptor)
+    extn_sun_hybrid = get_extension(extensions, id_altSubPubKeyExt)
+
+    rel_cert_desc = None
+    if extn_sia is not None:
+        try:
+            # it could be that the SIA extension is present, but does not
+            # contain the cert discovery entry.
+            rel_cert_desc = certdiscovery.extract_related_cert_des_from_sis_extension(extn_sia)
+        except ValueError:
+            pass
+
+    # TODO fix try to validate both.
+
+    spki = cert["tbsCertificate"]["subjectPublicKeyInfo"]
+    oid = spki["algorithm"]["algorithm"]
+
+    if extn_sun_hybrid is not None:
+        public_key = pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00.get_sun_hybrid_alt_pub_key(
+            cert["tbsCertificate"]["extensions"]
+        )
+        if public_key is not None:
+            return public_key  # type: ignore
+        raise ValueError("Could not extract the Sun-Hybrid alternative public key.")
+
+    if extn_rel_cert is not None and other_certs is not None:
+        logging.info("Validate signature with related certificate.")
+        related_cert = cert_binding_for_multi_auth.get_related_cert_from_list(other_certs, cert)
+        pq_key = keyutils.load_public_key_from_spki(related_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        return pq_key  # type: ignore
+
+    if extn_rel_cert is not None and other_certs is None:
+        logging.warning("Related certificate extension found but no other certificates provided.")
+
+    if extn_alt_spki is not None:
+        logging.info("Validate signature with alternative public key.")
+        spki, rest = decoder.decode(extn_alt_spki["extnValue"].asOctets(), SubjectAltPublicKeyInfoExt())
+        if rest:
+            raise BadAsn1Data("The alternative public key extension contains remainder data.", overwrite=True)
+        alt_issuer_key = keyutils.load_public_key_from_spki(spki)
+        return alt_issuer_key  # type: ignore
+
+    if rel_cert_desc is not None:
+        logging.info("Validate signature with cert discovery.")
+        other_certs = utils.load_certificate_from_uri(
+            uri=rel_cert_desc["uniformResourceIdentifier"], load_chain=load_chain, timeout=timeout
+        )
+        other_cert = other_certs[0]
+        certdiscovery.validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc=rel_cert_desc)
+        pq_key = keyutils.load_public_key_from_spki(other_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        return pq_key  # type: ignore
+
+    if extn_chameleon is not None:
+        spki = chameleon_logic.get_chameleon_delta_public_key(cert)
+        return keyutils.load_public_key_from_spki(spki)  # type: ignore
+
+    if oid in CMS_COMPOSITE_OID_2_NAME:
+        public_key = keyutils.load_public_key_from_spki(spki)
+        CompositeSig03PublicKey.validate_oid(oid, public_key)
+        return public_key.pq_key  # type: ignore
+
+    return None

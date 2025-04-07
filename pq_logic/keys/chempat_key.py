@@ -192,7 +192,7 @@ class ChempatPublicKey(AbstractHybridRawPublicKey):
         concatenated_data = trad_ss + pq_ss + h_hybrid_ct + h_hybrid_pk + context
 
         hybrid_ss = ChempatPublicKey._hash_sha3_256(concatenated_data)
-
+        logging.debug("Chempat shared secret: %s", hybrid_ss.hex())
         return hybrid_ss
 
     def encaps(self, private_key: Optional[ECDHPrivateKey] = None) -> Tuple[bytes, bytes]:
@@ -329,8 +329,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
             return ChempatSntrup761PrivateKey(pq_key, trad_key)
         if isinstance(pq_key, FrodoKEMPrivateKey):
             return ChempatFrodoKEMPrivateKey(pq_key, trad_key)
-        else:
-            raise InvalidKeyCombination(f"Unsupported key combination: {pq_key.name}-{trad_key.get_trad_name}")
+        raise InvalidKeyCombination(f"Unsupported key combination: {pq_key.name}-{trad_key.get_trad_name}")
 
 
 class ChempatMLKEMPublicKey(ChempatPublicKey):

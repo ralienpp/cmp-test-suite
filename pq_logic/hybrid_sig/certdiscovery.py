@@ -23,9 +23,9 @@ from pq_logic.tmp_oids import id_ad_certDiscovery, id_ad_relatedCertificateDescr
 
 def _prepare_related_certificate_descriptor(
     url: str,
-    other_cert: rfc9480.CMPCertificate = None,
-    signature_algorithm: rfc5280.AlgorithmIdentifier = None,
-    public_key_algorithm: rfc5280.AlgorithmIdentifier = None,
+    other_cert: Optional[rfc9480.CMPCertificate] = None,
+    signature_algorithm: Optional[rfc5280.AlgorithmIdentifier] = None,
+    public_key_algorithm: Optional[rfc5280.AlgorithmIdentifier] = None,
 ) -> rfc5280.GeneralName:
     """Prepare a `RelatedCertificateDescriptor` wrapped in an `AnotherName` structure.
 
@@ -204,8 +204,8 @@ def validate_cert_discovery_cert(  # noqa: D417 Missing argument descriptions in
     verify_openssl: bool = True,
     crl_check: bool = False,
     verbose: bool = True,
-    timeout: Optional[Union[str, int]] = 60,
-    fetch_timeout: Optional[Union[str, int]] = 20,
+    timeout: Union[str, int] = 60,
+    fetch_timeout: Union[str, int] = 20,
     certs_dir: Optional[str] = None,
 ) -> rfc9480.CMPCertificate:
     """Validate a certificate using the certDiscovery access method.
@@ -249,7 +249,7 @@ def validate_cert_discovery_cert(  # noqa: D417 Missing argument descriptions in
     validate_related_certificate_descriptor_alg_ids(other_cert, rel_cert_desc)
 
     if not certutils.check_is_cert_signer(cert=other_cert, poss_issuer=issuer_cert):
-        raise ValueError("The Signature was correct, with traditional algorithm!")
+        raise ValueError("The Signature was not correct, with the traditional algorithm!")
 
     if cert_chain_secondary is not None:
         cert_chain = certutils.build_chain_from_list(ee_cert=other_cert, certs=cert_chain_secondary)
@@ -258,6 +258,9 @@ def validate_cert_discovery_cert(  # noqa: D417 Missing argument descriptions in
         if len(cert_chain) not in [len_parsed + 1, len_parsed]:
             logging.info("The parsed cert chain does not match the built one.")
     else:
+        if certs_dir is None:
+            raise ValueError("The `certs_dir` must be provided if `cert_chain_secondary` is not set.")
+
         certs = certutils.load_certificates_from_dir(
             path=certs_dir,
         )

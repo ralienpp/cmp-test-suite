@@ -77,7 +77,7 @@ class KemMechanism(ABC):
     """Abstract class for different KEM mechanisms (e.g., RSA- or -ECDH KEM)."""
 
     @abstractmethod
-    def encaps(self, public_key) -> (bytes, bytes):
+    def encaps(self, public_key) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using the given public key.
 
         :raise: The public key of the recipient.
@@ -85,7 +85,7 @@ class KemMechanism(ABC):
         """
 
     @abstractmethod
-    def decaps(self, private_key, ct) -> bytes:
+    def decaps(self, private_key, ct: bytes) -> bytes:
         """Decapsulate to recover the shared secret using the given private key and ciphertext/public data.
 
         :return: The Shared_secret.
@@ -100,7 +100,7 @@ class KemMechanism(ABC):
 class ECDHKEM(KemMechanism):
     """ECDH-KEM mechanism. Uses ephemeral ECDH to generate a shared secret."""
 
-    def __init__(self, private_key: Optional = None):
+    def __init__(self, private_key: Optional[ECDHPrivateKey] = None):
         """Initialize the ECDH-KEM instance.
 
         :param private_key: The private key to use for the instance. If none is provided,
@@ -109,7 +109,7 @@ class ECDHKEM(KemMechanism):
         self.private_key = private_key
 
     @staticmethod
-    def encode_public_key(pubkey: Union[ECDHPublicKey]) -> bytes:
+    def encode_public_key(pubkey: ECDHPublicKey) -> bytes:
         """Encode a public key to a standardized byte format.
 
         :param pubkey: The public key to encode.
@@ -137,7 +137,7 @@ class ECDHKEM(KemMechanism):
             return x448.X448PrivateKey.generate()
         raise TypeError("Unsupported peer public key type.")
 
-    def encaps(self, public_key: Union[bytes, ECDHPublicKey]) -> Tuple[bytes, bytes]:
+    def encaps(self, public_key: ECDHPublicKey) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using the ephemeral ECDH private key and the receiver's public key.
 
         :param public_key: The public key of the receiver.
@@ -150,13 +150,13 @@ class ECDHKEM(KemMechanism):
         ephemeral_public_key = self.private_key.public_key()
         return shared_secret, ECDHKEM.encode_public_key(ephemeral_public_key)
 
-    def decaps(self, serialized_public_key: bytes) -> bytes:
+    def decaps(self, ct: bytes) -> bytes:
         """Decapsulate the shared secret using the serialized public key.
 
-        :param serialized_public_key: The serialized public key of the sender.
+        :param ct: The serialized public key of the sender.
         :return: The shared secret as bytes.
         """
-        shared_secret = self._exchange_from_bytes(serialized_public_key)
+        shared_secret = self._exchange_from_bytes(ct)
         return shared_secret
 
     def _exchange_from_bytes(self, enc: Union[bytes, ECDHPublicKey]) -> bytes:
@@ -174,15 +174,20 @@ class ECDHKEM(KemMechanism):
                 enc_pub_key = x448.X448PublicKey.from_public_bytes(enc)
         else:
             enc_pub_key = enc
+
+        if self.private_key is None:
+            raise ValueError("Private key is not set for decapsulation.")
+
         return _perform_ecdh(self.private_key, enc_pub_key)
 
 
 KEY_TYPE_TO_ID = {
     "secp256r1": 0x0010,
-    "brainpoolP256": 0x0010,  # not specified!
+    "brainpoolp256r1": 0x0010,  # not specified!
     "secp384r1": 0x0011,
-    "brainpoolP384": 0x0011,  # not specified!
+    "brainpoolp384r1": 0x0011,  # not specified!
     "secp521r1": 0x0012,  # # currently not considered in Chempat.
+    "brainpoolp521r1": 0x0012,  # # currently not considered in Chempat.
     "x25519": 0x0020,
     "x448": 0x0021,
 }
@@ -204,7 +209,7 @@ def _get_key_id(key: Union[ECDHPrivateKey, ECDHPublicKey]) -> int:
     """
     if isinstance(key, (ec.EllipticCurvePublicKey, ec.EllipticCurvePrivateKey)):
         curve_name = key.curve.name.lower()
-        return KEY_TYPE_TO_ID.get(curve_name)
+        return KEY_TYPE_TO_ID[curve_name]
     if isinstance(key, (x448.X448PublicKey, x448.X448PrivateKey)):
         return KEY_TYPE_TO_ID["x448"]
     return KEY_TYPE_TO_ID["x25519"]
@@ -244,7 +249,7 @@ class DHKEMRFC9180:
         return self.hash_algorithm.digest_size
 
     @staticmethod
-    def encode_public_key(pubkey: ec.EllipticCurvePublicKey) -> bytes:
+    def encode_public_key(pubkey: ECDHPublicKey) -> bytes:
         """Encode a public key to a standardized byte format.
 
         :param pubkey: The public key to encode.
@@ -303,9 +308,11 @@ class DHKEMRFC9180:
         :return: The shared secret as bytes.
         """
         if isinstance(self.private_key, ec.EllipticCurvePrivateKey):
+            if not isinstance(peer_pubkey, ec.EllipticCurvePublicKey):
+                raise TypeError("Peer public key must be an EllipticCurvePublicKey.")
             shared_key = self.private_key.exchange(ec.ECDH(), peer_pubkey)
         else:
-            shared_key = self.private_key.exchange(peer_pubkey)
+            shared_key = self.private_key.exchange(peer_pubkey)  # type: ignore
 
         return shared_key
 
@@ -326,12 +333,15 @@ class DHKEMRFC9180:
             enc_pub_key = enc
         return self._perform_exchange(enc_pub_key)
 
-    def decaps(self, enc: Union[bytes, ECDHPublicKey]) -> bytes:
+    def decaps(self, enc: bytes) -> bytes:
         """Perform key decapsulation to derive the shared secret.
 
         :param enc: The encapsulated key as bytes or object.
         :return: The derived shared secret as bytes.
         """
+        if self.private_key is None:
+            raise ValueError("Private key is not set for decapsulation.")
+
         shared_tmp = self._exchange_from_bytes(enc=enc)
         key_id = _get_key_id(self.private_key)
         self.hash_algorithm = ID_TO_SHA[key_id]
@@ -359,7 +369,7 @@ class RSAKem(KemMechanism):
         """
         self.length = ss_length
 
-    def encaps(self, public_key: rsa.RSAPublicKey, rand: Optional[int] = None) -> (bytes, bytes):
+    def encaps(self, public_key: rsa.RSAPublicKey, rand: Optional[int] = None) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using the RSA public key.
 
         :param public_key: The RSA public key.

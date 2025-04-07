@@ -17,28 +17,27 @@ from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pyasn1
+import resources.prepare_alg_ids
+import resources.protectionutils
 from cryptography.hazmat.primitives import serialization
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import char, tag, univ
 from pyasn1_alt_modules import rfc2986, rfc4211, rfc5280, rfc6402, rfc9480
-
-from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey
 from resources import certbuildutils, certextractutils, convertutils, cryptoutils, keyutils, utils
 from resources.convertutils import copy_asn1_certificate
 from resources.copyasn1utils import copy_subject_public_key_info
 from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid, sha_alg_name_to_oid
-from resources.protectionutils import prepare_sha_alg_id
-from resources.typingutils import PrivateKeySig, PublicKey
+from resources.prepare_alg_ids import prepare_sha_alg_id
+from resources.typingutils import PublicKey, SignKey
 from robot.api.deco import keyword, not_keyword
 
-from pq_logic import pq_compute_utils
 from pq_logic.hybrid_structures import AltSignatureExt, AltSubPubKeyExt, UniformResourceIdentifier
+from pq_logic.keys.abstract_wrapper_keys import HybridPublicKey
 from pq_logic.keys.composite_sig03 import (
     CompositeSig03PublicKey,
     _compute_hash,
 )
-
 from pq_logic.tmp_oids import (
     CMS_COMPOSITE03_OID_2_HASH,
     id_altSignatureExt,
@@ -50,7 +49,7 @@ from pq_logic.tmp_oids import (
 )
 
 
-def _hash_public_key(public_key, hash_alg: str) -> bytes:
+def _hash_public_key(public_key: PublicKey, hash_alg: str) -> bytes:
     """Hash a public key using the specified hash algorithm.
 
     :param public_key: The public key to hash.
@@ -294,6 +293,8 @@ def prepare_sun_hybrid_alt_signature_ext(  # noqa: D417 Missing argument descrip
     alt_signature_ext["altSigAlgorithm"] = alt_sig_algorithm
 
     if hash_alg is not None or not by_val:
+        if not hash_alg:
+            raise ValueError("hash_alg must be provided when byVal is False.")
         alg_id = prepare_sha_alg_id(hash_alg=hash_alg)
         alt_signature_ext["hashAlg"] = alg_id
 
@@ -344,12 +345,12 @@ def _extract_sun_hybrid_attrs_from_csr(csr: rfc6402.CertificationRequest) -> Dic
 @keyword(name="Sun CSR To Cert")
 def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstring
     csr: rfc6402.CertificationRequest,
-    issuer_private_key: PrivateKeySig,
-    alt_private_key: PrivateKeySig,
+    issuer_private_key: SignKey,
+    alt_private_key: SignKey,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
     hash_alg: str = "sha256",
     serial_number: Optional[int] = None,
-    extensions: Optional[List[rfc5280.Extension]] = None,
+    extensions: Optional[Sequence[rfc5280.Extension]] = None,
     **kwargs,
 ) -> Tuple[rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
     """Convert a CSR to a certificate, with the sun hybrid method.
@@ -407,7 +408,7 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
         validity=validity,
         hash_alg=hash_alg,
         issuer_cert=ca_cert,
-        extensions=extensions,
+        extensions=extensions,  # type: ignore
         **data,
     )
 
@@ -423,8 +424,8 @@ def sun_csr_to_cert(  # noqa: D417 Missing argument descriptions in the docstrin
 def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in the docstring
     cert_template: rfc4211.CertTemplate,
     ca_cert: rfc9480.CMPCertificate,
-    ca_key: PrivateKeySig,
-    alt_private_key: PrivateKeySig,
+    ca_key: SignKey,
+    alt_private_key: SignKey,
     pub_key_loc: Optional[str],
     sig_loc: Optional[str],
     hash_alg: Optional[str] = None,
@@ -467,7 +468,11 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
         target=rfc5280.SubjectPublicKeyInfo(), filled_sub_pubkey_info=cert_template["publicKey"]
     )
     composite_key = keyutils.load_public_key_from_spki(spki)
-    spki = convertutils.subjectPublicKeyInfo_from_pubkey(composite_key.trad_key)
+
+    if not isinstance(composite_key, HybridPublicKey):
+        raise ValueError("The public key must be a HybridPublicKey, for a Sun Hybrid certificate.")
+
+    spki = convertutils.subject_public_key_info_from_pubkey(composite_key.trad_key)
     tbs_cert = certbuildutils.prepare_tbs_certificate_from_template(
         cert_template=cert_template,
         issuer=ca_cert["tbsCertificate"]["subject"],
@@ -490,7 +495,9 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     pre_tbs_cert = tbs_cert
     data = encoder.encode(pre_tbs_cert)
     signature = cryptoutils.sign_data(key=alt_private_key, data=data, hash_alg=hash_alg, use_rsa_pss=False)
-    sig_alg_id = certbuildutils.prepare_sig_alg_id(signing_key=alt_private_key, hash_alg=hash_alg, use_rsa_pss=False)
+    sig_alg_id = resources.prepare_alg_ids.prepare_sig_alg_id(
+        signing_key=alt_private_key, hash_alg=hash_alg, use_rsa_pss=False
+    )
 
     if kwargs.get("bad_alt_sig", False):
         signature = utils.manipulate_first_byte(signature)
@@ -511,7 +518,7 @@ def sun_cert_template_to_cert(  # noqa: D417 Missing argument descriptions in th
     # Sign with the first public key.
     final_tbs_cert_data = encoder.encode(pre_tbs_cert)
     signature = cryptoutils.sign_data(key=ca_key, data=final_tbs_cert_data, hash_alg=hash_alg)
-    sig_alg_id = certbuildutils.prepare_sig_alg_id(signing_key=ca_key, hash_alg=hash_alg, use_rsa_pss=False)
+    sig_alg_id = resources.prepare_alg_ids.prepare_sig_alg_id(signing_key=ca_key, hash_alg=hash_alg, use_rsa_pss=False)
 
     cert_form4 = rfc9480.CMPCertificate()
     cert_form4["tbsCertificate"] = pre_tbs_cert
@@ -616,7 +623,9 @@ def prepare_sun_hybrid_pre_tbs_certificate(
 
     data = encoder.encode(pre_tbs_cert)
     signature = cryptoutils.sign_data(key=alt_private_key, data=data, hash_alg=sig_hash_id)
-    sig_alg_id = certbuildutils.prepare_sig_alg_id(signing_key=alt_private_key, hash_alg=sig_hash_id, use_rsa_pss=False)
+    sig_alg_id = resources.prepare_alg_ids.prepare_sig_alg_id(
+        signing_key=alt_private_key, hash_alg=sig_hash_id, use_rsa_pss=False
+    )
 
     extn_alt_sig = prepare_sun_hybrid_alt_signature_ext(
         signature=signature, by_val=False, hash_alg=sig_hash_id, alt_sig_algorithm=sig_alg_id, location=sig_loc
@@ -634,7 +643,9 @@ def prepare_sun_hybrid_pre_tbs_certificate(
     # Sign with the first public key.
     final_tbs_cert_data = encoder.encode(pre_tbs_cert)
     signature = cryptoutils.sign_data(key=issuer_private_key, data=final_tbs_cert_data, hash_alg=hash_alg)
-    sig_alg_id = certbuildutils.prepare_sig_alg_id(signing_key=issuer_private_key, hash_alg=hash_alg, use_rsa_pss=False)
+    sig_alg_id = resources.prepare_alg_ids.prepare_sig_alg_id(
+        signing_key=issuer_private_key, hash_alg=hash_alg, use_rsa_pss=False
+    )
 
     cert = rfc9480.CMPCertificate()
     cert["tbsCertificate"] = pre_tbs_cert
@@ -698,6 +709,9 @@ def validate_alt_pub_key_extn(  # noqa: D417 Missing argument descriptions in th
     logging.info("Alt Public key: %s", public_key)
     logging.info("hash alg: %s", hash_alg)
 
+    if not hash_alg:
+        raise ValueError("The hash algorithm is not inside the `AltSubPubKeyExt` structure")
+
     computed_hash = _hash_public_key(public_key, hash_alg=hash_alg)
 
     if computed_hash != decoded_ext["plainOrHash"].asOctets():
@@ -712,7 +726,7 @@ def validate_alt_pub_key_extn(  # noqa: D417 Missing argument descriptions in th
     if spki["algorithm"] != decoded_ext["altAlgorithm"]:
         raise ValueError("The algorithm is not the same as inside the `AltSubPubKeyExt` structure")
 
-    return keyutils.load_public_key_from_spki(spki) # type: ignore
+    return keyutils.load_public_key_from_spki(spki)  # type: ignore
 
 
 @not_keyword
@@ -776,6 +790,9 @@ def validate_alt_sig_extn(  # noqa: D417 Missing argument descriptions in the do
 
         new_extn.append(x)
 
+    if decoded_ext is None:
+        raise ValueError("The `AltSignatureExt` was not inside the certificate.")
+
     cert["tbsCertificate"]["extensions"] = new_extn
 
     data = encoder.encode(cert["tbsCertificate"])
@@ -787,11 +804,17 @@ def validate_alt_sig_extn(  # noqa: D417 Missing argument descriptions in the do
     sig_alg_id = decoded_ext["altSigAlgorithm"]
 
     hash_alg = get_hash_from_oid(decoded_ext["hashAlg"]["algorithm"])
+    if not hash_alg:
+        raise ValueError("The hash algorithm is not inside the `AltSignatureExt` structure")
     hashed_sig = decoded_ext["plainOrHash"].asOctets()
+
+    if signature is None:
+        raise ValueError("The signature was not inside the certificateand/or could not be fetched from the location.")
+
     if hashed_sig != _compute_hash(alg_name=hash_alg, data=signature):
         raise ValueError("The fetched signature was invalid!")
 
-    pq_compute_utils.verify_signature_with_alg_id(
+    resources.protectionutils.verify_signature_with_alg_id(
         alg_id=sig_alg_id, public_key=alt_pub_key, data=data, signature=signature
     )
 
@@ -891,6 +914,9 @@ def _parse_alt_sub_pub_key_extension(cert: rfc9480.CMPCertificate, to_by_val: bo
         logging.info("used hash alg %s", hash_alg)
 
     else:
+        if loc is None:
+            raise ValueError("Location is required to fetch the public key for ByReference conversion.")
+
         public_key = utils.fetch_value_from_location(loc)
         public_key = process_public_key(public_key)
 
@@ -1001,8 +1027,8 @@ def validate_cert_contains_sun_hybrid_extensions(  # noqa: D417 Missing argument
         _, rest = decoder.decode(extn["extnValue"].asOctets(), AltSubPubKeyExt())
         if rest != b"":
             raise BadAsn1Data("Decoding of the AltSubPubKeyExt extension had trailing data.")
-    except pyasn1.error.PyAsn1Error:
-        raise BadAsn1Data("The AltSubPubKeyExt extension is invalid.")
+    except pyasn1.error.PyAsn1Error:  # type: ignore
+        raise BadAsn1Data("The AltSubPubKeyExt extension is invalid.")  # pylint: disable=raise-missing-from
 
     extn = certextractutils.get_extension(
         cert["tbsCertificate"]["extensions"], id_altSignatureExt, must_be_non_crit=True
@@ -1014,8 +1040,8 @@ def validate_cert_contains_sun_hybrid_extensions(  # noqa: D417 Missing argument
         _, rest = decoder.decode(extn["extnValue"].asOctets(), AltSignatureExt())
         if rest != b"":
             raise BadAsn1Data("Decoding of the AltSubPubKeyExt extension had trailing data.")
-    except pyasn1.error.PyAsn1Error:
-        raise BadAsn1Data("The AltSubPubKeyExt extension is invalid.")
+    except pyasn1.error.PyAsn1Error:  # type: ignore
+        raise BadAsn1Data("The AltSubPubKeyExt extension is invalid.")  # pylint: disable=raise-missing-from
 
 
 def contains_sun_hybrid_cert_form_1_or_3(  # noqa: D417 Missing argument descriptions in the docstring
@@ -1115,12 +1141,15 @@ def convert_sun_hybrid_cert_to_target_form(  # noqa: D417 Missing argument descr
 
 
 @not_keyword
-def process_public_key(data: bytes) -> PublicKey:
+def process_public_key(data: Optional[bytes]) -> PublicKey:
     """Process the public key from the given bytes, in any sun hybrid form (1-4).
 
     :param data: The DER encoded public key.
     :return: The loaded public key object.
     """
+    if data is None:
+        raise ValueError("The public key data is None.")
+
     obj, rest = decoder.decode(data, rfc5280.SubjectPublicKeyInfo())
     if rest != b"":
         raise ValueError("Decoding of the public key had trailing data.")

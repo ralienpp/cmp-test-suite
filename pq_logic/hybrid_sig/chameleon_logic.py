@@ -6,22 +6,22 @@
 
 from typing import List, Optional, Tuple
 
+import resources.certutils
+import resources.prepare_alg_ids
+import resources.protectionutils
 from cryptography.exceptions import InvalidSignature
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc5280, rfc5652, rfc6402, rfc9480
-from resources import certbuildutils, certextractutils, compareutils, cryptoutils, utils
-from resources.convertutils import copy_asn1_certificate, subjectPublicKeyInfo_from_pubkey
+from resources import certbuildutils, certextractutils, compareutils, convertutils, cryptoutils, keyutils, utils
+from resources.convertutils import copy_asn1_certificate, subject_public_key_info_from_pubkey
 from resources.copyasn1utils import copy_csr, copy_name, copy_validity
 from resources.exceptions import BadAltPOP, BadAsn1Data, BadCertTemplate
-from resources.keyutils import load_public_key_from_spki
 from resources.oid_mapping import get_hash_from_oid
 from resources.prepareutils import prepare_name
-from resources.typingutils import PrivateKeySig
+from resources.typingutils import SignKey
 from robot.api.deco import keyword, not_keyword
 
-from pq_logic import pq_compute_utils
-from pq_logic.combined_factory import CombinedKeyFactory
 from pq_logic.hybrid_structures import (
     DeltaCertificateDescriptor,
     DeltaCertificateRequestSignatureValue,
@@ -172,7 +172,7 @@ def _prepare_dcd_extensions(
 def build_chameleon_base_certificate(
     delta_cert: rfc9480.CMPCertificate,
     base_tbs_cert: rfc5280.TBSCertificate,
-    ca_key: PrivateKeySig,
+    ca_key: SignKey,
     use_rsa_pss: bool = False,
     critical: bool = False,
     hash_alg: Optional[str] = None,
@@ -281,7 +281,7 @@ def validate_dcd_extension(  # noqa: D417 Missing argument descriptions in the d
 
 @not_keyword
 def prepare_delta_cert_req(
-    signing_key: PrivateKeySig,
+    signing_key: SignKey,
     delta_common_name: Optional[str] = None,
     extensions: Optional[rfc5280.Extensions] = None,
     hash_alg: str = "sha256",
@@ -309,13 +309,13 @@ def prepare_delta_cert_req(
         parsed_name = prepare_name(delta_common_name, target=name)
         delta_req["subject"] = parsed_name
 
-    delta_req["subjectPKInfo"] = subjectPublicKeyInfo_from_pubkey(signing_key.public_key())
+    delta_req["subjectPKInfo"] = subject_public_key_info_from_pubkey(signing_key.public_key())
 
     if extensions is not None:
         delta_req["extensions"].extend(extensions)
 
     if not omit_sig_alg_id:
-        sig_alg_id = certbuildutils.prepare_sig_alg_id(
+        sig_alg_id = resources.prepare_alg_ids.prepare_sig_alg_id(
             signing_key=signing_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss
         )
         alg_id = rfc5280.AlgorithmIdentifier().subtype(
@@ -332,8 +332,8 @@ def prepare_delta_cert_req(
 
 @keyword(name="Build Paired CSR")
 def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstring
-    base_private_key: PrivateKeySig,
-    delta_private_key: PrivateKeySig,
+    base_private_key: SignKey,
+    delta_private_key: SignKey,
     base_common_name: str = "CN=Hans Mustermann",
     base_extensions: Optional[rfc5280.Extensions] = None,
     delta_extensions: Optional[rfc5280.Extensions] = None,
@@ -417,7 +417,7 @@ def build_paired_csr(  # noqa: D417 Missing argument descriptions in the docstri
         data=base_csr_info, key=base_private_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg
     )
 
-    base_csr["signatureAlgorithm"] = certbuildutils.prepare_sig_alg_id(
+    base_csr["signatureAlgorithm"] = resources.prepare_alg_ids.prepare_sig_alg_id(
         signing_key=base_private_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss
     )
 
@@ -464,7 +464,7 @@ def extract_chameleon_attributes(
         else:
             non_signature_attributes.append(attr)
 
-    return non_signature_attributes, delta_cert_request, delta_cert_request_signature
+    return non_signature_attributes, delta_cert_request, delta_cert_request_signature  # type: ignore
 
 
 @keyword(name="Verify Paired CSR Signature")
@@ -494,7 +494,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
     """
     csr_tmp = copy_csr(csr)
 
-    pq_compute_utils.verify_csr_signature(csr=csr_tmp)
+    resources.certutils.verify_csr_signature(csr=csr_tmp)
     attributes, delta_req, delta_sig = extract_chameleon_attributes(csr=csr_tmp)
 
     if delta_req is None:
@@ -504,7 +504,7 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
 
     # Step 3: Remove the Delta Certificate request signature attribute
     # from the CertificationRequest template
-    attr = univ.SetOf(componentType=rfc5652.Attribute()).subtype(
+    attr = univ.SetOf(componentType=rfc5652.Attribute()).subtype(  # type: ignore
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
     )
 
@@ -518,13 +518,18 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
     if not delta_req["subjectPKInfo"].isValue:
         raise ValueError("Delta Certificate Request 'subjectPKInfo' is missing.")
 
-    public_key = CombinedKeyFactory.load_public_key_from_spki(delta_req["subjectPKInfo"])
+    public_key = keyutils.load_public_key_from_spki(delta_req["subjectPKInfo"])
 
     data = encoder.encode(csr_tmp["certificationRequestInfo"])
+
     try:
-        pq_compute_utils.verify_signature_with_alg_id(
+        public_key = convertutils.ensure_is_verify_key(public_key)
+        resources.protectionutils.verify_signature_with_alg_id(
             alg_id=sig_alg_id, data=data, public_key=public_key, signature=delta_sig.asOctets()
         )
+    except ValueError as e:
+        raise BadCertTemplate("Public key mismatch was invalid or not a verify key.") from e
+
     except InvalidSignature:
         raise BadAltPOP("The chameleon alternative signature is invalid.")  # pylint: disable=raise-missing-from
 
@@ -535,9 +540,9 @@ def verify_paired_csr_signature(  # noqa: D417 Missing argument description in t
 def build_delta_cert(
     csr: rfc6402.CertificationRequest,
     delta_value: DeltaCertificateRequestValue,
-    ca_key: PrivateKeySig,
+    ca_key: SignKey,
     ca_cert: rfc9480.CMPCertificate,
-    alt_sign_key: Optional[PrivateKeySig] = None,
+    alt_sign_key: Optional[SignKey] = None,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = False,
 ) -> rfc9480.CMPCertificate:
@@ -583,9 +588,9 @@ def build_delta_cert(
 @not_keyword
 def build_chameleon_cert_from_paired_csr(
     csr: rfc6402.CertificationRequest,
-    ca_key: PrivateKeySig,
+    ca_key: SignKey,
     ca_cert: rfc9480.CMPCertificate,
-    alt_key: Optional[PrivateKeySig] = None,
+    alt_key: Optional[SignKey] = None,
     use_rsa_pss: bool = False,
     hash_alg: str = "sha256",
 ) -> Tuple[rfc9480.CMPCertificate, rfc9480.CMPCertificate]:
@@ -606,8 +611,8 @@ def build_chameleon_cert_from_paired_csr(
     """
     delta_req = verify_paired_csr_signature(csr=csr)
 
-    first_key = load_public_key_from_spki(csr["certificationRequestInfo"]["subjectPublicKeyInfo"])
-    delta_key = load_public_key_from_spki(delta_req["subjectPKInfo"])
+    first_key = keyutils.load_public_key_from_spki(csr["certificationRequestInfo"]["subjectPublicKeyInfo"])
+    delta_key = keyutils.load_public_key_from_spki(delta_req["subjectPKInfo"])
 
     if delta_key == first_key:
         raise BadCertTemplate("Delta Certificate public key must not match the Base Certificate public key.")

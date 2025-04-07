@@ -8,13 +8,14 @@ import logging
 from typing import Optional, Union
 
 import pyasn1.error
+import resources.prepare_alg_ids
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc9480
 from pyasn1_alt_modules.rfc4210 import CMPCertificate
-from resources import certbuildutils, certextractutils, certutils, cryptoutils, keyutils, utils
+from resources import certbuildutils, certextractutils, certutils, convertutils, cryptoutils, keyutils, utils
 from resources.asn1_structures import CatalystPreTBSCertificate
-from resources.convertutils import subjectPublicKeyInfo_from_pubkey
+from resources.convertutils import subject_public_key_info_from_pubkey
 from resources.exceptions import BadAlg, BadAsn1Data
 from resources.oid_mapping import get_hash_from_oid
 from resources.oidutils import (
@@ -23,7 +24,7 @@ from resources.oidutils import (
     id_ce_altSignatureValue,
     id_ce_subjectAltPublicKeyInfo,
 )
-from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey, TradSigPrivKey
+from resources.typingutils import PrivateKey, PublicKey, SignKey, TradSignKey, VerifyKey
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_structures import AltSignatureValueExt, SubjectAltPublicKeyInfoExt
@@ -64,7 +65,7 @@ def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter 
         if isinstance(key, PQSignaturePrivateKey):
             key = key.public_key()
 
-        spki = subjectPublicKeyInfo_from_pubkey(key)
+        spki = subject_public_key_info_from_pubkey(key)  # type: ignore
 
     spki_ext = rfc5280.Extension()
     spki_ext["extnID"] = id_ce_subjectAltPublicKeyInfo
@@ -80,7 +81,7 @@ def prepare_alt_sig_alg_id_extn(  # noqa: D417 Missing a parameter in the Docstr
     hash_alg: str = "sha256",
     use_rsa_pss: bool = False,
     use_pre_hash: bool = False,
-    key: Optional[PrivateKeySig] = None,
+    key: Optional[SignKey] = None,
 ) -> rfc5280.Extension:
     """Prepare the altSignatureAlgorithm extension.
 
@@ -111,7 +112,7 @@ def prepare_alt_sig_alg_id_extn(  # noqa: D417 Missing a parameter in the Docstr
         raise ValueError("Either `alg_id` or `key` must be provided.")
 
     if key is not None:
-        alg_id = certbuildutils.prepare_sig_alg_id(
+        alg_id = resources.prepare_alg_ids.prepare_sig_alg_id(
             signing_key=key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss, use_pre_hash=use_pre_hash
         )
 
@@ -198,7 +199,7 @@ def extract_alt_signature_data(
 def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     cert: rfc9480.CMPCertificate,
     pq_key: PQSignaturePrivateKey,
-    trad_key: TradSigPrivKey,
+    trad_key: TradSignKey,
     pq_hash_alg: Optional[str] = None,
     hash_alg: str = "sha256",
     use_rsa_pss: bool = False,
@@ -228,8 +229,8 @@ def sign_cert_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     | ${cert}= | Sign Cert Catalyst | ${cert} | ${pq_key} | ${trad_key} | pq_hash_alg=sha512 |
 
     """
-    alt_alg_id = certbuildutils.prepare_sig_alg_id(pq_key, hash_alg=pq_hash_alg, use_rsa_pss=use_rsa_pss)
-    trad_alg_id = certbuildutils.prepare_sig_alg_id(trad_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
+    alt_alg_id = resources.prepare_alg_ids.prepare_sig_alg_id(pq_key, hash_alg=pq_hash_alg, use_rsa_pss=use_rsa_pss)
+    trad_alg_id = resources.prepare_alg_ids.prepare_sig_alg_id(trad_key, hash_alg=hash_alg, use_rsa_pss=use_rsa_pss)
 
     cert["tbsCertificate"]["signature"] = trad_alg_id
     cert["signatureAlgorithm"] = trad_alg_id
@@ -341,7 +342,7 @@ def validate_catalyst_extensions(  # noqa: D417 Missing a parameter in the Docst
 def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstring
     cert: rfc9480.CMPCertificate,
     issuer_cert: Optional[rfc9480.CMPCertificate] = None,
-    issuer_pub_key: Optional[PrivateKeySig] = None,
+    issuer_pub_key: Optional[VerifyKey] = None,
     sig_alg_must_be: Optional[str] = None,
 ) -> None:
     """Verify the alternative signature for migrated relying parties.
@@ -374,20 +375,23 @@ def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstrin
         raise ValueError("Catalyst extensions are not present, cannot perform migrated verification.")
 
     if issuer_cert is not None:
-        issuer_pub_key = keyutils.load_public_key_from_spki(issuer_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+        issuer_pub_key = keyutils.load_public_key_from_spki(issuer_cert["tbsCertificate"]["subjectPublicKeyInfo"])  # type: ignore
     else:
-        issuer_pub_key = issuer_pub_key or keyutils.load_public_key_from_spki(
+        issuer_pub_key = issuer_pub_key or keyutils.load_public_key_from_spki(  # type: ignore
             cert["tbsCertificate"]["subjectPublicKeyInfo"]
         )
 
+    verify_key = convertutils.ensure_is_verify_key(issuer_pub_key)
+
     # Step 1: Verify the traditional signature
-    certutils.verify_cert_signature(cert=cert, issuer_pub_key=issuer_pub_key)
+    certutils.verify_cert_signature(cert=cert, issuer_pub_key=verify_key)
 
     # Step 2: Verify the alternative signature
     pq_pub_key = keyutils.load_public_key_from_spki(catalyst_ext["spki"])
     hash_alg = get_hash_from_oid(catalyst_ext["alg_id"]["algorithm"], only_hash=True)
 
     alt_sig_data = extract_alt_signature_data(cert)
+    pq_pub_key = convertutils.ensure_is_verify_key(pq_pub_key)
 
     cryptoutils.verify_signature(
         public_key=pq_pub_key, hash_alg=hash_alg, data=alt_sig_data, signature=catalyst_ext["signature"]
@@ -397,7 +401,7 @@ def verify_catalyst_signature(  # noqa: D417 Missing a parameter in the Docstrin
 
 
 def build_catalyst_cert(  # noqa: D417 Missing a parameter in the Docstring
-    trad_key: TradSigPrivKey,
+    trad_key: TradSignKey,
     pq_key: PQSignaturePrivateKey,
     client_key: PrivateKey,
     common_name: str = "CN=Hans Mustermann",
@@ -489,8 +493,8 @@ def load_catalyst_public_key(  # noqa: D417 Missing a parameter in the Docstring
 @keyword(name="Sign CRL Catalyst")
 def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     crl: rfc5280.CertificateList,
-    ca_private_key: PrivateKeySig,
-    alt_private_key: Optional[PrivateKeySig] = None,
+    ca_private_key: SignKey,
+    alt_private_key: Optional[SignKey] = None,
     include_alt_public_key: bool = False,
     hash_alg: str = "sha256",
     alt_hash_alg: Optional[str] = None,
@@ -530,7 +534,7 @@ def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
     | ${crl}= | Sign CRL Catalyst | ${crl} | ${ca_private_key} | ${alt_private_key} | include_alt_public_key=True |
 
     """
-    crl["signatureAlgorithm"] = certbuildutils.prepare_sig_alg_id(
+    crl["signatureAlgorithm"] = resources.prepare_alg_ids.prepare_sig_alg_id(
         signing_key=ca_private_key, use_rsa_pss=use_rsa_pss, hash_alg=hash_alg, use_pre_hash=use_pre_hash
     )
 
@@ -547,7 +551,7 @@ def sign_crl_catalyst(  # noqa: D417 Missing a parameter in the Docstring
         crl["tbsCertList"]["crlExtensions"].append(extn)
         if include_alt_public_key:
             extn = prepare_subject_alt_public_key_info_extn(
-                key=alt_private_key.public_key(),
+                key=alt_private_key.public_key(),  # type: ignore
                 critical=critical,
             )
             crl["tbsCertList"]["crlExtensions"].append(extn)

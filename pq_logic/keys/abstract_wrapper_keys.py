@@ -49,9 +49,9 @@ from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, rsa, x448, x25519
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey, Ed448PublicKey
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, PublicFormat
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
@@ -394,7 +394,7 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         raise NotImplementedError("The private key can not be initialized without a seed or private key.")
 
     @staticmethod
-    def _from_seed(alg_name: str, seed: Optional[bytes]) -> Tuple[bytes, bytes, bytes]:
+    def _from_seed(alg_name: str, seed: bytes) -> Tuple[bytes, bytes, bytes]:
         """Generate a key pair from a seed.
 
         :param alg_name: The name of the algorithm.
@@ -498,6 +498,10 @@ class TradKEMPrivateKey(KEMPrivateKey, ABC):
         """
 
     @abstractmethod
+    def encode(self) -> bytes:
+        """Encode the private key."""
+
+    @abstractmethod
     def public_key(self) -> TradKEMPublicKey:
         """Derive the public key from the private key."""
 
@@ -593,7 +597,7 @@ class HybridSigPublicKey(HybridPublicKey, ABC):
     _trad_key: ECVerifyKey
     _name: str = "hybrid-sig"
 
-    def __eq__(self, other: "HybridSigPublicKey") -> bool:
+    def __eq__(self, other: "HybridPublicKey") -> bool:
         """Compare two hybrid public keys."""
         if not isinstance(other, HybridSigPublicKey):
             return False
@@ -604,9 +608,9 @@ class HybridSigPublicKey(HybridPublicKey, ABC):
         return self._pq_key == other.pq_key and self._trad_key == other.trad_key
 
     @property
-    def trad_key(self) -> Union[Ed25519PrivateKey, Ed448PrivateKey, EllipticCurvePrivateKey]:
+    def trad_key(self) -> ECVerifyKey:
         """Return the traditional key."""
-        return self._trad_key  # type: ignore
+        return self._trad_key
 
     @property
     def pq_key(self):
@@ -638,11 +642,11 @@ class HybridSigPublicKey(HybridPublicKey, ABC):
 class HybridSigPrivateKey(HybridPrivateKey, ABC):
     """A private key for a hybrid signature scheme."""
 
-    _trad_key: ECSignKey
+    _trad_key: Union[ECSignKey, RSAPrivateKey]
     _name: str = "hybrid-sig"
 
     @property
-    def trad_key(self) -> ECSignKey:
+    def trad_key(self) -> Union[ECSignKey, RSAPrivateKey]:
         """Return the traditional key."""
         return self._trad_key
 
@@ -847,7 +851,7 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
 
     def public_bytes(
         self, encoding: Encoding = Encoding.Raw, format: PublicFormat = PublicFormat.SubjectPublicKeyInfo
-    ) -> Union[bytes, str]:
+    ) -> bytes:
         """Get the serialized public key in bytes format.
 
         :param encoding: The encoding format. Can be `Encoding.Raw`, `Encoding.DER`, or `Encoding.PEM`.

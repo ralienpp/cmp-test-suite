@@ -6,6 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # TODOs
 
+## About Test-Suite Config:
+1. Allow non directoryName choice for MAC protection
+or remove the option to disable it.
+
+
 ## About CMP:
 1. Fix test cases for NULL-DN and SubjectAltName.
 2. Add test cases for Section 5.2.1. Requested 
@@ -44,3 +49,23 @@ which then supports `XOFHash`.
 
 - Maybe check for currently unknown hybrid schemes.
 - Keep checking hybrid scheme updates.
+
+
+## Relevant Literature:
+
+
+- PQ Certificates: 
+
+1. https://datatracker.ietf.org/doc/draft-ietf-lamps-dilithium-certificates/
+2. https://datatracker.ietf.org/doc/draft-ietf-lamps-kyber-certificates/
+3. https://datatracker.ietf.org/doc/draft-ietf-lamps-cms-sphincs-plus/
+
+- Hybrid-KEMs:
+1. https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/
+2. https://datatracker.ietf.org/doc/draft-ietf-lamps-pq-composite-kem/
+3. https://datatracker.ietf.org/doc/draft-josefsson-chempat/
+
+
+- Stateful Hash:
+1. https://www.rfc-editor.org/rfc/rfc9708.html
+2. https://datatracker.ietf.org/doc/draft-ietf-lamps-x509-shbs/13/

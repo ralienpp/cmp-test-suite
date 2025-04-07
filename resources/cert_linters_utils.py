@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.x509.ocsp import OCSPResponse
 from pkilint import loader, report
 from pkilint.pkix import crl, ocsp
-from pkilint.pkix.crl import crl_extension, crl_validator
+from pkilint.pkix.crl import crl_validator
 from pkilint.validation import ValidationFindingSeverity
 from pyasn1.codec.der import decoder, encoder
 from pyasn1_alt_modules import rfc5280, rfc6960, rfc8954
@@ -44,14 +44,13 @@ def validate_crl_pkilint(  # noqa D417 undocumented-param
             crl_validator.VersionPresenceValidator(),
             crl_validator.SignatureAlgorithmMatchValidator(),
             crl_validator.CorrectVersionValidator(),
-            crl_extension.CrlNumberCriticalityValidator(),
         ],
     )
 
     if isinstance(data, rfc5280.CertificateList):
         data = encoder.encode(data)
 
-    loaded_crl = loader.load_der_crl(data, "dynamic-crl")
+    loaded_crl = loader.load_der_crl(data, "dynamic-crl")  # type: ignore
     results = doc_validator.validate(loaded_crl.root)
 
     # should be `WARNING`, because empty CRL raises an error.
@@ -60,11 +59,11 @@ def validate_crl_pkilint(  # noqa D417 undocumented-param
     if findings_count > 0:
         issues = report.ReportGeneratorPlaintext(results, ValidationFindingSeverity.WARNING).generate()
         raise ValueError(issues)
-    else:
-        findings_count = report.get_findings_count(results, ValidationFindingSeverity.INFO)
-        if findings_count > 0:
-            issues = report.ReportGeneratorPlaintext(results, ValidationFindingSeverity.INFO).generate()
-            logging.info("Findings for INFO: {}".format(issues))
+
+    findings_count = report.get_findings_count(results, ValidationFindingSeverity.INFO)
+    if findings_count > 0:
+        issues = report.ReportGeneratorPlaintext(results, ValidationFindingSeverity.INFO).generate()
+        logging.info("Findings for INFO: %s", issues)
 
 
 def _parse_ocsp_response(der_data: bytes) -> rfc8954.BasicOCSPResponse:
@@ -96,8 +95,10 @@ def _validate_ocsp_resp_nonce(der_data: bytes) -> None:
         return
     try:
         _ = decoder.decode(val, asn1Spec=rfc8954.Nonce())
-    except pyasn1.type.error.ValueConstraintError:
-        raise ValueError("The OCSP response nonce is not in the allowed range of 1-32 bytes.According to RFC rfc8954.")
+    except pyasn1.type.error.ValueConstraintError:  # type: ignore
+        raise ValueError(  # pylint: disable=raise-missing-from
+            "The OCSP response nonce is not in the allowed range of 1-32 bytes.According to RFC rfc8954."
+        )
 
 
 def validate_ocsp_pkilint(  # noqa D417 undocumented-param
@@ -122,7 +123,7 @@ def validate_ocsp_pkilint(  # noqa D417 undocumented-param
     if isinstance(data, rfc6960.BasicOCSPResponse):
         data = encoder.encode(data)
 
-    if isinstance(data, OCSPResponse):
+    elif isinstance(data, OCSPResponse):
         data = data.public_bytes(serialization.Encoding.DER)
 
     loaded_ocsp = loader.load_ocsp_response(data, "dynamic-ocsp")
@@ -143,10 +144,10 @@ def validate_ocsp_pkilint(  # noqa D417 undocumented-param
     if findings_count > 0:
         issues = report.ReportGeneratorPlaintext(results, ValidationFindingSeverity.WARNING).generate()
         raise ValueError(issues)
-    else:
-        findings_count = report.get_findings_count(results, ValidationFindingSeverity.INFO)
-        if findings_count > 0:
-            issues = report.ReportGeneratorPlaintext(results, ValidationFindingSeverity.INFO).generate()
-            logging.info("Findings for INFO: {}".format(issues))
 
-    _validate_ocsp_resp_nonce(data)
+    findings_count = report.get_findings_count(results, ValidationFindingSeverity.INFO)
+    if findings_count > 0:
+        issues = report.ReportGeneratorPlaintext(results, ValidationFindingSeverity.INFO).generate()
+        logging.info("Findings for INFO: %s", issues)
+
+    _validate_ocsp_resp_nonce(data)  # type: ignore

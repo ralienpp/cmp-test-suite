@@ -13,12 +13,13 @@ import sys
 import zipfile
 from datetime import datetime
 
+import resources.protectionutils
+
 sys.path.append(".")
 
 import cryptography
 import pyasn1
 from cryptography.exceptions import InvalidSignature
-from pq_logic import pq_compute_utils
 from pq_logic.hybrid_sig.catalyst_logic import verify_catalyst_signature
 from pq_logic.hybrid_sig.chameleon_logic import build_delta_cert_from_paired_cert
 from pq_logic.keys.abstract_wrapper_keys import PQPrivateKey, PQPublicKey
@@ -134,7 +135,7 @@ def verify_signature_with_alg_id(
         verify_catalyst_signature(cert)
 
     else:
-        pq_compute_utils.verify_signature_with_alg_id(
+        resources.protectionutils.verify_signature_with_alg_id(
             public_key=public_key, alg_id=alg_id, signature=signature, data=data
         )
         if isinstance(public_key, CompositeSig03PublicKey):

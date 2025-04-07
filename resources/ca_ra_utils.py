@@ -31,13 +31,13 @@ from pq_logic.keys.abstract_wrapper_keys import (
     KEMPublicKey,
     PQPublicKey,
 )
+from pq_logic.keys.stateful_hash_sig import PQHashStatefulSigPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
 from pq_logic.trad_typing import CA_RESPONSE, ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc5480, rfc5652, rfc6664, rfc9480
 from robot.api.deco import keyword, not_keyword
-from pq_logic.keys.stateful_hash_sig import PQHashStatefulSigPublicKey
 
 from resources import (
     ca_kga_logic,
@@ -77,6 +77,7 @@ from resources.exceptions import (
     CertRevoked,
     CMPTestSuiteError,
     InvalidAltSignature,
+    InvalidKeyData,
     NotAuthorized,
     SignerNotTrusted,
     UnsupportedVersion,
@@ -1282,21 +1283,24 @@ def validate_cert_request_controls(
 
 
 @not_keyword
-def validate_cert_template(
+def validate_cert_template_public_key(
     cert_template: rfc9480.CertTemplate,
     sig_popo_alg_id: Optional[rfc9480.AlgorithmIdentifier] = None,
     max_key_size: Optional[int] = None,
 ):
-    """Validate that the certificate template has set the correct fields."""
+    """Validate that the certificate template has set the correct fields.
+
+    :param cert_template: The certificate template to validate.
+    :param sig_popo_alg_id: The signature POP algorithm identifier to validate against. Defaults to `None`.
+    :param max_key_size: The maximum key size for RSA, to validate against, skipped if `None`. Defaults to `None`.
+    """
     if compareutils.is_null_dn(cert_template["subject"]):
         if get_extension(cert_template["extensions"], rfc5280.id_ce_subjectAltName) is None:
             raise BadCertTemplate("The `subject` field is not set inside the certificate template.")
 
     try:
         public_key = keyutils.load_public_key_from_cert_template(cert_template=cert_template, must_be_present=False)
-    except ValueError as err:
-        raise BadAsn1Data("Failed to load the public key from the `CertTemplate`.", overwrite=True) from err
-    except BadCertTemplate as err:
+    except (BadCertTemplate, InvalidKeyData, ValueError) as err:
         raise BadCertTemplate(
             "Failed to load the public key from the `CertTemplate`.", failinfo="badCertTemplate,badDataFormat"
         ) from err
@@ -1533,7 +1537,7 @@ def process_encrypted_key(
             raise ValueError("The CA hybrid KEM key was not a `HybridPrivateKey`.")
 
         # TODO fix to choose in a list of KEM keys.
-        der_data = ca_kga_logic.validate_kemri_env_data(
+        der_data = ca_kga_logic.validate_kemri_env_data_for_ca(
             env_data=env_data,
             expected_raw_data=True,
             for_pop=False,
@@ -1840,7 +1844,7 @@ def respond_to_cert_req_msg(  # noqa: D417 Missing argument descriptions in the 
         if cert_req_msg["popo"].getName() == "signature":
             alg_id = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
 
-    validate_cert_template(
+    validate_cert_template_public_key(
         cert_template,
         max_key_size=4096 * 2,
         sig_popo_alg_id=alg_id,
@@ -2113,7 +2117,7 @@ def _process_one_cert_request(
     if alt_cert_req is not None:
         alt_cert_template = alt_cert_req["certTemplate"]
 
-    validate_cert_template(cert_req_msg["certReq"]["certTemplate"], max_key_size=4096 * 2)
+    validate_cert_template_public_key(cert_req_msg["certReq"]["certTemplate"], max_key_size=4096 * 2)
     validate_cert_request_controls(
         cert_request=cert_req_msg["certReq"],
         **kwargs,

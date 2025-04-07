@@ -2183,7 +2183,7 @@ def _parse_pvno(pvno: Optional[Strint], for_kga: bool, default: int = 2) -> int:
 
 @keyword(name="Build Ir From Key")
 def build_ir_from_key(  # noqa D417 undocumented-param
-    signing_key: SignKey,
+    signing_key: PrivateKey,
     common_name: str = "CN=Hans Mustermann",
     sender: str = "tests@example.com",
     recipient: str = "testr@example.com",

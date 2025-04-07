@@ -11,7 +11,7 @@ import datetime
 from typing import Any, Optional, Union
 
 from cryptography.hazmat.primitives import serialization
-from pq_logic.keys.abstract_pq import PQSignaturePublicKey
+from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey, KEMPublicKey
 from pq_logic.keys.composite_sig03 import CompositeSig03PublicKey
 from pyasn1.codec.der import decoder, encoder
@@ -21,22 +21,69 @@ from robot.api.deco import not_keyword
 
 from resources.copyasn1utils import copy_subject_public_key_info
 from resources.oidutils import PQ_NAME_2_OID
-from resources.typingutils import PrivateKeySig, PublicKey
+from resources.typingutils import PublicKey, SignKey, TradSignKey, VerifyKey, TradVerifyKey
 
 
 @not_keyword
-def ensure_is_sign_key(key: Any) -> PrivateKeySig:
+def ensure_is_sign_key(key: Any) -> SignKey:
     """Ensure provided key is allowed to sign."""
-    if not isinstance(key, PrivateKeySig):
+    if not isinstance(key, SignKey):
         raise ValueError(f"the provided key is not allowed to be used for signing: {type(key)}")
     return key
 
 
 @not_keyword
-def ensure_is_verify_key(key: Any) -> PQSignaturePublicKey:
+def ensure_is_pq_sign_key(key: Any) -> PQSignaturePrivateKey:
+    """Ensure provided key is a post-quantum signature key."""
+    if not isinstance(key, PQSignaturePrivateKey):
+        raise ValueError(f"the provided key is not a post-quantum signature key: {type(key)}")
+    return key
+
+
+@not_keyword
+def ensure_is_single_sign_key(key: Any) -> Union[PQSignaturePrivateKey, TradSignKey]:
+    """Ensure provided key is a single signature key."""
+    if not isinstance(key, (PQSignaturePrivateKey, TradSignKey)):
+        raise ValueError(f"the provided key is not a single signature key: {type(key)}")
+    return key
+
+
+@not_keyword
+def ensure_is_trad_sign_key(key: Any) -> TradSignKey:
+    """Ensure provided key is a traditional signing key."""
+    if not isinstance(key, TradSignKey):
+        raise ValueError(f"the provided key is not a traditional signing key: {type(key)}")
+    return key
+
+
+@not_keyword
+def ensure_is_verify_key(key: Any) -> VerifyKey:
     """Ensure provided key is allowed to verify signatures."""
-    if not isinstance(key, PublicKey):
+    if not isinstance(key, VerifyKey):
         raise ValueError(f"the provided key is not allowed to be used for verifying signatures: {type(key)}")
+    return key
+
+
+@not_keyword
+def ensure_is_trad_verify_key(key: Any) -> TradSignKey:
+    """Ensure provided key is a traditional verifying key."""
+    if not isinstance(key, TradSignKey):
+        raise ValueError(f"the provided key is not a traditional verifying key: {type(key)}")
+    return key
+
+
+@not_keyword
+def ensure_is_pq_verify_key(key: Any) -> PQSignaturePublicKey:
+    """Ensure provided key is a post-quantum verifying key."""
+    if not isinstance(key, PQSignaturePublicKey):
+        raise ValueError(f"the provided key is not a post-quantum verifying key: {type(key)}")
+    return key
+
+@not_keyword
+def ensure_is_single_verify_key(key: Any) -> Union[PQSignaturePublicKey, TradVerifyKey]:
+    """Ensure provided key is a single verifying key."""
+    if not isinstance(key, (PQSignaturePublicKey, TradVerifyKey)):
+        raise ValueError(f"the provided key is not a single verifying key: {type(key)}")
     return key
 
 
@@ -57,7 +104,7 @@ def ensure_is_kem_priv_key(key: Any) -> KEMPrivateKey:
 
 
 @not_keyword
-def subjectPublicKeyInfo_from_pubkey(
+def subject_public_key_info_from_pubkey(
     public_key: PublicKey,
     target: Optional[rfc5280.SubjectPublicKeyInfo] = None,
     use_rsa_pss: bool = False,

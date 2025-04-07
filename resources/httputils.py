@@ -156,10 +156,10 @@ def start_ssl_server(  # noqa: D417 Missing argument descriptions in the docstri
         logging.info("Server stopped by user.")
         return None
 
-    data = bytes(received_data)
-    if data.startswith(b"POST") or data.startswith(b"GET"):
-        return data.split(b"\r\n\r\n")[1]
-    return bytes(received_data)
+    received_data = bytes(received_data)
+    if received_data.startswith(b"POST") or received_data.startswith(b"GET"):
+        return received_data.split(b"\r\n\r\n")[1]
+    return received_data
 
 
 @keyword("Start Unsafe TCP Server")
@@ -213,19 +213,19 @@ def start_unsafe_tcp_server(  # noqa: D417 Missing argument descriptions in the 
             conn.close()
             logging.info("Connection closed.")
 
-    data = bytes(received_data)
+    received_data = bytes(received_data)
 
-    if data.startswith(b"POST") or data.startswith(b"GET"):
-        return data.split(b"\r\n\r\n")[1]
+    if received_data.startswith(b"POST") or received_data.startswith(b"GET"):
+        return received_data.split(b"\r\n\r\n")[1]
 
-    return bytes(received_data)
+    return received_data
 
 
 if __name__ == "__main__":
     # start_ssl_server("./data/unittest/bare_certificate.pem",
     #                 "./data/keys/private-key-rsa.pem", "./data/unittest/bare_certificate.pem")
-    data = start_unsafe_tcp_server()
-    print(f"Received: {data}")
+    rec_data = start_unsafe_tcp_server()
+    print(f"Received: {rec_data}")
 
 
 @not_keyword
@@ -253,11 +253,11 @@ def ssl_client(
     with socket.create_connection((server_host, server_port)) as sock:
         with context.wrap_socket(sock, server_hostname=server_host) as secure_sock:
             print(f"Connected to {server_host}:{server_port}")
-            secure_sock.sendall(message.encode("utf-8"))
+            secure_sock.sendall(message)
             print(f"Sent: {message}")
 
 
-def _unsafe_client():
+def _unsafe_client() -> Optional[bytes]:
     """Connect to an unsafe TCP server and sends a message."""
     try:
         # DISABLES SSL verification, should not be used unless local testing!!!.
@@ -265,6 +265,7 @@ def _unsafe_client():
         return response.content
     except requests.exceptions.ReadTimeout:
         print("Timeout occurred.")
+        return None
 
 
 """

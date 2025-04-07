@@ -9,8 +9,6 @@ Because some keys like ML-KEM are not signing keys and need a different Proof-of
 """
 
 import logging
-
-# TODO update for better explanation, if time or after thesis.
 from typing import Optional, Union
 
 import pyasn1.error
@@ -24,16 +22,26 @@ from pyasn1.type.base import Asn1Type
 from pyasn1_alt_modules import rfc4211, rfc5652, rfc9480, rfc9629
 from robot.api.deco import keyword, not_keyword
 
-from resources import asn1utils, ca_kga_logic, cmputils, compareutils, envdatautils, keyutils, utils
+import resources.prepareutils
+from resources import (
+    asn1utils,
+    ca_kga_logic,
+    certutils,
+    cmputils,
+    compareutils,
+    envdatautils,
+    keyutils,
+    protectionutils,
+    utils,
+)
 from resources.asn1_structures import ChallengeASN1, PKIMessageTMP
-from resources.certutils import load_public_key_from_cert
 from resources.compareutils import is_null_dn
 from resources.convertutils import str_to_bytes
 from resources.cryptoutils import compute_aes_cbc, perform_ecdh
 from resources.exceptions import BadAsn1Data, BadRequest, InvalidKeyCombination
 from resources.prepareutils import prepare_name
 from resources.protectionutils import compute_and_prepare_mac
-from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, EnvDataPublicKey, PrivateKey, Strint
+from resources.typingutils import ECDHPrivKeyTypes, EnvDataPrivateKey, PrivateKey, Strint
 from resources.utils import get_openssl_name_notation
 
 
@@ -41,12 +49,13 @@ from resources.utils import get_openssl_name_notation
 def prepare_pkmac_popo(  # noqa D417 undocumented-param
     cert_request: rfc4211.CertRequest,
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
-    private_key: Optional[PrivateKey] = None,
+    private_key: Optional[ECDHPrivateKey] = None,
     shared_secret: Optional[Union[bytes, str]] = None,
     mac_alg: str = "password_based_mac",
     salt: Optional[Union[bytes, str]] = None,
     hash_alg: str = "sha256",
     iterations: Strint = 100000,
+    bad_pop: bool = False,
 ) -> rfc4211.ProofOfPossession:
     """Prepare the Proof-of-Possession structure for the PKMAC value.
 
@@ -59,7 +68,8 @@ def prepare_pkmac_popo(  # noqa D417 undocumented-param
         - `mac_alg`: The MAC algorithm to use for the `ProofOfPossession` structure. Defaults to `password_based_mac`.
         - `salt`: The salt to use for the MAC algorithm. Defaults to `None`.
         - `hash_alg`: The hash algorithm to use for the MAC algorithm. Defaults to `sha256`.
-        - `iterations`: The number of iterations to use for the KDF algorithm. Defaults to `100.000`.
+        - `iterations`: The number of iterations to use for the KDF algorithm. Defaults to `100000`.
+        - `bad_pop`: Whether manipulate the signature to be invalid. Defaults to `False`.
 
 
     Returns:
@@ -87,10 +97,11 @@ def prepare_pkmac_popo(  # noqa D417 undocumented-param
         shared_secret=shared_secret,
         data=data,
         mac_alg=mac_alg,
-        for_agreement=False,
+        for_agreement=True,
         hash_alg=hash_alg,
         iterations=int(iterations),
         salt=salt,
+        bad_pop=bad_pop,
     )
 
 
@@ -132,7 +143,7 @@ def prepare_enc_key_with_id(  # noqa D417 undocumented-param
         if use_string:
             data["identifier"]["string"] = sender
         else:
-            data["identifier"]["generalName"] = cmputils.prepare_general_name("directoryName", sender)
+            data["identifier"]["generalName"] = resources.prepareutils.prepare_general_name("directoryName", sender)
 
     logging.debug("Private key for PoP:  %s", data.prettyPrint())
     return data
@@ -177,20 +188,20 @@ def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
     | ${popo}= | Prepare KEM EnvelopedData For POPO | ${ca_cert} | ${data} | rid_sender=${rid} |
 
     """
-
     if data is None and client_key is None:
-       raise ValueError("Either the data to encrypt is required, or the client key.")
-
+        raise ValueError("Either the data to encrypt is required, or the client key.")
 
     if data is not None:
         if isinstance(data, Asn1Type):
             data = encoder.encode(data)
-        data = str_to_bytes(data)
+        data = str_to_bytes(data)  # type: ignore
 
     else:
-        data = prepare_enc_key_with_id(private_key=client_key,  # type: ignore
-                                       sender=enc_key_sender)
-        data = encoder.encode(data)
+        data = prepare_enc_key_with_id(
+            private_key=client_key,  # type: ignore
+            sender=enc_key_sender,
+        )
+        data = asn1utils.encode_to_der(data)
 
     issuer_and_ser = envdatautils.prepare_issuer_and_serial_number(serial_number=int(cert_req_id), issuer=rid_sender)
 
@@ -210,22 +221,10 @@ def prepare_kem_env_data_for_popo(  # noqa D417 undocumented-param
         issuer_and_ser=issuer_and_ser,
         hybrid_key_recip=hybrid_key_recip,
     )
-
-    if key_encipherment:
-        index = 2
-        option = "keyEncipherment"
-    else:
-        index = 3
-        option = "keyAgreement"
-
-    popo_priv_key = rfc4211.POPOPrivKey().subtype(
-        implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, index)
+    return envdatautils.parse_encrypted_key_for_popo(
+        env_data=env_data,
+        for_key_agreement=not key_encipherment,
     )
-    popo_priv_key["encryptedKey"] = env_data
-
-    popo_structure = rfc4211.ProofOfPossession()
-    popo_structure[option] = popo_priv_key
-    return popo_structure
 
 
 # TODO verify with Alex, if this functions does too much,
@@ -270,12 +269,16 @@ def _extract_rid(recipient_info: rfc5652.RecipientInfo, kari_index: int = 0) -> 
     raise ValueError("Unsupported recipient information type.")
 
 
+# TODO del or use.
+
+
 def validate_kemri_rid_for_encrypted_cert(  # noqa D417 undocumented-param
     pki_message: PKIMessageTMP,
     key: Optional[Union[KEMPublicKey, KEMPrivateKey]] = None,
     issuer: Optional[str] = None,
     serial_number: Optional[int] = None,
     cert: Optional[rfc9480.CMPCertificate] = None,
+    *,
     cert_number: Strint = 0,
 ) -> None:
     """Validate the RecipientIdentifier inside the KEMRecipientInfo structure for the encrypted certificate.
@@ -302,9 +305,10 @@ def validate_kemri_rid_for_encrypted_cert(  # noqa D417 undocumented-param
 
     """
     body_name = pki_message["body"].getName()
-    cert_key_pair: rfc9480.CertifiedKeyPair = asn1utils.get_asn1_value(
+    cert_key_pair = asn1utils.get_asn1_value(  # type: ignore
         pki_message, query=f"body.{body_name}.response/{cert_number}.certifiedKeyPair"
     )
+    cert_key_pair: rfc9480.CertifiedKeyPair
 
     recip_info = cert_key_pair["certOrEncCert"]["encryptedCert"]["envelopedData"]["recipientInfos"][0]
     if recip_info.getName() != "ori":
@@ -389,29 +393,12 @@ def validate_rid_for_encrypted_rand(  # noqa D417 undocumented-param
         raise ValueError("`rid` field serialNumber is not equal to the `certReqId`")
 
 
-def _parse_pkimessage_from_der(raw_bytes: bytes) -> PKIMessageTMP:
-    """Decode the `PKIMessage` and `POPODecKeyChallContent` from the DER-encoded bytes.
-
-    :param raw_bytes: The DER-encoded `PKIMessage` as bytes.
-    :return: The parsed `PKIMessage`.
-    :raises BadAsn1Data: If the PKIMessage decoding has a remainder.
-    """
-    # TODO fix if pyasn1-alt-modules is updated.
-    # this was newly added in the draft4210bis-*.
-    msg, rest = decoder.decode(raw_bytes, PKIMessageTMP())
-
-    if rest:
-        raise BadAsn1Data("PKIMessage")
-
-    return msg
-
-
 def _set_header_fields(pki_message: PKIMessageTMP, kwargs: dict) -> dict:
     """Set the header fields"""
     out = cmputils.extract_fields_for_exchange(pki_message, for_py_functions=True)
-    for entry in out:
+    for entry, value in out.items():
         if entry not in kwargs:
-            kwargs[entry] = out[entry]
+            kwargs[entry] = value
 
     if kwargs.get("sender") is None:
         kwargs["sender"] = pki_message["header"]["recipient"]
@@ -422,10 +409,48 @@ def _set_header_fields(pki_message: PKIMessageTMP, kwargs: dict) -> dict:
     return kwargs
 
 
+def _may_get_kari_public_key(
+    ee_key: PrivateKey, kari_cert: Optional[rfc9480.CMPCertificate], pki_message: PKIMessageTMP
+) -> Optional[ECDHPublicKey]:
+    """Get the KARI certificate from the PKIMessage or the provided KARI certificate."""
+    if not isinstance(ee_key, ECDHPrivateKey):
+        return None
+
+    if kari_cert is None:
+        if not pki_message["extraCerts"].isValue:
+            raise ValueError("The KARI certificate is not present in the PKIMessage.")
+
+        tmp = pki_message["extraCerts"][0]
+        loaded_key = keyutils.load_public_key_from_spki(tmp["tbsCertificate"]["subjectPublicKeyInfo"])
+        if type(loaded_key) is type(ee_key.public_key()):
+            return loaded_key  # type: ignore
+
+        if pki_message["extraCerts"][1].isValue:
+            tmp = pki_message["extraCerts"][1]
+            loaded_key = keyutils.load_public_key_from_spki(
+                tmp["tbsCertificate"]["subjectPublicKeyInfo"]  # type: ignore
+            )
+            if type(loaded_key) is type(ee_key.public_key()):
+                return loaded_key  # type: ignore
+        raise ValueError(
+            f"The KARI certificate does not contain a valid public key. "
+            f"Expected {type(ee_key.public_key()).__name__}. Got: {type(loaded_key).__name__}"
+        )
+
+    loaded_key = keyutils.load_public_key_from_spki(kari_cert["tbsCertificate"]["subjectPublicKeyInfo"])
+    if isinstance(loaded_key, ECDHPublicKey):
+        return loaded_key
+
+    raise ValueError(
+        f"The KARI certificate does not contain a valid public key. "
+        f"Expected `ECDHPublicKey`. Got: {type(loaded_key).__name__}"
+    )
+
+
 @keyword(name="Process PKIMessage With Popdecc")
 def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
     pki_message: Union[bytes, PKIMessageTMP],
-    ee_key: Optional[EnvDataPrivateKey] = None,
+    ee_key: EnvDataPrivateKey,
     password: Optional[Union[str, bytes]] = None,
     challenge_size: Strint = 1,
     challenge_index: Strint = 0,
@@ -487,7 +512,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
 
     """
     if isinstance(pki_message, bytes):
-        pki_message = _parse_pkimessage_from_der(pki_message)  # type: ignore
+        pki_message = cmputils.parse_pkimessage(pki_message)  # type: ignore
 
     if not pki_message["body"].getName() == "popdecc":
         raise ValueError("Expected `popdecc` in the PKIMessage body.")
@@ -510,7 +535,7 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
             env_data=challenge["encryptedRand"],
             pki_message=pki_message,  # type: ignore
             password=password,
-            ee_key=ee_key,  # type: ignore
+            ee_key=ee_key,
             recip_index=int(recip_index),
             cert_req_id=int(cert_req_id),
             expected_size=int(expected_size),
@@ -518,7 +543,12 @@ def process_pkimessage_with_popdecc(  # noqa D417 undocumented-param
         )
 
     else:
-        rand = process_simple_challenge(challenge=challenge, ee_key=ee_key, iv=iv)  # type: ignore
+        ca_pub_key = _may_get_kari_public_key(
+            ee_key=ee_key,  # type: ignore
+            kari_cert=kwargs.get("kari_cert"),
+            pki_message=pki_message,
+        )
+        rand = process_simple_challenge(challenge=challenge, ee_key=ee_key, iv=iv, ca_pub_key=ca_pub_key)
 
     num = rand["int"]
     if expected_sender is not None:
@@ -561,7 +591,7 @@ def _process_encrypted_rand(
     env_data: rfc9480.EnvelopedData,
     pki_message: PKIMessageTMP,
     password: Optional[Union[str, bytes]],
-    ee_key: Optional[EnvDataPublicKey],
+    ee_key: Optional[EnvDataPrivateKey],
     recip_index: int,
     cert_req_id: int,
     expected_size: int,
@@ -587,6 +617,11 @@ def _process_encrypted_rand(
         recip_index=recip_index,
         cert_req_id=cert_req_id,
     )
+
+    cmp_prot_cert = None
+    if pki_message["extraCerts"].isValue:
+        cmp_prot_cert = pki_message["extraCerts"][0]
+
     raw_bytes = ca_kga_logic.validate_enveloped_data(
         env_data=env_data,
         pki_message=pki_message,
@@ -596,9 +631,11 @@ def _process_encrypted_rand(
         expected_size=expected_size,
         for_pop=True,
         kari_cert=kari_cert,
+        cmp_protection_cert=cmp_prot_cert,
     )
 
-    obj, rest = decoder.decode(raw_bytes, asn1Spec=rfc9480.Rand())
+    obj, rest = asn1utils.try_decode_pyasn1(raw_bytes, rfc9480.Rand())  # type: ignore
+    obj: rfc9480.Rand
     if rest:
         raise BadAsn1Data("Rand")
 
@@ -609,7 +646,7 @@ def _process_encrypted_rand(
 def process_simple_challenge(
     challenge: ChallengeASN1,
     iv: Union[str, bytes],
-    ee_key: PrivateKey,
+    ee_key: EnvDataPrivateKey,
     ca_pub_key: Optional[ECDHPublicKey] = None,
     kemct: Optional[bytes] = None,
 ) -> rfc9480.Rand:
@@ -634,7 +671,15 @@ def process_simple_challenge(
         return rand_obj
 
     if isinstance(ee_key, ECDHPrivateKey):
+        if ca_pub_key is None:
+            raise ValueError("The CA public key is required for ECDH key exchange.")
         ss = perform_ecdh(ee_key, ca_pub_key)  # type: ignore
+        ss = protectionutils.dh_based_mac_derive_key(
+            basekey=ss,
+            desired_length=32,
+            owf="sha256",
+        )
+        logging.debug("ECDH Challenge computed shared secret: %s", ss.hex())
     elif is_kem_private_key(ee_key):
         ss = ee_key.decaps(kemct)  # type: ignore
     else:
@@ -658,7 +703,7 @@ def _compute_ss(client_key: ECDHPrivateKey, ca_cert: rfc9480.CMPCertificate) -> 
     :return: The computed shared secret.
     :raises ValueError: If the client key is of an unsupported type.
     """
-    pub_key = load_public_key_from_cert(ca_cert)  # type: ignore
+    pub_key = certutils.load_public_key_from_cert(ca_cert)  # type: ignore
     pub_key: ECDHPublicKey
     if isinstance(client_key, ECDHPrivateKey):
         return perform_ecdh(client_key, pub_key)  # type: ignore
@@ -764,7 +809,7 @@ def prepare_key_agreement_popo(  # noqa D417 undocumented-param
             raise ValueError("The certificate request is required for `agreeMAC` PoP.")
 
         if not isinstance(cert_request, bytes):
-            cert_request = encoder.encode(cert_request)
+            cert_request = asn1utils.encode_to_der(cert_request)
 
         return _prepare_pkmac_val(
             shared_secret=shared_secret,
@@ -789,6 +834,7 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
     ee_private_key: Optional[PrivateKey] = None,
     server_cert: Optional[rfc9480.CMPCertificate] = None,
     password: Optional[Union[str, bytes]] = None,
+    *,
     expected_recip_type: Optional[str] = None,
     exclude_rid_check: bool = False,
 ) -> rfc9480.CMPCertificate:
@@ -823,9 +869,13 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
 
     """
     body_name = pki_message["body"].getName()
-    cert_key_pair: rfc9480.CertifiedKeyPair = asn1utils.get_asn1_value(
+    cert_key_pair = asn1utils.get_asn1_value(  # type: ignore
         pki_message, query=f"body.{body_name}.response/{cert_number}.certifiedKeyPair"
     )
+    cert_key_pair: rfc9480.CertifiedKeyPair
+
+    if not cert_key_pair["certOrEncCert"].isValue:
+        raise ValueError("The `certOrEncCert` field has no value.")
 
     if not cert_key_pair["certOrEncCert"]["encryptedCert"].isValue:
         raise ValueError("The `encryptedCert` field has no value.")
@@ -834,6 +884,9 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
         raise ValueError("The enc certificate field MUST be an `envelopedData` structure")
 
     env_data = cert_key_pair["certOrEncCert"]["encryptedCert"]["envelopedData"]
+
+    if server_cert is None:
+        server_cert = pki_message["extraCerts"][0]
 
     data = ca_kga_logic.validate_enveloped_data(
         env_data=env_data,
@@ -853,6 +906,8 @@ def get_enc_cert_from_pkimessage(  # noqa D417 undocumented-param
             raise ValueError(f"Unexpected data after decoding the encrypted certificate: {rest.hex()}")
 
     except pyasn1.error.PyAsn1Error:
-        raise ValueError(f"The decrypted certificate was not decoded-able: {data.hex()}")  # type: ignore
+        raise ValueError(  # pylint: disable=raise-missing-from
+            f"The decrypted certificate was not decoded-able: {data.hex()}"  # type: ignore
+        )
 
     return cert

@@ -17,13 +17,18 @@ import requests
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.x509 import ExtensionNotFound, ReasonFlags, ocsp
-from cryptography.x509.oid import AuthorityInformationAccessOID, ExtensionOID
+from cryptography.x509.oid import AuthorityInformationAccessOID
 from pkilint import loader, report
 from pkilint.pkix import certificate, extension, name
 from pkilint.validation import ValidationFindingSeverity
+from pq_logic.keys.abstract_pq import PQSignaturePublicKey
+from pq_logic.keys.abstract_wrapper_keys import KEMPublicKey, PQPublicKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PublicKey
+from pq_logic.pq_utils import is_kem_public_key
 from pyasn1.codec.der import decoder, encoder
-from pyasn1_alt_modules import rfc5280, rfc9480
+from pyasn1_alt_modules import rfc5280, rfc6402, rfc9480
 from robot.api.deco import keyword, not_keyword
 
 from resources import (
@@ -40,11 +45,20 @@ from resources import (
     utils,
 )
 from resources.asn1_structures import PKIMessageTMP
-from resources.exceptions import BadAsn1Data, CertRevoked, SignerNotTrusted
-from resources.oid_mapping import get_hash_from_oid
-from resources.oidutils import CMP_EKU_OID_2_NAME, RSASSA_PSS_OID_2_NAME
+from resources.convertutils import ensure_is_kem_pub_key, ensure_is_verify_key
+from resources.exceptions import BadAsn1Data, BadPOP, CertRevoked, SignerNotTrusted, UnknownOID
+from resources.oid_mapping import get_hash_from_oid, may_return_oid_to_name
+from resources.oidutils import (
+    CMP_EKU_OID_2_NAME,
+    CMS_COMPOSITE_OID_2_NAME,
+    HYBRID_NAME_2_OID,
+    HYBRID_OID_2_NAME,
+    PQ_NAME_2_OID,
+    PQ_OID_2_NAME,
+    RSASSA_PSS_OID_2_NAME,
+)
 from resources.suiteenums import KeyUsageStrictness
-from resources.typingutils import PrivateKeySig, Strint
+from resources.typingutils import SignKey, Strint, VerifyKey
 
 # for these to integrate smoothly into RF, they have to raise exceptions in case of failure, rather than
 # return False
@@ -97,11 +111,11 @@ def validate_certificate_openssl(data: Union[rfc9480.CMPCertificate, bytes]) -> 
 
     """
     if isinstance(data, rfc9480.CMPCertificate):
-        data = convertutils.copy_asn1_certificate(data)
-        data = encoder.encode(data)
+        tmp_cert = convertutils.copy_asn1_certificate(data)
+        data = asn1utils.encode_to_der(tmp_cert)
 
     try:
-        _certificate = x509.load_der_x509_certificate(data)
+        _ = x509.load_der_x509_certificate(data)
     except Exception as e:
         message = f"Certificate validation with OpenSSL failed: {e}"
         logging.error(message)
@@ -149,7 +163,7 @@ def validate_certificate_pkilint(data: Union[rfc9480.CMPCertificate, bytes]) -> 
 
 
 @not_keyword
-def verify_cert_signature(cert: rfc9480.CMPCertificate, issuer_pub_key: Optional[typingutils.PublicKeySig] = None):
+def verify_cert_signature(cert: rfc9480.CMPCertificate, issuer_pub_key: Optional[typingutils.VerifyKey] = None):
     """Verify the signature of an X.509 certificate.
 
     Uses the issuer's public key, or the certificate's own public key if it is self-signed.
@@ -160,10 +174,8 @@ def verify_cert_signature(cert: rfc9480.CMPCertificate, issuer_pub_key: Optional
     """
     tbs_der = encoder.encode(cert["tbsCertificate"])
     pub_key = issuer_pub_key or load_public_key_from_cert(cert)
-
-    from pq_logic import pq_compute_utils
-
-    pq_compute_utils.verify_signature_with_alg_id(
+    pub_key = ensure_is_verify_key(pub_key)
+    protectionutils.verify_signature_with_alg_id(
         public_key=pub_key,
         data=tbs_der,
         signature=cert["signature"].asOctets(),
@@ -236,6 +248,10 @@ def build_chain_from_list(
     chain = [ee_cert]
     current_cert = ee_cert
 
+    if check_is_cert_signer(current_cert, current_cert):
+        logging.info("The end-entity certificate is self-signed.")
+        return chain
+
     for _ in range(len(certs) + 1):
         for issuer_cert in certs:
             if check_is_cert_signer(cert=current_cert, poss_issuer=issuer_cert):
@@ -275,20 +291,55 @@ def load_public_key_from_der(spki_der: bytes) -> typingutils.PublicKey:
     return keyutils.load_public_key_from_spki(spki)
 
 
-# TODO maybe change to RF
-
-
-@not_keyword
-def load_public_key_from_cert(asn1cert: rfc9480.CMPCertificate) -> typingutils.PublicKey:
+def load_public_key_from_cert(  # noqa D417 undocumented-param
+    cert: rfc9480.CMPCertificate,
+) -> typingutils.PublicKey:
     """Load a public key from a `CMPCertificate`.
 
     Supposed to be used to load either a pq Key or `cryptography` key.
 
-    :param asn1cert: The certificate to load the public key from.
-    :return: The public key object.
+    Arguments:
+    ---------
+        - `cert`: The certificate to load the public key from.
+
+    Returns:
+    -------
+        - The loaded public key.
+
+    Raises:
+    ------
+        - `ValueError`: If the public key cannot be loaded.
+        - `badAlg`: If the algorithm is not supported.
+
+    Examples:
+    --------
+    | ${public_key}= | Load Public Key From Cert | ${cert} |
+
     """
-    public_key = keyutils.load_public_key_from_spki(asn1cert["tbsCertificate"]["subjectPublicKeyInfo"])
+    public_key = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
     return public_key
+
+
+@not_keyword
+def load_kem_key_from_cert(cert: rfc9480.CMPCertificate) -> KEMPublicKey:
+    """Load a KEM public key from a `CMPCertificate`.
+
+    :param cert: The certificate to load the KEM public key from.
+    :return: The KEM public key object.
+    """
+    public_key = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
+    return ensure_is_kem_pub_key(public_key)
+
+
+@not_keyword
+def load_verify_key_from_cert(cert: rfc9480.CMPCertificate) -> VerifyKey:
+    """Load a Signature public key from a `CMPCertificate`.
+
+    :param cert: The certificate to load the PQ Signature public key from.
+    :return: The PQ Signature public key object.
+    """
+    public_key = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
+    return ensure_is_verify_key(public_key)
 
 
 @not_keyword
@@ -310,6 +361,9 @@ def check_is_cert_signer(cert: rfc9480.CMPCertificate, poss_issuer: rfc9480.CMPC
 
     try:
         if cert["signatureAlgorithm"]["algorithm"] in RSASSA_PSS_OID_2_NAME:
+            if not isinstance(public_key, RSAPublicKey):
+                raise ValueError("The public key is not an RSA public key.")
+
             protectionutils.verify_rsassa_pss_from_alg_id(
                 public_key=public_key,
                 data=encoder.encode(cert["tbsCertificate"]),
@@ -317,6 +371,7 @@ def check_is_cert_signer(cert: rfc9480.CMPCertificate, poss_issuer: rfc9480.CMPC
                 alg_id=cert["signatureAlgorithm"],
             )
         else:
+            public_key = ensure_is_verify_key(public_key)
             cryptoutils.verify_signature(
                 public_key=public_key,
                 data=encoder.encode(cert["tbsCertificate"]),
@@ -393,7 +448,10 @@ def build_cmp_chain_from_pkimessage(  # noqa D417 undocumented-param
     if ee_cert is None:
         ee_cert = pki_message["extraCerts"][0]
 
-    return build_chain_from_list(ee_cert, cert_list, must_be_self_signed=last_cert_is_self_signed)
+    if not isinstance(ee_cert, rfc9480.CMPCertificate):
+        raise ValueError("The `ee_cert` is not a valid CMPCertificate object.")
+
+    return build_chain_from_list(ee_cert=ee_cert, certs=cert_list, must_be_self_signed=last_cert_is_self_signed)
 
 
 def build_cert_chain_from_dir(  # noqa D417 undocumented-param
@@ -477,7 +535,11 @@ def validate_cmp_extended_key_usage(  # noqa D417 undocumented-param
         logging.info("ExtendedKeyUsage Check is disabled!")
         return
 
-    cert_eku_obj = certextractutils.get_field_from_certificate(cert=cert, extension="eku")  # ignore: type
+    cert_eku_obj = certextractutils.get_field_from_certificate(
+        cert=cert,  # type: ignore
+        extension="eku",
+    )
+    cert_eku_obj: Optional[rfc5280.ExtKeyUsageSyntax]
     if cert_eku_obj is None:
         if val_strict in [KeyUsageStrictness.ABS_STRICT, KeyUsageStrictness.STRICT]:
             raise ValueError(f"KeyUsage extension was not present in: {cert.prettyPrint()}")
@@ -526,8 +588,8 @@ def _validate_key_usage(expected_usage: str, given_usage: rfc5280.KeyUsage, same
     names = asn1utils.get_set_bitstring_names(given_usage)
     if same_vals:
         # to ensure same names are used.
-        expected_usage = rfc5280.KeyUsage(expected_usage)
-        expected_names = asn1utils.get_set_bitstring_names(expected_usage)
+        expected_usages = rfc5280.KeyUsage(expected_usage)
+        expected_names = asn1utils.get_set_bitstring_names(expected_usages)
         return names == expected_names
 
     vals = [val.strip() for val in expected_usage.split(",")]
@@ -700,9 +762,8 @@ def _verify_certificate_chain(command: List[str], cert_chain: List[rfc9480.CMPCe
     command += cmds
 
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
-        # Manually raise if the command failed.
-        result.check_returncode()
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=True)
+        logging.debug("OpenSSL verify output: %s", result.stdout)
     except subprocess.CalledProcessError as e:
         # Log full error details from OpenSSL.
         logging.error("OpenSSL verify failed. stdout: %s\nstderr: %s", e.stdout, e.stderr)
@@ -818,6 +879,9 @@ def certificates_are_trustanchors(  # noqa D417 undocumented-param
     """
     anchors = load_truststore(path=trustanchors, allow_os_store=allow_os_store)
 
+    if len(anchors) == 0:
+        raise ValueError("No trust anchors were found!")
+
     if isinstance(certs, rfc9480.CMPCertificate):
         certs = [certs]
 
@@ -893,7 +957,7 @@ def certificates_must_be_trusted(  # noqa D417 undocumented-param
     if trustanchors is not None:
         anchors = load_truststore(path=trustanchors, allow_os_store=allow_os_store)
 
-    trusted = cert_chain[-1] in anchors
+    trusted = cert_in_list(cert_chain[-1], anchors)
 
     if not trusted:
         subject_name = utils.get_openssl_name_notation(cert_chain[-1]["tbsCertificate"]["subject"])
@@ -949,6 +1013,7 @@ def verify_signature_with_cert(
     :raises InvalidSignature: If the signature is invalid.
     """
     pub_key = load_public_key_from_cert(asn1cert)
+    pub_key = ensure_is_verify_key(pub_key)
     cryptoutils.verify_signature(
         public_key=pub_key,
         signature=signature,
@@ -977,6 +1042,7 @@ def _write_crl_to_pem(crl: rfc5280.CertificateList, path: str):
         crl_file.write(encoder.encode(crl))
 
 
+# TODO update
 @not_keyword
 def verify_openssl_crl(crl_chain: List, timeout: int = 60):
     """Verify a CRL against a trusted CA certificate using OpenSSL.
@@ -1128,28 +1194,36 @@ def _convert_to_crypto_lib_cert(cert: Union[x509.Certificate, rfc9480.CMPCertifi
     return x509.load_der_x509_certificate(der_data)
 
 
-# TODO refactor to use Pyasn1.
-
-
-def get_ocsp_url_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]) -> List[str]:
+def get_ocsp_url_from_cert_pyasn1(
+    cert: rfc9480.CMPCertificate,
+) -> List[str]:
     """Extract the OCSP URL from a certificate's Authority Information Access extension.
 
     :param cert: The certificate to extract the OCSP URL from.
     :return: The OCSP URLs, if present.
     """
-    cert = _convert_to_crypto_lib_cert(cert)
-    try:
-        aia = cert.extensions.get_extension_for_oid(ExtensionOID.AUTHORITY_INFORMATION_ACCESS).value
-    except ExtensionNotFound:
+    aia = certextractutils.get_field_from_certificate(cert, extension="aia")  # type: ignore
+    aia: Optional[rfc5280.AuthorityInfoAccessSyntax]
+    if aia is None:
         return []
 
-    ocsp_urls = [
-        access_description.access_location.value
-        for access_description in aia  # type: ignore
-        if access_description.access_method == AuthorityInformationAccessOID.OCSP
-    ]
+    entry: rfc5280.AccessDescription
+    ocsp_urls = []
+    for entry in aia:
+        if str(entry["accessMethod"]) == AuthorityInformationAccessOID.OCSP.dotted_string:
+            gen_name = entry["accessLocation"]
+            option = gen_name.getName()
+            if option == "uniformResourceIdentifier":
+                ocsp_urls.append(str(entry["accessLocation"][option]))
+            else:
+                raise NotImplementedError(
+                    f"Not implemented OCSP access method: {option}. Expected 'uniformResourceIdentifier'."
+                )
 
     return ocsp_urls
+
+
+# TODO: add pyasn1 implementation.
 
 
 @not_keyword
@@ -1170,10 +1244,10 @@ def create_ocsp_request(
     :raises ExtensionNotFound: If no OCSP URLs are found in the certificate's AIA extension.
     :raises ValueError: If the OCSP request fails.
     """
-    ca_cert = _convert_to_crypto_lib_cert(ca_cert)
-    cert = _convert_to_crypto_lib_cert(cert)
+    crypto_ca_cert = _convert_to_crypto_lib_cert(ca_cert)
+    crypto_cert = _convert_to_crypto_lib_cert(cert)
 
-    ocsp_url = get_ocsp_url_from_cert(cert)
+    ocsp_url = get_ocsp_url_from_cert_pyasn1(cert)
     if not ocsp_url and must_be_present:
         raise ExtensionNotFound(
             msg="No OCSP URLs found in the certificate's AIA extension.", oid=AuthorityInformationAccessOID.OCSP
@@ -1181,7 +1255,7 @@ def create_ocsp_request(
 
     builder = ocsp.OCSPRequestBuilder()
     hash_instance = oid_mapping.hash_name_to_instance(hash_alg)
-    builder = builder.add_certificate(cert, ca_cert, hash_instance)
+    builder = builder.add_certificate(crypto_cert, crypto_ca_cert, hash_instance)
     req = builder.build()
     return req, ocsp_url
 
@@ -1255,17 +1329,17 @@ def _post_ocsp_request(
 
     except requests.exceptions.RequestException as err:
         if allow_request_failure:
-            logging.warning(f"Failed to send OCSP request. Error: {err}")
+            logging.warning("Failed to send OCSP request. Error: %s", err, exc_info=True)
             return None
-        raise ValueError(f"Failed to send OCSP request. Error: {err}")
+        raise ValueError(f"Failed to send OCSP request. Error: {err}") from err
 
     if response.status_code != 200 and not allow_request_failure:
-        logging.warning(f"Failed to send OCSP request. Status code: {response.status_code}")
-        logging.debug(f"Response: {response.text}")
-        raise ValueError(f"Failed to send OCSP request. Status code: {response.status_code}")
+        logging.warning("Failed to send OCSP request. Status code: %s", response.status_code)
+        logging.debug("Response: %s", response.text)
+        raise ValueError("Failed to send OCSP request. Status code: %s", response.status_code)
     if response.status_code != 200 and allow_request_failure:
-        logging.warning(f"Failed to send OCSP request. Status code: {response.status_code}")
-        logging.debug(f"Response: {response.text}")
+        logging.warning("Failed to send OCSP request. Status code: %s", response.status_code)
+        logging.debug("Response: %s", response.text)
         return None
 
     return response
@@ -1354,12 +1428,13 @@ def check_ocsp_response_for_cert(  # noqa D417 undocumented-param
         cert=cert, ca_cert=issuer, hash_alg=hash_alg, must_be_present=must_be_present
     )
     ocsp_request_data = req.public_bytes(serialization.Encoding.DER)
-    ocsp_url = ocsp_url or ocsp_url_found
+    ocsp_urls = ocsp_url or ocsp_url_found  # type: ignore
 
     if isinstance(ocsp_url, str):
-        ocsp_url = [ocsp_url]
+        ocsp_urls = [ocsp_url]  # type: ignore
 
-    for url in ocsp_url:
+    ocsp_urls: List[str]
+    for url in ocsp_urls:
         _handel_single_ocsp_request(
             url=url,
             ocsp_request_data=ocsp_request_data,
@@ -1398,13 +1473,13 @@ def _get_reason_flags(reason: Optional[str]) -> Optional[ReasonFlags]:
 def build_ocsp_response(
     cert: rfc9480.CMPCertificate,
     ca_cert: rfc9480.CMPCertificate,
-    responder_key: PrivateKeySig,
+    responder_key: SignKey,
     status: str,
     hash_alg: Optional[str] = "sha256",
     revocation_reason: Optional[str] = None,
-    responder_cert: rfc9480.CMPCertificate = None,
+    responder_cert: Optional[rfc9480.CMPCertificate] = None,
     responder_hash_alg: str = "sha256",
-    revocation_time: datetime = None,
+    revocation_time: Optional[datetime] = None,
     build_by_key: bool = True,
     nonce: Optional[bytes] = None,
 ) -> ocsp.OCSPResponse:
@@ -1425,12 +1500,11 @@ def build_ocsp_response(
     :return: The OCSP response.
     :raises ValueError: If the status is invalid.
     """
-    ca_cert = _convert_to_crypto_lib_cert(ca_cert)
+    crypto_ca_cert = _convert_to_crypto_lib_cert(ca_cert)
     builder = ocsp.OCSPResponseBuilder()
-    if responder_hash_alg is not None:
-        responder_hash_alg = oid_mapping.hash_name_to_instance(responder_hash_alg)
+    resp_hash_inst = oid_mapping.hash_name_to_instance(responder_hash_alg)
 
-    cert = _convert_to_crypto_lib_cert(cert)
+    crypto_cert = _convert_to_crypto_lib_cert(cert)
     cert_status = _get_cert_status(status)
     reason = _get_reason_flags(revocation_reason)
 
@@ -1439,20 +1513,17 @@ def build_ocsp_response(
         revocation_time = datetime.now()
 
     builder = builder.add_response(
-        cert=cert,
-        issuer=ca_cert,
-        algorithm=responder_hash_alg,
+        cert=crypto_cert,
+        issuer=crypto_ca_cert,
+        algorithm=resp_hash_inst,
         cert_status=cert_status,
         revocation_reason=reason,
         this_update=datetime.now(),
         next_update=None,
         revocation_time=revocation_time,
     )
-
-    if responder_cert:
-        responder_cert = _convert_to_crypto_lib_cert(responder_cert)
-
-    responder_cert = responder_cert or ca_cert
+    crypto_responder_cert = None if responder_cert is None else _convert_to_crypto_lib_cert(responder_cert)
+    crypto_responder_cert = crypto_responder_cert or crypto_ca_cert
 
     # Set the responder ID; it can be either byName (DER encoded `NAME`) or byKey (hash).
     if build_by_key:
@@ -1460,7 +1531,7 @@ def build_ocsp_response(
     else:
         _encoding = ocsp.OCSPResponderEncoding.NAME
 
-    builder = builder.responder_id(encoding=_encoding, responder_cert=responder_cert)
+    builder = builder.responder_id(encoding=_encoding, responder_cert=crypto_responder_cert)
 
     if nonce is None:
         # allow range is 1-32 from the RFC 8954.
@@ -1469,37 +1540,32 @@ def build_ocsp_response(
     builder = builder.add_extension(x509.OCSPNonce(nonce), critical=False)
 
     if hash_alg is not None:
-        hash_alg = oid_mapping.hash_name_to_instance(hash_alg)
+        hash_inst = oid_mapping.hash_name_to_instance(hash_alg)
+    else:
+        hash_inst = None
 
-    return builder.sign(responder_key, hash_alg)
+    return builder.sign(responder_key, hash_inst)  # type: ignore
 
 
-# TODO remove to pyasn1 function.
-
-
-def _extract_crl_urls_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]) -> List[str]:
+def _extract_crl_urls_from_cert_pyasn1(cert: rfc9480.CMPCertificate) -> List[str]:
     """Extract CRL distribution point URLs from a certificate.
 
     :param cert: A certificate object.
     :return: List of CRL URLs found in the certificate's CRL Distribution Points extension.
     """
-    cert = _convert_to_crypto_lib_cert(cert)
-
     crl_urls = []
-    try:
-        crl_dist_points = cert.extensions.get_extension_for_oid(  # type: ignore
-            ExtensionOID.CRL_DISTRIBUTION_POINTS
-        ).value
-    except x509.ExtensionNotFound:
-        return crl_urls
+    extn = certextractutils.get_extension(cert["tbsCertificate"]["extensions"], rfc5280.id_ce_cRLDistributionPoints)
+    if extn is None:
+        return []
 
-    crl_dist_points: x509.CRLDistributionPoints
-    dist_point: x509.DistributionPoint
+    crl_dist_points, _ = decoder.decode(extn["extnValue"], asn1Spec=rfc5280.CRLDistributionPoints())
+    crl_dist_points: rfc5280.CRLDistributionPoints
+
     for dist_point in crl_dist_points:
-        if dist_point.full_name:
-            for name in dist_point.full_name:
-                if isinstance(name, x509.UniformResourceIdentifier):
-                    crl_urls.append(name.value)
+        if dist_point["distributionPoint"]["fullName"].isValue:
+            for full_name in dist_point["distributionPoint"]["fullName"]:
+                if full_name["uniformResourceIdentifier"].isValue:
+                    crl_urls.append(full_name["uniformResourceIdentifier"])
 
     return crl_urls
 
@@ -1518,7 +1584,7 @@ def _parse_crl_and_check_revocation(
     try:
         crl = x509.load_der_x509_crl(crl_data)
     except Exception:
-        logging.debug("Failed to load CRL data as DER. Trying to load as PEM.")
+        logging.debug("Failed to load CRL data as DER. Trying to load as PEM.", exc_info=True)
         try:
             crl = x509.load_pem_x509_crl(crl_data)
         except Exception as err2:
@@ -1526,7 +1592,7 @@ def _parse_crl_and_check_revocation(
 
     for revoked_cert in crl:
         if revoked_cert.serial_number == serial_number:
-            logging.debug(f"Certificate with serial {serial_number} is in the CRL.")
+            logging.debug("Certificate with serial %s is in the CRL.", serial_number)
             return True
     return False
 
@@ -1552,6 +1618,8 @@ def process_single_crl_check(
     elif crl_file_path:
         with open(crl_file_path, "rb") as crl_file:
             crl_data = crl_file.read()
+    else:
+        raise ValueError("Either `crl_url` or `crl_file_path` must be provided.")
 
     return _parse_crl_and_check_revocation(crl_data, serial_number)
 
@@ -1589,16 +1657,16 @@ def check_if_cert_is_revoked_crl(  # noqa D417 undocumented-param
 
     """
     serial_number = int(cert["tbsCertificate"]["serialNumber"])
+    serial_number = int(serial_number)
 
     if crl_url or crl_file_path:
         result = process_single_crl_check(
-            serial_number=serial_number, crl_url=crl_url, crl_file_path=crl_file_path, timeout=timeout
+            serial_number=serial_number, crl_url=crl_url, crl_file_path=crl_file_path, timeout=int(timeout)
         )
 
     else:
         result = None
-        cert = _convert_to_crypto_lib_cert(cert)
-        crl_urls = _extract_crl_urls_from_cert(cert)
+        crl_urls = _extract_crl_urls_from_cert_pyasn1(cert)
         for url in crl_urls:
             result = process_single_crl_check(serial_number=serial_number, crl_url=url, timeout=int(timeout))
             if result:
@@ -1675,9 +1743,8 @@ def validate_if_certificate_is_revoked(  # noqa D417 undocumented-param
             )
         except ValueError as err:
             if "`revoked`" in str(err) or "`unknown`" in str(err):
-                raise CertRevoked("Certificate is revoked (by OCSP check).")
-            else:
-                raise
+                raise CertRevoked("Certificate is revoked (by OCSP check).") from err
+            raise
 
     else:
         logging.debug("No issuer provided; skipping OCSP check and going directly to CRL check.")
@@ -1694,3 +1761,187 @@ def validate_if_certificate_is_revoked(  # noqa D417 undocumented-param
     # 3. If we reach this point, neither the OCSP check nor the CRL check
     #    confirmed revocation => conclude "not revoked."
     logging.debug("Certificate does not appear to be revoked by OCSP or CRL.")
+
+
+@keyword(name="Validate Migration Alg ID")
+def validate_migration_alg_id(  # noqa: D417 Missing argument descriptions in the docstring
+    alg_id: rfc9480.AlgorithmIdentifier,
+) -> None:
+    """Validate a post-quantum or hybrid algorithm identifier.
+
+    Arguments:
+    ---------
+        - `alg_id`: The `AlgorithmIdentifier` to validate.
+
+    Raises:
+    ------
+        - `ValueError`: If the `parameters` field is not absent.
+
+    Examples:
+    --------
+    | Validate Migration Alg ID | ${alg_id} |
+
+    """
+    if alg_id["algorithm"] not in PQ_OID_2_NAME:
+        if alg_id["parameters"].isValue:
+            alg_name = PQ_OID_2_NAME.get(alg_id["algorithm"])
+            alg_name = alg_name or PQ_OID_2_NAME.get(str(alg_id["algorithm"]))
+            raise ValueError(
+                f"The Post-Quantum algorithm identifier {alg_name} does not `allow` the parameters"
+                f" field to be set: {alg_id['parameters']}"
+            )
+
+    elif alg_id["algorithm"] in HYBRID_OID_2_NAME:
+        if alg_id["parameters"].isValue:
+            alg_name = HYBRID_OID_2_NAME.get(alg_id["algorithm"])
+            alg_name = alg_name or HYBRID_OID_2_NAME.get(str(alg_id["algorithm"]))
+            raise ValueError(
+                f"The Hybrid algorithm identifier {alg_name} does not `allow` the parameters"
+                f" field to be set: {alg_id['parameters']}"
+            )
+    else:
+        raise UnknownOID(oid=alg_id["algorithm"])
+
+
+@keyword(name="Validate Migration Certificate KeyUsage")
+def validate_migration_certificate_key_usage(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate,
+) -> None:
+    """Validate the key usage of a certificate with a PQ public key.
+
+    Arguments:
+    ---------
+        - `cert`: The certificate to validate.
+
+    Raises:
+    ------
+        - `ValueError`: If the key is a KEM or Hybrid-KEM -key and the key usage is not `keyEncipherment`.
+        - `ValueError`: If the key is a PQ signature key and the key usage is not `digitalSignature`.
+
+    Examples:
+    --------
+    | Validate Migration Certificate Key Usage | ${cert} |
+
+
+    """
+    public_key: PQPublicKey = load_public_key_from_cert(cert)  # type: ignore
+    key_usage = certextractutils.get_field_from_certificate(cert, extension="key_usage")
+
+    if key_usage is None:
+        logging.info("Key usage extension was not present in the parsed certificate.")
+        return
+
+    key_usage = asn1utils.get_set_bitstring_names(key_usage).split(", ")  # type: ignore
+
+    sig_usages = {"digitalSignature", "nonRepudiation", "keyCertSign", "cRLSign"}
+
+    if isinstance(public_key, (PQSignaturePublicKey, CompositeSig03PublicKey)):
+        ml_dsa_disallowed = {"keyEncipherment", "dataEncipherment", "keyAgreement", "encipherOnly", "decipherOnly"}
+
+        if not set(key_usage).issubset(sig_usages):
+            raise ValueError(f"The post-quantum {public_key.name} keyUsage must be one of: {sig_usages}")
+        if set(key_usage) & ml_dsa_disallowed:
+            raise ValueError(f"ML-DSA keyUsage must not include: {ml_dsa_disallowed}")
+
+    if is_kem_public_key(public_key):
+        ml_kem_allowed = {"keyEncipherment"}
+        if set(key_usage) != ml_kem_allowed:
+            raise ValueError(f"ML-KEM keyUsage must only contain: {ml_kem_allowed}.But got {key_usage}")
+
+    else:
+        raise ValueError(f"Unsupported public key type: {type(public_key)}")
+
+
+@keyword(name="Validate Migration OID In Certificate")
+def validate_migration_oid_in_certificate(  # noqa: D417 Missing argument descriptions in the docstring
+    cert: rfc9480.CMPCertificate, alg_name: str
+) -> None:
+    """Validate the OID of the public key in the certificate.
+
+    Arguments:
+    ---------
+        - `cert`: The certificate to validate.
+        - `name`: The name of the public key algorithm.
+
+    Raises:
+    ------
+        - `ValueError`: If the OID does not match the name.
+        - `UnknownOID`: If the OID is unknown.
+        - `ValueError`: If the name is not supported.
+
+    Examples:
+    --------
+    | Validate Migration OID In Certificate | ${cert} | ml-dsa-65 |
+
+    """
+    pub_oid = cert["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]
+
+    name_oid = PQ_NAME_2_OID.get(alg_name) or HYBRID_NAME_2_OID.get(alg_name)
+    if name_oid is None:
+        raise ValueError(
+            f"The name {alg_name} is not supported."
+            f" Supported names are: {list(PQ_NAME_2_OID.keys()) + list(HYBRID_NAME_2_OID.keys())}"
+        )
+
+    if PQ_NAME_2_OID.get(alg_name) is not None:
+        if str(pub_oid) != str(PQ_NAME_2_OID[alg_name]):
+            _add = may_return_oid_to_name(pub_oid)
+            if "." not in _add:
+                _add = f" ({_add})"
+            else:
+                _add = ""
+            raise ValueError(f"The OID {pub_oid}{_add} does not match the name {alg_name}.")
+
+    elif HYBRID_NAME_2_OID.get(alg_name) is not None:
+        if str(pub_oid) != str(HYBRID_NAME_2_OID[alg_name]):
+            _add = may_return_oid_to_name(pub_oid)
+            if "." not in _add:
+                _add = f" ({_add})"
+            else:
+                _add = ""
+            raise ValueError(f"The OID {pub_oid}{_add} does not match the name {alg_name}.")
+    else:
+        raise UnknownOID(pub_oid)
+
+
+@keyword(name="Verify CSR Signature")
+def verify_csr_signature(  # noqa: D417 Missing argument descriptions in the docstring
+    csr: rfc6402.CertificationRequest,
+) -> None:
+    """Verify a certification request (CSR) signature using the appropriate algorithm.
+
+    Arguments:
+    ---------
+        - `csr`: The certification request (`CertificationRequest`) to be verified.
+
+    Raises:
+    ------
+        - `ValueError`: If the algorithm OID in the CSR is unsupported or invalid.
+        - `BadPOP`: If the signature verification fails.
+        - `ValueError`: If the public key type is unsupported.
+
+    Examples:
+    --------
+    | Verify CSR Signature | ${csr} |
+
+    """
+    alg_id = csr["signatureAlgorithm"]
+    spki = csr["certificationRequestInfo"]["subjectPublicKeyInfo"]
+
+    if alg_id["algorithm"] in CMS_COMPOSITE_OID_2_NAME:
+        public_key = keyutils.load_public_key_from_spki(spki)
+        CompositeSig03PublicKey.validate_oid(alg_id["algorithm"], public_key)
+    else:
+        public_key = keyutils.load_public_key_from_spki(spki)
+
+    verify_key = ensure_is_verify_key(public_key)
+
+    signature = csr["signature"].asOctets()
+    alg_id = csr["signatureAlgorithm"]
+    data = encoder.encode(csr["certificationRequestInfo"])
+    try:
+        protectionutils.verify_signature_with_alg_id(
+            public_key=verify_key, alg_id=alg_id, signature=signature, data=data
+        )
+    except InvalidSignature as e:
+        raise BadPOP("The signature verification failed.") from e

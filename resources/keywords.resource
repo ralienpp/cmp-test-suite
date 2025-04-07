@@ -22,8 +22,6 @@ Library             ../resources/certbuildutils.py
 Library             ../resources/protectionutils.py
 Library             ../resources/extra_issuing_logic.py
 Library             ../pq_logic/hybrid_issuing.py
-Library             ../pq_logic/pq_compute_utils.py
-Library             ../pq_logic/pq_validation_utils.py
 Library             ../pq_logic/py_verify_logic.py
 
 
@@ -318,6 +316,18 @@ Generate Default KEM Key
     ${key}=   Generate Key    ${DEFAULT_PQ_KEM_ALGORITHM}
     RETURN    ${key}
 
+Generate Default KeyAgreement Key
+    [Documentation]     Generate a default key agreement key for issuing requests.
+    [Tags]    keyAgreement
+    ${key}=   Generate Unique Key    ${DEFAULT_KEY_AGREEMENT_ALG}   curve=${DEFAULT_ECC_CURVE}
+    RETURN   ${key}
+
+Generate Default KeyEncipherment Key
+    [Documentation]     Generate a default key encipherment key for issuing requests.
+    [Tags]    keyEncipherment
+    ${key}=   Generate Unique Key    ${DEFAULT_KEY_ENCIPHERMENT_ALG}
+    RETURN   ${key}
+
 Generate Default Composite Sig Key
     [Documentation]    Generates a default composite signature key with the traditional algorithm
     ...                and the PQ algorithm defined in the configuration.
@@ -364,6 +374,9 @@ Default Protect PKIMessage
     ${protection}=   Get From Dictionary    ${args}    protection
     IF  '${protection}' == 'signature'
         ${prot_pkimessage}=    Protect Hybrid PKIMessage    ${pki_message}  &{args}
+    ELSE IF  '${protection}' == 'mac'
+        ${args}=    Set To Dictionary    ${args}   protection=${DEFAULT_MAC_ALGORITHM}
+        ${prot_pkimessage}=    Protect PKIMessage    ${pki_message}    &{args}
     ELSE
         ${prot_pkimessage}=    Protect PKIMessage    ${pki_message}    &{args}
     END
@@ -634,7 +647,7 @@ PKIStatusInfo failinfo Bit Must Be
     ...    - `failinfo`: The expected `failinfo` bit(s) that must be set in the `PKIStatusInfo` field.
     ...    - `exclusive`: When `True`, ensures that no other failinfo bits are set. Defaults to `True`.
     ...    - `index`: Specifies which `PKIStatusInfo` to validate if the message contains multiple. Defaults to `0`.
-    [Arguments]    ${pki_message}    ${failinfo}    ${exclusive}=True    ${index}=0
+    [Arguments]    ${pki_message}    ${failinfo}    ${exclusive}=False    ${index}=0
     ${status}=    Get PKIStatusInfo    ${pki_message}    ${index}
     ${result}=    Is Bit Set    ${status["failInfo"]}    ${failinfo}    ${exclusive}
     IF    not ${result}

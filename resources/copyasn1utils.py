@@ -115,7 +115,7 @@ def copy_csr(
             ),
             namedtype.NamedType(
                 "attributes",
-                univ.SetOf(componentType=rfc5652.Attribute()).subtype(
+                univ.SetOf(componentType=rfc5652.Attribute()).subtype(  # type: ignore
                     implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
                 ),
             ),

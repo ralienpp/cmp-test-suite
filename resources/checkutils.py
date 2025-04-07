@@ -10,13 +10,14 @@ certificate with the correct chain. Additionally, it checks for the presence and
 such as `caPubs`, based on the response body requirements.
 """
 
+import copy
 import datetime
 import logging
 from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pyasn1.error
 from cryptography.exceptions import InvalidSignature
-from pyasn1.codec.der import decoder
+from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ, useful
 from pyasn1_alt_modules import rfc5280, rfc6664, rfc9480, rfc9481
 from pyasn1_alt_modules.rfc2437 import rsaEncryption
@@ -55,6 +56,72 @@ from resources.oidutils import (
     id_KemBasedMac,
 )
 from resources.typingutils import Strint
+
+
+def check_if_response_contains_private_key(  # noqa D417 undocumented-param
+    pki_message: PKIMessageTMP,
+    key_index: Strint = 0,
+) -> bool:
+    """Check if the `privateKey` field in the PKIMessage is present.
+
+    Arguments:
+    ---------
+        - `pki_message`: The PKIMessage structure to check.
+        - `key_index`: Index of the response within the PKIMessage body, to check. Defaults to `0`.
+
+    Returns:
+    -------
+        - True if the `privateKey` field is present; False otherwise.
+
+    Examples:
+    --------
+    | ${is_present} | Check If Response Contains Private Key | ${pki_message} |
+
+    """
+    der_data = encoder.encode(pki_message)
+    der_data2 = copy.deepcopy(der_data)
+    comp_message = decoder.decode(der_data2, asn1Spec=PKIMessageTMP())[0]
+
+    cert_response = cmputils.get_cert_response_from_pkimessage(comp_message, response_index=key_index)
+
+    if not cert_response["certifiedKeyPair"].isValue:
+        return False
+
+    return cert_response["certifiedKeyPair"]["privateKey"].isValue
+
+
+def check_if_response_contains_encrypted_cert(  # noqa D417 undocumented-param
+    pki_message: PKIMessageTMP,
+    cert_index: Strint = 0,
+) -> bool:
+    """Check if the `certOrEncCert` field in the PKIMessage is present and contains an encrypted certificate.
+
+    Arguments:
+    ---------
+        - `pki_message`: The PKIMessage structure to check.
+        - `cert_index`: Index of the response within the PKIMessage body, to check. Defaults to `0`.
+
+    Returns:
+    -------
+        - True if the `certOrEncCert` field is present and contains an encrypted certificate; False otherwise.
+
+    Examples:
+    --------
+    | ${is_present} | Check If Response Contains Encrypted Cert | ${pki_message} |
+
+    """
+    der_data = encoder.encode(pki_message)
+    der_data2 = copy.deepcopy(der_data)
+    comp_message = decoder.decode(der_data2, asn1Spec=PKIMessageTMP())[0]
+
+    cert_response = cmputils.get_cert_response_from_pkimessage(comp_message, response_index=cert_index)
+    if not cert_response["certifiedKeyPair"].isValue:
+        return False
+    if not cert_response["certifiedKeyPair"]["certOrEncCert"].isValue:
+        return False
+
+    # MUST be checked this way.
+    return cert_response["certifiedKeyPair"]["certOrEncCert"].getName() == "encryptedCert"
 
 
 @keyword(name="Validate certifiedKeyPair Structure")
@@ -319,11 +386,16 @@ def check_sender_cmp_protection(  # noqa D417 undocumented-param
     | Check Sender CMP Protection | ${pki_message} | must_be_protected=True | allow_failure=False |
 
     """
-    sender_name: rfc9480.GeneralName = asn1utils.get_asn1_value(pki_message, query="header.sender")
+    sender_name = asn1utils.get_asn1_value(pki_message, query="header.sender")  # type: ignore
+    sender_name: rfc9480.GeneralName
     check_is_protection_present(pki_message=pki_message, must_be_protected=must_be_protected)
 
     if protectionutils.get_protection_type_from_pkimessage(pki_message) == "sig":
-        cert_name: rfc9480.Name = asn1utils.get_asn1_value(pki_message["extraCerts"][0], query="tbsCertificate.subject")
+        cert_name = asn1utils.get_asn1_value(
+            pki_message["extraCerts"][0],  # type: ignore
+            query="tbsCertificate.subject",
+        )
+        cert_name: rfc9480.Name
         are_same_names = compareutils.compare_general_name_and_name(general_name=sender_name, name=cert_name)
 
         if not are_same_names:
@@ -591,8 +663,8 @@ def validate_senderkid_for_cmp_protection(  # noqa D417 undocumented-param
     # Determine the type of protection
     protection_type = protectionutils.get_protection_type_from_pkimessage(pki_message)
     sender_kid = pki_message["header"]["senderKID"].asOctets()
-
-    if protection_type == "sig":
+    alg_name = protectionutils.get_protection_alg_name(pki_message)
+    if protection_type == "sig" or alg_name in ["dh_based_mac", "kem_based_mac"]:
         # For signature-based protection, the senderKID must match the certificate's SubjectKeyIdentifier
         subject_ski = certextractutils.get_subject_key_identifier(protection_cert)  # type: ignore
         if subject_ski is None:
@@ -604,6 +676,7 @@ def validate_senderkid_for_cmp_protection(  # noqa D417 undocumented-param
             raise BadMessageCheck(
                 "The SubjectKeyIdentifier of the CMP-protection certificate differs from the senderKID."
             )
+
     else:
         _verify_senderkid_for_mac(pki_message=pki_message, allow_mac_failure=allow_mac_failure)
 
@@ -712,7 +785,8 @@ def _get_cert_index(cert: rfc9480.CMPCertificate, cert_id_to_index: Dict[Tuple[s
     :raise KeyError: If the certificate is not found in the cert_id_to_index mapping.
     """
     subject = cert["tbsCertificate"]["subject"]
-    subject_name: str = utils.get_openssl_name_notation(subject)
+    subject_name = utils.get_openssl_name_notation(subject)  # type: ignore
+    subject_name: str
     serial_number = int(cert["tbsCertificate"]["serialNumber"])
     cert_id = (subject_name, serial_number)
     return cert_id_to_index[cert_id]
@@ -1118,7 +1192,8 @@ def check_message_time_field(
                 raise BadTime("The `messageTime` field must be present if `confirmWaitTime` is set!")
 
     if allowed_interval is not None:
-        msg_time: useful.GeneralizedTime = asn1utils.get_asn1_value(pki_message, query="header.messageTime")
+        msg_time = asn1utils.get_asn1_value(pki_message, query="header.messageTime")  # type: ignore
+        msg_time: useful.GeneralizedTime
         time_obj = msg_time.asDateTime
 
         if request_time is not None:
@@ -1982,3 +2057,100 @@ def validate_cross_certification_response(  # noqa D417 undocumented-param
         expected_size=1,
         response_index=0,
     )
+
+
+def _validate_cert_conf_nonces_and_tx_id(
+    request: PKIMessageTMP, response: PKIMessageTMP, check_length: bool = True
+) -> None:
+    """Validate the `certConf` body of a CMP PKIMessage.
+
+    :param request: The PKIMessage containing the `certConf` body to validate.
+    :param response: The PKIMessage containing the `certConf` body to validate against.
+    :param check_length: Whether to check the length of the nonces and transactionID. Defaults to `True`.
+    :raises ValueError: If the `certConf` body is not set or does not contain the required fields.
+    :raises BadSenderNonce: If the `senderNonce` is not set or not 16 bytes long or not equal to the response.
+    :raises BadRecipientNonce: If the `recipNonce` is not set or not 16 bytes long or not equal to the response.
+    :raises BadDataFormat: If the `transactionID` is not equal or not 16 bytes long.
+    :raises BadRequest: If the `transactionID` is not 16 bytes long.
+    """
+    if request["body"].getName() != "certConf":
+        raise ValueError("The `PKIBody` was not a `certConf` message.")
+
+    if not request["header"]["senderNonce"].isValue:
+        raise BadSenderNonce("The `senderNonce` was not set inside the `certConf` body.")
+
+    if not request["header"]["transactionID"].isValue:
+        raise BadDataFormat("The `transactionID` was not set inside the `certConf` body.")
+
+    if not request["header"]["recipNonce"].isValue:
+        raise BadRecipientNonce("The `recipNonce` was not set inside the `certConf` body.")
+
+    sender_nonce = request["header"]["senderNonce"].asOctets()
+    tx_id = request["header"]["transactionID"].asOctets()
+    recip_nonce = request["header"]["recipNonce"].asOctets()
+
+    if check_length:
+        if len(tx_id) != 16:
+            raise BadRequest("The transaction ID was not 16 bytes long.")
+        if len(sender_nonce) != 16:
+            raise BadSenderNonce("The sender nonce was not 16 bytes long.")
+        if len(recip_nonce) != 16:
+            raise BadRecipientNonce("The recipient nonce was not 16 bytes long.")
+
+    if request["header"]["recipNonce"].asOctets() != response["header"]["senderNonce"].asOctets():
+        raise BadRecipientNonce("The `recipNonce` does not match the servers `senderNonce`")
+
+    if request["header"]["transactionID"].asOctets() != response["header"]["transactionID"].asOctets():
+        raise BadRequest("The `transactionID` does not match the servers `transactionID`")
+
+    if request["header"]["senderNonce"].asOctets() != response["header"]["recipNonce"].asOctets():
+        raise BadSenderNonce("The `senderNonce` does not match the servers `recipNonce`")
+
+
+def validate_request_message_nonces_and_tx_id(  # noqa D417 undocumented-param
+    request: PKIMessageTMP, response: Optional[PKIMessageTMP] = None
+) -> None:
+    """Validate the nonces and the `transactionID` of a `PKIMessage` send by a Client.
+
+    The `transactionID` and `senderNonce` must be set, and the `recipNonce` must not be set.
+    The `transactionID` and `senderNonce` must be 16 bytes long.
+
+    Arguments:
+    ---------
+        - `pki_message`: The PKIMessage to validate.
+        - `response`: Optional PKIMessage response to validate against.
+
+    Raises:
+    ------
+        - `BadSenderNonce`: If the `senderNonce` is not set or not 16 bytes long.
+        - `BadRecipientNonce`: If the `recipNonce` is set.
+        - `BadDataFormat`: If the `transactionID` is not set.
+        - `BadRequest`: If the `transactionID` is not 16 bytes long.
+
+    Examples:
+    --------
+    | Validate Request Message Nonces and Tx ID | ${pki_message} |
+
+    """
+    if request["body"].getName() == "nested":
+        raise NotImplementedError("The request message was not a nested message.")
+
+    if request["body"].getName() == "certConf":
+        if response is None:
+            raise ValueError("The `response` PKIMessage must be provided for certConf validation.")
+        _validate_cert_conf_nonces_and_tx_id(request=request, response=response)
+        return
+
+    if not request["header"]["senderNonce"].isValue:
+        raise BadSenderNonce("The sender nonce was not set.")
+    sender_nonce = request["header"]["senderNonce"].asOctets()
+    if not request["header"]["transactionID"].isValue:
+        raise BadDataFormat("The transaction ID was not set.")
+    tx_id = request["header"]["transactionID"].asOctets()
+    if request["header"]["recipNonce"].isValue:
+        raise BadRecipientNonce("The recipient nonce was set.")
+
+    if len(tx_id) != 16:
+        raise BadRequest("The transaction ID was not 16 bytes long.")
+    if len(sender_nonce) != 16:
+        raise BadSenderNonce("The sender nonce was not 16 bytes long.")

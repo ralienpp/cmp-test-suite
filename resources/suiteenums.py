@@ -127,12 +127,13 @@ class NameCompareTypes(enum.Enum):
 
 
 class GeneralInfoOID(enum.Enum):  #
-    """Definee the Support OIDs general messages for the PKIMessage."""
+    """Defines the Support OIDs general messages for the PKIMessage."""
 
     CA_PROT_ENC_CERT = rfc9480.id_it_caProtEncCert
     SIGN_KEY_PAIR_TYPES = rfc9480.id_it_signKeyPairTypes
+    ENC_KEY_PAIR_TYPES = rfc9480.id_it_encKeyPairTypes
     ENC_KEY_AGREEMENT_TYPES = rfc9480.id_it_keyPairParamReq
-    PREFERRED_SYMM_ALG = rfc9480.id_it_preferredSymmAlg
+    PREF_SYM_ALG = rfc9480.id_it_preferredSymmAlg
     CA_CERTS = rfc9480.id_it_caCerts
     CERT_REQ_TEMPLATE = rfc9480.id_it_certReqTemplate
     ROOT_CA_CERT_UPDATE = rfc9480.id_it_rootCaKeyUpdate
@@ -160,7 +161,7 @@ class GeneralInfoOID(enum.Enum):  #
             return cls[name.upper()].value
         except KeyError:
             raise ValueError(  # pylint: disable=raise-missing-from
-                f"Unknown OID name: {name} supported are: {', '.join(cls.get_names_lowercase())}"
+                f"Unknown OID name: `{name}` supported are: {', '.join(cls.get_names_lowercase())}"
             )
 
     @classmethod

@@ -20,8 +20,9 @@ from pyasn1_alt_modules.rfc5652 import Attribute
 from robot.api.deco import not_keyword
 
 from resources import asn1utils
+from resources.exceptions import BadAsn1Data
 from resources.oid_mapping import may_return_oid_to_name
-from resources.oidutils import EXTENSION_NAME_2_OID
+from resources.oidutils import EXTENSION_NAME_2_OID, EXTENSION_OID_2_SPECS
 
 # TODO refactor.
 
@@ -70,7 +71,7 @@ def cert_contains_extension(  # noqa D417 undocumented-param
         cert_or_extn = cert_or_extn["tbsCertificate"]["extensions"]
 
     out = get_extension(
-        cert_or_extn,
+        cert_or_extn,  # type: ignore
         oid,
         must_be_non_crit=must_be_non_crit,
         must_be_crit=must_be_crit,
@@ -111,9 +112,6 @@ def extension_must_be_non_critical(  # noqa D417 undocumented-param
     if extn is None:
         name = may_return_oid_to_name(oid)
         raise ValueError(f"Extension {name}:{oid} is not present.")
-
-
-# TODO add unit test
 
 
 @not_keyword
@@ -175,57 +173,29 @@ def get_authority_key_identifier(cert: rfc9480.CMPCertificate) -> Optional[rfc52
 
 
 @not_keyword
-def get_basic_constraints(cert: rfc9480.CMPCertificate) -> Optional[rfc5280.BasicConstraints]:
-    """Extract the BasicConstraints from a pyasn1 `CMPCertificate`, if present.
+def get_extension_decoded_value(
+    cert: rfc9480.CMPCertificate,
+    extension_name: str,
+    strict_decode: bool = True,
+) -> Optional[base.Asn1Type]:
+    """Get the decoded value of a specific extension from a certificate.
 
     :param cert: The certificate to extract the extension from.
-    :return: `None` if not present. Else `BasicConstraints` object.
-    :raises: `pyasn1.error.PyAsn1Error` if the extension value cannot be decoded.
+    :param extension_name: The name of the extension to retrieve (e.g., "key_usage").
+    :param strict_decode: If `True`, the decoder will raise an error if the value
+    has a remainder. If `False`, it will ignore the remainder.
+    :return: The decoded value of the extension, or `None` if not present.
     """
-    extn_val = get_extension(cert["tbsCertificate"]["extensions"], rfc5280.id_ce_basicConstraints)
+    extn_oid = EXTENSION_NAME_2_OID[extension_name]
+    spec_tmp = EXTENSION_OID_2_SPECS[extn_oid]
+
+    extn_val = get_extension(cert["tbsCertificate"]["extensions"], extn_oid)
     if extn_val is None:
         return None
-    return decoder.decode(extn_val["extnValue"], asn1Spec=rfc5280.BasicConstraints())[0]
-
-
-def _get_key_usage(cert: rfc9480.CMPCertificate) -> Optional[rfc5280.KeyUsage]:
-    """Extract the KeyUsage extension from an `pyasn1` CMPCertificate, if present.
-
-    :param cert: The certificate to extract the extension from.
-    :return: The `KeyUsage` object if the `KeyUsage` extension is found, otherwise `None`.
-    :raises: `pyasn1.error.PyAsn1Error` if the extension value cannot be decoded.
-    """
-    key_usage = get_extension(cert["tbsCertificate"]["extensions"], rfc5280.id_ce_keyUsage)
-    if key_usage is None:
-        return None
-    return decoder.decode(key_usage["extnValue"], asn1Spec=rfc5280.KeyUsage())[0]
-
-
-@not_keyword
-def get_extended_key_usage(cert) -> Optional[rfc5280.ExtKeyUsageSyntax]:
-    """Extract the `ExtendedKeyUsage` (EKU) extension from a certificate, if present.
-
-    :param cert: The certificate to extract the extension from.
-    :return: The `ExtKeyUsageSyntax` object if the EKU extension is found, or `None` if not present.
-    :raises: `pyasn1.error.PyAsn1Error` if the extension value cannot be decoded.
-    """
-    eku = get_extension(cert["tbsCertificate"]["extensions"], rfc5280.id_ce_extKeyUsage)
-    if eku is None:
-        return None
-    return decoder.decode(eku["extnValue"], asn1Spec=rfc5280.ExtKeyUsageSyntax())[0]
-
-
-@not_keyword
-def _get_subject_alt_name(cert: rfc9480.CMPCertificate) -> Optional[rfc5280.SubjectAltName]:
-    """Extract the `SubjectAltName` extension from a certificate, if present.
-
-    :param cert: The certificate to extract the extension from.
-    :return: The `SubjectAltName` object if the SAN extension is found, or `None` if not present.
-    """
-    extn_val = get_extension(cert["tbsCertificate"]["extensions"], rfc5280.id_ce_subjectAltName)
-    if extn_val is None:
-        return None
-    return decoder.decode(extn_val["extnValue"], asn1Spec=rfc5280.SubjectAltName())[0]
+    spec, rest = decoder.decode(extn_val["extnValue"].asOctets(), asn1Spec=spec_tmp())
+    if strict_decode and rest:
+        raise BadAsn1Data(f"{type(spec_tmp)}: {rest.hex()} left over after decoding `{extension_name}`", overwrite=True)
+    return spec
 
 
 def get_field_from_certificate(  # noqa D417 undocumented-param
@@ -256,6 +226,7 @@ def get_field_from_certificate(  # noqa D417 undocumented-param
         - "aki": AuthorityKeyIdentifier
         - "basic_constraints": BasicConstraints
         - "san": SubjectAltName
+        - "ian": IssuerAltName
 
     Returns:
     -------
@@ -282,31 +253,23 @@ def get_field_from_certificate(  # noqa D417 undocumented-param
         raise ValueError("The parsed `cert` had no value!")
 
     if query is not None:
-        return asn1utils.get_asn1_value(cert, query="tbsCertificate." + query)
+        out = asn1utils.get_asn1_value(cert, query="tbsCertificate." + query)  # type: ignore
+        if not out.isValue:  # type: ignore
+            raise ValueError(f"Field '{query}' was not set in the certificate.")
+        return out  # type: ignore
 
+    # Choose to directly return the value of the digests as bytes.
     if extension == "ski":
         return get_subject_key_identifier(cert)
 
-    if extension == "key_usage":
-        return _get_key_usage(cert)
-
-    if extension == "eku":
-        return get_extended_key_usage(cert)
-
-    if extension == "aki":
-        return get_authority_key_identifier(cert)
-
-    if extension == "basic_constraints":
-        return get_basic_constraints(cert)
-
-    if extension == "san":
-        return _get_subject_alt_name(cert)
+    if extension in ["key_usage", "eku", "basic_constraints", "ian", "san", "aki", "aia"]:
+        return get_extension_decoded_value(cert, extension)
 
     raise NotImplementedError(f"Extension name not supported: {extension}")
 
 
 @not_keyword
-def extract_extension_from_csr(csr: rfc6402.CertificationRequest) -> Optional[rfc9480.Extensions]:
+def extract_extensions_from_csr(csr: rfc6402.CertificationRequest) -> Optional[rfc9480.Extensions]:
     """Extract extensions from a CertificationRequest object if present.
 
     :param csr: The CSR object from which to extract extensions, if possible.
@@ -316,7 +279,7 @@ def extract_extension_from_csr(csr: rfc6402.CertificationRequest) -> Optional[rf
         return None
 
     ext_oid = univ.ObjectIdentifier("1.2.840.113549.1.9.14")
-    attr: Attribute()
+    attr: Attribute
 
     for attr in csr["certificationRequestInfo"]["attributes"]:
         if attr["attrType"] == ext_oid:

@@ -8,18 +8,20 @@ import logging
 import os
 from typing import List, Optional, Union
 
-import pyasn1
 from cryptography import x509
 from cryptography.hazmat.primitives import keywrap, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
+from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePrivateKey, HybridKEMPublicKey, KEMPublicKey
 from pq_logic.pq_utils import get_kem_oid_from_key, is_kem_public_key
+from pq_logic.tmp_oids import CMS_COMPOSITE03_OID_2_HASH
 from pq_logic.trad_typing import ECDHPrivateKey, ECDHPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
+from pyasn1.type.base import Asn1Item
 from pyasn1_alt_modules import (
     rfc4055,
     rfc4211,
@@ -35,21 +37,30 @@ from pyasn1_alt_modules import (
 )
 from robot.api.deco import keyword, not_keyword
 
-from resources import certbuildutils, certextractutils, cryptoutils, keyutils, utils
+from resources import (
+    asn1utils,
+    certbuildutils,
+    certextractutils,
+    cryptoutils,
+    keyutils,
+    prepare_alg_ids,
+    prepareutils,
+    protectionutils,
+    utils,
+)
 from resources.convertutils import copy_asn1_certificate, ensure_is_kem_pub_key, str_to_bytes
 from resources.copyasn1utils import copy_name
 from resources.exceptions import BadAsn1Data
-from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, sha_alg_name_to_oid
-from resources.oidutils import CURVE_2_COFACTORS, ECMQV_NAME_2_OID, KEY_WRAP_NAME_2_OID, KM_KA_ALG_NAME_2_OID
-from resources.prepareutils import prepare_name
-from resources.protectionutils import (
-    compute_kdf_from_alg_id,
-    get_rsa_oaep_padding,
-    prepare_kdf,
-    prepare_pbkdf2_alg_id,
-    prepare_wrap_alg_id,
+from resources.oid_mapping import compute_hash, get_alg_oid_from_key_hash, get_hash_from_oid, sha_alg_name_to_oid
+from resources.oidutils import (
+    CURVE_2_COFACTORS,
+    ECMQV_NAME_2_OID,
+    HKDF_NAME_2_OID,
+    KEY_WRAP_NAME_2_OID,
+    KM_KA_ALG_NAME_2_OID,
+    PQ_SIG_PRE_HASH_NAME_2_OID,
 )
-from resources.typingutils import PrivateKey, PrivateKeySig, PublicKey
+from resources.typingutils import PrivateKey, PublicKey, RecipInfo, SignKey, Strint, VerifyKey
 
 
 @not_keyword
@@ -94,22 +105,15 @@ def prepare_encrypted_content_info(
     :param enc_oid: Optional Object Identifier for the content encryption algorithm. Defaults to `None`.
     :return: An `EncryptedContentInfo` containing the encrypted content.
     """
-    if len(cek) == 32:
-        oid = rfc9481.id_aes256_CBC
-    elif len(cek) == 24:
-        oid = rfc9481.id_aes192_CBC
-    else:
-        oid = rfc9481.id_aes128_CBC
-
     iv = iv or os.urandom(16)
+    alg_id = prepare_alg_ids.prepare_symmetric_encr_alg_id("cbc", value=univ.OctetString(iv), length=len(cek))
 
     enc_content_info = rfc5652.EncryptedContentInfo()
 
-    enc_oid = enc_oid or rfc5652.id_signedData if for_signed_data else rfc5652.id_encryptedData
+    enc_oid = enc_oid or rfc5652.id_signedData if for_signed_data else rfc5652.id_data
 
     enc_content_info["contentType"] = enc_oid
-    enc_content_info["contentEncryptionAlgorithm"]["algorithm"] = oid
-    enc_content_info["contentEncryptionAlgorithm"]["parameters"] = encoder.encode(univ.OctetString(iv))
+    enc_content_info["contentEncryptionAlgorithm"] = alg_id
 
     encrypted_content = cryptoutils.compute_aes_cbc(decrypt=False, iv=iv, key=cek, data=data_to_protect)
 
@@ -122,13 +126,81 @@ def prepare_encrypted_content_info(
     return enc_content_info
 
 
+@keyword(name="Prepare EnvelopedData with PWRI")
+def prepare_enveloped_data_with_pwri(  # noqa D417 undocumented-param
+    password: Union[str, bytes],
+    data: Union[bytes, Asn1Item],
+    cek: Optional[Union[bytes, str]] = None,
+    salt: Optional[Union[bytes, str]] = None,
+    kdf: str = "pbkdf2",
+    for_raw_data: bool = False,
+    oid: str = str(rfc5652.id_signedData),
+    for_enc_key: bool = True,
+    for_popo: bool = False,
+) -> rfc9480.EnvelopedData:
+    """Prepare an `EnvelopedData` structure with password-based encryption.
+
+    This function creates an `EnvelopedData` structure that uses password-based encryption
+    to protect the content. It generates a content encryption key (CEK) and encrypts the
+    provided data using the specified password and key derivation function (KDF).
+
+    Arguments:
+    ---------
+        - `password`: The password used for key derivation.
+        - `data`: The data to be encrypted.
+        - `cek`: Optional content encryption key. Defaults to `None`.
+        - `salt`: Optional salt for key derivation. Defaults to `None`.
+        - `kdf`: Key derivation function to use. Defaults to "pbkdf2".
+        - `for_raw_data`: If True, the content type is set to `id_rawData`. Defaults to False.
+        - `oid`: Object Identifier for the content encryption algorithm. Defaults to `id_signedData`.
+        - `for_enc_key`: If True, the structured is correctly tagged for the EncryptedKey structure. Defaults to `True`.
+        - `for_popo`: If True, the structure is tagged for the POPO, for the `POPOPrivKey` structure.
+        Defaults to `False`.
+
+    Returns:
+    -------
+        - The populated `EnvelopedData` structure.
+
+    Examples:
+    --------
+    | ${env_data}= | Prepare EnvelopedData with PWRI | ${password} | ${data} |
+    | ${env_data}= | Prepare EnvelopedData with PWRI | ${password} | ${data} | kdf=hkdf | hash_alg=sha256 |
+
+    """
+    cek = cek or os.urandom(32)
+    cek = str_to_bytes(cek)
+
+    pwri = prepare_password_recipient_info(
+        password=password,
+        cek=cek,
+        salt=salt,
+        kdf=kdf,
+    )
+
+    if for_enc_key:
+        target = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0))
+    elif for_popo:
+        target = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))
+    else:
+        target = rfc9480.EnvelopedData()
+
+    return prepare_enveloped_data(
+        recipient_infos=parse_recip_info(pwri),
+        cek=cek,
+        data_to_protect=data,
+        version=0,
+        enc_oid=rfc5652.id_data if for_raw_data else univ.ObjectIdentifier(oid),
+        target=target,
+    )
+
+
 @not_keyword
 def prepare_enveloped_data(
     recipient_infos: Union[rfc5652.RecipientInfo, List[rfc5652.RecipientInfo]],
     cek: bytes,
-    data_to_protect: bytes,
+    data_to_protect: Union[bytes, Asn1Item],
     version: int = 2,
-    target: Optional[rfc9480.EnvelopedData] = None,
+    target: Optional[rfc9480.EnvelopedData] = None,  # type: ignore
     enc_oid: Optional[univ.ObjectIdentifier] = None,
 ) -> rfc5652.EnvelopedData:
     """Create an `EnvelopedData` structure with encrypted content and recipient information.
@@ -147,7 +219,12 @@ def prepare_enveloped_data(
     :return: An `EnvelopedData` containing the encrypted content and recipient info.
     """
     if target is None:
-        target = rfc5652.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
+        target = rfc9480.EnvelopedData().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))
+
+    if not isinstance(data_to_protect, bytes):
+        data_to_protect = asn1utils.encode_to_der(data_to_protect)
+
+    target: rfc9480.EnvelopedData
 
     target["version"] = version
     infos = rfc5652.RecipientInfos()
@@ -164,6 +241,40 @@ def prepare_enveloped_data(
     target["recipientInfos"] = infos
 
     return target
+
+
+@not_keyword
+def prepare_originator_with_rid(rid: rfc5652.RecipientIdentifier) -> rfc5652.OriginatorIdentifierOrKey:
+    """Prepare the `OriginatorIdentifierOrKey` structure with a recipient identifier.
+
+    This function sets the `originator` field of the `OriginatorIdentifierOrKey` structure
+    to indicate that the originator is identified by a recipient identifier.
+
+    :param rid: The `RecipientIdentifier` structure to populate.
+    :return: The populated `OriginatorIdentifierOrKey` structure.
+    """
+    originator = rfc5652.OriginatorIdentifierOrKey().subtype(
+        explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)
+    )
+
+    rid_name = rid.getName()
+
+    if rid_name == "issuerAndSerialNumber":
+        originator[rid_name] = rfc5652.IssuerAndSerialNumber()
+        originator[rid_name]["issuer"] = rid[rid_name]["issuer"]
+        originator[rid_name]["serialNumber"] = rid[rid_name]["serialNumber"]
+    elif rid_name == "subjectKeyIdentifier":
+        ski = rfc5652.SubjectKeyIdentifier(rid[rid_name].asOctets()).subtype(
+            implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0)
+        )
+        originator[rid_name] = ski
+    else:
+        raise ValueError(
+            "The `RecipientIdentifier` must be either `issuerAndSerialNumber` or "
+            "`subjectKeyIdentifier` to be used as an originator identifier."
+        )
+
+    return originator
 
 
 @keyword(name="Prepare Recipient Identifier")
@@ -203,7 +314,10 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
     recip_id = rfc5652.RecipientIdentifier()
 
     if key is None and cert is None and issuer_and_ser is None and ski is None:
-        raise ValueError("Either a certificate, an issuer and serial number, or a key must be provided.")
+        raise ValueError(
+            "Either a certificate, an issuer and serial number, or a key must be "
+            "provided, to prepare the `RecipientIdentifier`."
+        )
 
     if issuer_and_ser is not None:
         recip_id["issuerAndSerialNumber"] = issuer_and_ser
@@ -212,7 +326,7 @@ def prepare_recipient_identifier(  # noqa D417 undocumented-param
     if key is not None:
         if not isinstance(key, PublicKey):
             key = key.public_key()
-        ski = x509.SubjectKeyIdentifier.from_public_key(key).digest # type: ignore
+        ski = x509.SubjectKeyIdentifier.from_public_key(key).digest  # type: ignore
 
     elif cert is not None:
         ski = ski or certextractutils.get_field_from_certificate(cert, extension="ski")  # type: ignore
@@ -271,18 +385,22 @@ def prepare_issuer_and_serial_number(  # noqa D417 undocumented-param
     iss_ser_num = rfc5652.IssuerAndSerialNumber()
 
     if issuer:
-        iss_ser_num["issuer"] = prepare_name(issuer)
+        iss_ser_num["issuer"] = prepareutils.prepare_name(issuer)
     elif not modify_issuer:
-        iss_ser_num["issuer"] = copy_name(rfc9480.Name(), cert["tbsCertificate"]["issuer"])
+        iss_ser_num["issuer"] = copy_name(
+            target=rfc9480.Name(),
+            filled_name=cert["tbsCertificate"]["issuer"],  # type: ignore
+        )
     else:
-        data = certbuildutils.modify_common_name_cert(cert, issuer=True)
-        iss_ser_num["issuer"] = prepare_name(data)
+        data = certbuildutils.modify_common_name_cert(cert, issuer=True)  # type: ignore
+        data: str
+        iss_ser_num["issuer"] = prepareutils.prepare_name(data)
 
     if serial_number is None:
-        serial_number = int(cert["tbsCertificate"]["serialNumber"])
+        serial_number = int(cert["tbsCertificate"]["serialNumber"])  # type: ignore
 
     if modify_serial_number:
-        serial_number += 1
+        serial_number = int(serial_number) + 1
     iss_ser_num["serialNumber"] = rfc5280.CertificateSerialNumber(serial_number)
     return iss_ser_num
 
@@ -371,13 +489,11 @@ def prepare_encapsulated_content_info(content: bytes, override_oid: bool = False
     return encap_content_info
 
 
-# TODO fix for composite-sig-key,
-# fix for pq-keys
 def prepare_signer_info(
-    signing_key: PrivateKeySig,
+    signing_key: SignKey,
     cert: rfc9480.CMPCertificate,
     e_content: bytes,
-    sig_hash_name: str,
+    sig_hash_name: Optional[str],
     digest_hash_name: Optional[str] = None,
     bad_sig: bool = False,
     version: int = 3,
@@ -399,6 +515,9 @@ def prepare_signer_info(
     :param version: The CMSVersion for the structure.
     :return: A `SignerInfo` structure ready to be included in `SignedData`.
     """
+    if sig_hash_name is None:
+        sig_hash_name = get_digest_from_key_hash(signing_key)
+
     digest_hash_name = digest_hash_name or sig_hash_name
     message_digest = compute_hash(digest_hash_name, e_content)
 
@@ -428,11 +547,12 @@ def prepare_signer_info(
     return signer_info
 
 
+@not_keyword
 def prepare_signer_infos(
-    signing_key: PrivateKeySig,
+    signing_key: SignKey,
     cert: rfc9480.CMPCertificate,
     e_content: bytes,
-    sig_hash_name: str,
+    sig_hash_name: Optional[str],
     digest_hash_name: Optional[str] = None,
     add_another: bool = False,
     negative_signature: bool = False,
@@ -453,6 +573,10 @@ def prepare_signer_infos(
     :return: A `SignerInfos` structure containing one or more `SignerInfo` entries.
     """
     signer_infos = rfc5652.SignerInfos()
+
+    if sig_hash_name is None:
+        sig_hash_name = get_digest_from_key_hash(signing_key)
+
     signer_info = prepare_signer_info(
         signing_key=signing_key,
         cert=cert,
@@ -469,7 +593,7 @@ def prepare_signer_infos(
     return signer_infos
 
 
-def prepare_certificates_for_kga(certs: List[rfc9480.CMPCertificate]) -> rfc5652.CertificateSet:
+def prepare_certificate_set(certs: List[rfc9480.CMPCertificate]) -> rfc5652.CertificateSet:
     """Prepare a `CertificateSet` for a list of certificates.
 
     Constructs a `CertificateSet` containing multiple certificates, enabling
@@ -483,72 +607,112 @@ def prepare_certificates_for_kga(certs: List[rfc9480.CMPCertificate]) -> rfc5652
 
     for cert in certs:
         new_cert = rfc5652.CertificateChoices()
-        new_cert["certificate"] = copy_asn1_certificate(cert)
+        new_cert["certificate"] = copy_asn1_certificate(cert, rfc9480.CMPCertificate())
         certificates.append(new_cert)
 
     return certificates
 
 
-def prepare_signed_data(
-    signing_key: ec.EllipticCurvePrivateKey,
+def _prepare_digest_alg_ids(hash_algs: str) -> rfc5652.DigestAlgorithmIdentifiers:
+    """Prepare a set of `DigestAlgorithmIdentifiers` for the specified hash algorithms.
+
+    :param hash_algs: A list of hash algorithm names (e.g., "sha256", "sha384").
+    :return: A `DigestAlgorithmIdentifiers` structure containing the specified hash algorithms.
+    """
+    digest_alg_set = rfc5652.DigestAlgorithmIdentifiers()
+    for alg_name in hash_algs.split(","):
+        alg_name = alg_name.strip()
+        digest_alg_id = rfc5652.DigestAlgorithmIdentifier()
+        digest_alg_id["algorithm"] = sha_alg_name_to_oid(alg_name)
+        digest_alg_set.append(digest_alg_id)
+
+    return digest_alg_set
+
+
+@keyword(name="Prepare SignedData")
+def prepare_signed_data(  # noqa D417 undocumented-param
+    signing_key: SignKey,
     cert: rfc9480.CMPCertificate,
-    sig_hash_name: str,
+    sig_hash_name: Optional[str],
     e_content: Optional[bytes] = None,
     digest_hash_name: Optional[str] = None,
-    negative_signature: bool = False,
+    bad_sig: bool = False,
     cert_chain: Optional[List[rfc9480.CMPCertificate]] = None,
     private_keys: Optional[List[PrivateKey]] = None,
+    signer_infos: Optional[Union[rfc5652.SignerInfo, List[rfc5652.SignerInfo]]] = None,
 ) -> rfc5652.SignedData:
     """Prepare a `SignedData` structure for the provided content, key, and certificate.
 
     Creates `SignedData` structure as defined in RFC 5652, including digest
     algorithm identifiers, encapsulated content, certificates, and signer information.
 
-    :param e_content: The content to be signed, provided as a byte string.
-    :param signing_key: The private key used for signing.
-    :param cert: A `CMPCertificate` object used for KGA.
-    :param sig_hash_name: The hash algorithm name to use for signing.
-    :param digest_hash_name: The hash algorithm name to use for digest calculation. Defaults to `sig_hash_name`.
-    :param negative_signature: A boolean flag that, if True, modifies the signature of the signed_info.
-    `EncapsulatedContentInfo` inside the `SignerInfo` structure.  Defaults to False.
-    :param cert_chain: Optional The certificate chain of the KGA `CMPCertificate`. Defaults to cert.
-    :param private_keys: A list of private keys to parse inside the asymmetric key package structure.
-    :return: The populated `SignedData` structure.
+    Arguments:
+    ---------
+        - `e_content`: The content to be signed, provided as a byte string.
+        - `signing_key`: The private key used for signing.
+        - `cert`: A `CMPCertificate` object used for KGA.
+        - `sig_hash_name`: The hash algorithm name to use for signing.
+        - `digest_hash_name`: The hash algorithm name to use for digest calculation. Defaults to `sig_hash_name`.
+        - `bad_sig`: A boolean flag that, if True, modifies the signature of the signed_info.
+        - `cert_chain`: Optional The certificate chain of the KGA `CMPCertificate`. Defaults to cert.
+        - `private_keys`: A list of private keys to parse inside the asymmetric key package structure.
+        - `signer_infos`: Optional SignerInfo structure or list of SignerInfo structures to include. Defaults to `None`.
+
+    Returns:
+    -------
+        - The populated `SignedData` structure.
+
+    Raises:
+    ------
+        - ValueError: If neither `e_content` nor `private_keys` is provided.
+
+    Examples:
+    --------
+    | ${signed_data}= | Prepare SignedData | ${signing_key} | ${cert} | e_content=${e_content} | "sha256" |
+
     """
     if e_content is None and private_keys is None:
         raise ValueError("Either `e_content` or `private_keys` must be provided.")
+
+    if sig_hash_name is None:
+        sig_hash_name = get_digest_from_key_hash(signing_key)
 
     digest_hash_name = digest_hash_name or sig_hash_name
 
     if private_keys is not None:
         # Generate content from private keys if provided
-        e_content = encoder.encode(prepare_asymmetric_key_package(private_keys))
-
-    encap_content_info = prepare_encapsulated_content_info(e_content)
+        e_content = asn1utils.encode_to_der(prepare_asymmetric_key_package(private_keys))
 
     signed_data = rfc5652.SignedData()
     signed_data["version"] = 3
 
-    digest_alg_set = rfc5652.DigestAlgorithmIdentifiers()
-    digest_alg_id = rfc5652.DigestAlgorithmIdentifier()
-    digest_alg_id["algorithm"] = sha_alg_name_to_oid(digest_hash_name)
-    digest_alg_set.append(digest_alg_id)
+    digest_alg_set = _prepare_digest_alg_ids(digest_hash_name)
     signed_data["digestAlgorithms"] = digest_alg_set
+
+    if cert_chain is None:
+        cert_chain = [cert]
 
     # pyasn1-alt-modules automatically re-orders them after decoding.
     # print_chain_subject_and_issuer([cert["certificate"] for cert in certs])
-    signed_data["certificates"] = prepare_certificates_for_kga(cert_chain or [cert])
+    signed_data["certificates"] = prepare_certificate_set(cert_chain)
 
-    signed_data["encapContentInfo"] = encap_content_info
-    signed_data["signerInfos"] = prepare_signer_infos(
-        signing_key=signing_key,
-        cert=cert,
-        e_content=e_content,
-        sig_hash_name=sig_hash_name,
-        digest_hash_name=digest_hash_name,
-        add_another=False,
-        negative_signature=negative_signature,
-    )
+    signed_data["encapContentInfo"] = prepare_encapsulated_content_info(e_content)  # type: ignore
+
+    if signer_infos is not None:
+        if isinstance(signer_infos, rfc5652.SignerInfo):
+            signer_infos = [signer_infos]
+
+        signed_data["signerInfos"].extend(signer_infos)
+    else:
+        signed_data["signerInfos"] = prepare_signer_infos(
+            signing_key=signing_key,
+            cert=cert,
+            e_content=e_content,  # type: ignore
+            sig_hash_name=sig_hash_name,
+            digest_hash_name=digest_hash_name,
+            add_another=False,
+            negative_signature=bad_sig,
+        )
 
     # to show the different order after decoding
     # print_chain_subject_and_issuer([cert["certificate"] for cert in data["certificates"]])
@@ -657,7 +821,7 @@ def _encrypt_rsa_oaep(key: rsa.RSAPublicKey, alg_id: rfc5280.AlgorithmIdentifier
     :return: The encrypted content encryption key.
     """
     if alg_id["parameters"].isValue:
-        padding_val = get_rsa_oaep_padding(alg_id["parameters"])
+        padding_val = protectionutils.get_rsa_oaep_padding(alg_id["parameters"])
     else:
         padding_val = padding.PKCS1v15()
 
@@ -767,9 +931,9 @@ def _get_kari_ephemeral_oid(hash_alg: Optional[str]) -> univ.ObjectIdentifier:
         hash_alg = "sha256"
     try:
         return ECMQV_NAME_2_OID[f"mvq-{hash_alg}"]
-    except KeyError:
+    except KeyError as e:
         _hash_algs = ["sha224", "sha256", "sha384", "sha512"]
-        raise KeyError(f"The ECMQV ECC supports only the hash algorithms: {hash_alg}")
+        raise KeyError(f"The ECMQV ECC supports only the hash algorithms: {hash_alg}") from e
 
 
 def _get_ecc_dh_oid(public_key: EllipticCurvePublicKey, hash_alg: str) -> univ.ObjectIdentifier:
@@ -779,8 +943,8 @@ def _get_ecc_dh_oid(public_key: EllipticCurvePublicKey, hash_alg: str) -> univ.O
     else:
         try:
             order = CURVE_2_COFACTORS[public_key.curve.name.lower()]
-        except KeyError:
-            raise ValueError(f"Unsupported KARI ECC Public Key: `{public_key.curve.name}`")
+        except KeyError as e:
+            raise ValueError(f"Unsupported KARI ECC Public Key: `{public_key.curve.name}`") from e
 
         if hash_alg is None:
             raise ValueError("Hash algorithm must be provided for ECC KARI.")
@@ -809,28 +973,31 @@ def _get_kari_oid(
     return oid
 
 
-# TODO refactor to remove issuer_and_ser
 def prepare_kari(
     public_key: ECDHPublicKey,
     recip_private_key: ECDHPrivateKey,
     cek: Optional[bytes] = None,
-    recip_cert: Optional[rfc9480.CMPCertificate] = None,
+    cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
+    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     hash_alg: str = "sha256",
-    issuer_and_ser: rfc5652.IssuerAndSerialNumber = None,
     oid: Optional[univ.ObjectIdentifier] = rfc9481.dhSinglePass_stdDH_sha256kdf_scheme,
     use_ephemeral: bool = True,
+    originator: Optional[rfc5652.OriginatorIdentifierOrKey] = None,
+    rid: Optional[rfc5652.RecipientIdentifier] = None,
 ) -> rfc5652.KeyAgreeRecipientInfo:
     """Prepare a KeyAgreeRecipientInfo object for testing.
 
     :param public_key: The public key of the recipient.
     :param recip_private_key: The private key of the sender.
     :param cek: The content encryption key to be encrypted.
-    :param recip_cert: The certificate of the recipient.
+    :param cmp_protection_cert: The certificate of the recipient.
+    :param issuer_and_ser: The IssuerAndSerialNumber structure to use. Defaults to `None`.
     :param hash_alg: The hash algorithm to use for key derivation.
-    :param issuer_and_ser: The optional `IssuerAndSerialNumber` structure to use. Defaults to None.
     :param oid: The Object Identifier for the key agreement algorithm.
     Defaults to dhSinglePass-stdDH-sha256kdf-scheme.
     :param use_ephemeral: Whether to use an ephemeral key agreement. Defaults to `True`.
+    :param originator: The OriginatorIdentifierOrKey structure to use. Defaults to `None`.
+    :param rid: The RecipientIdentifier structure to use. Defaults to `None`.
     :return: The populated `KeyAgreeRecipientInfo` structure.
     """
     ecc_cms_info = encoder.encode(
@@ -844,17 +1011,19 @@ def prepare_kari(
         oid = _get_kari_oid(public_key=public_key, use_ephemeral=use_ephemeral, hash_alg=hash_alg)
 
     shared_secret = cryptoutils.perform_ecdh(recip_private_key, public_key)
-    k = cryptoutils.compute_ansi_x9_63_kdf(shared_secret, 32, ecc_cms_info, hash_alg=hash_alg)
+    k = cryptoutils.compute_ansi_x9_63_kdf(shared_secret, 32, ecc_cms_info, hash_alg=hash_alg, use_version_2=True)
     encrypted_key = keywrap.aes_key_wrap(key_to_wrap=cek, wrapping_key=k)
 
     # Version MUST be 3 for KARI.
     kari = prepare_key_agreement_recipient_info(
         version=3,
-        cmp_cert=recip_cert,
+        cmp_cert=cmp_protection_cert,
         encrypted_key=encrypted_key,
         key_agreement_oid=oid,
         ecc_cms_info=ecc_cms_info,
         issuer_and_ser=issuer_and_ser,
+        originator=originator,
+        rid=rid,
     )
 
     return kari
@@ -862,13 +1031,7 @@ def prepare_kari(
 
 @not_keyword
 def parse_recip_info(
-    info_obj: Union[
-        rfc5652.KeyAgreeRecipientInfo,
-        rfc9629.KEMRecipientInfo,
-        rfc5652.KeyTransRecipientInfo,
-        rfc5652.PasswordRecipientInfo,
-        rfc5652.RecipientInfo,
-    ],
+    info_obj: RecipInfo,
 ) -> rfc5652.RecipientInfo:
     """Prepare a RecipientInfo object with the underlying populated structure.
 
@@ -882,6 +1045,9 @@ def parse_recip_info(
 
     if isinstance(info_obj, rfc5652.KeyAgreeRecipientInfo):
         recip_info.setComponentByName("kari", info_obj)
+
+    elif isinstance(info_obj, rfc5652.OtherRecipientInfo):
+        recip_info.setComponentByName("ori", info_obj)
 
     elif isinstance(info_obj, rfc9629.KEMRecipientInfo):
         ori = rfc5652.OtherRecipientInfo().subtype(
@@ -915,7 +1081,8 @@ def prepare_recip_info(  # noqa D417 undocumented-param
     rid: Optional[rfc5652.RecipientIdentifier] = None,
     use_rsa_oaep: bool = True,
     salt: Optional[Union[bytes, str]] = None,
-    kdf_name: Optional[str] = "pbkdf2",
+    kdf_name: str = "pbkdf2",
+    **kwargs,
 ) -> rfc5652.RecipientInfo:
     """Prepare the appropriate RecipientInfo structure based on the type of the recipient's public key.
 
@@ -961,7 +1128,7 @@ def prepare_recip_info(  # noqa D417 undocumented-param
             rid=rid,
         )
 
-    if isinstance(public_key_recip, ec.EllipticCurvePublicKey):
+    if isinstance(public_key_recip, ECDHPublicKey):
         if private_key is None:
             raise ValueError("An ECDH private key must be provided for EC key exchange.")
         kari = prepare_kari(
@@ -969,7 +1136,9 @@ def prepare_recip_info(  # noqa D417 undocumented-param
             recip_private_key=private_key,
             issuer_and_ser=issuer_and_ser,
             cek=cek,
-            recip_cert=cert_recip,
+            cmp_protection_cert=cert_recip,
+            originator=kwargs.get("originator"),
+            rid=rid,
         )
         return parse_recip_info(kari)
 
@@ -978,7 +1147,7 @@ def prepare_recip_info(  # noqa D417 undocumented-param
     ):
         kem_recip_info = prepare_kem_recip_info(
             recip_cert=cert_recip,
-            public_key_recip=public_key_recip,
+            public_key_recip=public_key_recip,  # type: ignore
             cek=cek,
             rid=rid,
             issuer_and_ser=issuer_and_ser,
@@ -999,16 +1168,33 @@ def prepare_recip_info(  # noqa D417 undocumented-param
     raise ValueError(f"Unsupported public key type: {type(public_key_recip)}")
 
 
+def _prepare_rid_for_enc_key(
+    ca_pub_key: PublicKey,
+    ca_cert: rfc9480.CMPCertificate,
+    cmp_protection_cert: rfc9480.CMPCertificate,
+) -> rfc5652.RecipientIdentifier:
+    """Prepare the RecipientIdentifier for the `encryptedKey` POPO."""
+    if is_kem_public_key(ca_pub_key):
+        return prepare_recipient_identifier(
+            cert=ca_cert,
+        )
+    return prepare_recipient_identifier(
+        cert=cmp_protection_cert,
+    )
+
+
 @keyword(name="Prepare EncryptedKey For POPO")
 def prepare_enc_key_for_popo(  # noqa D417 undocumented-param
     enc_key_with_id: rfc4211.EncKeyWithID,
     rid: Optional[rfc5652.RecipientIdentifier],
     ca_cert: Optional[rfc9480.CMPCertificate] = None,
-    recip_info: Optional[rfc5652.RecipientInfo] = None,
-    for_agreement: bool = None,
-    version: Optional[int] = None,
+    recip_info: Optional[RecipInfo] = None,
+    for_agreement: bool = False,
+    version: Optional[Strint] = None,
     cek: Optional[bytes] = None,
     private_key: Optional[ECDHPrivateKey] = None,
+    originator: Optional[rfc5652.OriginatorIdentifierOrKey] = None,
+    cmp_protection_cert: Optional[rfc9480.CMPCertificate] = None,
 ) -> rfc4211.ProofOfPossession:
     """Prepare an EncKeyWithID structure for the `ProofOfPossession` structure.
 
@@ -1053,13 +1239,26 @@ def prepare_enc_key_for_popo(  # noqa D417 undocumented-param
 
         spki = ca_cert["tbsCertificate"]["subjectPublicKeyInfo"]
         public_key_recip = keyutils.load_public_key_from_spki(spki)
+
+        if rid is None and cmp_protection_cert is not None:
+            logging.info("Prepared the `rid` based on the `ca_public_key`")
+            rid = _prepare_rid_for_enc_key(public_key_recip, ca_cert, cmp_protection_cert)
+
+        if rid is not None and originator is None and isinstance(public_key_recip, ECDHPublicKey):
+            originator = prepare_originator_with_rid(rid)
+
         recip_info = prepare_recip_info(
             public_key_recip=public_key_recip,
             private_key=private_key,
             cek=cek,
             cert_recip=ca_cert,
             rid=rid,
+            kdf_name="hkdf",
+            originator=originator,
         )
+
+    else:
+        recip_info = parse_recip_info(recip_info)  # type: ignore
 
     if version is None and recip_info:
         version = 0 if recip_info.getName() in ["ori", "pwri"] else 2
@@ -1069,11 +1268,29 @@ def prepare_enc_key_for_popo(  # noqa D417 undocumented-param
         recipient_infos=recip_info,
         target=env_data,
         enc_oid=rfc5652.id_data,
-        version=version,
+        version=int(version) if version is not None else 2,
         data_to_protect=encoder.encode(enc_key_with_id),
     )
 
-    if not for_agreement:
+    return parse_encrypted_key_for_popo(
+        env_data=env_data,
+        for_key_agreement=for_agreement,
+    )
+
+
+@not_keyword
+def parse_encrypted_key_for_popo(
+    env_data: rfc9480.EnvelopedData,
+    for_key_agreement: bool = False,
+) -> rfc4211.ProofOfPossession:
+    """Parse the EncryptedKey structure for the ProofOfPossession structure.
+
+    :param env_data: The EnvelopedData structure to parse.
+    :param for_key_agreement: Boolean indicating whether the POP is for `keyAgreement`
+    or `keyEncipherment`. Defaults to `False`.
+    :return: The populated ProofOfPossession structure.
+    """
+    if not for_key_agreement:
         index = 2
         option = "keyEncipherment"
     else:
@@ -1147,7 +1364,7 @@ def build_env_data_for_exchange(
             recip_private_key=private_key,
             issuer_and_ser=issuer_and_ser,
             cek=cek,
-            recip_cert=cert_sender,
+            cmp_protection_cert=cert_sender,
         )
         kari = parse_recip_info(kari)
         return prepare_enveloped_data(
@@ -1203,7 +1420,7 @@ def _handle_kem_encapsulation(
     if kem_oid is None:
         kem_recip_info["kem"]["algorithm"] = get_kem_oid_from_key(kem_pub_key)
 
-    return shared_secret, kemct, kem_recip_info
+    return shared_secret, kem_recip_info
 
 
 @keyword(name="Prepare KEMRecipientInfo")
@@ -1274,14 +1491,14 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
         cert=recip_cert,
         issuer_and_ser=kwargs.get("issuer_and_ser"),
         ski=kwargs.get("ski"),
-        bad_ski=kwargs.get("bad_ski"),
+        bad_ski=kwargs.get("bad_ski", False),
     )
     cek = str_to_bytes(cek or os.urandom(32))
 
     kem_recip_info = rfc9629.KEMRecipientInfo()
     kem_recip_info["version"] = univ.Integer(version)
     kem_recip_info["rid"] = rid
-    kem_recip_info["wrap"] = prepare_wrap_alg_id(wrap_name)
+    kem_recip_info["wrap"] = prepare_alg_ids.prepare_wrap_alg_id(wrap_name)
 
     kek_length = kek_length or get_aes_keywrap_length(wrap_name)
     der_ukm = prepare_cmsori_for_kem_other_info(
@@ -1300,7 +1517,7 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
         pass
 
     else:
-        shared_secret, ct, kem_recip_info = _handle_kem_encapsulation(
+        shared_secret, kem_recip_info = _handle_kem_encapsulation(
             public_key_recip=public_key_recip,
             recip_cert=recip_cert,
             hybrid_key_recip=hybrid_key_recip,
@@ -1311,9 +1528,9 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
     if kemct is None and recip_cert is None and public_key_recip is None:
         raise ValueError("Either `kemct` or `recip_cert` or the `public_key` must be provided.")
 
-    kem_recip_info["kdf"] = prepare_kdf(kdf_name=kdf_name, hash_alg=hash_alg)
+    kem_recip_info["kdf"] = prepare_alg_ids.prepare_kdf_alg_id(kdf_name=kdf_name, hash_alg=hash_alg)
     if shared_secret is not None:
-        key_enc_key = compute_kdf_from_alg_id(
+        key_enc_key = protectionutils.compute_kdf_from_alg_id(
             kdf_alg_id=kem_recip_info["kdf"],
             ss=shared_secret,
             ukm=der_ukm,
@@ -1324,6 +1541,9 @@ def prepare_kem_recip_info(  # noqa D417 undocumented-param
         raise ValueError("Either `encrypted_key` or `shared_secret` must be provided.")
 
     if encrypted_key is None:
+        if key_enc_key is None:
+            raise ValueError("Key encryption key must be provided or must be derived from shared secret.")
+
         encrypted_key = keywrap.aes_key_wrap(wrapping_key=key_enc_key, key_to_wrap=cek)
 
     if ukm is not None:
@@ -1461,9 +1681,11 @@ def prepare_originator_identifier_or_key(  # noqa D417 undocumented-param
     if cert is None and issuer_and_ser is None:
         raise ValueError("Either a certificate or issuer and serial number must be provided.")
 
-    ski: Optional[bytes] = None
     if cert is not None:
-        ski = certextractutils.get_field_from_certificate(cert, extension="ski")
+        ski = certextractutils.get_field_from_certificate(cert, extension="ski")  # type: ignore
+        ski: Optional[bytes]
+    else:
+        ski = None
 
     originator = rfc5652.OriginatorIdentifierOrKey().subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)
@@ -1486,11 +1708,72 @@ def prepare_originator_identifier_or_key(  # noqa D417 undocumented-param
     return originator
 
 
+def _prepare_key_agree_rid(
+    cmp_cert: Optional[rfc9480.CMPCertificate] = None,
+    issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    ski: Optional[bytes] = None,  # type: ignore
+    bad_ski: bool = False,
+    rid: Optional[rfc5652.RecipientIdentifier] = None,
+) -> rfc5652.KeyAgreeRecipientIdentifier:
+    """Prepare the recipient identifier for key agreement.
+
+    The `KeyAgreeRecipientIdentifier` is used to identify the recipient in
+    key agreement scenarios. This function prepares this structure by using
+    the SubjectKeyIdentifier extension if present; otherwise, it uses the
+    issuer and serial number.
+
+    :param cmp_cert: Certificate of the recipient (typically the CMP protection certificate).
+    :param issuer_and_ser: `IssuerAndSerialNumber` structure to set inside the `rid`. Defaults to `None`.
+    :param ski: Subject Key Identifier as bytes. Defaults to `None`.
+    :param bad_ski: If `True`, manipulates the first byte of the SKI. Defaults to `False`.
+    :param rid: The `RecipientIdentifier` structure to set inside the `rid` field. Defaults to `None`.
+    :return: A `RecipientIdentifier` structure ready to be included in `KeyAgreeRecipientInfo`.
+    """
+    key_rid = rfc5652.KeyAgreeRecipientIdentifier()
+    if rid is not None:
+        if rid.getName() == "issuerAndSerialNumber":
+            key_rid["issuerAndSerialNumber"] = rid["issuerAndSerialNumber"]
+            return key_rid
+        if rid.getName() == "subjectKeyIdentifier":
+            ski = rid["subjectKeyIdentifier"].asOctets()
+        else:
+            raise ValueError("Invalid recipient identifier type.")
+
+    if cmp_cert is not None and ski is None:
+        ski = certextractutils.get_field_from_certificate(cmp_cert, extension="ski")  # type: ignore
+        ski: Optional[bytes]
+
+    if ski is not None:
+        ski = str_to_bytes(ski)
+        if bad_ski:
+            ski = utils.manipulate_first_byte(ski)
+
+        r_key_id = rfc5652.RecipientKeyIdentifier().subtype(
+            implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0)
+        )
+
+        r_key_id["subjectKeyIdentifier"] = ski
+        key_rid["rKeyId"] = r_key_id
+        return key_rid
+
+    if issuer_and_ser is not None:
+        key_rid["issuerAndSerialNumber"] = issuer_and_ser
+        return key_rid
+
+    if cmp_cert is not None:
+        issuer_and_ser = prepare_issuer_and_serial_number(cmp_cert)
+        key_rid["issuerAndSerialNumber"] = issuer_and_ser
+        return key_rid
+
+    raise ValueError("Either a certificate or issuer and serial number must be provided for the recipient identifier.")
+
+
 @not_keyword
 def prepare_recipient_encrypted_key(
-    cmp_cert: rfc9480.CMPCertificate,
+    cmp_cert: Optional[rfc9480.CMPCertificate],
     encrypted_key: Optional[bytes],
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
+    rid: Optional[rfc5652.RecipientIdentifier] = None,
 ) -> rfc5652.RecipientEncryptedKey:
     """Create a `RecipientEncryptedKey` structure.
 
@@ -1501,10 +1784,18 @@ def prepare_recipient_encrypted_key(
     :param cmp_cert: Certificate of the recipient (typically the CMP protection certificate).
     :param encrypted_key: Encrypted key material.
     :param issuer_and_ser: `IssuerAndSerialNumber` structure to set inside the `rid`. Defaults to `None`.
+    :param rid: The `RecipientIdentifier` structure to set inside the `rid` field. Defaults to `None`.
     :return: A `RecipientEncryptedKey` structure ready to be included in `KeyAgreeRecipientInfo`.
     """
     recip_enc_key = rfc5652.RecipientEncryptedKey()
-    recip_enc_key["rid"] = prepare_recipient_identifier(cert=cmp_cert, issuer_and_ser=issuer_and_ser)
+
+    recip_enc_key["rid"] = _prepare_key_agree_rid(
+        cmp_cert=cmp_cert,
+        issuer_and_ser=issuer_and_ser,
+        bad_ski=False,
+        rid=rid,
+    )
+
     if encrypted_key is not None:
         recip_enc_key["encryptedKey"] = encrypted_key
     return recip_enc_key
@@ -1541,7 +1832,7 @@ def prepare_recipient_encrypted_keys(
 # TODO fix for complete Support!!!
 @not_keyword
 def prepare_key_agreement_recipient_info(
-    cmp_cert: rfc9480.CMPCertificate,
+    cmp_cert: Optional[rfc9480.CMPCertificate] = None,
     key_agreement_oid: Optional[univ.ObjectIdentifier] = None,
     encrypted_key: Optional[bytes] = None,
     key_wrap_oid: univ.ObjectIdentifier = rfc9481.id_aes256_wrap,
@@ -1554,6 +1845,7 @@ def prepare_key_agreement_recipient_info(
     issuer_and_ser_orig: Optional[rfc5652.IssuerAndSerialNumber] = None,
     issuer_and_ser: Optional[rfc5652.IssuerAndSerialNumber] = None,
     originator: Optional[rfc5652.OriginatorIdentifierOrKey] = None,
+    rid: Optional[rfc5652.RecipientIdentifier] = None,
 ) -> rfc5652.KeyAgreeRecipientInfo:
     """Create a `KeyAgreeRecipientInfo` structure for key agreement.
 
@@ -1577,8 +1869,12 @@ def prepare_key_agreement_recipient_info(
     :param originator: The `OriginatorIdentifierOrKey` structure to set inside the `originator` field.
     Defaults to `None`. Filled with the cmp-protection-cert.
     (MUST be populated for POP.)
+    :param rid: The `RecipientIdentifier` structure to set inside the `rid` field. Defaults to `None`.
     :return: A `KeyAgreeRecipientInfo` structure ready to be included in `EnvelopedData`.
     """
+    if issuer_and_ser is None and cmp_cert is None:
+        raise ValueError("Either a certificate or issuer and serial number must be provided.")
+
     key_agree_info = rfc5652.KeyAgreeRecipientInfo().subtype(
         implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1)
     )
@@ -1594,7 +1890,10 @@ def prepare_key_agreement_recipient_info(
         key_agree_info["ukm"] = ukm_field
 
     recipient_encrypted_key = prepare_recipient_encrypted_key(
-        cmp_cert=cmp_cert, encrypted_key=encrypted_key, issuer_and_ser=issuer_and_ser
+        cmp_cert=cmp_cert,
+        encrypted_key=encrypted_key,
+        issuer_and_ser=issuer_and_ser,
+        rid=rid,
     )
     recip_keys = rfc5652.RecipientEncryptedKeys()
     recip_keys.append(recipient_encrypted_key)
@@ -1705,18 +2004,30 @@ def prepare_password_recipient_info(  # noqa D417 undocumented-param
     cek = str_to_bytes(cek)
 
     if kdf_name == "pbkdf2":
-        salt = params.get("salt", os.urandom(32))
+        salt = params.get("salt") or os.urandom(32)
         salt = str_to_bytes(salt)
-        pbkdf2 = prepare_pbkdf2_alg_id(
+        kdf_alg_id = prepare_alg_ids.prepare_pbkdf2_alg_id(
             salt=salt,
             iterations=int(params.get("iterations", 100000)),
             key_length=int(params.get("key_length", 32)),
             hash_alg=params.get("hash_alg", "sha256"),
         )
-
         encrypted_key = wrap_key_password_based_key_management_technique(
-            password=password, key_to_wrap=cek, parameters=pbkdf2["parameters"]
+            password=password, key_to_wrap=cek, parameters=kdf_alg_id["parameters"]
         )
+
+    elif kdf_name == "hkdf":
+        hash_alg = params.get("hash_alg") or "sha256"
+        kdf_alg_id = rfc9480.AlgorithmIdentifier()
+        kdf_alg_id["algorithm"] = HKDF_NAME_2_OID[f"hkdf-{hash_alg}"]
+        wrapping_key = cryptoutils.compute_hkdf(
+            hash_alg=hash_alg,
+            info=b"",
+            length=int(params.get("key_length", 32)),
+            salt=None,
+            key_material=cek,
+        )
+        encrypted_key = keywrap.aes_key_wrap(wrapping_key=wrapping_key, key_to_wrap=cek)
 
     else:
         raise NotImplementedError(f"Unsupported KDF: {kdf_name}")
@@ -1727,7 +2038,7 @@ def prepare_password_recipient_info(  # noqa D417 undocumented-param
     pwri["version"] = int(version)
 
     if not exclude_kdf_alg_id:
-        pwri["keyDerivationAlgorithm"] = pbkdf2.subtype(
+        pwri["keyDerivationAlgorithm"] = kdf_alg_id.subtype(
             implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0), cloneValueFlag=True
         )
 
@@ -1792,12 +2103,59 @@ def is_cmsori_kem_other_info_decode_able(ukm_der: bytes) -> bytes:
     :return: The decoded `CMSORIforKEMOtherInfo` structure as bytes.
     :raises BadAsn1Data: If the provided data is not decode-able or had a remainder.
     """
-    try:
-        try_decode, rest = decoder.decode(ukm_der, rfc9629.CMSORIforKEMOtherInfo())
-    except pyasn1.error.PyAsn1Error:  # type: ignore
-        raise BadAsn1Data("`CMSORIforKEMOtherInfo` is not decode able", overwrite=True)
+    try_decode, rest = asn1utils.try_decode_pyasn1(ukm_der, rfc9629.CMSORIforKEMOtherInfo())  # type: ignore
+    try_decode: rfc9629.CMSORIforKEMOtherInfo
 
     if rest:
         raise BadAsn1Data("CMSORIforKEMOtherInfo")
 
     return encoder.encode(try_decode)
+
+
+@not_keyword
+def get_digest_from_key_hash(
+    key: Union[SignKey, VerifyKey],
+) -> str:
+    """Find the pyasn1 oid given the hazmat key instance and a name of a hashing algorithm.
+
+    Only used for single key algorithms, not for composite keys.
+
+    :param key: The private key instance, to determine the hash algorithm.
+    :return: The matching hash algorithm or the default one "sha512".
+    """
+    if isinstance(key, (PQSignaturePrivateKey, PQSignaturePublicKey)):
+        for x in PQ_SIG_PRE_HASH_NAME_2_OID:
+            x: str
+            if x.startswith(key.name):
+                hash_alg = get_hash_from_oid(PQ_SIG_PRE_HASH_NAME_2_OID[x], only_hash=True)
+                if hash_alg:
+                    return hash_alg
+                raise ValueError(f"Could not find a valid hash algorithm for {key.name}.")
+
+    if isinstance(
+        key,
+        (
+            rsa.RSAPrivateKey,
+            ec.EllipticCurvePrivateKey,
+            ec.EllipticCurvePublicKey,
+            rsa.RSAPublicKey,
+        ),
+    ):
+        return "sha256"
+
+    if isinstance(key, (ed25519.Ed25519PrivateKey, ed25519.Ed25519PublicKey)):
+        return "sha512"
+
+    if isinstance(key, (ed448.Ed448PrivateKey, ed448.Ed448PublicKey)):
+        return "shake256"
+
+    from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
+    from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey, CompositeSig04PublicKey
+
+    if isinstance(key, (CompositeSig04PrivateKey, CompositeSig04PublicKey)):
+        return "sha512"
+
+    if isinstance(key, (CompositeSig03PrivateKey, CompositeSig03PublicKey)):
+        return CMS_COMPOSITE03_OID_2_HASH[key.get_oid(use_pss=False, pre_hash=False)]
+
+    return "sha512"

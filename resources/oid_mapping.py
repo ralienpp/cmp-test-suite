@@ -228,12 +228,14 @@ def may_return_oid_to_name(oid: univ.ObjectIdentifier) -> str:
     :param oid: The OID to perform the lookup for.
     :return: Either a human-readable name or the OID as dotted string.
     """
-    oid = ALL_KNOWN_OIDS_2_NAME.get(oid, str(oid))
-    return str(ALL_KNOWN_OIDS_2_NAME.get(oid, oid))
+    out = ALL_KNOWN_OIDS_2_NAME.get(oid)
+    if out is not None:
+        return out
+    return ALL_KNOWN_OIDS_2_NAME.get(str(oid), str(oid))
 
 
 @not_keyword
-def may_return_oid(name: str) -> univ.ObjectIdentifier:
+def may_return_oid_by_name(name: str) -> univ.ObjectIdentifier:
     """Check if the name is Known and then returns the OID, or the dotted string.
 
     :param name: The name to perform the lookup for or a dotted string.

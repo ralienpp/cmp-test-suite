@@ -51,6 +51,10 @@ class CMPTestSuiteError(Exception):
         return self.error_details
 
 
+class BadConfig(CMPTestSuiteError):
+    """Raised when the configuration is invalid."""
+
+
 #########################
 # CMP Test Suite Errors
 ##########################
@@ -135,6 +139,10 @@ class BadRequest(CMPTestSuiteError):
 
     failinfo = "badRequest"
     bit_num = 2
+
+
+class BadValueBehavior(BadRequest):
+    """Raised if MUST be absent values are set, which are not critical."""
 
 
 class BadTime(CMPTestSuiteError):
@@ -308,6 +316,13 @@ class NotAuthorized(CMPTestSuiteError):
 
     failinfo = "notAuthorized"
     bit_num = 23
+
+
+class DuplicateCertReq(CMPTestSuiteError):
+    """Raised when the certificate request was already sent."""
+
+    failinfo = "duplicateCertReq"
+    bit_num = 26
 
 
 def get_pki_error_message_from_exception(pki_message: rfc9480.PKIMessage, exception: CMPTestSuiteError):

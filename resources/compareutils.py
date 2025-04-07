@@ -8,7 +8,7 @@ Which can be used to verify if the server returned the correct status, `grantedW
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from pyasn1.codec.der import encoder
@@ -16,8 +16,9 @@ from pyasn1.type import univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
 from robot.api.deco import keyword, not_keyword
 
-from resources import certextractutils, certutils, cmputils, convertutils, copyasn1utils, suiteenums, utils
-from resources.oid_mapping import may_return_oid_to_name
+from resources import certextractutils, certutils, cmputils, convertutils, copyasn1utils, keyutils, suiteenums, utils
+from resources.oid_mapping import may_return_oid_by_name, may_return_oid_to_name
+from resources.typingutils import PrivateKey, PublicKey
 
 
 @keyword(name="Compare ASN1 Names")
@@ -388,7 +389,7 @@ def compare_csr_and_cert(  # noqa D417 undocumented-param
         if len(csr["certificationRequestInfo"]["attributes"]) > 1:
             raise NotImplementedError("Attributes are not yet supported.")
 
-        csr_extensions = certextractutils.extract_extension_from_csr(csr)
+        csr_extensions = certextractutils.extract_extensions_from_csr(csr)
 
         if csr_extensions is None:
             raise NotImplementedError("Attributes are not yet supported.")
@@ -428,6 +429,8 @@ def compare_alg_id_without_tag(  # noqa D417 undocumented-param
         return False
 
     if sum([params_first.isValue, params_second.isValue]) in [0, 2]:
+        # is allowed because if both values are schema objects, it is allowed to compare them.
+        # which means that if both are not set, they are equal.
         return params_first == params_second
 
     return False
@@ -480,6 +483,60 @@ def compare_general_name_and_name(  # noqa D417 # undocumented-param
     )
 
 
+@keyword(name="Find Name Inside GeneralNames")
+def find_name_inside_general_names(  # noqa D417 # undocumented-param
+    gen_names: rfc9480.GeneralNames, name: rfc5280.Name
+) -> bool:
+    """Find a `Name` object inside a `GeneralNames`.
+
+    Arguments:
+    ---------
+        - `gen_names`: The `GeneralNames` object to search.
+        - `name`: The `Name` object to search for.
+
+    Returns:
+    -------
+        - `True` if the `Name` object is found inside the `GeneralNames`, `False` otherwise.
+
+    Examples:
+    --------
+    | ${result}= | Find Name Inside General Names | ${gen_names} | ${name} |
+
+    """
+    for gen_name in gen_names:
+        if compare_general_name_and_name(gen_name, name):
+            return True
+    return False
+
+
+@keyword(name="Find RelativeDistinguishedName in Name")
+def find_rel_dis_name_in_name(  # noqa D417 # undocumented-param
+    rdn: rfc5280.RelativeDistinguishedName, name: rfc5280.Name
+) -> bool:
+    """Find a `RelativeDistinguishedName` inside a `Name`.
+
+    Arguments:
+    ---------
+        - `rdn`: The `RelativeDistinguishedName` to search for.
+        - `name`: The `Name` object to search in.
+
+    Returns:
+    -------
+        - `True` if the `RelativeDistinguishedName` is found inside the `Name`, `False` otherwise.
+
+    Examples:
+    --------
+    | ${result}= | Find RelativeDistinguishedName in Name | ${rdn} | ${name} |
+
+    """
+    der_name = encoder.encode(rdn)
+
+    for rdn_seq in name["rdnSequence"]:
+        if der_name == encoder.encode(rdn_seq):
+            return True
+    return False
+
+
 @keyword(name="Is NULL DN")
 def is_null_dn(name: rfc5280.Name) -> bool:  # noqa D417 # undocumented-param
     """Check if the given Name is a NULL-DN, meaning it has no RDNs.
@@ -524,3 +581,89 @@ def check_if_alg_id_parameters_is_absent(alg_id: rfc9480.AlgorithmIdentifier, al
             return True
 
     return False
+
+
+def _verify_spki_alg_id(
+    cert: rfc9480.CMPCertificate,
+    public_key: PublicKey,
+    spki: Optional[rfc5280.SubjectPublicKeyInfo],
+    key_name: Optional[str] = None,
+) -> None:
+    """Verify if the algorithm identifier in the issued certificate matches the expected algorithm identifier.
+
+    :param cert: The issued certificate to check.
+    :param public_key: The public key to compare against.
+    :param spki: The SubjectPublicKeyInfo to compare against.
+    :param key_name: The name of the key to validate against the public key in the certificate.
+    """
+    loaded_key = keyutils.load_public_key_from_spki(spki)
+
+    if public_key != loaded_key:
+        raise ValueError(
+            "Public key mismatch between the expected and issued certificate."
+            f"Expected: {keyutils.get_key_name(public_key)}. Got: {keyutils.get_key_name(loaded_key)}"  # type: ignore
+        )
+
+    if type(public_key) is not type(loaded_key):
+        raise ValueError(
+            "Public key type mismatch between the expected and issued certificate."
+            f"Expected: {type(public_key)}. Got: {type(loaded_key)}"
+        )
+
+    cert_oid = cert["tbsCertificate"]["subjectPublicKeyInfo"]["algorithm"]["algorithm"]
+    if key_name is not None:
+        key_oid = may_return_oid_by_name(key_name)
+        if key_oid != cert_oid:
+            cert_name = may_return_oid_to_name(cert_oid)
+            raise ValueError(
+                f"Algorithm ID mismatch between the expected and issued certificate."
+                f"Expected: {key_name}. Got: {cert_name}"
+            )
+
+    if spki is not None:
+        spki_oid = spki["algorithm"]["algorithm"]
+        if cert_oid != spki_oid:
+            cert_name = may_return_oid_to_name(cert_oid)
+            spki_name = may_return_oid_to_name(spki_oid)
+            raise ValueError(
+                f"Algorithm ID mismatch between the expected and issued certificate."
+                f"Expected: {spki_name}. Got: {cert_name}"
+            )
+
+
+def validate_certificate_public_Key(  # noqa D417 # undocumented-param
+    cert: rfc9480.CMPCertificate,
+    key: Union[PrivateKey, PublicKey, rfc5280.SubjectPublicKeyInfo],
+    key_name: Optional[str] = None,
+) -> None:
+    """Check if the public key in the issued certificate matches the expected public key.
+
+    Arguments:
+    ---------
+        - `cert`: The issued certificate to check.
+        - `key`: The private key or public key to compare against.
+        - `key_name`: The name of the key to validate against the public key in the certificate.
+        (e.g., "rsa", "ml-dsa-44-sha512") Defaults to `None`.
+
+    Raises:
+    ------
+        - `ValueError`: If the public key in the issued certificate does not match the expected public key.
+
+    Examples:
+    --------
+    | Validate If Correct Public Key In Issued Cert | ${cert} | ${key} | ${spki} |
+    | Validate If Correct Public Key In Issued Cert | ${cert} | ${key} | key_name=${key_name} |
+    | Validate If Correct Public Key In Issued Cert | ${cert} | ${key} |
+
+    """
+    if isinstance(key, PrivateKey):
+        public_key = key.public_key()
+
+    elif isinstance(key, rfc5280.SubjectPublicKeyInfo):
+        public_key = keyutils.load_public_key_from_spki(key)
+    else:
+        public_key = key
+
+    spki = None if not isinstance(key, rfc5280.SubjectPublicKeyInfo) else key
+
+    _verify_spki_alg_id(public_key=public_key, cert=cert, spki=spki, key_name=key_name)

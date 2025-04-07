@@ -12,10 +12,12 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, x448, x25519
 from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
 from pyasn1_alt_modules import rfc5280, rfc5958, rfc6664
 from resources.asn1utils import try_decode_pyasn1
+from resources.convertutils import ensure_is_kem_pub_key
 from resources.exceptions import BadAlg, BadAsn1Data, InvalidKeyCombination, InvalidKeyData
 from resources.oid_mapping import get_curve_instance
 from resources.oidutils import (
@@ -25,13 +27,15 @@ from resources.oidutils import (
     TRAD_STR_OID_TO_KEY_NAME,
     XWING_OID_STR,
 )
+from resources.typingutils import PrivateKey
 
-from pq_logic.keys.chempat_key import ChempatPublicKey
 from pq_logic.hybrid_structures import (
     CompositeSignaturePrivateKeyAsn1,
     CompositeSignaturePublicKeyAsn1,
 )
+from pq_logic.keys.abstract_pq import PQKEMPrivateKey
 from pq_logic.keys.abstract_wrapper_keys import AbstractCompositePublicKey
+from pq_logic.keys.chempat_key import ChempatPublicKey
 from pq_logic.keys.composite_kem05 import (
     CompositeKEMPrivateKey,
     CompositeKEMPublicKey,
@@ -53,7 +57,7 @@ from pq_logic.keys.pq_key_factory import PQKeyFactory
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.keys.trad_kem_keys import DHKEMPrivateKey, DHKEMPublicKey, RSADecapKey, RSAEncapKey
 from pq_logic.keys.trad_key_factory import generate_trad_key, parse_trad_key_from_one_asym_key
-from pq_logic.keys.xwing import XWingPublicKey
+from pq_logic.keys.xwing import XWingPrivateKey, XWingPublicKey
 from pq_logic.tmp_oids import (
     CHEMPAT_OID_2_NAME,
     COMPOSITE_KEM05_OID_2_NAME,
@@ -189,6 +193,8 @@ class CombinedKeyFactory:
 
         if algorithm == "rsa-kem":
             trad_key = kwargs.get("trad_key") or generate_trad_key("rsa", **kwargs)
+            if not isinstance(trad_key, (RSAPrivateKey, RSADecapKey)):
+                raise InvalidKeyCombination("RSA-KEM requires a valid RSA or RSA-KEM private key.")
             return RSADecapKey(trad_key)
 
         if PQKeyFactory.may_be_pq_alg(algorithm=algorithm):
@@ -222,6 +228,8 @@ class CombinedKeyFactory:
         if trad_name == "rsa":
             return serialization.load_der_public_key(public_key)
         if trad_name in ["ecdsa", "ecdh", "ec"]:
+            if curve is None:
+                raise ValueError("Curve name is required for ECDSA/ECDH keys.")
             curve_instance = get_curve_instance(curve_name=curve)
             return ec.EllipticCurvePublicKey.from_encoded_point(curve_instance, public_key)
         if trad_name == "x25519":
@@ -280,12 +288,14 @@ class CombinedKeyFactory:
         name = name.replace("composite-kem06-", "", 1)
         name = name.replace("composite-dhkem-", "", 1)
         pq_name, trad_name, curve, length = CombinedKeyFactory._get_pq_and_trad_names(name)
+
+        _length = int.from_bytes(public_key[:4], "little", signed=False)
         data = public_key[4:]
         pq_key, rest = PQKeyFactory.from_public_bytes(name=pq_name, data=data, allow_rest=True)
 
         if trad_name != "rsa":
             curve = "" if curve is None else "-" + curve
-            trad_key = DHKEMPublicKey.from_public_bytes(data=rest, name=trad_name + curve)
+            trad_key = DHKEMPublicKey.from_public_bytes(data=rest, name=trad_name + curve)._public_key
         else:
             trad_key = serialization.load_der_public_key(rest)
 
@@ -294,7 +304,7 @@ class CombinedKeyFactory:
         return CompositeDHKEMRFC9180PublicKey(pq_key, trad_key)  # type: ignore
 
     @staticmethod
-    def _get_comp_sig04_key(oid: univ.ObjectIdentifier, public_key: bytes) -> CompositeSig04PublicKey:
+    def _get_comp_sig04_key(oid: univ.ObjectIdentifier, public_key_bytes: bytes) -> CompositeSig04PublicKey:
         """Load a Composite signature version 4 public key."""
         name = COMPOSITE_SIG04_OID_2_NAME[oid]
         prefix = _any_string_in_string(name, ["sig-04-hash", "sig-04"])
@@ -306,7 +316,7 @@ class CombinedKeyFactory:
 
         key_size = key.key_size
         # currently ignores the size! This is a temporary solution.
-        data = public_key[4:]
+        data = public_key_bytes[4:]
         mldsa_key_data = data[:key_size]
         trad_data = data[key_size:]
 
@@ -321,7 +331,7 @@ class CombinedKeyFactory:
 
         pq_key, rest = PQKeyFactory.from_public_bytes(name=pq_name, data=mldsa_key_data)
 
-        public_key = CompositeSig04PublicKey(pq_key, trad_key)
+        public_key = CompositeSig04PublicKey(pq_key, trad_key)  # type: ignore
         public_key.get_oid(use_pss=True)
 
         return public_key
@@ -359,23 +369,30 @@ class CombinedKeyFactory:
 
         pq_pub_bytes = obj[0].asOctets()
         trad_pub_bytes = obj[1].asOctets()
-        pq_key, _ = PQKeyFactory.from_public_bytes(name=pq_name, data=pq_pub_bytes, allow_rest=False)
+        pq_key, _ = PQKeyFactory.from_public_bytes(
+            name=pq_name,  # type: ignore
+            data=pq_pub_bytes,
+            allow_rest=False,
+        )
+        pq_key = ensure_is_kem_pub_key(pq_key)
         trad_key = CombinedKeyFactory._comp_load_trad_key(public_key=trad_pub_bytes, trad_name=trad_name, curve=curve)
         if prefix == "dhkem":
-            return CompositeDHKEMRFC9180PublicKey(pq_key, trad_key)
+            return CompositeDHKEMRFC9180PublicKey(pq_key, trad_key)  # type: ignore
         if prefix == "kem":
-            return CompositeKEMPublicKey(pq_key, trad_key)
+            return CompositeKEMPublicKey(pq_key, trad_key)  # type: ignore
         return CompositeSig03PublicKey(pq_key, trad_key)  # type: ignore
 
     @staticmethod
-    def load_public_key_from_spki(spki: Union[rfc5280.SubjectPublicKeyInfo, bytes]):
+    def load_public_key_from_spki(spki: Union[rfc5280.SubjectPublicKeyInfo, bytes]):  # type: ignore
         """Load a public key from an SPKI structure.
 
         :param spki: rfc5280.SubjectPublicKeyInfo structure.
         :return: The loaded public key.
         """
         if isinstance(spki, bytes):
-            spki = try_decode_pyasn1(spki, rfc5280.SubjectPublicKeyInfo())[0]
+            spki = try_decode_pyasn1(spki, rfc5280.SubjectPublicKeyInfo())[0]  # type: ignore
+
+        spki: rfc5280.SubjectPublicKeyInfo
 
         oid = spki["algorithm"]["algorithm"]
 
@@ -398,8 +415,7 @@ class CombinedKeyFactory:
             return PQKeyFactory.load_public_key_from_spki(spki=spki)
 
         if str(oid) == XWING_OID_STR:
-            subject_public_key = spki["subjectPublicKey"].asOctets()
-            return XWingPublicKey.from_public_bytes(subject_public_key)
+            return XWingPublicKey.from_public_bytes(spki["subjectPublicKey"].asOctets())
 
         if oid == id_rsa_kem_spki:
             return RSAEncapKey.from_spki(spki)
@@ -430,8 +446,8 @@ class CombinedKeyFactory:
                 "ml-kem-768",
                 "ml-kem-1024",
                 "frodokem-976-aes",
-                "frogokem-1344-aes",
                 "frodokem-976-shake",
+                "frogokem-1344-aes",
                 "frodokem-1344-shake",
             ],
         )
@@ -465,8 +481,8 @@ class CombinedKeyFactory:
             raise ValueError(f"Unsupported traditional public key type: {trad_name}")
 
         if "dhkem" in alg_name:
-            return CompositeDHKEMRFC9180PublicKey(pq_pub, trad_pub)
-        return CompositeKEMPublicKey(pq_pub, trad_pub)
+            return CompositeDHKEMRFC9180PublicKey(pq_pub, trad_pub)  # type: ignore
+        return CompositeKEMPublicKey(pq_pub, trad_pub)  # type: ignore
 
     @staticmethod
     def supported_algorithms():
@@ -489,7 +505,6 @@ class CombinedKeyFactory:
         """
         oid = spki["algorithm"]["algorithm"]
         alg_name = CHEMPAT_OID_2_NAME.get(oid)
-        alg_name = alg_name or CHEMPAT_OID_2_NAME[str(oid)]
         if alg_name is None:
             raise KeyError(f"Invalid Chempat key OID: {oid}")
         raw_bytes = spki["subjectPublicKey"].asOctets()
@@ -517,7 +532,8 @@ class CombinedKeyFactory:
                 raise ValueError("Found remainder after decoding `CompositeSignaturePublicKey`.")
 
         obj[0]["privateKeyAlgorithm"]["algorithm"] = PQ_NAME_2_OID[pq_name]
-        pq_key = PQKeyFactory.from_one_asym_key(obj[0])
+        pq_key = PQKeyFactory.from_one_asym_key(obj[0])  # type: ignore
+        pq_key: PQKEMPrivateKey
         if trad_name == "rsa" and prefix == "kem":
             trad_key = RSADecapKey.from_pkcs8(obj[1])
             return CompositeKEMPrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
@@ -525,12 +541,12 @@ class CombinedKeyFactory:
         trad_key = serialization.load_der_private_key(encoder.encode(obj[1]), password=None)
 
         if prefix == "kem":
-            return CompositeKEMPrivateKey(pq_key=pq_key, trad_key=trad_key)
+            return CompositeKEMPrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
 
         if prefix == "dhkem":
             return CompositeDHKEMRFC9180PrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
 
-        return CompositeSig03PrivateKey(pq_key=pq_key, trad_key=trad_key)
+        return CompositeSig03PrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
 
     @staticmethod
     def _load_private_key_from_data(name, trad_data, curve: Optional[str] = None):
@@ -555,16 +571,16 @@ class CombinedKeyFactory:
     @staticmethod
     def _decode_composite_kem06(
         name: str,
-        private_key: bytes,
+        private_key_bytes: bytes,
         public_key: Optional[bytes],
     ) -> CompositeKEM06PrivateKey:
         tmp_name = name.replace("composite-kem-06", "", 1)
         tmp_name = tmp_name.replace("composite-kem", "", 1)
         pq_name, trad_name, curve, length = CombinedKeyFactory._get_pq_and_trad_names(tmp_name)
 
-        _length = int.from_bytes(private_key[:4], "big", signed=False)
+        _length = int.from_bytes(private_key_bytes[:4], "little", signed=False)
 
-        data = private_key[4:]
+        data = private_key_bytes[4:]
         trad_data = data[_length:]
         pq_data = data[:_length]
 
@@ -584,7 +600,7 @@ class CombinedKeyFactory:
 
         trad_data = trad_data.asOctets()
         trad_key = CombinedKeyFactory._load_private_key_from_data(trad_name, trad_data=trad_data, curve=curve)
-        private_key = CompositeKEM06PrivateKey(pq_key=loaded_pq_key, trad_key=trad_key)
+        private_key = CompositeKEM06PrivateKey(pq_key=loaded_pq_key, trad_key=trad_key)  # type: ignore
         if public_key is not None:
             oid = COMPOSITE_KEM06_NAME_2_OID[name]
             pub_key = CombinedKeyFactory._load_composite_kem06_public_key(oid, public_key)
@@ -622,7 +638,7 @@ class CombinedKeyFactory:
         try:
             other = copy.deepcopy(private_key)
             obj, _ = decoder.decode(other, asn1Spec=CompositeSignaturePrivateKeyAsn1())
-        except pyasn1.error.PyAsn1Error:
+        except pyasn1.error.PyAsn1Error:  # type: ignore
             pass
         else:
             tmp_data = obj[0]["privateKey"].asOctets()
@@ -637,19 +653,22 @@ class CombinedKeyFactory:
                 if ml_priv.public_key() != ml_pub:
                     raise ValueError("The loaded public key is no match with the loaded private key.")
 
-                return CompositeSig04PrivateKey(pq_key=ml_priv, trad_key=trad_key)
+                return CompositeSig04PrivateKey(pq_key=ml_priv, trad_key=trad_key)  # type: ignore
 
             ml_dsa_key = CombinedKeyFactory.load_key_from_one_asym_key(encoder.encode(obj[0]))
+
+            if not isinstance(ml_dsa_key, MLDSAPrivateKey):
+                raise ValueError("The loaded key is not a valid MLDSA key.")
 
             if ml_dsa_key.name != pq_name:
                 raise ValueError(
                     f"Invalid composite signature version 4 {pq_name} key."
                     f"After loading: {ml_dsa_key.name}, Expected: {pq_name}"
                 )
-            return CompositeSig04PrivateKey(pq_key=ml_dsa_key, trad_key=trad_key)
+            return CompositeSig04PrivateKey(pq_key=ml_dsa_key, trad_key=trad_key)  # type: ignore
 
         # Currently ignores the size! This is a temporary solution.
-        _length = int.from_bytes(private_key[:4], "big")
+        _length = int.from_bytes(private_key[:4], "little", signed=False)
 
         data = private_key[4:]
         trad_data = data[_length:]
@@ -693,28 +712,28 @@ class CombinedKeyFactory:
         elif trad_name == "ecdsa":
             trad_key = serialization.load_der_private_key(trad_data, password=None)
 
-            if curve != trad_key.curve.name:
+            if curve != trad_key.curve.name:  # type: ignore
                 raise InvalidKeyCombination(
                     f"Invalid curve for composite signature version 4 "
-                    f"Expected ECDSA: {curve}, got:{trad_key.curve.name}."
+                    f"Expected ECDSA: {curve}, got:{trad_key.curve.name}."  # type: ignore
                 )
 
         else:
             trad_key = serialization.load_der_private_key(trad_data, password=None)
 
-            if rsa_length != trad_key.key_size:
+            if rsa_length != trad_key.key_size:  # type: ignore
                 raise InvalidKeyCombination(
                     f"Invalid key size for composite signature version 4 "
-                    f"Expected RSA: {rsa_length}, got:{trad_key.key_size}."
+                    f"Expected RSA: {rsa_length}, got:{trad_key.key_size}."  # type: ignore
                 )
 
-        comp_key = CompositeSig04PrivateKey(pq_key=pq_key, trad_key=trad_key)
+        comp_key = CompositeSig04PrivateKey(pq_key=pq_key, trad_key=trad_key)  # type: ignore
 
         if public_key is None:
             return comp_key
 
         oid = COMPOSITE_SIG04_NAME_2_OID[comp_key.name]
-        public_key = CombinedKeyFactory._get_comp_sig04_key(oid, public_key=public_key)
+        public_key = CombinedKeyFactory._get_comp_sig04_key(oid, public_key_bytes=public_key)  # type: ignore
 
         if comp_key.public_key() != public_key:
             raise ValueError("The loaded public is no match with the composite sig v04 private key")
@@ -756,9 +775,9 @@ class CombinedKeyFactory:
             return CombinedKeyFactory._decode_keys_for_composite(name, private_bytes, public_bytes)
 
         if oid == id_rsa_kem_spki:
-            return RSADecapKey.from_pkcs8(data)
+            return RSADecapKey.from_pkcs8(one_asym_key)
 
-        if oid in TRAD_STR_OID_TO_KEY_NAME or oid == rfc6664.id_ecPublicKey:
+        if str(oid) in TRAD_STR_OID_TO_KEY_NAME or oid == rfc6664.id_ecPublicKey:
             return parse_trad_key_from_one_asym_key(one_asym_key=one_asym_key, must_be_version_2=must_be_version_2)
 
         if oid in PQ_OID_2_NAME:
@@ -766,14 +785,53 @@ class CombinedKeyFactory:
 
         return HybridKeyFactory.from_one_asym_key(one_asym_key)
 
+    @staticmethod
+    def generate_key_from_seed(algorithm: str, seed: Union[int, bytes], curve: Optional[str] = None) -> PrivateKey:
+        """Generate a key from the provided seed or private value for the given algorithm.
+
+        :param algorithm: The type of key to generate (e.g., "rsa", "ecdsa", "x25519").
+        :param seed: The seed value for key generation.
+        :param curve: The name of the elliptic curve (if applicable).
+        """
+        if algorithm in ["ecc", "ecdsa", "ecdh", "ec"] and curve is not None and isinstance(seed, int):
+            curve_inst = get_curve_instance(curve_name=curve)
+            return ec.derive_private_key(curve=curve_inst, private_value=seed)
+
+        if not isinstance(seed, bytes):
+            raise ValueError(f"The seed must be a byte string, for the algorithm: {algorithm}.")
+
+        if algorithm in ["x25519", "x448", "ecdsa", "ecc", "ed448", "ed25519"]:
+            return _load_traditional_private_key(
+                name=algorithm,
+                private_data=seed,
+            )
+
+        if algorithm.startswith("ml-dsa") or algorithm.startswith("slh-dsa") or algorithm.startswith("ml-kem"):
+            return PQKeyFactory.from_private_bytes(algorithm, seed)[0]
+
+        if algorithm == "xwing":
+            return XWingPrivateKey.from_seed(seed)
+
+        if algorithm == "rsa":
+            return serialization.load_der_private_key(seed, password=None)
+
+        if algorithm == "rsa-kem":
+            key = serialization.load_der_private_key(seed, password=None)
+            if not isinstance(key, RSAPrivateKey):
+                raise InvalidKeyData("Invalid RSA KEM key")
+            return RSADecapKey(key)
+
+        raise BadAlg(f"Unknown algorithm: {algorithm}")
+
 
 def _load_traditional_private_key(name: str, private_data: bytes, curve: Optional[str] = None):
     """Load a traditional private key from the given private key data."""
     if name in ["x25519", "x448", "ecdh"]:
-        return DHKEMPrivateKey.from_private_bytes(name, private_data, curve=curve)._private_key
-    elif name == "ed25519":
+        tmp_key = DHKEMPrivateKey.from_private_bytes(name, private_data, curve=curve)
+        return tmp_key._private_key
+    if name == "ed25519":
         return Ed25519PrivateKey.from_private_bytes(private_data)
-    elif name == "ed448":
+    if name == "ed448":
         return Ed448PrivateKey.from_private_bytes(private_data)
-    else:
-        return serialization.load_der_private_key(private_data, password=None)
+
+    return serialization.load_der_private_key(private_data, password=None)

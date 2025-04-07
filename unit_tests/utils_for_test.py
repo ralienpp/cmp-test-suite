@@ -10,7 +10,7 @@ import os.path
 import textwrap
 from datetime import datetime, timedelta
 from datetime import timezone
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Dict
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -20,17 +20,21 @@ from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import AuthorityKeyIdentifier
 from cryptography.x509.extensions import ExtensionOID
 
+from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import prepare_sun_hybrid_csr_attributes
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
+
 from pq_logic.tmp_oids import FRODOKEM_NAME_2_OID
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import base, tag, univ
 from pyasn1.type.tag import Tag, tagClassContext, tagFormatSimple
-from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc6402, rfc8018, rfc9481, rfc9629
+from pyasn1_alt_modules import rfc2459, rfc5280, rfc5652, rfc9480, rfc8018, rfc9481, rfc9629, rfc6402
 
 from resources import certutils, cmputils, utils
 from resources.asn1_structures import PKIMessageTMP
 from resources.asn1utils import try_decode_pyasn1
 from resources.certbuildutils import build_certificate, build_csr, prepare_extensions, \
-    prepare_basic_constraints_extension, prepare_ski_extension, prepare_authority_key_identifier_extension
+    prepare_basic_constraints_extension, prepare_ski_extension, prepare_authority_key_identifier_extension, \
+    prepare_key_usage_extension
 from resources.certutils import parse_certificate, build_cert_chain_from_dir, \
     load_public_key_from_cert
 from resources.cmputils import parse_csr
@@ -43,14 +47,14 @@ from resources.envdatautils import (
 from resources.exceptions import BadAsn1Data
 from resources.keyutils import generate_key, load_private_key_from_file, save_key
 from resources.oid_mapping import may_return_oid_to_name
-from resources.protectionutils import prepare_pbkdf2_alg_id
-from resources.typingutils import PrivateKey, PrivateKeySig
+from resources.prepare_alg_ids import prepare_pbkdf2_alg_id
+from resources.protectionutils import sign_data_with_alg_id
+from resources.typingutils import PrivateKey, SignKey
 from resources.utils import (
     get_openssl_name_notation,
     load_and_decode_pem_file,
     load_certificate_chain,
-    write_cmp_certificate_to_pem,
-)
+    write_cmp_certificate_to_pem, )
 from robot.api.deco import not_keyword
 
 
@@ -164,8 +168,8 @@ def get_ski_extension(cert: x509.Certificate) -> Union[None, bytes]:
 
 
 def build_certificate_chain(
-    length: int = 3, keys: Optional[List[PrivateKeySig]] = None
-) -> Tuple[List[rfc9480.CMPCertificate], List[PrivateKeySig]]:
+    length: int = 3, keys: Optional[List[SignKey]] = None
+) -> Tuple[List[rfc9480.CMPCertificate], List[SignKey]]:
     """Build a certificate chain of specified length.
 
     :param length: The desired length of the certificate chain.
@@ -200,8 +204,8 @@ def build_certificate_chain(
 
         cert, _ = build_certificate(
             private_key=keys[i],
-            issuer_cert=previous_cert,
-            signing_key=previous_key,
+            ca_cert=previous_cert,
+            ca_key=previous_key,
             common_name=common_name,
             extensions=extensions,
         )
@@ -258,8 +262,8 @@ def _generate_crl()-> None:
     ca1_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
     crl_sign_cert, _ = build_certificate(
         private_key=ca1_key,
-        issuer_cert=root_cert,
-        signing_key=root_key,
+        ca_cert=root_cert,
+        ca_key=root_key,
         common_name="CN=CA1 CRL Signer",
         key_usage="cRLSign,keyCertSign",
         is_ca=True,
@@ -286,7 +290,7 @@ def _generate_crl()-> None:
         crl_file.write(crl.public_bytes(Encoding.PEM))
 
 
-def load_or_generate_cert_chain() -> Tuple[List[Union[rfc9480.CMPCertificate, x509.Certificate]], List[PrivateKeySig]]:
+def load_or_generate_cert_chain() -> Tuple[List[Union[rfc9480.CMPCertificate, x509.Certificate]], List[SignKey]]:
     """Load an existing certificate chain of size six, for testing.
 
     Filepath: "data/unittest/test_cert_chain_len6.pem".
@@ -391,12 +395,16 @@ def prepare_cert_for_extensions(extensions: rfc5280.Extensions) -> rfc9480.CMPCe
     return cert
 
 
-def get_subject_and_issuer(cert: rfc9480.CMPCertificate) -> str:
+def get_subject_and_issuer(cert: Union[rfc9480.CMPCertificate, rfc5652.CertificateChoices]) -> str:
     """Return a concatenated string of the issuer and subject of a certificate.
 
-    :param cert: object to extract the values from.
+    :param cert: The certificate to extract the issuer and subject from.
     :return: "issuer=%s, subject=%s"
     """
+
+    if isinstance(cert, rfc5652.CertificateChoices):
+        cert = cert["certificate"]
+
     issuer_name = get_openssl_name_notation(cert["tbsCertificate"]["issuer"])
     subject_name = get_openssl_name_notation(cert["tbsCertificate"]["subject"])
     return f"subject={subject_name}, issuer={issuer_name}"
@@ -452,6 +460,7 @@ def _prepare_ca_ra_extensions(
     eku_critical: bool = False,
     for_ca: bool = True,
     key_usage: Optional[str] = None,
+    key_usage_critical: bool = True,
 ) -> rfc9480.Extensions:
     """Prepare the extensions for a intermediate CA certificate.
 
@@ -486,7 +495,7 @@ def _prepare_ca_ra_extensions(
 
     key_usage = prepare_extensions(
         key_usage=key_usage,
-        critical=True,
+        critical=key_usage_critical,
     )
 
     key_usage.extend([basic_constraints, ski, aia])
@@ -538,15 +547,15 @@ def _build_certs_root_ca_key_update_content():
     new_with_old_cert, _ = build_certificate(
         private_key=new_key,
         common_name="CN=NewRootCA_with_Old",
-        issuer_cert=old_cert,
-        signing_key=old_key,
+        ca_cert=old_cert,
+        ca_key=old_key,
         ski=False,
     )
     old_with_new_cert, _ = build_certificate(
         private_key=old_key,
         common_name="CN=OldRootCA",
-        issuer_cert=new_with_new_cert,
-        signing_key=new_key,
+        ca_cert=new_with_new_cert,
+        ca_key=new_key,
         ski=False,
     )
 
@@ -582,8 +591,8 @@ def _build_kga_cert_signed_by_root():
 
     kga_cert, _ = build_certificate(
         private_key=ca1_key,
-        issuer_cert=root_cert,
-        signing_key=root_key,
+        ca_cert=root_cert,
+        ca_key=root_key,
         common_name="CN=KGA EC KARI",
         extensions=extensions,
     )
@@ -617,8 +626,8 @@ def _build_time_independent_certs():
     # which does not include that check.
     kga_cert, _ = build_certificate(
         private_key=private_key,
-        issuer_cert=root_cert,
-        signing_key=root_key,
+        ca_cert=root_cert,
+        ca_key=root_key,
         common_name="CN=CMP Protection Cert For KARI X25519",
         key_usage="keyAgreement",
         is_ca=True,
@@ -635,24 +644,24 @@ def _build_pq_certs():
     mcelliece_key = load_private_key_from_file("data/keys/private-key-mceliece-6960119.pem")
     composite_sig_rsa = load_private_key_from_file("data/keys/private-key-composite-sig-rsa2048-ml-dsa-44.pem")
 
-    cert, key = build_certificate(signing_key=mldsa_key, common_name="CN=PQ Root CA",
-                      is_ca=True, path_length=None, ski=True)
+    cert, key = build_certificate(ca_key=mldsa_key, common_name="CN=PQ Root CA",
+                                  is_ca=True, path_length=None, ski=True)
 
     write_cmp_certificate_to_pem(cert, "data/unittest/pq_root_ca_ml_dsa_65.pem")
     cert, key = build_certificate(private_key=mlkem_key,
-                                  signing_key=mldsa_key, common_name="CN=PQ ML-KEM 768",
+                                  ca_key=mldsa_key, common_name="CN=PQ ML-KEM 768",
                                   is_ca=False, path_length=None, ski=True)
     write_cmp_certificate_to_pem(cert, "data/unittest/pq_cert_ml_kem_768.pem")
     cert, key = build_certificate(private_key=slh_dsa_key,
-                                  signing_key=mldsa_key, common_name="CN=PQ SLH-DSA-SHA2-256f",
+                                  ca_key=mldsa_key, common_name="CN=PQ SLH-DSA-SHA2-256f",
                                   is_ca=False, path_length=None, ski=True)
     write_cmp_certificate_to_pem(cert, "data/unittest/pq_root_ca_slh_dsa_sha2_256f.pem")
     cert, key = build_certificate(private_key=mcelliece_key,
-                                  signing_key=mldsa_key, common_name="CN=PQ McEliece 6960119",
+                                  ca_key=mldsa_key, common_name="CN=PQ McEliece 6960119",
                                   is_ca=False, path_length=None, ski=True)
     write_cmp_certificate_to_pem(cert, "data/unittest/pq_cert_mceliece_6960119.pem")
     cert, key = build_certificate(private_key=composite_sig_rsa,
-                                  signing_key=mldsa_key, common_name="CN=PQ Composite Signature RSA",
+                                  ca_key=mldsa_key, common_name="CN=PQ Composite Signature RSA",
                                   is_ca=False, path_length=None, ski=True)
     write_cmp_certificate_to_pem(cert, "data/unittest/pq_root_ca_composite_sig_rsa.pem")
 
@@ -737,7 +746,7 @@ def _save_tmp_kem_pq_certs():
     save_key(generate_key("sntrup761"), "data/keys/private-key-sntrup761.pem")
 
     cert, _ = build_certificate(private_key=load_private_key_from_file("data/keys/private-key-sntrup761.pem"),
-                                signing_key=mldsa_key, common_name="CN=PQ KEM SNTRUP761", issuer_cert=mldsa_cert)
+                                ca_key=mldsa_key, common_name="CN=PQ KEM SNTRUP761", ca_cert=mldsa_cert)
 
     write_cmp_certificate_to_pem(cert, "data/unittest/pq_cert_sntrup761.pem")
 
@@ -746,14 +755,14 @@ def _save_tmp_kem_pq_certs():
         save_key(generate_key(x), f"data/keys/private-key-{x}.pem")
 
     frodo_cert, _ = build_certificate(private_key=load_private_key_from_file("data/keys/private-key-frodokem-976-aes.pem"),
-                                      signing_key=mldsa_key, common_name="CN=PQ KEM FrodoKEM 976 AES", issuer_cert=mldsa_cert)
+                                      ca_key=mldsa_key, common_name="CN=PQ KEM FrodoKEM 976 AES", ca_cert=mldsa_cert)
     write_cmp_certificate_to_pem(frodo_cert, "data/unittest/pq_cert_frodokem_976_aes.pem")
 
 
 
     mc_key = load_private_key_from_file("data/keys/private-key-mceliece-6960119.pem", )
-    mc_cert, _ = build_certificate(private_key=mc_key, signing_key=mldsa_key,
-                                   common_name="CN=PQ KEM McEliece 6960119", issuer_cert=mldsa_cert)
+    mc_cert, _ = build_certificate(private_key=mc_key, ca_key=mldsa_key,
+                                   common_name="CN=PQ KEM McEliece 6960119", ca_cert=mldsa_cert)
     write_cmp_certificate_to_pem(mc_cert, "data/unittest/pq_cert_mceliece_6960119.pem")
 
 def _generate_pq_certs():
@@ -775,8 +784,8 @@ def _generate_pq_certs():
 
     # Generate PQ KEM certs:
     mlkem_key = load_private_key_from_file("data/keys/private-key-ml-kem-768.pem", )
-    mlkem_cert, _ = build_certificate(private_key=mlkem_key, signing_key=mldsa_key,
-                                      common_name="CN=MLKEM 768", issuer_cert=mldsa_cert)
+    mlkem_cert, _ = build_certificate(private_key=mlkem_key, ca_key=mldsa_key,
+                                      common_name="CN=MLKEM 768", ca_cert=mldsa_cert)
     write_cmp_certificate_to_pem(mlkem_cert, "data/unittest/pq_cert_ml_kem_768.pem")
 
 
@@ -809,15 +818,15 @@ def _save_xwing():
     save_key(key, "data/keys/private-key-xwing.pem")
 
     xwing_key = key
-    xwing_cert, _ = build_certificate(private_key=xwing_key, signing_key=mldsa_key, issuer_cert=ml_dsa_cert,
+    xwing_cert, _ = build_certificate(private_key=xwing_key, ca_key=mldsa_key, ca_cert=ml_dsa_cert,
                                       common_name="CN=Hybrid Key X-Wing")
     write_cmp_certificate_to_pem(xwing_cert, "data/unittest/hybrid_cert_xwing.pem")
 
     key2 = generate_key("xwing")
     save_key(key2, "data/keys/private-key-xwing-other.pem")
     xwing_cert2, _ = build_certificate(private_key=key2,
-                                       signing_key=mldsa_key,
-                                       issuer_cert=ml_dsa_cert,
+                                       ca_key=mldsa_key,
+                                       ca_cert=ml_dsa_cert,
                                        common_name="CN=Hybrid Key X-Wing Other")
 
     write_cmp_certificate_to_pem(xwing_cert2, "data/unittest/hybrid_cert_xwing_other.pem")
@@ -833,8 +842,8 @@ def _save_composite_kem():
     key = generate_key("composite-kem", trad_name="rsa", length="2048", pq_name="ml-kem-768")
     save_key(key, "data/keys/private-key-composite-kem-ml-kem-768-rsa2048.pem")
     cert, _ = build_certificate(private_key=key,
-                                signing_key=mldsa_key,
-                                issuer_cert=ml_dsa_cert,
+                                ca_key=mldsa_key,
+                                ca_cert=ml_dsa_cert,
                                 common_name="CN=PQ CompositeKEM ML-KEM-768 RSA2048"
 
                                 )
@@ -843,15 +852,15 @@ def _save_composite_kem():
     key = generate_key("composite-kem", trad_name="x25519", pq_name="ml-kem-768")
     save_key(key, "data/keys/private-key-composite-kem-ml-kem-1024-x25519.pem")
     cert, _ = build_certificate(private_key=key,
-                                signing_key=mldsa_key,
-                                issuer_cert=ml_dsa_cert,
+                                ca_key=mldsa_key,
+                                ca_cert=ml_dsa_cert,
                                 common_name="CN=Hybrid CompositeKEM ML-KEM-1024 x25519")
 
     key = generate_key("composite-kem", trad_name="x448", pq_name="ml-kem-1024")
     save_key(key, "data/keys/private-key-composite-kem-ml-kem-1024-x448.pem")
     cert, _ = build_certificate(private_key=key,
-                                signing_key=mldsa_key,
-                                issuer_cert=ml_dsa_cert,
+                                ca_key=mldsa_key,
+                                ca_cert=ml_dsa_cert,
                                 common_name="CN=Hybrid CompositeKEM ML-KEM-1024 X448")
 
     write_cmp_certificate_to_pem(cert, "data/unittest/hybrid_cert_composite_kem_ml_kem_1024_x448.pem")
@@ -859,24 +868,24 @@ def _save_composite_kem():
     key = generate_key(algorithm="composite-kem", pq_name="frodokem-976-aes",  trad_name="rsa", length="2048")
     save_key(key, "data/keys/private-key-composite-kem-frodokem-976-aes-rsa2048.pem")
     cert, _ = build_certificate(private_key=key,
-                                signing_key=mldsa_key,
-                                issuer_cert=ml_dsa_cert,
+                                ca_key=mldsa_key,
+                                ca_cert=ml_dsa_cert,
                                 common_name="CN=Hybrid CompositeKEM FrodoKEM-976-AES RSA2048")
     write_cmp_certificate_to_pem(cert, "data/unittest/hybrid_cert_composite_kem_frodokem_976_aes_rsa2048.pem")
 
     key = generate_key(algorithm="composite-kem", pq_name="frodokem-976-aes",  trad_name="x25519")
     save_key(key, "data/keys/private-key-composite-kem-frodokem-976-aes-x25519.pem")
     cert, _ = build_certificate(private_key=key,
-                                signing_key=mldsa_key,
-                                issuer_cert=ml_dsa_cert,
+                                ca_key=mldsa_key,
+                                ca_cert=ml_dsa_cert,
                                 common_name="CN=Hybrid CompositeKEM FrodoKEM-976-AES x25519")
     write_cmp_certificate_to_pem(cert, "data/unittest/hybrid_cert_composite_kem_frodokem_976_aes_x25519.pem")
 
     key = generate_key(algorithm="composite-kem", pq_name="frodokem-976-shake",  trad_name="x25519")
     save_key(key, "data/keys/private-key-composite-kem-frodokem-976-shake-x25519.pem")
     cert, _ = build_certificate(private_key=key,
-                                signing_key=mldsa_key,
-                                issuer_cert=ml_dsa_cert,
+                                ca_key=mldsa_key,
+                                ca_cert=ml_dsa_cert,
                                 common_name="CN=Hybrid CompositeKEM FrodoKEM-976-SHAKE x25519")
     write_cmp_certificate_to_pem(cert, "data/unittest/hybrid_cert_composite_kem_frodokem_976_shake_x25519.pem")
 
@@ -939,34 +948,6 @@ def prepare_default_pwri_env_data(
     )
 
 
-
-
-
-def _save_csr(csr: rfc6402.CertificationRequest, path: str, save_as_pem: bool = False, add_pretty_print: bool = False) -> None:
-    """Save a CSR to a file.
-
-    :param csr: The CSR to save.
-    :param path: The path to save the CSR to.
-    :param save_as_pem: If True, the CSR is saved as PEM-; otherwise, it is saved as DER-encoded.
-
-    """
-
-    der_data = encoder.encode(csr)
-    if save_as_pem:
-        b64_encoded = base64.b64encode(der_data).decode("utf-8")
-        b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
-        pem_csr = "-----BEGIN CERTIFICATE REQUEST-----\n" + b64_encoded + "\n-----END CERTIFICATE REQUEST-----\n"
-        if add_pretty_print:
-            pem_csr += "\n"
-            pem_csr += csr.prettyPrint()
-            pem_csr += "\n"
-        der_data =  pem_csr.encode("utf-8")
-
-
-    with open(path, "wb") as file:
-        file.write(der_data)
-
-
 def _save_migration_csrs():
     """Generate and save CSRs for PQ/Hybrid testing.
 
@@ -981,21 +962,21 @@ def _save_migration_csrs():
         "data/keys/private-key-ml-dsa-44.pem"
     )
     csr = build_csr(signing_key=key, common_name="CN=PQ CSR ML-DSA-44")
-    _save_csr(csr, "data/csrs/pq_csr_ml_dsa_44.pem", save_as_pem=True, add_pretty_print=True)
+    save_csr(csr, "data/csrs/pq_csr_ml_dsa_44.pem", save_as_pem=True, add_pretty_print=True)
 
     ## SLH-DSA CSR's
     key = load_private_key_from_file(
         "data/keys/private-key-slh-dsa-shake-256s.pem"
     )
     csr = build_csr(signing_key=key, common_name="CN=PQ CSR SLH-DSA-SHAKE-256s")
-    _save_csr(csr, "data/csrs/pq_csr_slh_dsa_shake_256s.pem", save_as_pem=True, add_pretty_print=True)
+    save_csr(csr, "data/csrs/pq_csr_slh_dsa_shake_256s.pem", save_as_pem=True, add_pretty_print=True)
 
     # Composite Signature CSR's
     key = load_private_key_from_file(
         "data/keys/private-key-composite-sig-rsa2048-ml-dsa-44.pem"
     )
     csr = build_csr(signing_key=key, common_name="CN=Hybrid CSR CompositeSig RSA2048 ML-DSA-44")
-    _save_csr(csr, "data/csrs/hybrid_csr_composite_sig_rsa2048_ml_dsa_44.pem", save_as_pem=True, add_pretty_print=True)
+    save_csr(csr, "data/csrs/hybrid_csr_composite_sig_rsa2048_ml_dsa_44.pem", save_as_pem=True, add_pretty_print=True)
 
 
 def _update_ed_x_trad_keys():
@@ -1175,8 +1156,8 @@ def _generate_other_trusted_pki_certs():
     kga_ra_cert, _ = build_certificate(
         private_key=kga_key,
         common_name="CN=KGA RA",
-        issuer_cert=root_cert,
-        signing_key=root_key,
+        ca_cert=root_cert,
+        ca_key=root_key,
         extensions=extn,
         for_ca=False,
     )
@@ -1201,8 +1182,8 @@ def _generate_other_trusted_pki_certs():
     kga_ra_cert, _ = build_certificate(
         private_key=kga_key,
         common_name="CN=CMC RA",
-        issuer_cert=root_cert,
-        signing_key=root_key,
+        ca_cert=root_cert,
+        ca_key=root_key,
         extensions=extn,
     )
     write_cmp_certificate_to_pem(kga_ra_cert, "data/trusted_ras/ra_cms_cert_ecdsa.pem")
@@ -1261,10 +1242,287 @@ def print_alg_id(
     if alg_id["parameters"].isValue:
         print("  Parameters: ", alg_id["parameters"].prettyPrint())
 
-
-
 def load_ca_cert_and_key() -> Tuple[rfc9480.CMPCertificate, Ed25519PrivateKey]:
     """Load a valid Root CA key and certificate for testing."""
     root_key = load_private_key_from_file("data/keys/private-key-ed25519.pem")
     root_cert = parse_certificate(load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
     return root_cert, root_key
+
+
+def build_sun_hybrid_composite_csr(
+    signing_key: Optional[CompositeSig03PrivateKey] = None,
+    common_name: str = "CN=Hans Mustermann",
+    pub_key_hash_alg: Optional[str] = None,
+    pub_key_location: Optional[str] = None,
+    sig_hash_alg: Optional[str] = None,
+    sig_value_location: Optional[str] = None,
+    use_rsa_pss: bool = True,
+) -> rfc6402.CertificationRequest:
+    """Create a CSR with composite signatures, supporting two public keys and multiple CSR attributes.
+
+    :param signing_key: CompositeSigCMSPrivateKey, which holds both traditional and post-quantum keys.
+    :param common_name: The subject common name for the CSR.
+    :param pub_key_hash_alg: Hash algorithm for the alternative public key.
+    :param pub_key_location: URI for the alternative public key.
+    :param sig_hash_alg: Hash algorithm for the alternative signature.
+    :param sig_value_location: URI for the alternative signature.
+    :param use_rsa_pss: Whether to use RSA-PSS for traditional keys.
+    :return: CertificationRequest object with composite signature.
+    """
+
+    csr = build_csr(signing_key, common_name=common_name, exclude_signature=True, use_rsa_pss=use_rsa_pss)
+    sig_alg_id = rfc5280.AlgorithmIdentifier()
+
+
+    domain_oid = signing_key.get_oid(
+        use_pss=use_rsa_pss,
+        pre_hash=False,
+    )
+
+    # Step 4 and 5
+    # Currently is always the PQ-Key the firsts key to
+    # it is assumed to be the first key, and the alternative key is the traditional key.
+    attributes = prepare_sun_hybrid_csr_attributes(
+        pub_key_hash_alg=pub_key_hash_alg,
+        sig_value_location=sig_value_location,
+        pub_key_location=pub_key_location,
+        sig_hash_alg=sig_hash_alg,
+    )
+
+    sig_alg_id["algorithm"] = domain_oid
+
+    csr["certificationRequestInfo"]["attributes"].extend(attributes)
+
+    der_data = encoder.encode(csr["certificationRequestInfo"])
+    signature = sign_data_with_alg_id(key=signing_key, alg_id=sig_alg_id, data=der_data)
+
+    csr["signatureAlgorithm"] = sig_alg_id
+    csr["signature"] = univ.BitString.fromOctetString(signature)
+
+    csr, _ = decoder.decode(encoder.encode(csr), rfc6402.CertificationRequest())
+    return csr
+
+
+def save_csr(csr: rfc6402.CertificationRequest, path: str, save_as_pem: bool = False, add_pretty_print: bool = False) -> None:
+    """Save a CSR to a file.
+
+    :param csr: The CSR to save.
+    :param path: The path to save the CSR to.
+    :param save_as_pem: If True, the CSR is saved as PEM-; otherwise, it is saved as DER-encoded.
+
+    """
+
+    der_data = encoder.encode(csr)
+    if save_as_pem:
+        b64_encoded = base64.b64encode(der_data).decode("utf-8")
+        b64_encoded = "\n".join(textwrap.wrap(b64_encoded, width=64))
+        pem_csr = "-----BEGIN CERTIFICATE REQUEST-----\n" + b64_encoded + "\n-----END CERTIFICATE REQUEST-----\n"
+        if add_pretty_print:
+            pem_csr += "\n"
+            pem_csr += csr.prettyPrint()
+            pem_csr += "\n"
+        der_data =  pem_csr.encode("utf-8")
+
+
+    with open(path, "wb") as file:
+        file.write(der_data)
+
+
+def _build_key_encipherment_cert(
+        ca_key: PrivateKey,
+         ca_cert: rfc9480.CMPCertificate,
+         kem_key: PrivateKey,
+         common_name: str) -> Tuple[rfc9480.CMPCertificate, PrivateKey]:
+    """Build a keyEncipherment certificate."""
+    exts = _prepare_ca_ra_extensions(
+        issuer_key=ca_key,
+        key=kem_key,
+        eku=None,
+        eku_critical=False,
+        key_usage="keyEncipherment",
+        key_usage_critical=False,
+    )
+
+    return build_certificate(
+        private_key=kem_key,
+        common_name=common_name,
+        extensions=exts,
+        ca_cert=ca_cert,
+        ca_key=ca_key,
+    )
+
+def _build_key_agreement_cert(
+        ca_key: PrivateKey,
+        ca_cert: rfc9480.CMPCertificate,
+        agree_key: PrivateKey,
+        common_name: str) -> Tuple[rfc9480.CMPCertificate, PrivateKey]:
+    """Build a keyAgreement certificate."""
+    exts = _prepare_ca_ra_extensions(
+        issuer_key=ca_key,
+        key=agree_key,
+        eku=None,
+        eku_critical=False,
+        key_usage="keyAgreement",
+        key_usage_critical=False,
+    )
+    return build_certificate(
+        private_key=agree_key,
+        common_name=common_name,
+        extensions=exts,
+        ca_cert=ca_cert,
+        ca_key=ca_key,
+    )
+
+
+def _generate_mock_ca_kem_certs():
+    """Generate and save mock CA KEM certificates for testing."""
+    ca_cert, ca_key = load_ca_cert_and_key()
+    mlkem_key = load_private_key_from_file("data/keys/private-key-ml-kem-768.pem")
+
+    cert, _ = _build_key_encipherment_cert(
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        kem_key=mlkem_key,
+        common_name="CN=ML-KEM-768 CA Encr Cert",
+    )
+    write_cmp_certificate_to_pem(cert, "data/unittest/ca_encr_cert_ml_kem_768.pem")
+    print("Updated ML-KEM-768 CA Encr Cert")
+
+    # Generate X-Wing
+    xwing_key = load_private_key_from_file("data/keys/private-key-xwing.pem")
+    cert, _ = _build_key_encipherment_cert(
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        kem_key=xwing_key,
+        common_name="CN=X-Wing CA Encr Cert",
+    )
+    write_cmp_certificate_to_pem(cert, "data/unittest/ca_encr_cert_xwing.pem")
+    print("Updated X-Wing CA Encr Cert")
+    # Generate FrodoKEM
+    frodo_key = load_private_key_from_file("data/keys/private-key-frodokem-976-aes.pem")
+    cert, _ = _build_key_encipherment_cert(
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        kem_key=frodo_key,
+        common_name="CN=FrodoKEM-976-AES CA Encr Cert",
+    )
+    write_cmp_certificate_to_pem(cert, "data/unittest/ca_encr_cert_frodokem_976_aes.pem")
+    print("Updated FrodoKEM-976-AES CA Encr Cert")
+
+
+def _generate_mock_ca_certs():
+    """Generate and save mock CA certificates for testing."""
+    ca_cert, ca_key = load_ca_cert_and_key()
+    rsa_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
+
+    exts = _prepare_ca_ra_extensions(
+        issuer_key=ca_key,
+        key=rsa_key,
+        eku=None,
+        eku_critical=False,
+        key_usage="digitalSignature, keyEncipherment",
+        key_usage_critical=False,
+    )
+
+    ca_encr_cert, _ = build_certificate(
+        rsa_key,
+        common_name="CN=CA Encr Cert RSA",
+        extensions=exts,
+        ca_cert=ca_cert,
+        ca_key=ca_key,
+    )
+    write_cmp_certificate_to_pem(ca_encr_cert, "data/unittest/ca_encr_cert_rsa.pem")
+    print("Updated RSA CA Encr Cert")
+
+    ecc_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
+    exts = _prepare_ca_ra_extensions(
+        issuer_key=ca_key,
+        key=ecc_key,
+        eku=None,
+        eku_critical=False,
+        key_usage="digitalSignature, keyAgreement",
+        key_usage_critical=False,
+    )
+    ca_encr_cert, _ = build_certificate(
+        ecc_key,
+        common_name="CN=CA Encr Cert ECC",
+        extensions=exts,
+        ca_cert=ca_cert,
+        ca_key=ca_key,
+    )
+    write_cmp_certificate_to_pem(ca_encr_cert, "data/unittest/ca_encr_cert_ecc.pem")
+    print("Updated ECC CA Encr Cert")
+
+    # Generate x25519 and x448 Kari certs.
+    x25519_key = load_private_key_from_file("data/keys/private-key-x25519.pem")
+    x448_key = load_private_key_from_file("data/keys/private-key-x448.pem")
+
+    x25519_cert, _ = _build_key_agreement_cert(
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        agree_key=x25519_key,
+        common_name="CN=CA Encr Cert X25519",
+    )
+    write_cmp_certificate_to_pem(x25519_cert, "data/unittest/ca_encr_cert_x25519.pem")
+    print("Updated X25519 CA Encr Cert")
+
+    x448_cert, _ = _build_key_agreement_cert(
+        ca_key=ca_key,
+        ca_cert=ca_cert,
+        agree_key=x448_key,
+        common_name="CN=CA Encr Cert X448",
+    )
+    write_cmp_certificate_to_pem(ca_encr_cert, "data/unittest/ca_encr_cert_x448.pem")
+    print("Updated X448 CA Encr Cert")
+
+    _generate_mock_ca_kem_certs()
+
+
+def load_kari_certs() -> Dict:
+    """Load the KARI certificate for Mock CA or testing."""
+    ecc_cert = parse_certificate(load_and_decode_pem_file("data/unittest/ca_encr_cert_ecc.pem"))
+    ecc_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
+    x25519_cert = parse_certificate(load_and_decode_pem_file("data/unittest/ca_encr_cert_x25519.pem"))
+    x25519_key = load_private_key_from_file("data/keys/private-key-x25519.pem")
+    x448_cert = parse_certificate(load_and_decode_pem_file("data/unittest/ca_encr_cert_x448.pem"))
+    x448_key = load_private_key_from_file("data/keys/private-key-x448.pem")
+    return {
+        "ecc_cert": ecc_cert,
+        "ecc_key": ecc_key,
+        "x25519_cert": x25519_cert,
+        "x25519_key": x25519_key,
+        "x448_cert": x448_cert,
+        "x448_key": x448_key,
+    }
+
+def load_kem_certs():
+    """Load the KEM certificate for Mock CA or testing."""
+    data = {}
+    cert = parse_certificate(load_and_decode_pem_file("data/unittest/ca_encr_cert_ml_kem_768.pem"))
+    ml_kem_key = load_private_key_from_file("data/keys/private-key-ml-kem-768.pem")
+    data["kem_cert"] = cert
+    data["kem_key"] = ml_kem_key
+    cert = parse_certificate(load_and_decode_pem_file("data/unittest/ca_encr_cert_xwing.pem"))
+    xwing_key = load_private_key_from_file("data/keys/private-key-xwing.pem")
+    data["hybrid_kem_cert"] = cert
+    data["hybrid_kem_key"] = xwing_key
+    return data
+
+def load_env_data_certs():
+    """Load the CA encryption certificate and key for testing."""
+    data = load_kari_certs()
+    cert = parse_certificate(load_and_decode_pem_file("data/unittest/ca_encr_cert_rsa.pem"))
+    rsa_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
+    data["encr_rsa_cert"] = cert
+    data["encr_rsa_key"] = rsa_key
+    data.update(load_kem_certs())
+    return data
+
+def load_kga_cert_chain_and_key() -> Tuple[List[rfc9480.CMPCertificate], SignKey]:
+    """Load the KGA certificate chain and key for testing."""
+    ca_cert = parse_certificate(load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
+    kga_cert = parse_certificate(load_and_decode_pem_file("data/unittest/ra_kga_cert_ecdsa.pem"))
+    kga_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
+    if not isinstance(kga_key, SignKey):
+        raise ValueError(f"Expected SignKey, got {type(kga_key)}, for the KGA key.")
+    return [kga_cert, ca_cert], kga_key

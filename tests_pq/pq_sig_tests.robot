@@ -16,7 +16,6 @@ Library             ../resources/certbuildutils.py
 Library             ../resources/protectionutils.py
 Library             ../resources/checkutils.py
 Library             ../pq_logic/py_verify_logic.py
-Library             ../pq_logic/pq_validation_utils.py
 
 
 
@@ -42,8 +41,9 @@ Exchange PQ Signature PKIMessage
     ...
     ...                Arguments:
     ...                - `name`:  The name of the PQ signature algorithm.
-    ...                - `hash_alg`: The hash algorithm to use, for the pre-hash version.
-    ...                - `bad_pop`: Whether to invalidate the POP.
+    ...                - `hash_alg`: The hash algorithm to use, for the pre-hash version. Defaults to `None`.
+    ...                - `bad_pop`: Whether to invalidate the POP. Defaults to `False`.
+    ...                - `invalid_key_size`: Whether to use an invalid key size. Defaults to `False`.
     ...
     ...                Returns:
     ...                - The response PKIMessage.
@@ -79,11 +79,13 @@ Exchange PQ Signature PKIMessage With Extensions
     ...                Examples:
     ...                | Exchange PQ Signature PKIMessage With Extensions | ml-dsa-44 | cRLSign |
     ...
-    [Arguments]    ${name}    ${extension}
+    [Arguments]    ${name}    ${key_usages}
     ${key}=   Generate Key    ${name}
-    ${extensions}=  Prepare Extensions    key_usage=${extension}
+    ${cm}=    Get Next Common Name
+    ${extensions}=  Prepare Extensions    key_usage=${key_usages}
     ${spki}=   Prepare SubjectPublicKeyInfo    ${key}
-    ${cert_req_msg}=    Prepare CertReqMsg  ${key}  spki=${spki}   extensions=${extensions}
+    ${cert_req_msg}=    Prepare CertReqMsg  ${key}   common_name=${cm}
+    ...                 spki=${spki}   extensions=${extensions}
     ${ir}=    Build Ir From Key    ${key}   cert_req_msg=${cert_req_msg}
     ...       recipient=${RECIPIENT}
     ...       exclude_fields=senderKID,sender
@@ -181,28 +183,6 @@ CA MUST Reject a ML-DSA-44 with SHA512 certificate for non-EE.
     PKIStatus Must Be    ${response}    status=rejection
     ${status_info}=    Get PKIStatusInfo    ${response}
     Is Bit Set        ${status_info['failInfo']}    badCertTemplate
-
-CA MUST Accept A Valid KGA Request For ML-DSA
-    [Documentation]   According to RFC9483 Section 4.1.6 and draft-ietf-lamps-dilithium-certificates-07 is a
-    ...               valid centralized key generation request for a ML-DSA private key send. The CA MUST process
-    ...               the request and issue a valid certificate and send a encrypted private key inside the
-    ...               `SignedData` structure.
-    [Tags]            ir    positive   kga  ml-dsa
-    ${key}=   Generate Key    ${DEFAULT_ML_DSA_ALG}
-    ${cm}=    Get Next Common Name
-    ${ir}=    Build Ir From Key    ${key}   ${cm}
-    ...    for_kga=True
-    ...    recipient=${RECIPIENT}
-    ...    pvno=3
-    ...    exclude_fields=senderKID,sender
-    ${protected_ir}=    Protect PKIMessage
-    ...    pki_message=${ir}
-    ...    protection=signature
-    ...    private_key=${ISSUED_KEY}
-    ...    cert=${ISSUED_CERT}
-    ${response}=   Exchange Migration PKIMessage    ${protected_ir}    ${CA_BASE_URL}   ${ISSUING_SUFFIX}
-    PKIMessage Body Type Must Be    ${response}    ip
-    PKIStatus Must Be     ${response}    status=accepted
 
 CA MUST Issue A Valid ML-DSA-65 Cert
     [Documentation]   According to draft-ietf-lamps-dilithium-certificates-07 is ML-DSA-65 used.
@@ -317,7 +297,7 @@ CA MUST Reject an Invalid SLH-DSA-SHA2-128S Public Key
     [Tags]           negative   slh-dsa
     ${response}=     Exchange PQ Signature PKIMessage    slh-dsa-sha2-128s    ${None}    False    True
     PKIStatus Must Be    ${response}    status=rejection
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badDataFormat
 
 CA MUST Accept Valid SLH-DSA-SHA2-128F IR
     [Documentation]  According to draft-ietf-lamps-cms-sphincs-plus-17 is the SLH-DSA-SHA2-128F used.

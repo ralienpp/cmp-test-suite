@@ -80,12 +80,13 @@ CA MUST Reject More Than One CertStatus Inside The certConf
     [Tags]    invalid-size    negative
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert}=    Get Cert From PKIMessage    ${response}
-    ${cert_hash}=    Calculate Cert Hash    ${cert}
-    ${cert_status}=    Prepare CertStatus    ${cert_hash}    cert=${cert}
+    ${cert_hash}=    Calculate Cert Hash    ${cert}   hash_alg=sha256
+    ${cert_status}=    Prepare CertStatus    ${cert_hash}    cert=${cert}   hash_alg=sha256
     VAR    @{My_List}    ${cert_status}    ${cert_status}
     Append To List    ${My_List}    ${cert_status}
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
+    ...    pvno=3
     ...    recipient=${RECIPIENT}
     ...    cert_status=${My_List}
     ...    exclude_fields=sender,senderKID
@@ -107,11 +108,10 @@ CA MUST Reject Invalid certReqId Inside The certConf
     [Tags]    field    negative
     ${response}=    Generate Default IR And Exchange For Cert Conf
     ${cert}=   Get Cert From PKIMessage    ${response}
-    ${cert_status}=    Prepare CertStatus    cert=${cert}    cert=${cert}   cert_req_id=-1
     ${cert_conf}=    Build Cert Conf From Resp
     ...    ${response}
     ...    recipient=${RECIPIENT}
-    ...    cert_status=${cert_status}
+    ...    cert_req_id=-1
     ${protected_cert_conf}=    Protect PKIMessage
     ...    ${cert_conf}
     ...    protection=signature

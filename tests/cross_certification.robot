@@ -16,6 +16,8 @@ Library             ../resources/protectionutils.py
 Library             ../resources/checkutils.py
 Library             ../resources/extra_issuing_logic.py
 Library             ../resources/envdatautils.py
+Library             ../resources/cryptoutils.py
+Library             ../resources/certbuildutils.py
 
 Suite Setup    Set Up CMP Test Cases
 Test Tags           cmp   advanced   crr
@@ -72,7 +74,6 @@ CA MUST Accept Valid Cross Certification Request
 CA MUST Reject Cross Certification Request with private key 
     [Documentation]    According to RFC4210bis-15 Section 
     [Tags]         negative  bad-behaviour
-    Skip    NotImplemented yet.
     ${result}=   Is Certificate And Key Set    ${TRUSTED_CA_CERT}     ${TRUSTED_CA_KEY}
     Skip If    not ${result}   Skipped because the `TRUSTED_CA_CERT` and `TRUSTED_CA_KEY` are not set.
     ${cert_template}    ${key}=  Generate CertTemplate For Testing
@@ -85,12 +86,11 @@ CA MUST Reject Cross Certification Request with private key
     ...    cert_template=${cert_template}
     ...    popo=${popo}
     ...    recipient=${RECIPIENT}
-    ...    implicit_confirm=${True}
     ${protected_crr}=     Default Protect PKIMessage With Trusted Cert    ${crr}
     ${response}=    Exchange PKIMessage    ${protected_crr}
-    PKIMessage Body Type Must Be    ${response}    error
+    PKIMessage Body Type Must Be    ${response}    ccp
     PKIStatus Must Be    ${response}   rejection
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    badRequest, badCertTemplate
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badRequest,badPOP
 
 CA MUST Reject Cross Certification Request without POP
    [Documentation]    According to RFC4210bis-15 Section Section 5.3.11 the private key **MUST** not be

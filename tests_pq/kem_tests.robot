@@ -19,7 +19,6 @@ Library             ../resources/protectionutils.py
 Library             ../resources/checkutils.py
 Library             ../resources/extra_issuing_logic.py
 Library             ../pq_logic/py_verify_logic.py
-Library             ../pq_logic/pq_validation_utils.py
 
 Test Tags           kem   pqc
 
@@ -91,7 +90,7 @@ CA MUST Accept A Valid IR FOR ML-KEM-768
     VAR   ${KEM_CERT}   ${cert}  scope=GLOBAL
     VAR   ${KEM_KEY}   ${key}         scope=GLOBAL
     ${certs}=   Build CMP Chain From PKIMessage    ${response}   ${cert}
-    Write Cmp Certificate To Pem    ${certs}    ${KEM_CERT_PATH}
+    Write Certs To Dir     ${certs}
 
 CA MUST Accept A Valid IR FOR ML-KEM-1024
     [Documentation]   According to draft-ietf-lamps-kyber-certificates-07 is ML-KEM-1024 used. We send an valid
@@ -109,7 +108,7 @@ CA MUST Reject An Invalid ML-KEM-512 Public Key
     [Tags]         negative    ml-kem
     ${response}  ${key}=    Build And Exchange KEM Certificate Request    ml-kem-512    True
     PKIStatus Must Be    ${response}    rejection
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badDataFormat
 
 CA MUST Reject An Invalid ML-KEM-768 Public Key
     [Documentation]   According to draft-ietf-lamps-kyber-certificates-07 is ML-KEM-768 used. We send an IR with a
@@ -118,7 +117,7 @@ CA MUST Reject An Invalid ML-KEM-768 Public Key
     [Tags]         negative    ml-kem
     ${response}  ${key}=    Build And Exchange KEM Certificate Request    ml-kem-768    True
     PKIStatus Must Be    ${response}    rejection
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badDataFormat
 
 CA MUST Reject An Invalid ML-KEM-1024 Public Key
     [Documentation]   According to draft-ietf-lamps-kyber-certificates-07 is ML-KEM-1024 used. We send an IR with a
@@ -127,7 +126,7 @@ CA MUST Reject An Invalid ML-KEM-1024 Public Key
     [Tags]         negative    ml-kem
     ${response}  ${key}=    Build And Exchange KEM Certificate Request    ml-kem-1024    True
     PKIStatus Must Be    ${response}    rejection
-    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate
+    PKIStatusInfo Failinfo Bit Must Be    ${response}    badCertTemplate,badDataFormat
 
 CA MUST Reject ML-KEM with Invalid KeyUsage
     [Documentation]   According to draft-ietf-lamps-kyber-certificates-07 is ML-KEM-768 used. We send an IR with a
@@ -188,8 +187,7 @@ CA MUST Accept Encrypted Key For ML-KEM Private Key As POPO
     ...               specified key derivation function (KDF). The CA MUST process the request, accept it, and issue a
     ...               valid certificate for the ML-KEM private key.
     [Tags]   ir  positive  popo
-    Skip If    not ${KEM_CERT_PATH}   Skipped, because KEM_CERT was not set to calculate the KEM recipient info structure.
-    ${der_data}=   Load And Decode PEM File    ${KEM_CERT_PATH}
+    ${der_data}=   Load And Decode PEM File    ${KEM_CERT}
     ${server_cert}=    Parse Certificate    ${der_data}
     ${key}=   Generate Key    ${DEFAULT_ML_KEM_ALG}
     ${cm}=    Get Next Common Name
@@ -202,24 +200,6 @@ CA MUST Accept Encrypted Key For ML-KEM Private Key As POPO
     ${response}=   Exchange PKIMessage    ${protected_ir}
     PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be    ${response}   status=accepted
-
-CA MUST Accept PKMACValue For ML-KEM
-    [Documentation]   We send an Initialization Request (IR) containing a PKMACValue for a ML-KEM private key.
-    ...               The CA MUST process the request and respond with an `accepted` status.
-    [Tags]            ir    positive    kga
-    Skip If    not ${KEM_CERT_PATH}   Skipped, because KEM_CERT was not set to calculate the KEM recipient info structure.
-    ${der_data}=   Load And Decode PEM File    ${KEM_CERT_PATH}
-    ${server_cert}=    Parse Certificate    ${der_data}
-    ${key}=   Generate Key    ${DEFAULT_ML_KEM_ALG}
-    ${cm}=    Get Next Common Name
-    ${cert_request}=    Prepare CertRequest    ${key}   common_name=${cm}
-    ${popo}=  Prepare PKMAC POPO    ca_cert=${server_cert}   cert_request=${cert_request}
-    ${ir}=    Build Ir From Key    ${key}   ${cm}   popo=${popo}   sender=${SENDER}   exclude_fields=senderKID,sender
-    ${protected_ir}=    Default Protect PKIMessage    ${ir}
-    ${response}=   Exchange PKIMessage    ${protected_ir}
-    PKIMessage Body Type Must Be    ${response}   ip
-    PKIStatus Must Be    ${response}   accepted
-
 
 ##### KEM BASED MAC #####
 

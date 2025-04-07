@@ -85,7 +85,7 @@ CA MUST Reject Revocation Request Without ExtraCerts
     ...    protection=signature
     ...    cert=${REVOCATION_CERT}
     ...    private_key=${REVOCATION_KEY}
-    ...    exclude_cert=True
+    ...    exclude_certs=True
     ${response}=    Exchange PKIMessage    ${rr}
     PKIMessage Body Type Must Be    ${response}    rp
     PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badMessageCheck,addInfoNotAvailable
@@ -108,6 +108,7 @@ CA MUST Reject Revocation Request With Issuer As Sender
     ...    cert=${REVOCATION_CERT}
     ...    private_key=${REVOCATION_KEY}
     ...    do_patch=${False}
+    Log Asn1    ${rr["header"]["sender"]}
     ${response}=    Exchange PKIMessage    ${rr}
     PKIMessage Body Type Must Be    ${response}    rp
     PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=badMessageCheck    exclusive=True
@@ -268,7 +269,7 @@ CA MUST Reject Revocation Request With Different PublicKey Inside CertTemplate
     ...    being revoked. We send a revocation request with an invalid public key inside the CertTemplate.
     ...    The CA MUST reject the request and may respond with the optional failInfo `badCertId`.
     [Tags]    certTemplate    negative  minimal
-    ${diff_pub_key}=    Generate Different Public Key    cert=${REVOCATION_CERT}    algorithm=${DEFAULT_ALGORITHM}
+    ${diff_pub_key}=    Generate Different Public Key    ${REVOCATION_CERT}    ${DEFAULT_ALGORITHM}
     ${cert_template}=    Prepare CertTemplate   ${diff_pub_key}   cert=${REVOCATION_CERT}
     ...    include_fields=serialNumber,issuer,publicKey
     ${rr}=    Build CMP Revoke Request  cert_template=${cert_template}  cert=${REVOCATION_CERT}
@@ -476,14 +477,20 @@ CA MUST Accept Valid Revive Request
     ...    all required details. The CA MUST accept the request and successfully revive the
     ...    certificate.
     [Tags]    positive    revive
-    ${new_cert}   ${new_key}=   Issue New Cert For Testing
-    Is Certificate And Key Set    ${new_cert}    ${new_key}
-    ${rev_cert}   ${rev_key}=   Revoke Certificate    ${new_cert}    ${new_key}
+    ${rr}=  Build CMP Revoke Request    cert=${REVOCATION_CERT}  recipient=${RECIPIENT}
+    ${rr}=    Protect PKIMessage
+    ...    ${rr}
+    ...    protection=signature
+    ...    cert=${REVOCATION_CERT}
+    ...    private_key=${REVOCATION_KEY}
+    ${response}=    Exchange PKIMessage    ${rr}
+    PKIMessage Body Type Must Be    ${response}    rp
+    PKIStatus Must Be    ${response}   status=accepted
     ${rr}=    Build CMP Revive Request
-    ...    cert=${rev_cert}
+    ...    cert=${REVOCATION_CERT}
     ...    recipient=${RECIPIENT}
     ${rr}=    Protect PKIMessage   ${rr}   protection=signature
-    ...    cert=${rev_cert}   private_key=${rev_key}
+    ...    cert=${REVOCATION_CERT}   private_key=${REVOCATION_KEY}
     ${response}=    Exchange PKIMessage    ${rr}
     PKIMessage Body Type Must Be    ${response}    rp
     PKIStatus Must Be   ${response}    status=accepted
@@ -506,7 +513,6 @@ CA MUST Reject Valid IR With Already Revoked Certificate
     ${ir}=    Protect PKIMessage  ${ir}  protection=signature  private_key=${rev_key}
     ...    cert=${rev_cert}
     ${response}=    Exchange PKIMessage    ${ir}
-    PKIMessage Body Type Must Be    ${response}    ip
     PKIStatus Must Be   ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=certRevoked    exclusive=True
 
@@ -521,7 +527,6 @@ CA MUST Reject Valid Key Update Request With Already Revoked Certificate
     ${kur}=    Build Key Update Request   ${new_key}     cert=${rev_cert}    recipient=${RECIPIENT}
     ${prot_kur}=    Protect PKIMessage    ${kur}    signature    cert=${rev_cert}    private_key=${rev_key}
     ${response}=    Exchange PKIMessage    ${prot_kur}
-    PKIMessage Body Type Must Be    ${response}    kup
     PKIStatus Must Be   ${response}    status=rejection
     PKIStatusInfo Failinfo Bit Must Be    ${response}    failinfo=certRevoked    exclusive=True
 

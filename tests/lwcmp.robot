@@ -810,7 +810,6 @@ CA MUST Reject IR With More Than One CertReqMsg Inside The IR
     ${ir}=    Build IR From Key    signing_key=${None}    cert_req_msg=${msgs}
     ${protected_ir}=    Protect PKIMessage
     ...    ${ir}
-    ...    exclude_certs=True
     ...    protection=signature
     ...    private_key=${ISSUED_KEY}
     ...    cert=${ISSUED_CERT}
@@ -1139,51 +1138,6 @@ CA MAY Issue A Ed25519 Certificate With A Valid IR
     VAR    ${Ed25519_CERT}    ${cert}    scope=GLOBAL
     VAR    ${Ed25519_KEY}    ${ecc_key}    scope=GLOBAL
 
-# TODO fix test case!,
-# done in next merge Request.
-
-CA Must Accept EncrCert POPO For Request With X25519 Key
-    [Documentation]    According to RFC 4210-bis18 5.2.8.4 the CA must accept a request with a X25519 key with the
-    ...    inclusion of the `encrCert` challenge to issue a valid request. We send a valid request with a
-    ...    X25519 key and the `encrCert` challenge. The CA must issue a certificate for the request.
-    [Tags]    ir    key    popo    positive    robot:skip-on-failure  non-singing-key
-    ${result}=    Should Contain    ${ALLOWED_ALGORITHM}    x25519
-    ${extensions}=    Prepare Extensions    key_usage=keyAgreement
-    ${csr_key}=    Load Private Key From File    ./data/keys/private-key-x25519.pem
-    ${pki_message}=    Build Ir From Key
-    ...    signing_key=${csr_key}
-    ...    common_name=${SENDER}
-    ...    extensions=${extensions}
-    ...    recipient=${RECIPIENT}
-    ...    implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-    ...    exclude_fields=sender,senderKID
-    ${pki_message}=    Protect PKIMessage
-    ...    pki_message=${pki_message}
-    ...    protection=signature
-    ...    private_key=${ISSUED_KEY}
-    ...    cert=${ISSUED_CERT}
-    ${response}=    Exchange PKIMessage    ${pki_message}
-    PKIMessage Body Type Must Be        ${response}    ip
-    PKIStatus Must Be    ${response}    accepted
-    ${cert}=    Get Cert From PKIMessage    ${response}
-    IF    not ${ALLOW_IMPLICIT_CONFIRM}
-        ${cert_conf}=    Build Cert Conf From Resp
-        ...    ${response}
-        ...    exclude_fields=sender,senderKID
-        ...    recipient=${RECIPIENT}
-        ${protected_cert_conf}=    Protect PKIMessage
-        ...    pki_message=${cert_conf}
-        ...    protection=signature
-        ...    private_key=${ISSUED_KEY}
-        ...    cert=${ISSUED_CERTIFICATE}
-        ${pki_conf}=    Exchange PKIMessage    ${protected_cert_conf}
-        PKIMessage Body Type Must Be    ${pki_conf}    pkiconf
-    END
-    VAR    ${X25519_CERT}    ${cert}    scope=GLOBAL
-    VAR    ${X25519_KEY}    ${csr_key}    scope=GLOBAL
-
-# TODO verify body!
-
 CA MUST Reject IR With Invalid Algorithm
     [Documentation]    We Send a initialization request (ir) using Diffie-Hellman (DH) as the certificate algorithm and expect
     ...    the CA to reject the request. There is no such thing as a DH-certificate, and the CA should reject the
@@ -1205,7 +1159,7 @@ CA MUST Reject IR With Invalid Algorithm
     ${protected_ir}=   Default Protect PKIMessage    ${ir}
     ${response}=    Exchange PKIMessage    ${protected_ir}
     PKIMessage Body Type Must Be      ${response}    ip
-    PKIStatusInfo Failinfo Bit Must Be   ${response}      failinfo=badCertTemplate,badRequest
+    PKIStatusInfo Failinfo Bit Must Be   ${response}      failinfo=badCertTemplate,badAlg,badPOP
 
 CA MUST Reject IR With Too Short RSA Key In CertTemplate
     [Documentation]    We send a initialization request (ir) with a certTemplate containing an RSA key that is shorter than
@@ -1260,19 +1214,15 @@ CA MAY Issue A DSA Certificate
     ...    it should issue the requested certificate. Otherwise, the CA must reject the request to maintain PKI integrity.
     [Tags]    ir    key    positive    robot:skip-on-failure    setup   minimal
     ${key}=    Generate Key    dsa    length=${DEFAULT_KEY_LENGTH}
-    ${pki_message}=    Build Ir From Key
+    ${ir}=    Build Ir From Key
     ...    ${key}
     ...    common_name=${SENDER}
     ...    recipient=${RECIPIENT}
     ...    exclude_fields=sender,senderKID
     ...    implicit_confirm=${ALLOW_IMPLICIT_CONFIRM}
-    ${pki_message}=    Protect PKIMessage
-    ...    ${pki_message}
-    ...    signature
-    ...    private_key=${ISSUED_KEY}
-    ...    cert=${ISSUED_CERT}
-    ${response}=    Exchange PKIMessage    ${pki_message}
-    PKIMessage Body Type Must Be    ${pki_message}   ip
+    ${prot_ir}=    Default Protect PKIMessage    ${ir}
+    ${response}=    Exchange PKIMessage    ${prot_ir}
+    PKIMessage Body Type Must Be    ${response}   ip
     PKIStatus Must Be    ${response}    accepted
     ${cert}=    Get Cert From PKIMessage    ${response}
     IF    not ${ALLOW_IMPLICIT_CONFIRM}

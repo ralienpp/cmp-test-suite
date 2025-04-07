@@ -2324,7 +2324,9 @@ def verify_signature_with_alg_id(  # noqa: D417 Missing argument descriptions in
     if oid in CMS_COMPOSITE_OID_2_NAME or oid in COMPOSITE_SIG04_OID_2_NAME:
         name: str = CMS_COMPOSITE_OID_2_NAME.get(oid) or COMPOSITE_SIG04_OID_2_NAME[oid]
         if not isinstance(public_key, CompositeSig03PublicKey):
-            raise ValueError("The public key must be a CompositeSigPublicKey.")
+            raise ValueError(
+                f"The public key must be a CompositeSigPublicKey. Got: {keyutils.get_key_name(public_key)}"
+            )
         _verify_composite_sig(public_key=public_key, data=data, signature=signature, name=name)
 
     elif oid in RSASSA_PSS_OID_2_NAME and isinstance(public_key, rsa.RSAPublicKey):

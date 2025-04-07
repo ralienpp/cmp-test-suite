@@ -71,12 +71,9 @@ docs:
 
 
 pq-docs:
-	python -m robot.libdoc --pythonpath=./ pq_logic/pq_compute_utils.py doc/pq_compute_utils.html
 	python -m robot.libdoc --pythonpath=./ pq_logic/hybrid_issuing.py doc/hybrid_issuing.html
 	python -m robot.libdoc --pythonpath=./ pq_logic/py_verify_logic.py doc/py_verify_logic.html
-	python -m robot.libdoc --pythonpath=./ pq_logic/pq_validation_utils.py doc/pq_validation_utils.html
 	python -m robot.libdoc --pythonpath=./ pq_logic/hybrid_prepare.py doc/hybrid_prepare.html
-	python -m robot.testdoc tests_untested/ doc/test-migration-suites.html
 
 autoformat:
 	ruff check --fix .

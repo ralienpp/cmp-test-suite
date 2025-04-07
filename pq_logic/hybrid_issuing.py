@@ -21,6 +21,7 @@ import resources.certutils
 import resources.prepare_alg_ids
 import resources.protectionutils
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import tag, univ
 from pyasn1_alt_modules import rfc4211, rfc5280, rfc6402, rfc9480
@@ -31,9 +32,9 @@ from resources.certbuildutils import build_cert_from_csr
 from resources.certextractutils import extract_extensions_from_csr, get_extension
 from resources.convertutils import (
     copy_asn1_certificate,
-    ensure_is_pq_verify_key,
     ensure_is_single_sign_key,
-    ensure_is_verify_key, ensure_is_single_verify_key,
+    ensure_is_single_verify_key,
+    ensure_is_verify_key,
 )
 from resources.exceptions import BadAlg, BadAsn1Data, InvalidAltSignature, InvalidKeyCombination, UnknownOID
 from resources.oidutils import (
@@ -42,7 +43,7 @@ from resources.oidutils import (
     id_ce_altSignatureAlgorithm,
     id_ce_altSignatureValue,
 )
-from resources.typingutils import SignKey, Strint, TradSignKey, TradVerifyKey
+from resources.typingutils import ECVerifyKey, SignKey, Strint, TradSignKey, TradVerifyKey
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_sig import catalyst_logic, cert_binding_for_multi_auth, chameleon_logic, sun_lamps_hybrid_scheme_00
@@ -54,14 +55,16 @@ from pq_logic.hybrid_sig.certdiscovery import prepare_subject_info_access_syntax
 from pq_logic.hybrid_structures import AltSignatureValueExt
 from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey, PQSignaturePrivateKey, PQSignaturePublicKey
 from pq_logic.keys.abstract_wrapper_keys import HybridKEMPrivateKey, HybridKEMPublicKey
-from pq_logic.keys.composite_sig03 import CompositeSig03PublicKey
-from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
+from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig03PublicKey
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey, CompositeSig04PublicKey
+from pq_logic.keys.sig_keys import MLDSAPublicKey
+from pq_logic.tmp_oids import COMPOSITE_SIG04_OID_2_NAME
 from pq_logic.trad_typing import CA_CERT_RESPONSE, CA_CERT_RESPONSES, CA_RESPONSE, ECDHPrivateKey
 
 
 def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descriptions in the docstring
     request: PKIMessageTMP,
-    ca_key: CompositeSig03PublicKey,
+    ca_key: CompositeSig03PrivateKey,
     pub_key_loc: str,
     sig_loc: str,
     serial_number: Optional[int] = None,
@@ -134,9 +137,9 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
             cert4, cert1 = sun_lamps_hybrid_scheme_00.sun_cert_template_to_cert(
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
                 ca_cert=ca_cert,
-                ca_key=ca_key.trad_key,  # type: ignore
+                ca_key=ca_key.trad_key,
                 serial_number=serial_number,
-                alt_private_key=ca_key.pq_key,  # type: ignore
+                alt_private_key=ca_key.pq_key,
                 pub_key_loc=pub_key_loc,
                 sig_loc=sig_loc,
                 extensions=kwargs.get("extensions"),
@@ -154,8 +157,8 @@ def build_sun_hybrid_cert_from_request(  # noqa: D417 Missing argument descripti
                 cert_template=cert_req_msg["certReq"]["certTemplate"],
                 ca_cert=ca_cert,
                 serial_number=serial_number,
-                ca_key=ca_key.trad_key,  # type: ignore
-                alt_private_key=ca_key.pq_key,  # type: ignore
+                ca_key=ca_key.trad_key,
+                alt_private_key=ca_key.pq_key,
                 pub_key_loc=pub_key_loc,
                 sig_loc=sig_loc,
                 extensions=kwargs.get("extensions"),
@@ -315,9 +318,6 @@ def build_cert_from_catalyst_request(  # noqa: D417 Missing argument description
     if kwargs.get("extensions"):
         tbs_certs["extensions"].extend(kwargs.get("extensions"))
 
-    if not isinstance(second_key, PQSignaturePublicKey):
-        raise ValueError(f"Invalid key type: {type(second_key).__name__}. Only PQSignaturePublicKey are allowed.")
-
     alt_spki_extn = catalyst_logic.prepare_subject_alt_public_key_info_extn(key=second_key, critical=False)
 
     tbs_certs["extensions"].append(alt_spki_extn)
@@ -454,6 +454,49 @@ def _verify_alt_sig_for_pop(
         raise InvalidAltSignature("Invalid signature for the alternative `POP`.") from e
 
 
+@not_keyword
+def verify_composite_signature_with_keys(
+    data: bytes,
+    signature: bytes,
+    alg_id: rfc5280.AlgorithmIdentifier,
+    first_key: Optional[Union[TradVerifyKey, PQSignaturePublicKey]],
+    second_key: Optional[Union[TradVerifyKey, PQSignaturePublicKey]],
+) -> None:
+    """Verify the composite signature.
+
+    :param data: The data to verify.
+    :param alg_id: The algorithm identifier.
+    :param signature: The signature to verify.
+    :param first_key: The first key to cast be used in the composite signature key.
+    :param second_key: The second key to be used in the composite signature key.
+    :raises InvalidSignature: If the signature is invalid.
+    """
+    if not isinstance(first_key, PQSignaturePublicKey):
+        first_key, second_key = second_key, first_key
+
+    if not isinstance(first_key, MLDSAPublicKey):
+        raise InvalidKeyCombination("The Composite signature pq-key is not a MLDSA key.")
+
+    if not isinstance(second_key, (ECVerifyKey, RSAPublicKey)):
+        raise InvalidKeyCombination("The Composite signature trad-key is not a EC or RSA key.")
+
+    if alg_id["algorithm"] in CMS_COMPOSITE_OID_2_NAME:
+        public_key = CompositeSig03PublicKey(pq_key=first_key, trad_key=second_key)
+
+    elif alg_id["algorithm"] in COMPOSITE_SIG04_OID_2_NAME:
+        public_key = CompositeSig04PublicKey(first_key, second_key)
+
+    else:
+        raise BadAlg(f"Invalid algorithm for composite signature: {alg_id['algorithm']}")
+
+    resources.protectionutils.verify_signature_with_alg_id(
+        public_key=public_key,
+        alg_id=alg_id,
+        data=data,
+        signature=signature,
+    )
+
+
 @keyword(name="Verify Catalyst CertReqMsg")
 def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descriptions in the docstring
     cert_req_msg: rfc4211.CertReqMsg,
@@ -504,17 +547,18 @@ def verify_sig_popo_catalyst_cert_req_msg(  # noqa: D417 Missing argument descri
 
     sig_alg_oid = cert_req_msg["popo"]["signature"]["algorithmIdentifier"]
     oid = sig_alg_oid["algorithm"]
-    if oid in CMS_COMPOSITE_OID_2_NAME or str(oid) in CMS_COMPOSITE_OID_2_NAME:
+
+    if oid in CMS_COMPOSITE_OID_2_NAME or oid in COMPOSITE_SIG04_OID_2_NAME:
         if not isinstance(first_key, PQSignaturePublicKey):
             first_key, alt_pub_key = alt_pub_key, first_key
 
-        public_key = CompositeSig03PublicKey(pq_key=first_key, trad_key=alt_pub_key)  # type: ignore
-        CompositeSig03PublicKey.validate_oid(oid, public_key)
-        resources.protectionutils.verify_signature_with_alg_id(
-            public_key=public_key,
-            alg_id=sig_alg_oid,
+        signature = cert_req_msg["popo"]["signature"]["signature"].asOctets()
+        verify_composite_signature_with_keys(
             data=encoder.encode(cert_req_msg["certReq"]),
-            signature=cert_req_msg["popo"]["signature"]["signature"].asOctets(),
+            signature=signature,
+            first_key=first_key,
+            second_key=alt_pub_key,
+            alg_id=sig_alg_oid,
         )
         return
 

@@ -29,7 +29,7 @@ class CMPTestSuiteError(Exception):
         :param error_details: Additional details about the error.
         """
         self.message = message
-        self.failinfo = failinfo or self.failinfo
+        self._failinfo = failinfo or self.failinfo
         self.error_details = []
         if error_details is not None:
             if isinstance(error_details, str):
@@ -38,10 +38,9 @@ class CMPTestSuiteError(Exception):
         self.error_details += error_details if error_details is not None else []
         super().__init__(message)
 
-    @classmethod
-    def get_failinfo(cls) -> str:
+    def get_failinfo(self) -> str:
         """Return the failinfo."""
-        return cls.failinfo
+        return self._failinfo
 
     def get_error_details(self) -> List[str]:
         """Return the error details."""
@@ -198,6 +197,7 @@ class BadAsn1Data(CMPTestSuiteError):
         remainder: Optional[bytes] = None,
         overwrite: bool = False,
         error_details: Optional[Union[List[str], str]] = None,
+        failinfo: str = "badDataFormat",
     ):
         """Initialize the exception with the message.
 
@@ -208,7 +208,7 @@ class BadAsn1Data(CMPTestSuiteError):
         self.message = message
 
         if overwrite:
-            super().__init__(message=message, error_details=error_details)
+            super().__init__(message=message, error_details=error_details, failinfo=failinfo)
         else:
             r = "" if remainder is None else remainder.hex()
             super().__init__(f"Decoding the `{message}` structure had a remainder: {r}.", error_details=error_details)

@@ -36,7 +36,9 @@ def send_request_to_static_cert1() -> None:
         print(f"Request failed: {e}")
 
 
-def send_pkimessage_to_mock_ca(pki_message: PKIMessageTMP, url: str) -> Optional[PKIMessageTMP]:
+def send_pkimessage_to_mock_ca(
+    pki_message: PKIMessageTMP, url: str = "http://127.0.0.1:5000/issuing"
+) -> Optional[PKIMessageTMP]:
     """Send a PKIMessage to a given URL.
 
     :param pki_message: The PKIMessage to send.
@@ -49,7 +51,7 @@ def send_pkimessage_to_mock_ca(pki_message: PKIMessageTMP, url: str) -> Optional
         if response.status_code == 200:
             print("Success:")
             der_data = response.content
-            response, _ = parse_pkimessage(der_data)
+            response = parse_pkimessage(der_data)
             return response
 
         print(f"Error: {response.status_code}")

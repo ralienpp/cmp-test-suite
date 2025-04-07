@@ -171,6 +171,14 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey, HybridSigPublicKey):
     _pq_key: MLDSAPublicKey  # type: ignore
     _trad_key: Union[rsa.RSAPublicKey, ECVerifyKey]  # type: ignore
 
+    def __init__(
+        self,
+        pq_key: MLDSAPublicKey,
+        trad_key: Union[rsa.RSAPublicKey, ECVerifyKey],
+    ) -> None:
+        """Initialize the composite signature public key."""
+        super().__init__(pq_key, trad_key)
+
     def _get_header_name(self) -> bytes:
         """Return the algorithm name."""
         return b"COMPOSITE-SIG"

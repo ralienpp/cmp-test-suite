@@ -21,7 +21,7 @@ from robot.api.deco import not_keyword
 
 from resources.copyasn1utils import copy_subject_public_key_info
 from resources.oidutils import PQ_NAME_2_OID
-from resources.typingutils import PublicKey, SignKey, TradSignKey, VerifyKey, TradVerifyKey
+from resources.typingutils import PublicKey, SignKey, TradSignKey, TradVerifyKey, VerifyKey
 
 
 @not_keyword
@@ -78,6 +78,7 @@ def ensure_is_pq_verify_key(key: Any) -> PQSignaturePublicKey:
     if not isinstance(key, PQSignaturePublicKey):
         raise ValueError(f"the provided key is not a post-quantum verifying key: {type(key)}")
     return key
+
 
 @not_keyword
 def ensure_is_single_verify_key(key: Any) -> Union[PQSignaturePublicKey, TradVerifyKey]:

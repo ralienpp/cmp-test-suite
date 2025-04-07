@@ -28,12 +28,12 @@ from resources.typingutils import PrivateKey, PublicKey, SignKey, TradSignKey, V
 from robot.api.deco import keyword, not_keyword
 
 from pq_logic.hybrid_structures import AltSignatureValueExt, SubjectAltPublicKeyInfoExt
-from pq_logic.keys.abstract_pq import PQSignaturePrivateKey, PQSignaturePublicKey
+from pq_logic.keys.abstract_pq import PQSignaturePrivateKey
 
 
 @keyword(name="Prepare SubjectAltPublicKeyInfo Extension")
 def prepare_subject_alt_public_key_info_extn(  # noqa: D417 Missing a parameter in the Docstring
-    key: Optional[Union[PQSignaturePrivateKey, PQSignaturePublicKey]],
+    key: Optional[Union[PublicKey, PrivateKey]],
     critical: bool = False,
     spki: Optional[rfc5280.SubjectPublicKeyInfo] = None,
 ) -> rfc5280.Extension:

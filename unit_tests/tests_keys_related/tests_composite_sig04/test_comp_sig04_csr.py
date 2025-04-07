@@ -6,7 +6,7 @@ import unittest
 
 from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from pq_logic.keys.sig_keys import MLDSAPrivateKey
-from pq_logic.pq_compute_utils import verify_csr_signature
+from resources.certutils import verify_csr_signature
 from resources.certbuildutils import build_csr
 from resources.exceptions import BadPOP
 from resources.keyutils import load_private_key_from_file, generate_key

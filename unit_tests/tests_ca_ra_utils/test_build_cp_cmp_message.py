@@ -34,7 +34,6 @@ class TestBuildCpCmpMessage(unittest.TestCase):
             signing_key=self.comp_key
         )
 
-
         response, certs = build_cp_cmp_message(
             request=pki_message,
             ca_key=self.ca_key,

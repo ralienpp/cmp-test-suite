@@ -22,7 +22,7 @@ class TestProcessKEMInfo(unittest.TestCase):
         cls.server_key = PQKeyFactory.generate_pq_key(algorithm="ml-kem-1024")
 
         cls.server_cert, _ = build_certificate(private_key=cls.server_key,
-                                               signing_key=PQKeyFactory.generate_pq_key("ml-dsa-87"))
+                                               ca_key=PQKeyFactory.generate_pq_key("ml-dsa-87"))
 
         cls.content_encryption_key = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         cls.user_keying_material = b"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"

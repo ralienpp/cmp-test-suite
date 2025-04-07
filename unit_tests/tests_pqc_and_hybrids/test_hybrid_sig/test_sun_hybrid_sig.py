@@ -14,16 +14,15 @@ from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import (
     validate_alt_sig_extn,
 )
 from resources.keyutils import generate_key
-from unit_tests.pq_workflow_exp import build_sun_hybrid_composite_csr
 from pq_logic.tmp_oids import id_altSubPubKeyExt, id_altSignatureExt
 from pq_logic.hybrid_structures import AltSignatureExt
 from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey
-from pq_logic.pq_compute_utils import verify_csr_signature
+from resources.certutils import verify_csr_signature
 from pyasn1.codec.der import decoder
 from pyasn1_alt_modules import rfc6402, rfc9480
 from resources.certextractutils import get_extension
 
-from unit_tests.utils_for_test import compare_pyasn1_objects
+from unit_tests.utils_for_test import compare_pyasn1_objects, build_sun_hybrid_composite_csr
 
 
 def _extract_alt_sig(cert: rfc9480.CMPCertificate) -> bytes:

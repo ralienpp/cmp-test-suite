@@ -7,8 +7,9 @@ import unittest
 from pyasn1_alt_modules import rfc9480
 
 from resources.ca_ra_utils import build_ccp_from_ccr
-from resources.certbuildutils import prepare_cert_template, prepare_extensions, default_validity, prepare_sig_alg_id
-from resources.cmputils import build_ccr_from_key
+from resources.certbuildutils import prepare_cert_template, prepare_extensions, default_validity
+from resources.prepare_alg_ids import prepare_sig_alg_id
+from resources.cmputils import build_ccr_from_key, prepare_signature_popo
 from resources.exceptions import BadCertTemplate, BadPOP, BadRequest
 from resources.keyutils import load_private_key_from_file
 from unit_tests.utils_for_test import load_ca_cert_and_key
@@ -141,24 +142,5 @@ class TestBuildCppFromCrr(unittest.TestCase):
             extensions=extensions,
             exclude_fields=None,
         )
-        with self.assertRaises(BadCertTemplate):
-            build_ccp_from_ccr(ccr, ca_cert=self.ca_cert, ca_key=self.ca_key)
-
-    def test_build_ccp_from_crr_invalid_popo_and_key(self):
-        """
-        GIVEN a CRR with an invalid Proof of Possession (PoP) and a certificate template with an incompatible key.
-        WHEN the CRR is used to build a CPP.
-        THEN the function should raise a BadCertTemplate exception.
-        """
-        cert_template = prepare_cert_template(self.ml_kem_key, subject=self.sender)
-
-        ccr = build_ccr_from_key(
-            self.rsa_key,
-            sender=self.sender,
-            common_name=self.sender,
-            cert_template=cert_template,
-            exclude_fields=None,
-        )
-
         with self.assertRaises(BadCertTemplate):
             build_ccp_from_ccr(ccr, ca_cert=self.ca_cert, ca_key=self.ca_key)

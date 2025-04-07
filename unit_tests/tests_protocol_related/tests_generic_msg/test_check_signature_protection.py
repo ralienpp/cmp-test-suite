@@ -9,7 +9,8 @@ from pyasn1_alt_modules import rfc9480
 from resources.asn1utils import encode_to_der
 from resources.certbuildutils import generate_certificate, generate_signed_csr
 from resources.checkutils import check_pkimessage_signature_protection
-from resources.cmputils import build_p10cr_from_csr, parse_csr, patch_extra_certs, prepare_general_name
+from resources.cmputils import build_p10cr_from_csr, parse_csr, patch_extra_certs
+from resources.prepareutils import prepare_general_name
 from resources.exceptions import BadMessageCheck
 from resources.keyutils import generate_key, load_private_key_from_file
 from resources.protectionutils import protect_pkimessage
@@ -46,7 +47,7 @@ class TestCheckSignatureProtection(unittest.TestCase):
             private_key=private_key,
             protection="signature",
             password=None,
-            exclude_cert=False,
+            exclude_certs=False,
         )
         # This is intended to be used for data transmission over the wire.
         # The difference lies in the name structure. If not transmitted, the values contain the actual string inside,
@@ -70,7 +71,7 @@ class TestCheckSignatureProtection(unittest.TestCase):
             private_key=private_key,
             protection="signature",
             password=None,
-            exclude_cert=True,
+            exclude_certs=True,
         )
 
         # This is intended to be used for data transmission over the wire.
@@ -97,7 +98,7 @@ class TestCheckSignatureProtection(unittest.TestCase):
             private_key=private_key,
             protection="signature",
             password=None,
-            exclude_cert=True,
+            exclude_certs=True,
         )
 
         correct_cert = generate_certificate(private_key=private_key)

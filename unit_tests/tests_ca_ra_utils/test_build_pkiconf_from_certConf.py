@@ -61,7 +61,8 @@ class TestBuildPkiConfFromCertConf(unittest.TestCase):
             pvno=2,
             hash_alg="sha256"
         )
-        with self.assertRaises(BadRequest):
+
+        with self.assertRaises(BadCertId):
             _ = build_pki_conf_from_cert_conf(
                 request=cert_conf,
                 issued_certs=self.certs,
@@ -107,7 +108,7 @@ class TestBuildPkiConfFromCertConf(unittest.TestCase):
             cert_req_id=0,
             status="accepted",
             status_info=None,
-            bad_pop=True,
+            bad_cert_id=True,
         )
 
         cert_conf = build_cert_conf_from_resp(

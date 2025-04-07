@@ -7,7 +7,7 @@ import unittest
 
 from pyasn1.codec.der import decoder, encoder
 
-from resources.asn1_structures import KemCiphertextInfoAsn1, InfoTypeAndValueAsn1
+from resources.asn1_structures import KemCiphertextInfoAsn1, InfoTypeAndValue
 from resources.certutils import parse_certificate
 from resources.keyutils import load_private_key_from_file
 from resources.protectionutils import verify_pkimessage_protection, prepare_kem_ciphertextinfo
@@ -55,7 +55,7 @@ class TestBuildKemBasedMacProtectedMessage(unittest.TestCase):
         )
 
         der_data = encoder.encode(kem_ct_info)
-        decoded_kem_ct_info, _ = decoder.decode(der_data, InfoTypeAndValueAsn1())
+        decoded_kem_ct_info, _ = decoder.decode(der_data, InfoTypeAndValue())
 
         _, pki_message = build_kem_based_mac_protected_message(
             request=build_ir_from_key(key),

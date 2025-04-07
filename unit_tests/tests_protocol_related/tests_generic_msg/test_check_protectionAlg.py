@@ -7,7 +7,7 @@ import unittest
 from resources.checkutils import check_protection_alg_field
 from resources.exceptions import BadMessageCheck
 from resources.keyutils import generate_key, load_private_key_from_file
-from resources.protectionutils import patch_protectionalg, protect_pkimessage
+from resources.protectionutils import patch_protection_alg, protect_pkimessage
 
 from unit_tests.utils_for_test import build_pkimessage
 
@@ -101,7 +101,7 @@ class TestCheckProtectionAlgField(unittest.TestCase):
             pki_message=self.unprotected_pki_message, private_key=self.private_key, protection="signature"
         )
 
-        protected_message = patch_protectionalg(
+        protected_message = patch_protection_alg(
             protected_message, protection="signature", private_key=generate_key("ecdsa")
         )
 

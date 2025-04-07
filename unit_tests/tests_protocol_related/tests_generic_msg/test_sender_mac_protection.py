@@ -5,9 +5,7 @@
 import unittest
 
 from resources.checkutils import check_sender_cmp_protection
-from resources.cmputils import (
-    prepare_general_name,
-)
+from resources.prepareutils import prepare_general_name
 from resources.exceptions import BadMessageCheck
 from resources.protectionutils import protect_pkimessage
 
@@ -29,7 +27,7 @@ class TestSenderFieldForMacProtection(unittest.TestCase):
             private_key=None,
             protection="pbmac1",
             password="PASSWORD",
-            exclude_cert=False,
+            exclude_certs=False,
         )
 
         protected_msg = de_and_encode_pkimessage(protected_msg)
@@ -49,7 +47,7 @@ class TestSenderFieldForMacProtection(unittest.TestCase):
             private_key=None,
             protection="pbmac1",
             password="PASSWORD",
-            exclude_cert=False,
+            exclude_certs=False,
         )
         protected_msg = de_and_encode_pkimessage(protected_msg)
 

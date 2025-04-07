@@ -93,7 +93,7 @@ class TestCheckSignedData(unittest.TestCase):
             cert=self.kga_certificate,
             e_content=e_content_data,
             sig_hash_name="sha512",
-            negative_signature=True,
+            bad_sig=True,
         )
 
         with self.assertRaises(cryptography.exceptions.InvalidSignature):
@@ -113,7 +113,7 @@ class TestCheckSignedData(unittest.TestCase):
             e_content=e_content_data,
             digest_hash_name="sha384",
             sig_hash_name="sha512",
-            negative_signature=True,
+            bad_sig=True,
         )
 
         with self.assertRaises(ValueError):

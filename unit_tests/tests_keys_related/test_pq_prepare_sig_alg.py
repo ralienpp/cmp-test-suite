@@ -5,7 +5,7 @@
 import unittest
 
 from pq_logic.keys.sig_keys import SLHDSAPrivateKey
-from resources.certbuildutils import prepare_sig_alg_id
+from resources.prepare_alg_ids import prepare_sig_alg_id
 from resources.keyutils import generate_key
 from resources.oidutils import sig_algorithms_oid
 

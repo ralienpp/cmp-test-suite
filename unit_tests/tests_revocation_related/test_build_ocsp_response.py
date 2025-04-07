@@ -27,9 +27,9 @@ class TestBuildOCSPResponse(unittest.TestCase):
         cls.ca_cert = parse_certificate(load_and_decode_pem_file("data/unittest/bare_certificate.pem"))
 
         cls.leaf_cert, _ = build_certificate(cls.leaf_key, "CN=Leaf Cert",
-                                        signing_key=cls.ca_key,
-                                        issuer_cert=cls.ca_cert,
-                                        )
+                                             ca_key=cls.ca_key,
+                                             ca_cert=cls.ca_cert,
+                                             )
 
         cls.certs = [cls.leaf_cert]
 

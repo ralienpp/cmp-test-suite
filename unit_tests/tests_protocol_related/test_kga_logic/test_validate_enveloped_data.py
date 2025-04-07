@@ -39,8 +39,8 @@ class TestValidateEnvelopeData(unittest.TestCase):
             key="ec",
             ski=True,
             eku="cmKGA",
-            issuer_cert=self.trusted_root,
-            signing_key=self.root_key,
+            ca_cert=self.trusted_root,
+            ca_key=self.root_key,
         )
         # Set up valid SignerInfo structure for tests
         self.dig_alg_id = sha_alg_name_to_oid("sha256")

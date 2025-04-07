@@ -4,9 +4,9 @@
 
 import unittest
 
-from resources.ca_ra_utils import validate_cert_template
+from resources.ca_ra_utils import validate_cert_template_public_key
 from resources.certbuildutils import prepare_cert_template, prepare_subject_public_key_info
-from resources.exceptions import BadAsn1Data
+from resources.exceptions import BadCertTemplate
 from resources.keyutils import load_private_key_from_file
 
 
@@ -31,8 +31,8 @@ class TestPrepareSPKIInvalidKeySize(unittest.TestCase):
         THEN an exception is raised.
         """
         cert_template = self._prepare_cert_template(self.rsa_key)
-        with self.assertRaises(BadAsn1Data):
-            validate_cert_template(cert_template)
+        with self.assertRaises(BadCertTemplate):
+            validate_cert_template_public_key(cert_template)
 
     def test_prepare_spki_invalid_key_size_ml_dsa(self):
         """
@@ -41,8 +41,11 @@ class TestPrepareSPKIInvalidKeySize(unittest.TestCase):
         THEN an exception is raised.
         """
         cert_template = self._prepare_cert_template(self.mldsa_key)
-        with self.assertRaises(BadAsn1Data):
-            validate_cert_template(cert_template)
+        with self.assertRaises(BadCertTemplate) as context:
+            validate_cert_template_public_key(cert_template)
+
+        self.assertEqual(context.exception.get_failinfo(), "badCertTemplate,badDataFormat")
+
 
     def test_prepare_spki_invalid_key_size_composite(self):
         """
@@ -51,5 +54,5 @@ class TestPrepareSPKIInvalidKeySize(unittest.TestCase):
         THEN an exception is raised.
         """
         cert_template = self._prepare_cert_template(self.comp_key)
-        with self.assertRaises(BadAsn1Data):
-            validate_cert_template(cert_template)
+        with self.assertRaises(BadCertTemplate):
+            validate_cert_template_public_key(cert_template)

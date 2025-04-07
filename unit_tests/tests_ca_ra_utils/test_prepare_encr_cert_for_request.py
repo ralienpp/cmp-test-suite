@@ -11,7 +11,7 @@ from pyasn1_alt_modules import rfc9480
 from pq_logic.keys.abstract_wrapper_keys import KEMPrivateKey, HybridKEMPrivateKey
 from pq_logic.trad_typing import ECDHPrivateKey
 from resources.ca_kga_logic import validate_enveloped_data
-from resources.ca_ra_utils import prepare_encr_cert_for_request
+from resources.ca_ra_utils import prepare_encr_cert_from_request
 from resources.certbuildutils import build_cert_from_cert_template
 from resources.certutils import parse_certificate
 from resources.cmputils import prepare_cert_req_msg
@@ -59,9 +59,9 @@ class TestPrepareEncrCertForRequest(unittest.TestCase):
             ca_cert=self.ca_cert,
         )
         # prepare the encrypted certificate.
-        enc_cert = prepare_encr_cert_for_request(
+        enc_cert = prepare_encr_cert_from_request(
             cert_req_msg=cert_req_msg,
-            signing_key=self.ca_key,
+            ca_key=self.ca_key,
             hash_alg="sha256",
             ca_cert=self.ca_cert,
             new_ee_cert=cert,

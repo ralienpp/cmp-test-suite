@@ -27,17 +27,17 @@ class TestBuildCompositeCertChain(unittest.TestCase):
         """
         key = generate_key("composite-sig")
         cert3, _ = build_certificate(private_key=key,
-                                     signing_key=key,
+                                     ca_key=key,
                                      common_name="CN=Root Composite Cert")
         cert2, _ = build_certificate(private_key=key,
-                                    signing_key=key,
-                                    common_name="CN=Intermediate Composite Cert",
-                                    issuer_cert=cert3)
+                                     ca_key=key,
+                                     common_name="CN=Intermediate Composite Cert",
+                                     ca_cert=cert3)
 
         cert1, _ = build_certificate(private_key=key,
-                                    signing_key=key,
-                                    common_name="CN=End Entity Composite Cert",
-                                    issuer_cert=cert2)
+                                     ca_key=key,
+                                     common_name="CN=End Entity Composite Cert",
+                                     ca_cert=cert2)
 
         certs = [cert1, cert2, cert3]
         chain = build_migration_cert_chain(cert1, certs, allow_self_signed=False)
@@ -79,15 +79,15 @@ class TestBuildCompositeCertChain(unittest.TestCase):
                                      common_name="CN=Root RSA Cert")
         key2 = generate_key("ml-dsa-44")
         cert2, _ = build_certificate(private_key=key2,
-                                     signing_key=key3,
+                                     ca_key=key3,
                                      common_name="CN=Intermediate PQ Cert",
-                                     issuer_cert=cert3)
+                                     ca_cert=cert3)
 
         key1 = generate_key("composite-sig")
         cert1, _ = build_certificate(private_key=key1,
-                                     signing_key=key2,
+                                     ca_key=key2,
                                      common_name="CN=End Entity Composite Cert",
-                                     issuer_cert=cert2)
+                                     ca_cert=cert2)
 
         certs = [cert1, cert2, cert3]
         chain = build_migration_cert_chain(cert1, certs, allow_self_signed=False)

@@ -68,8 +68,8 @@ class TestCheckIfCertIsRevokedCRL(unittest.TestCase):
         cls.leaf2_cert_pyasn1, _ = build_certificate(
             private_key=cls.leaf_key,
             common_name="CN=Leaf Cert 2",
-            issuer_cert=ca_cert,
-            signing_key=cls.ca_key,
+            ca_cert=ca_cert,
+            ca_key=cls.ca_key,
         )
         cls.crl_data = build_crl_crypto_lib(cls.ca_key, cls.ca_cert, cls.leaf_cert)
         cls.leaf_cert_pyasn1 = _convert_to_pyasn1_cert(cls.leaf_cert)

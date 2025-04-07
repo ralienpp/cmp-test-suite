@@ -4,32 +4,15 @@
 
 import unittest
 
-from pyasn1_alt_modules import rfc5280, rfc4211
+from pyasn1_alt_modules import rfc5280
 
 from pq_logic.tmp_oids import COMPOSITE_KEM_DHKEMRFC9180_NAME_2_OID, id_chempat_x25519_sntrup761, \
     id_comp_kem06_mlkem768_rsa2048
-from resources.asn1_structures import PKIMessageTMP
-from resources.ca_ra_utils import get_popo_from_pkimessage
+from resources.ca_ra_utils import get_popo_from_pkimessage, get_cert_template_from_pkimessage
 from resources.cmputils import build_ir_from_key
 from resources.keyutils import generate_key, load_public_key_from_spki
-from resources.oidutils import XWING_OID_STR, id_ml_kem_768_oid, PQ_NAME_2_OID
+from resources.oidutils import XWING_OID_STR, id_ml_kem_768, PQ_NAME_2_OID
 from unit_tests.utils_for_test import de_and_encode_pkimessage
-
-
-def get_cert_template_from_pkimessage(request: PKIMessageTMP, index: int = 0) -> rfc4211.CertTemplate:
-    """Extract the certificate template from a PKIMessage.
-
-    :param request: The PKIMessage to extract the certificate template from.
-    :param index: The `CertMsgReq` index to extract the template from.
-    :return: The `CertTemplate` object.
-    """
-
-    body_name = request["body"].getName()
-    if body_name not in ["ir", "cr", "kur", "crr"]:
-        raise ValueError(f"The PKIMessage was not a certification request. Got body name: {body_name}")
-
-    body_name = request["body"].getName()
-    return request["body"][body_name][index]["certReq"]["certTemplate"]
 
 
 class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
@@ -48,7 +31,7 @@ class TestBuildPKIMessageNonSigKeys(unittest.TestCase):
 
         spki_new["algorithm"] = spki["algorithm"]
         spki_new["subjectPublicKey"] = spki["subjectPublicKey"]
-        self.assertEqual(str(spki["algorithm"]["algorithm"]), str(id_ml_kem_768_oid))
+        self.assertEqual(str(spki["algorithm"]["algorithm"]), str(id_ml_kem_768))
         pub_key = load_public_key_from_spki(spki_new)
         self.assertEqual(pub_key, key.public_key())
         popo = get_popo_from_pkimessage(obj)

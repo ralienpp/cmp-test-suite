@@ -8,10 +8,9 @@ from pyasn1.type import univ
 from pyasn1_alt_modules import rfc8619, rfc9481, rfc9629
 from resources.ca_kga_logic import validate_kem_recip_info_structure
 from resources.certutils import parse_certificate
-from resources.envdatautils import prepare_recipient_identifier, prepare_kem_recip_info, \
-    prepare_cmsori_for_kem_other_info
+from resources.envdatautils import prepare_recipient_identifier, prepare_kem_recip_info
 from resources.exceptions import BadAlg
-from resources.oidutils import id_alg_ml_kem_512_oid
+from resources.oidutils import id_ml_kem_768
 from resources.utils import load_and_decode_pem_file
 
 
@@ -20,13 +19,13 @@ class TestValidateKEMInfo(unittest.TestCase):
 
     def setUp(self):
         self.server_cert = parse_certificate(
-            load_and_decode_pem_file("data/unittest/root_cert_ed25519.pem"))
+            load_and_decode_pem_file("data/unittest/pq_cert_ml_kem_768.pem"))
         rid = prepare_recipient_identifier(self.server_cert)
 
         self.recipient_info = prepare_kem_recip_info(
             version=0,
             rid=rid,
-            kem_oid=id_alg_ml_kem_512_oid,
+            kem_oid=id_ml_kem_768,
             kemct=b"kem_ct_mock",
             kdf="hkdf",
             hash_alg="sha256",

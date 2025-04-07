@@ -7,8 +7,8 @@ import unittest
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from pyasn1_alt_modules import rfc9480
 
-from pq_logic.keys.composite_sig03 import CompositeSig03PublicKey
-from pq_logic.keys.composite_kem05 import CompositeKEMPublicKey
+from pq_logic.keys.composite_kem06 import CompositeKEM06PublicKey
+from pq_logic.keys.composite_sig04 import CompositeSig04PublicKey
 from resources.asn1_structures import PKIMessageTMP
 from resources.ca_ra_utils import prepare_cert_and_private_key_for_kga
 from resources.certbuildutils import build_certificate, prepare_cert_template
@@ -74,7 +74,7 @@ class TestRespondToKGA(unittest.TestCase):
             kga_key=self.ca_key,
         )
         pub_key = load_public_key_from_cert(cert)
-        self.assertIsInstance(pub_key, CompositeSig03PublicKey)
+        self.assertIsInstance(pub_key, CompositeSig04PublicKey)
 
 
     def test_prepare_kga_response_with_composite_kem_key(self):
@@ -83,7 +83,8 @@ class TestRespondToKGA(unittest.TestCase):
         WHEN the response is prepared,
         THEN the response should be prepared correctly.
         """
-        comp_key = generate_key("composite-kem", trad_name="rsa", pq_name="ml-kem-768", length=2048)
+        comp_key = generate_key("composite-kem", trad_name="rsa",
+                                pq_name="ml-kem-768", length=2048)
         cert_template = prepare_cert_template(
             for_kga=True,
             key=comp_key,
@@ -101,5 +102,5 @@ class TestRespondToKGA(unittest.TestCase):
             kga_key=self.ca_key,
         )
         pub_key = load_public_key_from_cert(cert)
-        self.assertIsInstance(pub_key, CompositeKEMPublicKey)
+        self.assertIsInstance(pub_key, CompositeKEM06PublicKey)
 

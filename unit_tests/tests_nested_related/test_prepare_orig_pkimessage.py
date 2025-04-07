@@ -6,7 +6,7 @@ import unittest
 
 from pyasn1.codec.der import decoder
 
-from resources.asn1_structures import PKIMessagesTMP, InfoTypeAndValueAsn1
+from resources.asn1_structures import PKIMessagesTMP, InfoTypeAndValue
 from resources.cmputils import build_ir_from_key, prepare_orig_pki_message
 from resources.keyutils import load_private_key_from_file
 from unit_tests.utils_for_test import try_encode_pyasn1
@@ -29,10 +29,10 @@ class TestPrepareOriginalPkiMessage(unittest.TestCase):
         ir = build_ir_from_key(self.private_key)
         info_val = prepare_orig_pki_message(ir)
         der_data = try_encode_pyasn1(info_val)
-        info_val, rest = decoder.decode(der_data, asn1Spec=InfoTypeAndValueAsn1())
+        info_val, rest = decoder.decode(der_data, asn1Spec=InfoTypeAndValue())
         self.assertEqual(rest, b"")
 
-        info_val: InfoTypeAndValueAsn1
+        info_val: InfoTypeAndValue
         info_val = info_val["infoValue"].asOctets()
         nested, rest = decoder.decode(info_val, asn1Spec=PKIMessagesTMP())
         self.assertEqual(rest, b"")

@@ -4,52 +4,9 @@
 
 import unittest
 
-from pq_logic.combined_factory import CombinedKeyFactory
 from resources.keyutils import generate_key
-from unit_tests.pq_workflow_exp import build_sun_hybrid_composite_csr
-from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, get_names_from_oid
-from pq_logic.pq_compute_utils import verify_csr_signature
-from pq_logic.tmp_oids import COMP_SIG03_PREHASH_OID_2_HASH
-from pyasn1.codec.der import encoder
-from pyasn1_alt_modules import rfc9480
-from resources.certbuildutils import generate_certificate
-
-
-def _generate_composite_cert(
-        key: CompositeSig03PrivateKey,
-        common_name: str = "CN=Hans Mustermann",
-        pre_hash: bool = False,
-        use_pss: bool = False):
-
-    if pre_hash:
-        raise NotImplementedError("Prehashing not supported for composite keys")
-
-    return generate_certificate(private_key=key,
-                                common_name=common_name,
-                                use_rsa_pss=use_pss)
-
-
-
-def _verify_cert_signature(cert: rfc9480.Certificate, issuer_pubkey=None):
-    """Verify the signature of a certificate.
-
-    :param cert: The certificate to verify.
-    :param issuer_pubkey: The public key of the issuer of the certificate.
-    :return: None
-    """
-    spki = cert["tbsCertificate"]["subjectPublicKeyInfo"]
-
-    oid = cert["tbsCertificate"]["signature"]["algorithm"]
-    _, trad_name = get_names_from_oid(oid)
-    public_key = issuer_pubkey or CombinedKeyFactory.load_public_key_from_spki(spki=spki)
-    pre_hash = COMP_SIG03_PREHASH_OID_2_HASH.get(oid, False)
-    use_pss = trad_name.endswith("-pss")
-
-    public_key.verify(signature=cert["signature"].asOctets(),
-                      data=encoder.encode(cert["tbsCertificate"]),
-                      use_pss=use_pss,
-                      pre_hash=pre_hash
-                      )
+from resources.certutils import verify_csr_signature, verify_cert_signature
+from resources.certbuildutils import generate_certificate, build_csr
 
 
 class TestCompositeSignature(unittest.TestCase):
@@ -61,8 +18,8 @@ class TestCompositeSignature(unittest.TestCase):
         THEN the signature is valid.
         """
         key = generate_key("composite-sig", trad_name="rsa")
-        cert = _generate_composite_cert(key) # type: ignore
-        _verify_cert_signature(cert, key.public_key())
+        cert = generate_certificate(key) # type: ignore
+        verify_cert_signature(cert, key.public_key())
 
 
     def test_cert_comp_sig_pure_rsa(self):
@@ -72,8 +29,8 @@ class TestCompositeSignature(unittest.TestCase):
         THEN the signature is valid.
         """
         key = generate_key("composite-sig", trad_name="rsa")
-        cert = _generate_composite_cert(key) # type: ignore
-        _verify_cert_signature(cert)
+        cert = generate_certificate(key) # type: ignore
+        verify_cert_signature(cert)
 
 
     def test_sign_csr(self):
@@ -83,6 +40,6 @@ class TestCompositeSignature(unittest.TestCase):
         THEN the signature is valid.
         """
         key = generate_key("composite-sig", trad_name="rsa")
-        csr = build_sun_hybrid_composite_csr(key) # type: ignore
+        csr = build_csr(key)
         verify_csr_signature(csr)
 

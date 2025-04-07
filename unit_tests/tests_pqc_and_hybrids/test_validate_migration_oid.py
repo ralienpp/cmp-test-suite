@@ -4,7 +4,7 @@
 
 import unittest
 
-from pq_logic.pq_validation_utils import validate_migration_oid_in_certificate
+from resources.certutils import validate_migration_oid_in_certificate
 from resources.certbuildutils import build_certificate
 from resources.keyutils import generate_key
 
@@ -29,7 +29,7 @@ class TestValidateMigrationOidInCert(unittest.TestCase):
         )
         validate_migration_oid_in_certificate(
             cert=cert,
-            name="composite-sig-ml-dsa-44-rsa2048",
+            alg_name="composite-sig-04-ml-dsa-44-rsa2048",
         )
 
     def test_composite_oid_wrong(self):
@@ -46,5 +46,5 @@ class TestValidateMigrationOidInCert(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_migration_oid_in_certificate(
                 cert=cert,
-                name="composite-sig-ml-dsa-44-rsa2048-pss",
+                alg_name="composite-sig-04-ml-dsa-44-rsa2048-pss",
             )

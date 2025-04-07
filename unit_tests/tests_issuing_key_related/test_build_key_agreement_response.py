@@ -15,6 +15,7 @@ from resources.ca_ra_utils import build_ip_cmp_message, respond_to_key_agreement
 from resources.certbuildutils import build_certificate
 from resources.certutils import parse_certificate, load_public_key_from_cert
 from resources.cmputils import build_ir_from_key, prepare_cert_req_msg
+from resources.extra_issuing_logic import prepare_key_agreement_popo
 from resources.keyutils import generate_key, load_private_key_from_file
 from resources.utils import load_and_decode_pem_file
 
@@ -36,17 +37,21 @@ class TestBuildKeyAgreementResponse(unittest.TestCase):
         private_key = generate_key(key_alg, **kwargs)
         cert, private_key = build_certificate(
             private_key=private_key,
-            signing_key=cls.ca_key,
-            issuer_cert=cls.root_cert,
+            ca_key=cls.ca_key,
+            ca_cert=cls.root_cert,
             key_usage="keyAgreement",
         )
         return cert, private_key
 
     def _prepare_cert_response(self, private_key, ca_key, cert_label) -> Tuple[rfc9480.CMPCertificate, rfc9480.EnvelopedData]:
         """Prepare the KARI EnvelopedData and the certificate"""
+        popo = prepare_key_agreement_popo(
+            use_encr_cert=True,
+        )
         cert_req_msg = prepare_cert_req_msg(
         private_key=private_key,
         common_name="CN=Hans the Tester",
+        popo_structure=popo
         )
         cert, enc_cert = respond_to_key_agreement(
         cert_req_msg=cert_req_msg,
@@ -61,7 +66,7 @@ class TestBuildKeyAgreementResponse(unittest.TestCase):
         cert, enc_cert = self._prepare_cert_response(
             private_key=self.x25519,
             ca_key=self.ca_x25519,
-            cert_label="ca_x25519",
+            cert_label="x25519_key",
         )
         public_key = load_public_key_from_cert(cert)
         self.assertEqual(public_key, self.x25519.public_key())
@@ -82,10 +87,15 @@ class TestBuildKeyAgreementResponse(unittest.TestCase):
         self.assertEqual(out, encoder.encode(cert))
 
     def test_build_key_agreement_response_x25519_extract_cert(self):
+        """
+        GIVEN an x25519 CertReqMsg.
+        WHEN the request is processed,
+        THEN is the EnvelopedData build correctly.
+        """
         cert, enc_cert = self._prepare_cert_response(
             private_key=self.x25519,
             ca_key=self.ca_x25519,
-            cert_label="ca_x25519",
+            cert_label="x25519_key",
         )
 
         public_key = load_public_key_from_cert(cert)
@@ -99,6 +109,7 @@ class TestBuildKeyAgreementResponse(unittest.TestCase):
             expected_raw_data=True,
             ee_key=self.x25519,
             cmp_protection_cert=self.root_cert,
+            for_pop=True,
         )
         self.assertEqual(data, encoder.encode(cert))
 
@@ -117,7 +128,7 @@ class TestBuildKeyAgreementResponse(unittest.TestCase):
             ca_key=self.ca_key,
             ca_cert=self.root_cert,
             cmp_protection_cert=self.root_cert,
-            ca_x448=self.x448,
+            x448_key=self.x448,
         )
 
         public_key = load_public_key_from_cert(cert)
@@ -144,16 +155,21 @@ class TestBuildKeyAgreementResponse(unittest.TestCase):
         WHEN the request is processed,
         THEN is the EnvelopedData build correctly.
         """
+        popo = prepare_key_agreement_popo(
+            use_encr_cert=True,
+        )
+
         cert_req_msg = prepare_cert_req_msg(
             private_key=self.ecc_key,
             common_name="CN=Hans the Tester",
+            popo_structure=popo,
         )
         cert, enc_cert = respond_to_key_agreement(
             cert_req_msg=cert_req_msg,
             ca_key=self.ca_key,
             ca_cert=self.root_cert,
             cmp_protection_cert=self.root_cert,
-            ca_ecc_key=self.ecc_key, # type: ignore
+            ecc_key=self.ecc_key, # type: ignore
         )
 
         public_key = load_public_key_from_cert(cert)

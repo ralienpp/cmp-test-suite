@@ -10,26 +10,27 @@ As a fallback, if there is an error with `pyasn1`.
 import datetime
 import enum
 import os
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from cryptography import x509
 from cryptography.hazmat._oid import AuthorityInformationAccessOID
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed448, ed25519, padding, rsa
 from cryptography.hazmat.primitives.keywrap import aes_key_unwrap, aes_key_wrap
-from cryptography.x509 import AuthorityInformationAccess, UniformResourceIdentifier, extensions
+from cryptography.x509 import AuthorityInformationAccess, ExtensionNotFound, UniformResourceIdentifier, extensions
 from cryptography.x509.oid import ExtensionOID
 from pyasn1.type import tag, univ
-from pyasn1_alt_modules import rfc4211, rfc5280, rfc9481
+from pyasn1_alt_modules import rfc4211, rfc5280, rfc9480, rfc9481
 from robot.api.deco import keyword, not_keyword
 
 import resources.prepareutils
 from resources import keyutils
 from resources.asn1utils import get_set_bitstring_names, is_bit_set
+from resources.certutils import _convert_to_crypto_lib_cert
 from resources.convertutils import ensure_is_sign_key
 from resources.cryptoutils import compute_aes_cbc
 from resources.oid_mapping import hash_name_to_instance
-from resources.typingutils import PrivateKey, PrivateKeySig, PrivSignCertKey, PublicKey, Strint
+from resources.typingutils import PrivateKey, PrivSignCertKey, PublicKey, SignKey, Strint, TradSignKey
 
 
 def _build_cert(
@@ -38,6 +39,7 @@ def _build_cert(
     subject: Optional[x509.Name] = None,
     serial_number: Optional[int] = None,
     days: Strint = 365,
+    *,
     not_valid_before: Optional[datetime.datetime] = None,
 ) -> x509.CertificateBuilder:
     """Create a `cryptography.x509.CertificateBuilder` using a public key, issuer, subject, and a validity period.
@@ -76,13 +78,38 @@ def _build_cert(
     return cert_builder
 
 
+def _sign_crl_builder(
+    crl_builder: x509.CertificateRevocationListBuilder,
+    sign_key: Optional[TradSignKey],
+    hash_alg: Optional[str] = "sha256",
+):
+    """Sign a `cryptography.x509.CertificateRevocationListBuilder` object.
+
+    :param crl_builder: `cryptography.x509.CertificateRevocationListBuilder`
+    :param sign_key: The private key to sign the certificate.
+    :param hash_alg: The name of the hash function to use for signing the certificate. Defaults to "sha256".
+    :return: The signed `cryptography.x509.CertificateRevocationList` object.
+    """
+    hash_instance = None
+    if hash_alg is not None:
+        hash_instance = hash_name_to_instance(hash_alg)  # type: ignore
+
+    if isinstance(sign_key, (ed25519.Ed25519PrivateKey, ed448.Ed448PrivateKey)):
+        return crl_builder.sign(sign_key, algorithm=None)
+
+    if hash_instance is None:
+        raise ValueError(f"`hash_alg` must be set sign the CRL with a: {type(sign_key)} key.")
+
+    return crl_builder.sign(private_key=sign_key, algorithm=hash_instance)  # type: ignore
+
+
 def _sign_cert_builder(
-    cert_builder: x509.CertificateBuilder, sign_key: Optional[PrivSignCertKey], hash_alg: Optional[str] = None
+    cert_builder: x509.CertificateBuilder, sign_key: Optional[TradSignKey], hash_alg: Optional[str] = None
 ) -> x509.Certificate:
     """Sign a `cryptography.x509.CertificateBuilder` object with a provided key to sign and a hash algorithm.
 
     :param cert_builder: `cryptography.x509.CertificateBuilder`
-    :param sign_key: `cryptography.hazmat.primitives.asymmetric PrivSignCertKey` object.
+    :param sign_key: A traditional signing key object (e.g., RSA, ECDSA) to sign the certificate.
     :param hash_alg: optional str the name of the hash function to use for signing the certificate.
     :return: a `cryptography.x509.Certificate` object
     """
@@ -357,7 +384,7 @@ def x509_to_pyasn1_extensions(
 
 
 def generate_csr(  # noqa D417 undocumented-param
-    common_name: Optional[str] = None, subjectAltName: Optional[str] = None
+    common_name: Optional[str] = None, subject_alt_name: Optional[str] = None
 ):
     """Generate a CSR based on the given common name and subjectAltName.
 
@@ -387,9 +414,9 @@ def generate_csr(  # noqa D417 undocumented-param
     #     x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"CMP Lab"),
     #     ]))
 
-    if subjectAltName:
+    if subject_alt_name:
         # if there are any subjectAltNames given, process the list into objects that the CSRBuilder can deal with
-        items = subjectAltName.strip().split(",")
+        items = subject_alt_name.strip().split(",")
         dns_names = [x509.DNSName(item) for item in items]
         csr = csr.add_extension(x509.SubjectAlternativeName(dns_names), critical=False)
 
@@ -405,7 +432,7 @@ def generate_csr(  # noqa D417 undocumented-param
 
 
 def sign_csr(  # noqa D417 undocumented-param
-    csr: x509.CertificateSigningRequestBuilder, key: PrivateKeySig, hash_alg: str = "sha256"
+    csr: x509.CertificateSigningRequestBuilder, key: SignKey, hash_alg: str = "sha256"
 ):
     """Sign a CSR with a given key, using a specified hashing algorithm.
 
@@ -426,8 +453,8 @@ def sign_csr(  # noqa D417 undocumented-param
 
 @keyword(name="Generate Signed CSR")
 def generate_signed_csr2(  # noqa D417 undocumented-param
-    common_name: str, key: Union[PrivateKeySig, str, None] = None, **params
-) -> Tuple[bytes, PrivateKeySig]:
+    common_name: str, key: Union[SignKey, str, None] = None, **params
+) -> Tuple[bytes, SignKey]:
     """Generate signed CSR for a given common name (CN).
 
     If a key is not provided, a new RSA key is generated. If a string is provided, it is used as the key generation
@@ -604,3 +631,24 @@ def prepare_ocsp_aia_value(ocsp_url: str) -> AuthorityInformationAccess:
     )
 
     return aia
+
+
+def get_ocsp_url_from_cert(cert: Union[x509.Certificate, rfc9480.CMPCertificate]) -> List[str]:
+    """Extract the OCSP URL from a certificate's Authority Information Access extension.
+
+    :param cert: The certificate to extract the OCSP URL from.
+    :return: The OCSP URLs, if present.
+    """
+    cert = _convert_to_crypto_lib_cert(cert)
+    try:
+        aia = cert.extensions.get_extension_for_oid(ExtensionOID.AUTHORITY_INFORMATION_ACCESS).value
+    except ExtensionNotFound:
+        return []
+
+    ocsp_urls = [
+        access_description.access_location.value
+        for access_description in aia  # type: ignore
+        if access_description.access_method == AuthorityInformationAccessOID.OCSP
+    ]
+
+    return ocsp_urls

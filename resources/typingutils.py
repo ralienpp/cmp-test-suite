@@ -31,23 +31,30 @@ from pq_logic.keys.abstract_wrapper_keys import (
     WrapperPrivateKey,
     WrapperPublicKey,
 )
-from pyasn1_alt_modules import rfc5280, rfc5652, rfc9480, rfc9629
 from pq_logic.keys.stateful_hash_sig import PQHashStatefulSigPrivateKey, PQHashStatefulSigPublicKey
+from pyasn1_alt_modules import rfc5280, rfc5652, rfc9480, rfc9629
+
+ECSignKey = Union[
+    Ed25519PrivateKey,
+    Ed448PrivateKey,
+    EllipticCurvePrivateKey,
+]
 
 TradSignKey = Union[
     RSAPrivateKey,
-    EllipticCurvePrivateKey,
+    ECSignKey,
     DSAPrivateKey,
-    Ed25519PrivateKey,
-    Ed448PrivateKey,
 ]
 
-TradVerifyKey = Union[
-    RSAPublicKey,
-    EllipticCurvePublicKey,
-    DSAPublicKey,
+ECVerifyKey = Union[
     Ed25519PublicKey,
     Ed448PublicKey,
+    EllipticCurvePublicKey,
+]
+TradVerifyKey = Union[
+    RSAPublicKey,
+    ECVerifyKey,
+    DSAPublicKey,
 ]
 
 # Type alias for supported private key types

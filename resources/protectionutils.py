@@ -613,8 +613,7 @@ def sign_rsa_pss_data_with_alg_id(
         salt_length = None
 
     return cryptoutils.sign_data_rsa_pss(
-        data=data, private_key=private_key,
-        hash_alg=hash_alg or "sha256", salt_length=salt_length
+        data=data, private_key=private_key, hash_alg=hash_alg or "sha256", salt_length=salt_length
     )
 
 
@@ -663,9 +662,7 @@ def _compute_pkimessage_protection(
     if protection_type_oid in RSASSA_PSS_OID_2_NAME:
         if not isinstance(sign_key, rsa.RSAPrivateKey):
             raise ValueError("The protection algorithm is `RSASSA-PSS` but the private key was not a `RSAPrivateKey`.")
-        return sign_rsa_pss_data_with_alg_id(private_key=sign_key, data=data, alg_id=alg_id,
-                                             hash_alg=hash_alg)
-
+        return sign_rsa_pss_data_with_alg_id(private_key=sign_key, data=data, alg_id=alg_id, hash_alg=hash_alg)
 
     if protection_type_oid == rfc5480.id_dsa_with_sha256 and isinstance(sign_key, dsa.DSAPrivateKey):
         return cryptoutils.sign_data(data=data, key=sign_key, hash_alg="sha256")  # type: ignore

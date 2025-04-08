@@ -47,8 +47,9 @@ from pyasn1_alt_modules import (
     rfc8619,
     rfc9480,
     rfc9481,
+    rfc9688,
     rfc9690,
-    rfc9708, rfc9688,
+    rfc9708,
 )
 
 # In RFC 9480 Certificate Management Protocol (CMP) Updates
@@ -592,7 +593,6 @@ PQ_SIG_NAME_2_OID.update(ML_DSA_NAME_2_OID)
 PQ_SIG_NAME_2_OID.update(SLH_DSA_NAME_2_OID)
 
 PQ_SIG_OID_2_NAME = {y: x for x, y in PQ_SIG_NAME_2_OID.items()}
-
 
 
 PQ_NAME_2_OID = {}

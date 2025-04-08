@@ -48,7 +48,7 @@ from pyasn1_alt_modules import (
     rfc9480,
     rfc9481,
     rfc9690,
-    rfc9708,
+    rfc9708, rfc9688,
 )
 
 # In RFC 9480 Certificate Management Protocol (CMP) Updates
@@ -131,6 +131,20 @@ SHA3_OID_2_NAME = {
 }
 
 SHA3_NAME_2_OID = {v: k for k, v in SHA3_OID_2_NAME.items()}
+
+ECDSA_SHA3_OID_2_NAME = {
+    rfc9688.id_ecdsa_with_sha3_224: "ecdsa-sha3_224",
+    rfc9688.id_ecdsa_with_sha3_256: "ecdsa-sha3_256",
+    rfc9688.id_ecdsa_with_sha3_384: "ecdsa-sha3_384",
+    rfc9688.id_ecdsa_with_sha3_512: "ecdsa-sha3_512",
+}
+RSA_SHA3_OID_2_NAME = {
+    rfc9688.id_rsassa_pkcs1_v1_5_with_sha3_224: "rsassa_pss-sha3_224",
+    rfc9688.id_rsassa_pkcs1_v1_5_with_sha3_256: "rsassa_pss-sha3_256",
+    rfc9688.id_rsassa_pkcs1_v1_5_with_sha3_384: "rsassa_pss-sha3_384",
+    rfc9688.id_rsassa_pkcs1_v1_5_with_sha3_512: "rsassa_pss-sha3_512",
+}
+
 
 AES_CBC_NAME_2_OID = {
     "aes128_cbc": rfc9481.id_aes128_CBC,
@@ -244,6 +258,10 @@ ALLOWED_HASH_TYPES = {
     "sha512": hashes.SHA512(),
     "shake128": hashes.SHAKE128(32),
     "shake256": hashes.SHAKE256(64),
+    "sha3_224": hashes.SHA3_224(),
+    "sha3_256": hashes.SHA3_256(),
+    "sha3_384": hashes.SHA3_384(),
+    "sha3_512": hashes.SHA3_512(),
 }
 
 
@@ -575,6 +593,8 @@ PQ_SIG_NAME_2_OID.update(SLH_DSA_NAME_2_OID)
 
 PQ_SIG_OID_2_NAME = {y: x for x, y in PQ_SIG_NAME_2_OID.items()}
 
+
+
 PQ_NAME_2_OID = {}
 PQ_NAME_2_OID.update(PQ_SIG_NAME_2_OID)
 PQ_NAME_2_OID.update(PQ_KEM_NAME_2_OID)
@@ -747,6 +767,15 @@ EXTENSION_OID_2_SPECS = {
     rfc5280.id_pe_authorityInfoAccess: rfc5280.AuthorityInfoAccessSyntax,
 }
 
+ALL_SIG_ALG_OID_2_NAME = {}
+ALL_SIG_ALG_OID_2_NAME.update(MSG_SIG_ALG)
+ALL_SIG_ALG_OID_2_NAME.update(RSA_SHA3_OID_2_NAME)
+ALL_SIG_ALG_OID_2_NAME.update(ECDSA_SHA3_OID_2_NAME)
+ALL_SIG_ALG_OID_2_NAME.update(PQ_SIG_OID_2_NAME)
+ALL_SIG_ALG_OID_2_NAME.update(STATEFUL_HASH_SIGNATURE_NAME_2_OID)
+ALL_SIG_ALG_OID_2_NAME.update(HYBRID_SIG_OID_2_NAME)
+
+ALL_SIG_ALG_NAME_2_OID = {y: x for x, y in ALL_SIG_ALG_OID_2_NAME.items()}
 
 EXTENSION_OID_2_NAME = {y: x for x, y in EXTENSION_NAME_2_OID.items()}
 

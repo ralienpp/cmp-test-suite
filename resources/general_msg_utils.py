@@ -16,7 +16,7 @@ the target goal of the Test-Suite.
 import datetime
 import logging
 import os
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Set, Tuple, Union, Sequence
 
 import pyasn1.error
 from pq_logic.keys.abstract_wrapper_keys import HybridKEMPublicKey, KEMPrivateKey, KEMPublicKey
@@ -1157,14 +1157,10 @@ def prepare_enc_key_pair_types_response(
 
 @not_keyword
 def prepare_unsupported_oids_response(
-    info_value: univ.Any,
+    oids: Sequence[univ.ObjectIdentifier]
 ) -> rfc9480.InfoTypeAndValue:
     """Prepare the `InfoTypeAndValue` to respond with unsupported OIDs."""
-    obj = univ.SequenceOf(componentType=univ.ObjectIdentifier())
-
-    oids, _ = try_decode_pyasn1(info_value.asOctets(), obj)  # type: ignore
-
-    oids_out = univ.SequenceOf(componentType=univ.ObjectIdentifier())  # type: ignore
+    oids_out = univ.SequenceOf(componentType=univ.ObjectIdentifier()) # type: ignore
 
     for entry in oids:  # type: ignore
         if entry not in ALL_KNOWN_OIDS_2_NAME:

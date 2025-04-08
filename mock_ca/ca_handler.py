@@ -29,13 +29,14 @@ from pq_logic.hybrid_issuing import (
 )
 from pq_logic.hybrid_sig import sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00 import extract_sun_hybrid_alt_sig, sun_cert_template_to_cert
-from pq_logic.pq_compute_utils import protect_hybrid_pkimessage
+from pq_logic.keys.composite_sig04 import CompositeSig04PrivateKey
 from pq_logic.py_verify_logic import verify_hybrid_pkimessage_protection
 from pq_logic.tmp_oids import id_it_KemCiphertextInfo
 from pyasn1.codec.der import encoder
-from pyasn1_alt_modules import rfc9480, rfc9481
+from pyasn1_alt_modules import rfc9480
 from resources.asn1_structures import PKIMessageTMP
 from resources.ca_ra_utils import (
+    build_cp_cmp_message,
     build_ip_cmp_message,
     get_popo_from_pkimessage,
 )
@@ -46,14 +47,17 @@ from resources.certbuildutils import (
     prepare_crl_distribution_point_extension,
     prepare_ocsp_extension,
 )
-from resources.certutils import parse_certificate
-from resources.checkutils import check_is_protection_present
+from resources.certutils import load_public_key_from_cert, parse_certificate
+from resources.checkutils import (
+    check_is_protection_present,
+)
 from resources.cmputils import (
     build_cmp_error_message,
     find_oid_in_general_info,
     get_cert_response_from_pkimessage,
     parse_pkimessage,
 )
+from resources.compareutils import compare_pyasn1_names
 from resources.exceptions import (
     BadAlg,
     BadAsn1Data,
@@ -73,12 +77,14 @@ from resources.oid_mapping import compute_hash, may_return_oid_to_name
 from resources.oidutils import MSG_SIG_ALG, SUPPORTED_MAC_OID_2_NAME, id_KemBasedMac
 from resources.protectionutils import (
     get_protection_type_from_pkimessage,
+    protect_hybrid_pkimessage,
     protect_pkimessage,
     verify_kem_based_mac_protection,
     verify_pkimessage_protection,
 )
 from resources.typingutils import PrivateKey, PublicKey
 from resources.utils import load_and_decode_pem_file
+from unit_tests.utils_for_test import load_ca_cert_and_key, load_env_data_certs
 
 from mock_ca.cert_conf_handler import CertConfHandler
 from mock_ca.cert_req_handler import CertReqHandler
@@ -88,6 +94,7 @@ from mock_ca.mock_fun import CertRevStateDB, RevokedEntry
 from mock_ca.nested_handler import NestedHandler
 from mock_ca.nestedutils import validate_orig_pkimessage
 from mock_ca.operation_dbs import MockCAOPCertsAndKeys
+from mock_ca.prot_handler import ProtectionHandler
 from mock_ca.rev_handler import RevocationHandler
 
 
@@ -123,6 +130,19 @@ class MockCAState:
     to_be_confirmed_certs: Dict[Tuple[bytes, bytes], List[rfc9480.CMPCertificate]] = field(default_factory=dict)
     challenge_rand_int: Dict[bytes, int] = field(default_factory=dict)
     sun_hybrid_state: SunHybridState = field(default_factory=SunHybridState)
+
+    def contains_pub_key(self, pub_key: PublicKey, sender: rfc9480.Name) -> bool:
+        """Check if the public key is already in use.
+
+        :param pub_key: The public key to check.
+        :param sender: The sender of the request.
+        :return: `True` if the public key is already in use, otherwise `False`.
+        """
+        for cert in self.issued_certs:
+            if pub_key == load_public_key_from_cert(cert):
+                return compare_pyasn1_names(sender, cert["tbsCertificate"]["subject"], "without_tag")
+
+        return False
 
     def add_tx_id(self, tx_id: bytes) -> None:
         """Store the transaction ID.
@@ -273,6 +293,15 @@ def _contains_challenge(request_msg: PKIMessageTMP) -> bool:
             return False
 
         _name = popo.getName()
+
+        popo_type = popo[_name].getName()
+
+        if not popo[_name].isValue:
+            return False
+
+        if popo_type != "subsequentMessage":
+            return False
+
         if not popo[_name]["subsequentMessage"].isValue:
             return False
 
@@ -284,7 +313,16 @@ def _contains_challenge(request_msg: PKIMessageTMP) -> bool:
 
 @dataclass
 class VerifyState:
-    """A simple class to store the verification state."""
+    """A simple class to store the verification state.
+
+    Attributes:
+        allow_only_authorized_certs: If only authorized certificates are allowed. Defaults to `False`.
+        use_openssl: If OpenSSL should be used for verification. Defaults to `False`.
+        algorithms: The algorithms to use. Defaults to "ecc+,rsa, pq, hybrid".
+        curves: The curves to use. Defaults to "all".
+        hash_alg: The hash algorithm to use. Defaults to "all".
+
+    """
 
     allow_only_authorized_certs: bool = False
     use_openssl: bool = False
@@ -305,7 +343,7 @@ class CAHandler:
         ca_alt_key: Optional[PrivateKey] = None,
         state: Optional[MockCAState] = None,
         port: int = 5000,
-        allow_only_authorized_certs: bool = False,
+        allow_only_authorized_certs: bool = True,
         use_openssl: bool = False,
     ):
         """Initialize the CA Handler.
@@ -313,6 +351,11 @@ class CAHandler:
         :param config: The configuration for the CA Handler.
         """
         config: Dict[str, Any] = config or {"ca_alt_key": ca_alt_key}
+
+        for key, item in load_env_data_certs().items():
+            if key not in config:
+                config[key] = item
+
         config["ca_cert"] = ca_cert
         config["ca_key"] = ca_key
         self.operation_state = MockCAOPCertsAndKeys(**config)
@@ -322,7 +365,8 @@ class CAHandler:
         self.crl_extn = prepare_crl_distribution_point_extension(crl_url=f"http://localhost:{port}/crl")
         self.comp_key = generate_key("composite-sig")
         self.comp_cert = build_certificate(private_key=self.comp_key, is_ca=True, common_name="CN=Test CA")[0]
-        self.sun_hybrid_key = generate_key("composite-sig")
+        self.sun_hybrid_key = generate_key("composite-sig")  # type: ignore
+        self.sun_hybrid_key: CompositeSig04PrivateKey
         cert_template = prepare_cert_template(
             self.sun_hybrid_key,
             subject="CN=Hans the Tester",
@@ -330,19 +374,13 @@ class CAHandler:
         self.sun_hybrid_cert, cert1 = sun_cert_template_to_cert(
             cert_template=cert_template,
             ca_cert=ca_cert,
-            ca_key=self.sun_hybrid_key.trad_key,
-            alt_private_key=self.sun_hybrid_key.pq_key,
+            ca_key=self.sun_hybrid_key.trad_key,  # type: ignore
+            alt_private_key=self.sun_hybrid_key.pq_key,  # type: ignore
             pub_key_loc=f"http://localhost:{port}/pubkey/1",
             sig_loc=f"http://localhost:{port}/sig/1",
             serial_number=1,
             extensions=[self.ocsp_extn, self.crl_extn],
         )
-        kga_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
-        kga_cert = parse_certificate(load_and_decode_pem_file("data/unittest/ra_kga_cert_ecdsa.pem"))
-
-        self.kga_cert_chain = [kga_cert, ca_cert]
-        self.kga_cert = kga_cert
-        self.kga_key = kga_key
 
         self.sender = "CN=Mock CA"
         self.ca_cert = ca_cert
@@ -379,15 +417,28 @@ class CAHandler:
         self.cert_conf_handler = CertConfHandler(self.state)
 
         aki_extn = prepare_authority_key_identifier_extension(self.ca_key.public_key(), critical=False)
-        extensions = [self.ocsp_extn, self.crl_extn, aki_extn]
+        extensions = rfc9480.Extensions()
+        extensions.extend([self.ocsp_extn, self.crl_extn, aki_extn])
 
         self.verify_state = VerifyState(
             allow_only_authorized_certs=allow_only_authorized_certs,
             use_openssl=use_openssl,
         )
 
-        if use_openssl:
-            raise NotImplementedError("OpenSSL verification is not yet supported.")
+        kga_key = load_private_key_from_file("data/keys/private-key-ecdsa.pem")
+        kga_cert = parse_certificate(load_and_decode_pem_file("data/unittest/ra_kga_cert_ecdsa.pem"))
+
+        self.kga_cert_chain = [kga_cert, ca_cert]
+        self.kga_cert = kga_cert
+        self.kga_key = kga_key
+
+        self.protection_handler = ProtectionHandler(
+            cmp_protection_cert=self.ca_cert,
+            cmp_prot_key=self.ca_key,
+            pre_shared_secret=self.pre_shared_secret,
+            use_openssl=True,
+            def_mac_alg="password_based_mac",
+        )
 
         self.cert_req_handler = CertReqHandler(
             ca_cert=self.ca_cert,
@@ -399,20 +450,28 @@ class CAHandler:
             xwing_key=self.xwing_key,
             kga_key=self.kga_key,
             kga_cert_chain=self.kga_cert_chain,
+            cmp_protection_cert=self.protection_handler.protection_cert,
         )
+
         self.nested_handler = NestedHandler(ca_handler=self, extensions=extensions)
         self.challenge_handler = ChallengeHandler(
             ca_key=self.ca_key,
             ca_cert=self.ca_cert,
             extensions=extensions,
             operation_state=self.operation_state,
+            cmp_protection_cert=self.protection_handler.protection_cert,
         )
+
+        prot_enc_cert = parse_certificate(load_and_decode_pem_file("data/unittest/ca_encr_cert_rsa.pem"))
+        prot_enc_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
         self.genm_handler = GeneralMessageHandler(
             root_ca_cert=self.ca_cert,
             root_ca_key=self.ca_key,
             rev_handler=self.rev_handler,
             password=self.pre_shared_secret,
             enforce_lwcmp=True,
+            prot_enc_cert=prot_enc_cert,
+            prot_enc_key=prot_enc_key,
         )
 
     def verify_protection(self, request: PKIMessageTMP, must_be_protected: bool = True) -> None:
@@ -442,7 +501,10 @@ class CAHandler:
             verify_kem_based_mac_protection(pki_message=request, shared_secret=shared_secret)
 
         if request["header"]["protectionAlg"]["algorithm"] == rfc9480.id_DHBasedMac:
-            raise NotImplementedError("DHBasedMac protection is not yet supported.")
+            self.protection_handler.verify_dh_based_mac_protection(
+                pki_message=request,
+            )
+            return
 
         prot_type = get_protection_type_from_pkimessage(request)
         try:
@@ -453,25 +515,13 @@ class CAHandler:
         except (InvalidSignature, InvalidAltSignature, ValueError):
             raise BadMessageCheck(message="Invalid signature protection.")
 
-    def get_same_mac_protection(self, alg_id: rfc9480.AlgorithmIdentifier) -> str:
-        """Get the same MAC protection algorithm.
-
-        :param alg_id: The algorithm to use.
-        :return: The MAC protection algorithm.
-        """
-        if alg_id["algorithm"] == rfc9481.id_PBMAC1:
-            return "pbmac1"
-        if alg_id["algorithm"] == rfc9481.id_PasswordBasedMac:
-            return "password_based_mac"
-        return "password_based_mac"
-
     def _sign_nested_response(self, response: PKIMessageTMP, request_msg: PKIMessageTMP) -> PKIMessageTMP:
         """Sign the nested response."""
         if response["body"].getName() != "nested":
             if request_msg["header"]["protectionAlg"].isValue:
                 prot_type = get_protection_type_from_pkimessage(request_msg)
                 if prot_type == "mac":
-                    prot_type = self.get_same_mac_protection(
+                    prot_type = self.protection_handler.get_same_mac_protection(
                         request_msg["header"]["protectionAlg"],
                     )
                     return protect_pkimessage(
@@ -481,9 +531,9 @@ class CAHandler:
                     )
         return protect_hybrid_pkimessage(
             pki_message=response,
-            private_key=self.ca_key,
+            private_key=self.protection_handler.protection_key,
             protection="signature",
-            cert=self.ca_cert,
+            cert=self.protection_handler.protection_cert,
         )
 
     def sign_response(
@@ -509,39 +559,18 @@ class CAHandler:
         if not request_msg["header"]["protectionAlg"].isValue:
             protected = protect_hybrid_pkimessage(
                 pki_message=response,
-                private_key=self.ca_key,
+                private_key=self.protection_handler.protection_key,
                 protection="signature",
-                cert=self.ca_cert,
+                cert=self.protection_handler.protection_cert,
             )
             return protected
 
-        if get_protection_type_from_pkimessage(request_msg) == "mac":
-            alg_id = request_msg["header"]["protectionAlg"]
-            prot_type = self.get_same_mac_protection(alg_id)
-            pki_message = protect_pkimessage(
-                pki_message=response,
-                password=self.pre_shared_secret,
-                protection=prot_type,
-            )
-            if secondary_cert:
-                pki_message["extraCerts"].append(secondary_cert)
-            pki_message["extraCerts"].extend(self.cert_chain)
-            return pki_message
-
-        protected = protect_hybrid_pkimessage(
-            pki_message=response,
-            private_key=self.ca_key,
-            protection="signature",
-            cert=self.ca_cert,
-            exclude_certs=True,
+        return self.protection_handler.protect_pkimessage(
+            response=response,
+            request=request_msg,
+            secondary_cert=secondary_cert,
+            add_certs=self.cert_chain,
         )
-        protected["extraCerts"].append(self.ca_cert)
-        if secondary_cert:
-            protected["extraCerts"].append(secondary_cert)
-
-        if len(self.cert_chain) > 1:
-            protected["extraCerts"].extend(self.cert_chain[1:])
-        return protected
 
     def _check_is_not_confirmed(self, pki_message: PKIMessageTMP) -> None:
         """Check if the certificate is not confirmed, but used for a certificate request."""
@@ -556,6 +585,18 @@ class CAHandler:
                         "The certificate must first be confirmed.",
                         error_details=[f"Found at index: {i}"],
                     )
+
+    def process_cert_request(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
+        """Process the normal request.
+
+        :return: The PKI message containing the response.
+        """
+        try:
+            response = self.cert_req_handler.process_cert_request(pki_message)
+        except CMPTestSuiteError as e:
+            logging.info(f"An error occurred: {str(e.message)}")
+            return _build_error_from_exception(e)
+        return self.sign_response(response=response, request_msg=pki_message)
 
     def process_normal_request(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Process the normal request.
@@ -596,6 +637,7 @@ class CAHandler:
             elif pki_message["body"].getName() == "nested":
                 return self.process_nested_request(pki_message)
             elif pki_message["body"].getName() in ["ir", "cr", "p10cr", "kur", "ccr"]:
+                # self.protection_handler.validate_protection(pki_message=pki_message)
                 response = self.cert_req_handler.process_cert_request(pki_message)
             elif pki_message["body"].getName() == "rr":
                 response = self.process_rr(pki_message)
@@ -603,6 +645,9 @@ class CAHandler:
                 response = self.process_cert_conf(pki_message)
             elif pki_message["body"].getName() == "genm":
                 response = self.process_genm(pki_message)
+                response = self.sign_response(response=response, request_msg=pki_message)
+                return self.genm_handler.patch_genp_message_for_extra_certs(pki_message=response)
+
             else:
                 raise NotImplementedError(
                     f"Method not implemented, to handle the provided message: {pki_message['body'].getName()}."
@@ -864,12 +909,19 @@ class CAHandler:
         if pki_message["body"].getName() != "p10cr":
             raise NotImplementedError("Only support p10cr for related cert requests.")
 
-        pki_message = build_related_cert_from_csr(
+        cert = build_related_cert_from_csr(
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
         )
-        return self.sign_response(response=pki_message, request_msg=pki_message)
+
+        response, _ = build_cp_cmp_message(
+            cert=cert,
+            request=pki_message,
+            cert_req_id=-1,
+        )
+
+        return self.sign_response(response=response, request_msg=pki_message)
 
     def process_catalyst_sig(self, pki_message: PKIMessageTMP) -> PKIMessageTMP:
         """Process the Catalyst Sig request message.
@@ -877,7 +929,7 @@ class CAHandler:
         :param pki_message: The Catalyst Sig message.
         :return: The PKI message containing the response.
         """
-        pki_message = build_catalyst_signed_cert_from_req(
+        pki_message, certs = build_catalyst_signed_cert_from_req(
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
@@ -891,7 +943,7 @@ class CAHandler:
         :param pki_message: The Catalyst message.
         :return: The PKI message containing the response.
         """
-        pki_message = build_cert_from_catalyst_request(
+        pki_message, cert = build_cert_from_catalyst_request(
             request=pki_message,
             ca_cert=self.ca_cert,
             ca_key=self.ca_key,
@@ -910,7 +962,7 @@ class CAHandler:
 
         return response.public_bytes(encoding=Encoding.DER)
 
-    def process_crl(self) -> bytes:
+    def get_current_crl(self) -> bytes:
         """Process the CRL request and return the response."""
         response = self.state.cert_state_db.get_crl_response(
             ca_cert=self.ca_cert,
@@ -923,8 +975,7 @@ class CAHandler:
 app = Flask(__name__)
 state = MockCAState()
 
-ca_cert = parse_certificate(load_and_decode_pem_file("data/unittest/bare_certificate.pem"))
-ca_key = load_private_key_from_file("data/keys/private-key-rsa.pem", password=None)
+ca_cert, ca_key = load_ca_cert_and_key()
 
 handler = CAHandler(ca_cert=ca_cert, ca_key=ca_key, config={}, state=state)
 
@@ -949,7 +1000,7 @@ def handle_ocsp_request():
 @app.route("/crl", methods=["GET"])
 def handle_crl_request():
     """Handle the CRL request."""
-    data = handler.process_crl()
+    data = handler.get_current_crl()
     return Response(data, content_type="application/pkix-crl")
 
 

@@ -155,7 +155,7 @@ class CompositeKEMPublicKey(HybridKEMPublicKey, AbstractCompositePublicKey):
         if isinstance(self.trad_key, RSAEncapKey):
             ss, ct = self.trad_key.encaps(use_oaep=True, hash_alg="sha256")
         else:
-            ss, ct = self.trad_key.encaps(private_key)
+            ss, ct = self.trad_key.encaps(private_key=private_key)
 
         logging.info("Traditional KEM encaps ss: %s", ss.hex())
         logging.info("Traditional KEM encaps ct: %s", ct.hex())

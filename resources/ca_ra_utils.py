@@ -1269,7 +1269,8 @@ def validate_cert_request_controls(
         if reg_token_out is not None:
             if found_token:
                 raise BadRequest("The `regToken` control was found and the token was already used.")
-            extra_issuing_data.found_regToken = True
+            if extra_issuing_data is not None:
+                extra_issuing_data.found_regToken = True
 
     expected_auth_info = kwargs.get("authenticator_control")
     if expected_auth_info is None and extra_issuing_data is not None:
@@ -2671,7 +2672,7 @@ def prepare_encr_cert_from_request(  # noqa: D417 Missing argument descriptions 
     hash_alg: Optional[str],
     new_ee_cert: Optional[rfc9480.CMPCertificate] = None,
     hybrid_kem_key: Optional[Union[HybridKEMPrivateKey, ECDHPrivateKey]] = None,
-    client_pub_key: Optional[PQKEMPublicKey] = None,
+    client_pub_key: Optional[KEMPublicKey] = None,
     **kwargs,
 ) -> rfc9480.EnvelopedData:
     """Prepare an encrypted certificate for a request.

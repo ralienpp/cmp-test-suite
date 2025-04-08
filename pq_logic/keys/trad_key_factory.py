@@ -135,7 +135,7 @@ def generate_trad_key(algorithm="rsa", **params) -> PrivateKey:  # noqa: D417 fo
     """
     algorithm = algorithm.lower()
 
-    if algorithm == "bad-rsa-key":
+    if algorithm == "bad_rsa_key":
         from cryptography.hazmat.bindings._rust import (  # pylint: disable=import-outside-toplevel
             openssl as rust_openssl,
         )

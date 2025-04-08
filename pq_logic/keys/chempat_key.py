@@ -24,7 +24,6 @@ from pq_logic.keys.abstract_pq import PQKEMPrivateKey, PQKEMPublicKey
 from pq_logic.keys.abstract_wrapper_keys import (
     AbstractHybridRawPrivateKey,
     AbstractHybridRawPublicKey,
-    HybridKEMPublicKey,
 )
 from pq_logic.keys.kem_keys import (
     FrodoKEMPrivateKey,
@@ -239,7 +238,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         return self._trad_key
 
     @classmethod
-    def from_private_bytes(cls, data: bytes, name: str) -> "AbstractHybridRawPrivateKey":
+    def from_private_bytes(cls, data: bytes, name: str) -> "ChempatPrivateKey":
         """Load the private key from raw bytes."""
         name = name.lower()
         tmp_name = name.replace("chempat-", "", 1)
@@ -298,7 +297,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         logging.info("Decapsulated shared secret: %s", ss.hex())
         return ss
 
-    def public_key(self) -> HybridKEMPublicKey:
+    def public_key(self) -> ChempatPublicKey:
         """Return the public key."""
         return ChempatPublicKey(self._pq_key.public_key(), self._trad_key.public_key())
 
@@ -330,6 +329,7 @@ class ChempatPrivateKey(AbstractHybridRawPrivateKey):
         if isinstance(pq_key, FrodoKEMPrivateKey):
             return ChempatFrodoKEMPrivateKey(pq_key, trad_key)
         raise InvalidKeyCombination(f"Unsupported key combination: {pq_key.name}-{trad_key.get_trad_name}")
+
 
 
 class ChempatMLKEMPublicKey(ChempatPublicKey):
@@ -376,9 +376,9 @@ class ChempatSntrup761PrivateKey(ChempatPrivateKey):
     _pq_key: Sntrup761PrivateKey
 
     @classmethod
-    def generate(cls):
+    def generate(cls) -> "ChempatSntrup761PrivateKey":
         """Generate a ChempatSntrup761PrivateKey instance."""
-        return cls(PQKeyFactory.generate_pq_key("sntrup761"), x25519.X25519PrivateKey.generate())
+        return cls(PQKeyFactory.generate_pq_key("sntrup761"), x25519.X25519PrivateKey.generate()) #type: ignore
 
     def public_key(self) -> ChempatSntrup761PublicKey:
         """Return the corresponding public key class."""

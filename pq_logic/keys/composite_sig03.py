@@ -174,7 +174,7 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey, HybridSigPublicKey):
     def __init__(
         self,
         pq_key: MLDSAPublicKey,
-        trad_key: Union[rsa.RSAPublicKey, ECVerifyKey],
+        trad_key: Union[ECVerifyKey, rsa.RSAPublicKey],
     ) -> None:
         """Initialize the composite signature public key."""
         super().__init__(pq_key, trad_key)
@@ -186,7 +186,7 @@ class CompositeSig03PublicKey(AbstractCompositePublicKey, HybridSigPublicKey):
     def _get_name(self, use_pss: bool = False, pre_hash: bool = False) -> str:
         """Retrieve the composite signature name."""
         to_add = "" if not pre_hash else "hash-"
-        trad_name = self._get_trad_key_name(self.trad_key, use_pss=use_pss)
+        trad_name = self._get_trad_key_name(use_pss=use_pss)
         return f"composite-sig-03-{to_add}{self.pq_key.name}-{trad_name}"
 
     def get_oid(self, use_pss: bool = False, pre_hash: bool = False) -> univ.ObjectIdentifier:

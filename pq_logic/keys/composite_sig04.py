@@ -22,6 +22,7 @@ from pq_logic.keys.composite_sig03 import CompositeSig03PrivateKey, CompositeSig
 from pq_logic.keys.serialize_utils import prepare_rsa_private_key
 from pq_logic.keys.sig_keys import MLDSAPrivateKey, MLDSAPublicKey
 from pq_logic.tmp_oids import COMP_SIG04_PREHASH_OID_2_HASH, COMPOSITE_SIG04_NAME_2_OID
+from resources.typingutils import ECVerifyKey
 
 _PREFIX = b"CompositeAlgorithmSignatures2025"
 
@@ -41,6 +42,23 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
     ]
     _name = "composite-sig-04"
 
+    def __init__(
+        self,
+        pq_key: MLDSAPublicKey,
+        trad_key: Union[
+            rsa.RSAPublicKey,
+        ECVerifyKey,
+        ]
+    ) -> None:
+        """Initialize the CompositeSig04PublicKey.
+
+        :param pq_key: The ML-DSA public key.
+        :param trad_key: The traditional public key.
+        """
+        super().__init__(pq_key, trad_key)
+        self._pq_key = pq_key
+        self._trad_key = trad_key
+
     def _export_public_key(self) -> bytes:
         _pq_export = self.pq_key.public_bytes_raw()
         _length = len(_pq_export).to_bytes(4, byteorder="little", signed=False)
@@ -49,12 +67,12 @@ class CompositeSig04PublicKey(CompositeSig03PublicKey):
     @property
     def name(self) -> str:
         """Return the name of the composite signature."""
-        return f"{self._name}-{self.pq_key.name}-{self._get_trad_key_name(self.trad_key)}"
+        return f"{self._name}-{self.pq_key.name}-{self._get_trad_key_name()}"
 
     def _get_name(self, use_pss: bool = False, pre_hash: bool = False) -> str:
         """Retrieve the composite signature name."""
         to_add = "" if not pre_hash else "hash-"
-        trad_name = self._get_trad_key_name(self.trad_key, use_pss=use_pss)
+        trad_name = self._get_trad_key_name(use_pss=use_pss)
         return f"{self._name}-{to_add}{self.pq_key.name}-{trad_name}"
 
     def get_oid(self, use_pss: bool = True, pre_hash: bool = False) -> univ.ObjectIdentifier:

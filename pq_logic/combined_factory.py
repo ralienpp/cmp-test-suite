@@ -188,7 +188,8 @@ class CombinedKeyFactory:
         if kwargs.get("by_name", False):
             return CombinedKeyFactory.generate_key_from_name(algorithm)
 
-        if algorithm in ["rsa", "ecdsa", "ed25519", "ed448", "bad-rsa-key"]:
+        if algorithm in ["rsa", "ecdsa", "ed25519", "ed448", "bad_rsa_key"
+                         ]:
             return generate_trad_key(algorithm, **kwargs)
 
         if algorithm == "rsa-kem":
@@ -801,7 +802,7 @@ class CombinedKeyFactory:
             raise ValueError(f"The seed must be a byte string, for the algorithm: {algorithm}.")
 
         if algorithm in ["x25519", "x448", "ecdsa", "ecc", "ed448", "ed25519"]:
-            return _load_traditional_private_key(
+            return _load_traditional_ecc_private_key(
                 name=algorithm,
                 private_data=seed,
             )
@@ -824,7 +825,7 @@ class CombinedKeyFactory:
         raise BadAlg(f"Unknown algorithm: {algorithm}")
 
 
-def _load_traditional_private_key(name: str, private_data: bytes, curve: Optional[str] = None):
+def _load_traditional_ecc_private_key(name: str, private_data: bytes, curve: Optional[str] = None):
     """Load a traditional private key from the given private key data."""
     if name in ["x25519", "x448", "ecdh"]:
         tmp_key = DHKEMPrivateKey.from_private_bytes(name, private_data, curve=curve)

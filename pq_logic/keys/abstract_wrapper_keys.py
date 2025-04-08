@@ -373,8 +373,8 @@ class PQPrivateKey(WrapperPrivateKey, ABC):
         :param seed: The seed used to generate the key pair.
         """
         self._name, self._other_name = self._check_name(alg_name)
-        self._private_key_bytes = private_bytes
-        self._public_key_bytes = public_key
+        self._private_key_bytes = private_bytes # type: ignore
+        self._public_key_bytes = public_key # type: ignore
         self._seed = seed
         self._initialize_key()
 
@@ -656,7 +656,7 @@ class HybridSigPrivateKey(HybridPrivateKey, ABC):
         return self._pq_key  # type: ignore
 
     @abstractmethod
-    def sign(self, data: bytes, hash_alg: Optional[str] = None) -> bytes:
+    def sign(self, data: bytes, **kwargs) -> bytes:
         """Sign the message."""
 
     def _get_trad_key_name(self) -> str:
@@ -774,17 +774,12 @@ class AbstractCompositePublicKey(HybridPublicKey, ABC):
         """
         return self._export_public_key()
 
-    @staticmethod
-    def _get_trad_key_name(
-        trad_key: Union[
-            ec.EllipticCurvePublicKey,
-            rsa.RSAPublicKey,
-            ed25519.Ed25519PublicKey,
-            ed448.Ed448PublicKey,
-        ],
+
+    def _get_trad_key_name(self,
         use_pss: bool = False,
     ) -> str:
         """Retrieve the traditional algorithm name based on the key type."""
+        trad_key = self._trad_key
         if isinstance(trad_key, ec.EllipticCurvePublicKey):
             trad_name = f"ecdsa-{trad_key.curve.name}"
         elif isinstance(trad_key, rsa.RSAPublicKey):

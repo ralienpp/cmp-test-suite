@@ -292,7 +292,7 @@ class DHKEMPublicKey(TradKEMPublicKey):
         self._public_key = public_key  # type: ignore
         self.use_rfc9180 = use_rfc9180  # type: ignore
 
-    def encaps(self, private_key: Union["DHKEMPrivateKey", "ECDHPrivateKey"]) -> Tuple[bytes, bytes]:
+    def encaps(self, private_key: Optional[Union["DHKEMPrivateKey", "ECDHPrivateKey"]]) -> Tuple[bytes, bytes]:
         """Encapsulate a shared secret using DHKEM (RFC 9180) or ECDH-KEM.
 
         :return: A tuple of (shared secret, encapsulated public key).

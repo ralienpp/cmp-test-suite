@@ -12,6 +12,7 @@ from typing import Optional, Tuple, Union
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa, x448, x25519
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from resources.oid_mapping import hash_name_to_instance
@@ -68,36 +69,10 @@ def _compute_kdf3(shared_secret: bytes, key_length: int) -> bytes:
     return keying_material[:key_length]
 
 
-#####################################
-# KemMechanism Interface
-#####################################
 
 
-class KemMechanism(ABC):
-    """Abstract class for different KEM mechanisms (e.g., RSA- or -ECDH KEM)."""
 
-    @abstractmethod
-    def encaps(self, public_key) -> Tuple[bytes, bytes]:
-        """Encapsulate a shared secret using the given public key.
-
-        :raise: The public key of the recipient.
-        :return: (shared_secret, ciphertext_or_serialized_public_data).
-        """
-
-    @abstractmethod
-    def decaps(self, private_key, ct: bytes) -> bytes:
-        """Decapsulate to recover the shared secret using the given private key and ciphertext/public data.
-
-        :return: The Shared_secret.
-        """
-
-
-#####################################
-# Separate ECDH KEM Class
-#####################################
-
-
-class ECDHKEM(KemMechanism):
+class ECDHKEM:
     """ECDH-KEM mechanism. Uses ephemeral ECDH to generate a shared secret."""
 
     def __init__(self, private_key: Optional[ECDHPrivateKey] = None):
@@ -355,7 +330,7 @@ class DHKEMRFC9180:
 #####################################
 
 
-class RSAKem(KemMechanism):
+class RSAKem:
     """RSA-based KEM mechanism."""
 
     def __init__(self, ss_length: Optional[int] = None):
@@ -419,7 +394,7 @@ class RSAKem(KemMechanism):
         return _compute_kdf3(Z, self.length)
 
 
-class RSAOaepKem(KemMechanism):
+class RSAOaepKem:
     """RSA-OAEP based KEM mechanism."""
 
     def __init__(self, hash_alg: str = "sha256", ss_len: int = 32):

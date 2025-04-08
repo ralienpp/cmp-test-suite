@@ -35,7 +35,7 @@ from resources.oidutils import (
 from resources.typingutils import CertOrCerts, VerifyKey
 from robot.api.deco import keyword
 
-import pq_logic.hybrid_sig
+
 from pq_logic.hybrid_sig import cert_binding_for_multi_auth, certdiscovery, chameleon_logic, sun_lamps_hybrid_scheme_00
 from pq_logic.hybrid_structures import SubjectAltPublicKeyInfoExt
 from pq_logic.keys.abstract_pq import PQSignaturePublicKey
@@ -48,6 +48,7 @@ from pq_logic.tmp_oids import (
     id_ce_deltaCertificateDescriptor,
     id_relatedCert,
 )
+
 
 
 def verify_cert_hybrid_signature(  # noqa D417 undocumented-param
@@ -428,7 +429,9 @@ def _get_catalyst_info_vals(
     general_info: Sequence[rfc9480.InfoTypeAndValue],
     must_be_catalyst_signed: bool = False,
 ) -> Tuple[
-    rfc9480.AlgorithmIdentifier, Optional[rfc5280.SubjectPublicKeyInfo], bytes, Sequence[rfc9480.InfoTypeAndValue]
+    Optional[rfc9480.AlgorithmIdentifier],
+    Optional[rfc5280.SubjectPublicKeyInfo],
+    Optional[bytes], Optional[Sequence[rfc9480.InfoTypeAndValue]]
 ]:
     """Extract the catalyst protection mechanism values from the `generalInfo` field.
 
@@ -588,6 +591,9 @@ def verify_hybrid_pkimessage_protection(  # noqa D417 undocumented-param
 
         if sig_alg_id is None:
             return
+
+        if alt_sig is None:
+            raise BadMessageCheck("The `PKIMessage` does not contain an alternative signature.")
 
         if public_key_info is not None:
             other_key = keyutils.load_public_key_from_spki(public_key_info)
@@ -751,7 +757,7 @@ def may_extract_alt_key_from_cert(  # noqa: D417 Missing argument descriptions i
     oid = spki["algorithm"]["algorithm"]
 
     if extn_sun_hybrid is not None:
-        public_key = pq_logic.hybrid_sig.sun_lamps_hybrid_scheme_00.get_sun_hybrid_alt_pub_key(
+        public_key = sun_lamps_hybrid_scheme_00.get_sun_hybrid_alt_pub_key(
             cert["tbsCertificate"]["extensions"]
         )
         if public_key is not None:

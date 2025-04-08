@@ -596,7 +596,7 @@ def _verify_spki_alg_id(
     :param spki: The SubjectPublicKeyInfo to compare against.
     :param key_name: The name of the key to validate against the public key in the certificate.
     """
-    loaded_key = keyutils.load_public_key_from_spki(spki)
+    loaded_key = keyutils.load_public_key_from_spki(cert["tbsCertificate"]["subjectPublicKeyInfo"])
 
     if public_key != loaded_key:
         raise ValueError(

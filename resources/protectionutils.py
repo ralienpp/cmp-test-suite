@@ -613,37 +613,16 @@ def sign_rsa_pss_data_with_alg_id(
         salt_length = None
 
     return cryptoutils.sign_data_rsa_pss(
-        data=data, private_key=private_key, hash_alg=hash_alg or "sha256", salt_length=salt_length
+        data=data, private_key=private_key,
+        hash_alg=hash_alg or "sha256", salt_length=salt_length
     )
-
-
-def _compute_sig_pkimessage_protection(
-    data: bytes,
-    alg_id: rfc9480.AlgorithmIdentifier,
-    sign_key: SignKey,
-    hash_alg: Optional[str] = None,
-) -> Optional[bytes]:
-    """Compute the signature for a `PKIMessageTMP` based on the specified protection algorithm."""
-    protection_type_oid = alg_id["algorithm"]
-    if protection_type_oid in RSASSA_PSS_OID_2_NAME:
-        if not isinstance(sign_key, rsa.RSAPrivateKey):
-            raise ValueError("The protection algorithm is `RSASSA-PSS` but the private key was not a `RSAPrivateKey`.")
-        return sign_rsa_pss_data_with_alg_id(private_key=sign_key, data=data, alg_id=alg_id, hash_alg=hash_alg)
-
-    if protection_type_oid == rfc5480.id_dsa_with_sha256 and isinstance(sign_key, dsa.DSAPrivateKey):
-        return cryptoutils.sign_data(data=data, key=sign_key, hash_alg="sha256")  # type: ignore
-
-    if protection_type_oid in MSG_SIG_ALG and sign_key is not None:
-        return sign_data_with_alg_id(alg_id=alg_id, data=data, key=sign_key)
-
-    return None
 
 
 def _compute_pkimessage_protection(
     pki_message: PKIMessageTMP,
     password: Optional[Union[str, bytes]] = None,
     private_key: Optional[PrivateKey] = None,
-    hash_alg: Optional[str] = None,
+    hash_alg: str = "sha256",
     shared_secret: Optional[bytes] = None,
     peer: Optional[Union[rfc9480.CMPCertificate, ECDHPublicKey]] = None,
 ) -> bytes:
@@ -680,14 +659,19 @@ def _compute_pkimessage_protection(
 
     data = extract_protected_part(pki_message)
     sign_key = ensure_is_sign_key(private_key)
-    protection = _compute_sig_pkimessage_protection(
-        data=data,
-        alg_id=alg_id,
-        sign_key=sign_key,
-        hash_alg=hash_alg,
-    )
-    if protection is not None:
-        return protection
+
+    if protection_type_oid in RSASSA_PSS_OID_2_NAME:
+        if not isinstance(sign_key, rsa.RSAPrivateKey):
+            raise ValueError("The protection algorithm is `RSASSA-PSS` but the private key was not a `RSAPrivateKey`.")
+        return sign_rsa_pss_data_with_alg_id(private_key=sign_key, data=data, alg_id=alg_id,
+                                             hash_alg=hash_alg)
+
+
+    if protection_type_oid == rfc5480.id_dsa_with_sha256 and isinstance(sign_key, dsa.DSAPrivateKey):
+        return cryptoutils.sign_data(data=data, key=sign_key, hash_alg="sha256")  # type: ignore
+
+    if sign_key is not None:
+        return sign_data_with_alg_id(alg_id=alg_id, data=data, key=sign_key)
 
     protection_type_oid = may_return_oid_to_name(protection_type_oid)
     raise ValueError(f"Cannot compute the `PKIMessage` protection. Unknown OID/algorithm: {protection_type_oid}")
@@ -2365,7 +2349,7 @@ def _prepare_catalyst_info_vals(
     return info_val_type, info_val_type_pub_key
 
 
-def _compute_protection(
+def _compute_and_prepare_pkimessage_sig_protection(
     signing_key: SignKey,
     pki_message: PKIMessageTMP,
     hash_alg: str = "sha256",
@@ -2517,7 +2501,7 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
     )
 
     if protection == "signature":
-        return _compute_protection(
+        return _compute_and_prepare_pkimessage_sig_protection(
             signing_key=private_key,
             pki_message=pki_message,
             hash_alg=params.get("hash_alg", "sha256"),
@@ -2536,7 +2520,7 @@ def protect_hybrid_pkimessage(  # noqa: D417 Missing argument descriptions in th
                 trad_key=alt_signing_key,  # type: ignore
             )
 
-        return _compute_protection(
+        return _compute_and_prepare_pkimessage_sig_protection(
             signing_key=private_key,
             pki_message=pki_message,
             hash_alg=params.get("hash_alg", "sha256"),
